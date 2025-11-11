@@ -44,10 +44,17 @@ async function init() {
   console.log("🎯 App initialization started");
 
   try {
-    // Initialize Firebase first
+    // Wait a bit for Firebase scripts to load
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Initialize Firebase manager
     if (typeof firebaseManager !== 'undefined' && firebaseManager.init) {
-      await firebaseManager.init();
-      console.log("✅ Firebase initialized");
+      const firebaseReady = await firebaseManager.init();
+      if (firebaseReady) {
+        console.log("✅ Firebase initialized successfully");
+      } else {
+        console.warn("⚠️ Firebase manager not ready, running in offline mode");
+      }
     } else {
       console.warn("⚠️ Firebase manager not found, running in offline mode");
     }
@@ -66,7 +73,7 @@ async function init() {
     renderStudents();
     updateStats();
 
-    console.log("✅ App initialized successfully with Firebase");
+    console.log("✅ App initialized successfully");
     
   } catch (error) {
     console.error("❌ Initialization failed:", error);
