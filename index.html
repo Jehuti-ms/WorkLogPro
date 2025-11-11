@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WorkLog - Student Tracker & Hours Management</title>
+  <link rel="icon" type="image/svg+xml" href="icons/favicon_cogs32x32.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <h1>
+        <img src="icons/worklog_cogs.svg" alt="WorkLog" style="height: 100px; width: 100px;">
+      </h1>
+      <h1>WorkLog</h1>
+      <p class="subtitle">Student Tracker & Hours Management System</p>
+
+      <div class="storage-status">
+        <span id="localStatus">💾 Local Storage: Active</span>
+        <span id="syncStatus">☁️ Cloud Sync: Ready</span>
+        <span id="dataStatus">📊 Data: 0 Students, 0 Sessions</span>
+
+        <!-- Auth -->
+        <div class="auth-section">
+          <button id="authButton" class="btn btn-sm">Sign In</button>
+          <div id="userMenu" class="user-menu">
+            <div class="user-info">
+              <strong id="userName">User</strong>
+            </div>
+            <button class="user-menu-item" id="profileBtn">👤 Profile & Settings</button>
+            <button class="user-menu-item" id="logoutBtn" style="color: #dc3545;">🚪 Logout</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Cloud Sync Bar -->
+    <div class="cloud-sync-bar">
+      <div class="sync-status">
+        <span class="sync-indicator sync-connected" id="syncIndicator"></span>
+        <span id="syncMessage">Connecting to cloud...</span>
+      </div>
+      <div class="sync-controls">
+        <div class="sync-options">
+          <label>
+            <input type="checkbox" id="autoSyncCheckbox"> Auto-sync
+          </label>
+          <button id="syncBtn" class="btn btn-sm">🔄 Sync Now</button>
+          <button id="exportCloudBtn" class="btn btn-sm">☁️ Export Cloud</button>
+          <button id="importCloudBtn" class="btn btn-sm">📥 Import Cloud</button>
+          <button id="syncStatsBtn" class="btn btn-sm">📊 Sync Stats</button>
+        </div>
+        <div class="app-controls">
+          <button id="exportDataBtn" class="btn btn-sm">📤 Export Data</button>
+          <button id="importDataBtn" class="btn btn-sm">📥 Import Data</button>
+          <button id="clearDataBtn" class="btn btn-sm btn-danger">🗑️ Clear All</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs-container">
+      <div class="tabs">
+        <button class="tab active" data-tab="students">👥 Students</button>
+        <button class="tab" data-tab="hours">⏱️ Hours</button>
+        <button class="tab" data-tab="marks">📊 Marks</button>
+        <button class="tab" data-tab="attendance">✅ Attendance</button>
+        <button class="tab" data-tab="payments">💰 Payments</button>
+        <button class="tab" data-tab="reports">📈 Reports</button>
+      </div>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="content">
+      <div id="students" class="tab-content active">
+        <!-- Student Management UI -->
+      </div>
+      <div id="hours" class="tab-content"></div>
+      <div id="marks" class="tab-content"></div>
+      <div id="attendance" class="tab-content"></div>
+      <div id="payments" class="tab-content"></div>
+      <div id="reports" class="tab-content"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
