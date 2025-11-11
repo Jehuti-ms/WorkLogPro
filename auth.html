@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WorkLog - Sign In</title>
+    <link rel="stylesheet" href="auth.css">
+    <style>
+        /* Additional styles for auth page */
+        .auth-container {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .auth-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        
+        .auth-logo {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .auth-subtitle {
+            color: #6c757d;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        
+        .back-to-app {
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .back-to-app a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .back-to-app a:hover {
+            text-decoration: underline;
+        }
+
+        /* Google Auth Styles */
+        .google-auth-section {
+            text-align: center;
+            margin: 25px 0;
+            padding: 20px 0;
+            border-top: 1px solid #e8ecef;
+        }
+
+        .auth-divider {
+            display: flex;
+            align-items: center;
+            margin: 20px 0;
+            color: #6c757d;
+        }
+
+        .auth-divider::before,
+        .auth-divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #e8ecef;
+        }
+
+        .auth-divider span {
+            padding: 0 15px;
+            font-size: 0.9em;
+        }
+
+        .btn-google {
+            background: white !important;
+            color: #757575 !important;
+            border: 1px solid #dadce0 !important;
+            padding: 12px 24px !important;
+            border-radius: 4px !important;
+            font-weight: 500 !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 12px !important;
+            width: 100% !important;
+            justify-content: center !important;
+            cursor: pointer !important;
+            transition: all 0.3s ease !important;
+            margin: 10px 0 !important;
+        }
+
+        .btn-google:hover {
+            background: #f8f9fa !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+            transform: translateY(-1px) !important;
+            border-color: #c6c6c6 !important;
+        }
+
+        .google-icon {
+            width: 18px;
+            height: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <!-- Logo and Title -->
+            <div class="auth-logo">
+                <img src="icons/worklog_cogs.svg" alt="WorkLog" style="height: 100px; width: 100px;">
+                <div class="auth-title"><h1>WorkLog</h1></div>
+            </div>
+            <div class="auth-title"><h1>WorkLog</h1></div>
+            <p class="auth-subtitle">Student Tracker & Hours Management</p>
+            
+            <!-- Auth Tabs -->
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="login">Sign In</button>
+                <button class="auth-tab" data-tab="register">Register</button>
+            </div>
+            
+            <!-- Login Form -->
+            <div id="login" class="auth-tab-content active">
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="loginEmail">Email Address</label>
+                        <input type="email" id="loginEmail" required placeholder="your@email.com">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" required placeholder="••••••••">
+                    </div>
+                    
+                    <div class="form-options">
+                        <label class="checkbox">
+                            <input type="checkbox" id="rememberMe">
+                            <span class="checkmark"></span>
+                            Remember me
+                        </label>
+                        <a href="#" class="forgot-password" onclick="showForgotPassword()">Forgot password?</a>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-block">
+                        <span class="btn-text">Sign In</span>
+                        <span class="btn-loading" style="display: none;">Signing in...</span>
+                    </button>
+                </form>
+                
+                <!-- Google Auth Section -->
+                <div class="google-auth-section">
+                    <div class="auth-divider">
+                        <span>or continue with</span>
+                    </div>
+                    
+                    <!-- Google Sign-In Button Container -->
+                    <div id="googleSignInButton"></div>
+                    
+                    <!-- Fallback Google Button -->
+                    <button type="button" class="btn btn-google" onclick="signInWithGoogle()" style="display: none;" id="fallbackGoogleButton">
+                        <svg class="google-icon" viewBox="0 0 18 18">
+                            <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18Z"/>
+                            <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17Z"/>
+                            <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18l2.67-2.07Z"/>
+                            <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.3Z"/>
+                        </svg>
+                        Sign in with Google
+                    </button>
+                </div>
+                
+                <!-- GitHub Button -->
+                <div class="social-auth" style="margin-top: 15px;">
+                    <button class="btn btn-social btn-github" onclick="signInWithGitHub()">
+                        <span class="social-icon">💻</span>
+                        GitHub
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Register Form -->
+            <div id="register" class="auth-tab-content">
+                <form id="registerForm">
+                    <div class="form-group">
+                        <label for="registerName">Full Name</label>
+                        <input type="text" id="registerName" required placeholder="John Doe">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="registerEmail">Email Address</label>
+                        <input type="email" id="registerEmail" required placeholder="your@email.com">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="registerPassword">Password</label>
+                        <input type="password" id="registerPassword" required placeholder="••••••••">
+                        <div class="password-strength">
+                            <div class="strength-bar">
+                                <div class="strength-fill" id="passwordStrength"></div>
+                            </div>
+                            <small>Use 8+ characters with letters and numbers</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="registerConfirmPassword">Confirm Password</label>
+                        <input type="password" id="registerConfirmPassword" required placeholder="••••••••">
+                    </div>
+                    
+                    <div class="form-options">
+                        <label class="checkbox">
+                            <input type="checkbox" id="acceptTerms" required>
+                            <span class="checkmark"></span>
+                            I agree to the <a href="#" onclick="showTerms()">Terms of Service</a> and <a href="#" onclick="showPrivacy()">Privacy Policy</a>
+                        </label>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-block">
+                        <span class="btn-text">Create Account</span>
+                        <span class="btn-loading" style="display: none;">Creating account...</span>
+                    </button>
+                </form>
+                
+                <!-- Google Auth Section for Register -->
+                <div class="google-auth-section">
+                    <div class="auth-divider">
+                        <span>or sign up with</span>
+                    </div>
+                    
+                    <!-- Google Sign-In Button Container -->
+                    <div id="googleSignInButtonRegister"></div>
+                    
+                    <!-- Fallback Google Button -->
+                    <button type="button" class="btn btn-google" onclick="signInWithGoogle()" style="display: none;" id="fallbackGoogleButtonRegister">
+                        <svg class="google-icon" viewBox="0 0 18 18">
+                            <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18Z"/>
+                            <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17Z"/>
+                            <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18l2.67-2.07Z"/>
+                            <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.3Z"/>
+                        </svg>
+                        Sign up with Google
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Forgot Password Form -->
+            <div id="forgotPassword" class="auth-tab-content" style="display: none;">
+                <h3>Reset Your Password</h3>
+                <p style="color: #6c757d; margin-bottom: 20px;">Enter your email address and we'll send you a link to reset your password.</p>
+                
+                <form id="forgotPasswordForm">
+                    <div class="form-group">
+                        <label for="forgotEmail">Email Address</label>
+                        <input type="email" id="forgotEmail" required placeholder="your@email.com">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-block">
+                        <span class="btn-text">Send Reset Link</span>
+                        <span class="btn-loading" style="display: none;">Sending...</span>
+                    </button>
+                </form>
+                
+                <div class="back-to-login">
+                    <a href="#" onclick="showLogin()">← Back to Sign In</a>
+                </div>
+            </div>
+            
+            <!-- Back to App - Enhanced version -->
+            <div class="back-to-app">
+                <a href="#" id="backToAppLink">← Back to WorkLog App</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p>Please wait...</p>
+    </div>
+
+    <script src="auth.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const backLink = document.getElementById('backToAppLink');
+            
+            if (backLink) {
+                // Check authentication status
+                const sessionId = localStorage.getItem('worklog_session');
+                const isAuthenticated = !!sessionId;
+                
+                if (isAuthenticated) {
+                    // User is logged in - go directly to app
+                    backLink.onclick = function(e) {
+                        e.preventDefault();
+                        window.location.href = 'index.html';
+                    };
+                    backLink.title = 'Go to your WorkLog dashboard';
+                } else {
+                    // User is not logged in - show message or go to app with auth prompt
+                    backLink.onclick = function(e) {
+                        e.preventDefault();
+                        const proceed = confirm('You need to sign in to access the WorkLog app. Would you like to continue to the app and sign in there?');
+                        if (proceed) {
+                            window.location.href = 'index.html';
+                        }
+                    };
+                    backLink.title = 'Sign in required to access the app';
+                    backLink.style.opacity = '0.7';
+                }
+                
+                // Style the link
+                backLink.style.cssText = `
+                    color: #667eea;
+                    text-decoration: none;
+                    font-weight: 500;
+                    display: inline-block;
+                    margin-top: 20px;
+                    padding: 8px 16px;
+                    border: 1px solid #667eea;
+                    border-radius: 6px;
+                    transition: all 0.3s ease;
+                    cursor: pointer;
+                `;
+                
+                backLink.addEventListener('mouseenter', function() {
+                    this.style.background = '#667eea';
+                    this.style.color = 'white';
+                    this.style.opacity = '1';
+                });
+                
+                backLink.addEventListener('mouseleave', function() {
+                    this.style.background = 'transparent';
+                    this.style.color = '#667eea';
+                    if (!isAuthenticated) {
+                        this.style.opacity = '0.7';
+                    }
+                });
+            }
+
+            // Initialize Google Auth when page loads
+            setTimeout(() => {
+                if (typeof initGoogleAuth === 'function') {
+                    initGoogleAuth().catch(error => {
+                        console.log('Google Auth not available, showing fallback button');
+                        // Show fallback buttons if Google Auth fails
+                        const fallbackButtons = document.querySelectorAll('#fallbackGoogleButton, #fallbackGoogleButtonRegister');
+                        fallbackButtons.forEach(btn => {
+                            btn.style.display = 'flex';
+                        });
+                    });
+                }
+            }, 1000);
+        });
+
+        // Tab switching function
+        function switchAuthTab(tabName) {
+            // Update tabs
+            document.querySelectorAll('.auth-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelector(`.auth-tab[data-tab="${tabName}"]`).classList.add('active');
+            
+            // Update content
+            document.querySelectorAll('.auth-tab-content').forEach(content => {
+                content.classList.remove('active');
+                content.style.display = 'none';
+            });
+            document.getElementById(tabName).classList.add('active');
+            document.getElementById(tabName).style.display = 'block';
+            
+            // Re-render Google buttons when switching tabs
+            setTimeout(() => {
+                if (typeof renderGoogleSignInButton === 'function') {
+                    const containerId = tabName === 'login' ? 'googleSignInButton' : 'googleSignInButtonRegister';
+                    renderGoogleSignInButton(containerId);
+                }
+            }, 100);
+        }
+
+        // Make switchAuthTab globally available
+        window.switchAuthTab = switchAuthTab;
+
+        // Helper functions for auth flows
+        function showForgotPassword() {
+            document.querySelectorAll('.auth-tab-content').forEach(content => {
+                content.style.display = 'none';
+            });
+            document.getElementById('forgotPassword').style.display = 'block';
+        }
+
+        function showLogin() {
+            switchAuthTab('login');
+        }
+
+        function showTerms() {
+            alert('Terms of Service: This is a demo application. Your data is stored locally in your browser.');
+        }
+
+        function showPrivacy() {
+            alert('Privacy Policy: This app stores data locally in your browser. No data is sent to external servers except for authentication purposes.');
+        }
+    </script>
+</body>
+</html>
