@@ -89,6 +89,34 @@ async function init() {
 }
 
 /* ============================================================================
+   Set up Authorisation
+============================================================================ */
+// Add to your app.js setupAuthUI() function
+function setupAuthUI() {
+  const syncBar = document.querySelector('.sync-bar');
+  if (!syncBar) return;
+  
+  const authSection = document.createElement('div');
+  authSection.className = 'auth-section';
+  authSection.innerHTML = `
+    <div id="syncStatus" class="sync-status offline">🔴 Offline</div>
+    <div id="userInfo" style="display: none;">
+      <span id="userEmail" style="margin-right: 0.5rem;"></span>
+      <div class="cloud-controls">
+        <button onclick="firebaseManager.manualSync()" class="btn btn-sm btn-success" title="Backup to cloud">💾 Backup</button>
+        <button onclick="firebaseManager.signOut()" class="btn btn-sm btn-secondary" title="Disable cloud backup">☁️ Disable</button>
+      </div>
+    </div>
+    <div id="cloudActions" style="display: none;">
+      <button onclick="firebaseManager.enableCloudSync()" class="btn btn-sm btn-primary">Enable Cloud Backup</button>
+    </div>
+  `;
+  
+  syncBar.appendChild(authSection);
+  firebaseManager.updateAuthUI();
+}
+
+/* ============================================================================
    Data loading and settings
 ============================================================================ */
 async function loadAllData() {
