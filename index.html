@@ -79,18 +79,90 @@
       </div>
     </div>
 
-    <!-- Tab Content -->
-    <div class="content">
-      <div id="students" class="tab-content active">
-        <!-- Student Management UI -->
-      </div>
-      <div id="hours" class="tab-content"></div>
-      <div id="marks" class="tab-content"></div>
-      <div id="attendance" class="tab-content"></div>
-      <div id="payments" class="tab-content"></div>
-      <div id="reports" class="tab-content"></div>
-    </div>
+    <!-- Students Tab -->
+<div id="students" class="tab-content active">
+  <h2>📚 Student Management</h2>
+  <p>Register new students, set default rates, and view the student list here.</p>
+  <div class="section-card">
+    <h3>👤 Add Student</h3>
+    <!-- student form goes here -->
   </div>
+  <div class="section-card">
+    <h3>📋 Registered Students</h3>
+    <!-- student list goes here -->
+  </div>
+</div>
+
+<!-- Hours Tab -->
+<div id="hours" class="tab-content">
+  <h2>⏱️ Earnings Tracker</h2>
+  <p>Log work sessions and track your weekly/monthly totals.</p>
+  <div class="section-card">
+    <h3>➕ Log Work</h3>
+    <!-- hours form goes here -->
+  </div>
+  <div class="section-card">
+    <h3>📊 Recent Earnings</h3>
+    <!-- hours list goes here -->
+  </div>
+</div>
+
+<!-- Marks Tab -->
+<div id="marks" class="tab-content">
+  <h2>📊 Marks & Assessments</h2>
+  <p>Add student marks and view recent assessments.</p>
+  <div class="section-card">
+    <h3>➕ Add Mark</h3>
+    <!-- marks form goes here -->
+  </div>
+  <div class="section-card">
+    <h3>📋 Recent Marks</h3>
+    <!-- marks list goes here -->
+  </div>
+</div>
+
+<!-- Attendance Tab -->
+<div id="attendance" class="tab-content">
+  <h2>✅ Attendance Tracking</h2>
+  <p>Mark students present/absent and view attendance history.</p>
+  <div class="section-card">
+    <h3>📅 Record Attendance</h3>
+    <!-- attendance form goes here -->
+  </div>
+  <div class="section-card">
+    <h3>📋 Attendance History</h3>
+    <!-- attendance list goes here -->
+  </div>
+</div>
+
+<!-- Payments Tab -->
+<div id="payments" class="tab-content">
+  <h2>💰 Payment Management</h2>
+  <p>Record payments and view balances.</p>
+  <div class="section-card">
+    <h3>💳 Record Payment</h3>
+    <!-- payment form goes here -->
+  </div>
+  <div class="section-card">
+    <h3>👥 Student Balances</h3>
+    <!-- balances list goes here -->
+  </div>
+</div>
+
+<!-- Reports Tab -->
+<div id="reports" class="tab-content">
+  <h2>📈 Reports</h2>
+  <p>View summaries of students, hours, marks, and payments.</p>
+  <div class="section-card">
+    <h3>📊 Overview</h3>
+    <!-- report summary goes here -->
+  </div>
+  <div class="section-card">
+    <h3>📅 Breakdown</h3>
+    <!-- breakdown tables go here -->
+  </div>
+</div>
+
      <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
