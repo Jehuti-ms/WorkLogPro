@@ -394,3 +394,32 @@ p {
   font-size: 1.5rem;
   cursor: pointer;
 }
+
+/* ============================================================================
+  Floating Action Button
+============================================================================ */
+/* Floating Action Button */
+.fab-container {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 1500;
+}
+
+.fab {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 56px;
+  height: 56px;
+  font-size: 1.5rem;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.fab:hover {
+  background: var(--primary-dark);
+  transform: scale(1.05);
+}
