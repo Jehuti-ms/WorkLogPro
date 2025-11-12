@@ -1,7 +1,7 @@
 // auth.js
-// WorkLog Authentication (Firebase via CDN)
+// WorkLog Authentication using Firebase CDN modules
 
-// Import Firebase modules directly from CDN
+// Import Firebase directly from CDN
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import {
   getAuth,
@@ -14,7 +14,7 @@ import {
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 
-// Your Firebase project config (replace with your actual keys)
+// Replace with your Firebase project config
 const firebaseConfig = {
   apiKey: "YOUR_API_KEY",
   authDomain: "YOUR_PROJECT.firebaseapp.com",
@@ -28,11 +28,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-// ---------------------------------------------
-// Event Listeners
-// ---------------------------------------------
+// -------------------- Event Listeners --------------------
 
-// Login form
+// Login
 document.getElementById("loginForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const email = document.getElementById("loginEmail").value.trim();
@@ -44,7 +42,7 @@ document.getElementById("loginForm")?.addEventListener("submit", async (e) => {
   }
 });
 
-// Register form
+// Register
 document.getElementById("registerForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const email = document.getElementById("registerEmail").value.trim();
@@ -57,7 +55,7 @@ document.getElementById("registerForm")?.addEventListener("submit", async (e) =>
   }
 });
 
-// Forgot password form
+// Forgot password
 document.getElementById("forgotPasswordForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const email = document.getElementById("forgotEmail").value.trim();
@@ -84,9 +82,7 @@ document.getElementById("signOutBtn")?.addEventListener("click", async () => {
   await signOut(auth);
 });
 
-// ---------------------------------------------
-// Auth State Listener (Guard)
-// ---------------------------------------------
+// -------------------- Auth Guard --------------------
 onAuthStateChanged(auth, (user) => {
   const onAuthPage = window.location.pathname.includes("auth.html");
 
