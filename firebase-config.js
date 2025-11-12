@@ -1,7 +1,7 @@
-// firebase-config.js - WorklogPro Configuration
+// firebase-config.js - WorklogPro Firebase Configuration
 console.log("🔥 Firebase Config loaded");
 
-// Your web app's Firebase configuration
+// Your Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyDdLP_LgiC6EgzC3hUP_mGuNW4_BUEACs8",
   authDomain: "worklogpro-4284e.firebaseapp.com",
@@ -14,10 +14,15 @@ const firebaseConfig = {
 // Initialize Firebase
 if (typeof firebase !== 'undefined') {
   try {
-    firebase.initializeApp(firebaseConfig);
-    console.log("✅ Firebase initialized successfully");
+    // Check if Firebase is already initialized
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+      console.log("✅ Firebase initialized successfully");
+    } else {
+      console.log("✅ Firebase already initialized");
+    }
     
-    // Make it globally available
+    // Make Firebase services globally available
     window.firebaseApp = firebase.app();
     window.firestore = firebase.firestore();
     window.firebaseAuth = firebase.auth();
@@ -27,9 +32,10 @@ if (typeof firebase !== 'undefined') {
       firestore: !!window.firestore,
       auth: !!window.firebaseAuth
     });
+    
   } catch (error) {
     console.error("❌ Firebase initialization failed:", error);
   }
 } else {
-  console.warn("⚠️ Firebase SDK not loaded");
+  console.warn("⚠️ Firebase SDK not loaded - running in offline mode");
 }
