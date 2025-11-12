@@ -125,7 +125,7 @@
                 <button class="auth-tab" data-tab="register">Register</button>
             </div>
             
-         <!-- Login Form -->
+       <!-- Login Form -->
 <div id="login" class="auth-tab-content active">
   <form id="loginForm">
     <div class="form-group">
@@ -144,7 +144,8 @@
         <span class="checkmark"></span>
         Remember me
       </label>
-      <a href="#" class="forgot-password" onclick="showForgotPassword()">Forgot password?</a>
+      <!-- Switch to Forgot Password tab -->
+      <a href="#" class="forgot-password" data-tab-target="forgot">Forgot password?</a>
     </div>
     
     <button type="submit" class="btn btn-primary btn-block">
@@ -152,7 +153,8 @@
       <span class="btn-loading" style="display: none;">Signing in...</span>
     </button>
   </form>
-  
+</div>
+
   <!-- Google Auth Section -->
   <div class="google-auth-section">
     <div class="auth-divider">
