@@ -1,206 +1,68 @@
-// ============================================================================
-// AUTH STATE
-// ============================================================================
-const authState = {
-  users: [],            // stored users
-  isAuthenticated: false,
-  currentUser: null
-};
+// auth.js
+// WorkLog Authentication (Firebase) - Drop-in replacement
 
-// Load and save helpers
-function loadAuthData() {
-  try {
-    const data = localStorage.getItem("worklog_auth");
-    if (data) {
-      authState.users = JSON.parse(data);
-    }
-  } catch (err) {
-    console.error("Error loading auth data:", err);
-    authState.users = [];
+import { auth } from "./firebase-config.js";
+import {
+  GoogleAuthProvider,
+  signInWithPopup,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signOut,
+  onAuthStateChanged
+} from "firebase/auth";
+
+/* ---------------------------------------------
+   Helpers: lightweight UI feedback
+--------------------------------------------- */
+function showBtnLoading(btn, isLoading, loadingText = "Loading...") {
+  if (!btn) return;
+  const textEl = btn.querySelector(".btn-text");
+  const loadingEl = btn.querySelector(".btn-loading");
+  if (textEl && loadingEl) {
+    textEl.style.display = isLoading ? "none" : "inline";
+    loadingEl.style.display = isLoading ? "inline" : "none";
+    if (isLoading) loadingEl.textContent = loadingText;
   }
 }
 
-function saveAuthData() {
-  try {
-    localStorage.setItem("worklog_auth", JSON.stringify(authState.users));
-  } catch (err) {
-    console.error("Error saving auth data:", err);
-  }
+function showInlineMessage(el, msg, type = "error") {
+  if (!el) return;
+  el.textContent = msg;
+  el.className = type === "success" ? "success-message message-show" : "error-message message-show";
 }
 
-// ============================================================================
-// AUTH OPERATIONS
-// ============================================================================
-async function registerUser(name, email, password) {
-  console.log("Registering user:", email);
-
-  try {
-    if (!name || !email || !password) {
-      throw new Error("Please fill in all fields");
-    }
-
-    const existingUser = authState.users.find(
-      u => u.email.toLowerCase() === email.toLowerCase()
-    );
-    if (existingUser) {
-      throw new Error("An account with this email already exists");
-    }
-
-    const user = {
-      id: "user_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9),
-      name: name.trim(),
-      email: email.toLowerCase().trim(),
-      password: password,
-      createdAt: new Date().toISOString(),
-      lastLogin: new Date().toISOString()
-    };
-
-    authState.users.push(user);
-    authState.isAuthenticated = true;
-    authState.currentUser = user;
-
-    saveAuthData();
-    localStorage.setItem("worklog_session", user.id);
-
-    showNotification("🎉 Account created successfully!", "success");
-
-    setTimeout(() => {
-      window.location.href = "index.html";
-    }, 1000);
-
-    return user;
-  } catch (error) {
-    console.error("Registration error:", error);
-    showNotification(error.message, "error");
-    throw error;
-  }
-}
-
-async function loginUser(email, password) {
-  console.log("Login attempt:", email);
-
-  try {
-    if (!email || !password) {
-      throw new Error("Please fill in all fields");
-    }
-
-    const user = authState.users.find(
-      u => u.email.toLowerCase() === email.toLowerCase()
-    );
-    if (!user) {
-      throw new Error("No account found with this email");
-    }
-    if (user.password !== password) {
-      throw new Error("Invalid password");
-    }
-
-    user.lastLogin = new Date().toISOString();
-    authState.isAuthenticated = true;
-    authState.currentUser = user;
-
-    saveAuthData();
-    localStorage.setItem("worklog_session", user.id);
-
-    showNotification(`👋 Welcome back, ${user.name}!`, "success");
-
-    setTimeout(() => {
-      window.location.href = "index.html";
-    }, 1000);
-
-    return user;
-  } catch (error) {
-    console.error("Login error:", error);
-    showNotification(error.message, "error");
-    throw error;
-  }
-}
-
-function logoutUser() {
-  console.log("Logging out user");
-  authState.isAuthenticated = false;
-  authState.currentUser = null;
-  localStorage.removeItem("worklog_session");
-  window.location.href = "auth.html";
-}
-
-function getCurrentUser() {
-  return authState.currentUser;
-}
-
-function getCurrentUserId() {
-  return authState.currentUser ? authState.currentUser.id : null;
-}
-
-// ============================================================================
-// SESSION VALIDATION
-// ============================================================================
-function validateSession() {
-  const sessionId = localStorage.getItem("worklog_session");
-  console.log("🔍 Validating session:", sessionId);
-
-  if (!sessionId) {
-    console.log("❌ No session found");
-    return false;
-  }
-
-  const user = authState.users.find(u => u.id === sessionId);
-  if (!user) {
-    console.log("❌ Session invalid - user not found");
-    localStorage.removeItem("worklog_session");
-    return false;
-  }
-
-  console.log("✅ Session valid for user:", user.email);
-  authState.isAuthenticated = true;
-  authState.currentUser = user;
-  return true;
-}
-
-function checkExistingSession() {
-  return validateSession();
-}
-
-// ============================================================================
-// INIT AUTH
-// ============================================================================
-function initAuth() {
-  console.log("🔐 Initializing auth system...");
-  loadAuthData();
-
-  const hasValidSession = validateSession();
-
-  if (window.location.pathname.includes("auth.html")) {
-    setupAuthEventListeners();
-    if (hasValidSession) {
-      console.log("✅ Already logged in, redirecting to app...");
-      setTimeout(() => {
-        window.location.href = "index.html";
-      }, 1000);
-    }
-  } else {
-    // We're on index.html
-    if (hasValidSession) {
-      console.log("✅ Valid session - user can access main app");
-      // continue loading app
-    } else {
-      console.log("❌ No valid session - redirecting to auth page");
-      window.location.href = "auth.html";
-    }
-  }
-}
-
-// ============================================================================
-// EVENT LISTENERS
-// ============================================================================
+/* ---------------------------------------------
+   Event wiring for forms and buttons
+--------------------------------------------- */
 function setupAuthEventListeners() {
+  // Tabs
+  document.querySelectorAll(".auth-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const name = tab.getAttribute("data-tab");
+      switchAuthTab(name);
+    });
+  });
+
   // Login form
   const loginForm = document.getElementById("loginForm");
   if (loginForm) {
     loginForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const email = document.getElementById("loginEmail").value;
-      const password = document.getElementById("loginPassword").value;
-      await loginUser(email, password);
+      const email = document.getElementById("loginEmail")?.value?.trim();
+      const password = document.getElementById("loginPassword")?.value;
+
+      const submitBtn = loginForm.querySelector("button[type='submit']");
+      showBtnLoading(submitBtn, true, "Signing in...");
+
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch (err) {
+        showInlineMessage(loginForm.querySelector(".error-message"), err.message, "error");
+        alert("Login failed: " + err.message);
+      } finally {
+        showBtnLoading(submitBtn, false);
+      }
     });
   }
 
@@ -209,10 +71,23 @@ function setupAuthEventListeners() {
   if (registerForm) {
     registerForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const name = document.getElementById("registerName").value;
-      const email = document.getElementById("registerEmail").value;
-      const password = document.getElementById("registerPassword").value;
-      await registerUser(name, email, password);
+      const name = document.getElementById("registerName")?.value?.trim(); // optional, not stored by Firebase Auth
+      const email = document.getElementById("registerEmail")?.value?.trim();
+      const password = document.getElementById("registerPassword")?.value;
+
+      const submitBtn = registerForm.querySelector("button[type='submit']");
+      showBtnLoading(submitBtn, true, "Creating account...");
+
+      try {
+        await createUserWithEmailAndPassword(auth, email, password);
+        // Optionally save displayName later via updateProfile
+        showInlineMessage(registerForm.querySelector(".success-message"), "Account created!", "success");
+      } catch (err) {
+        showInlineMessage(registerForm.querySelector(".error-message"), err.message, "error");
+        alert("Registration failed: " + err.message);
+      } finally {
+        showBtnLoading(submitBtn, false);
+      }
     });
   }
 
@@ -221,35 +96,117 @@ function setupAuthEventListeners() {
   if (forgotForm) {
     forgotForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const email = document.getElementById("forgotEmail").value;
-      if (!email) {
-        showNotification("Please enter your email", "error");
-        return;
-      }
-      const user = authState.users.find(u => u.email === email);
-      if (user) {
-        showNotification("📧 Password reset link would be sent (demo)", "success");
-      } else {
-        showNotification("No account found with this email", "error");
+      const email = document.getElementById("forgotEmail")?.value?.trim();
+
+      const submitBtn = forgotForm.querySelector("button[type='submit']");
+      showBtnLoading(submitBtn, true, "Sending...");
+
+      try {
+        await sendPasswordResetEmail(auth, email);
+        alert("Password reset email sent!");
+      } catch (err) {
+        alert("Error: " + err.message);
+      } finally {
+        showBtnLoading(submitBtn, false);
       }
     });
   }
 
-  // Google sign-in button (demo stub)
+  // Google sign-in
   const googleBtn = document.getElementById("googleSignInBtn");
   if (googleBtn) {
-    googleBtn.addEventListener("click", () => {
-      showNotification("🔑 Google sign-in not yet wired (demo)", "info");
+    googleBtn.addEventListener("click", async () => {
+      const provider = new GoogleAuthProvider();
+      showBtnLoading(googleBtn, true, "Connecting...");
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (err) {
+        alert("Google sign-in failed: " + err.message);
+      } finally {
+        showBtnLoading(googleBtn, false);
+      }
     });
+  }
+
+  // Sign out (if present on auth.html)
+  const signOutBtn = document.getElementById("signOutBtn");
+  if (signOutBtn) {
+    signOutBtn.addEventListener("click", async () => {
+      await signOut(auth);
+    });
+  }
+
+  // Utility links
+  window.showForgotPassword = function () {
+    document.querySelectorAll(".auth-tab-content").forEach((c) => (c.style.display = "none"));
+    document.getElementById("forgotPassword").style.display = "block";
+  };
+  window.showLogin = function () {
+    switchAuthTab("login");
+  };
+}
+
+/* ---------------------------------------------
+   Tab switching
+--------------------------------------------- */
+function switchAuthTab(tabName) {
+  document.querySelectorAll(".auth-tab").forEach((tab) => {
+    tab.classList.toggle("active", tab.getAttribute("data-tab") === tabName);
+  });
+
+  document.querySelectorAll(".auth-tab-content").forEach((content) => {
+    content.classList.remove("active");
+    content.style.display = "none";
+  });
+
+  const target = document.getElementById(tabName);
+  if (target) {
+    target.classList.add("active");
+    target.style.display = "block";
   }
 }
 
-// ============================================================================
-// EXPORTS
-// ============================================================================
-window.registerUser = registerUser;
-window.loginUser = loginUser;
-window.logoutUser = logoutUser;
-window.getCurrentUser = getCurrentUser;
-window.getCurrentUserId = getCurrentUserId;
+/* ---------------------------------------------
+   Auth state listener + routing guard
+--------------------------------------------- */
+function attachAuthGuard() {
+  onAuthStateChanged(auth, (user) => {
+    const onAuthPage = window.location.pathname.includes("auth.html");
+
+    if (user) {
+      // Signed in: go to app if we’re on the auth page
+      if (onAuthPage) {
+        window.location.href = "index.html";
+      }
+    } else {
+      // Signed out: keep auth.html visible, bounce away from index.html
+      if (!onAuthPage) {
+        window.location.href = "auth.html";
+      }
+    }
+  });
+}
+
+/* ---------------------------------------------
+   Init
+--------------------------------------------- */
+function initAuth() {
+  const onAuthPage = window.location.pathname.includes("auth.html");
+
+  // Always attach guard
+  attachAuthGuard();
+
+  if (onAuthPage) {
+    setupAuthEventListeners();
+    // Ensure default visible tab
+    switchAuthTab("login");
+  }
+}
+
+/* ---------------------------------------------
+   Bootstrap on DOM ready
+--------------------------------------------- */
+document.addEventListener("DOMContentLoaded", initAuth);
+
+// Expose if needed
 window.initAuth = initAuth;
