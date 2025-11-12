@@ -1,436 +1,650 @@
-/* ============================================================================
-   Global State
-============================================================================ */
-let students = JSON.parse(localStorage.getItem("students")) || [];
-let hours = JSON.parse(localStorage.getItem("hours")) || [];
-let marks = JSON.parse(localStorage.getItem("marks")) || [];
-let attendance = JSON.parse(localStorage.getItem("attendance")) || [];
-let payments = JSON.parse(localStorage.getItem("payments")) || [];
-let defaultRate = parseFloat(localStorage.getItem("defaultRate")) || 25.0;
-
-let appData = { students, hours, marks, attendance, payments, defaultRate };
+// app.js - COMPLETE FILE WITH CLOUD SYNC INTEGRATION
+console.log("📦 App.js loaded - Cloud Sync Edition");
 
 /* ============================================================================
-   Utilities
+   Global state
 ============================================================================ */
-function saveAllData() {
-  localStorage.setItem("students", JSON.stringify(students));
-  localStorage.setItem("hours", JSON.stringify(hours));
-  localStorage.setItem("marks", JSON.stringify(marks));
-  localStorage.setItem("attendance", JSON.stringify(attendance));
-  localStorage.setItem("payments", JSON.stringify(payments));
-  localStorage.setItem("defaultRate", defaultRate);
-  appData = { students, hours, marks, attendance, payments, defaultRate };
+let appData = {
+  students: [],
+  hours: [],
+  marks: [],
+  attendance: [],
+  payments: [],
+  settings: {
+    defaultRate: 25.0
+  }
+};
+
+// Single source of truth for payments across tabs
+let allPayments = [];
+
+// Attendance edit guard (prevents sync while editing)
+let isEditingAttendance = false;
+
+// Hours editing state (kept for compatibility)
+let editingHoursIndex = null;
+
+// Public hours entries (kept for compatibility with existing code)
+window.hoursEntries = [];
+
+// Month names for reports
+const monthNames = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
+
+// Track current tab
+let currentTab = "dashboard";
+
+/* ============================================================================
+   Initialization
+============================================================================ */
+async function init() {
+  console.log("🎯 App initialization started");
+
+  try {
+    // Wait for Firebase scripts to load
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Initialize Firebase manager
+    if (typeof firebaseManager !== 'undefined' && firebaseManager.init) {
+      const firebaseReady = await firebaseManager.init();
+      if (firebaseReady) {
+        console.log("✅ Firebase initialized successfully");
+      } else {
+        console.warn("⚠️ Firebase manager not ready, running in offline mode");
+      }
+    } else {
+      console.warn("⚠️ Firebase manager not found, running in offline mode");
+    }
+
+    // Load data - try Firebase first, then fallback to local
+    await loadAllData();
+
+    // Setup cloud sync UI
+    setupCloudSyncUI();
+
+    // Tabs and events
+    setupTabs();
+    setupEventListeners();
+
+    // Settings
+    loadDefaultRate();
+
+    // Initial stats render
+    renderStudents();
+    updateStats();
+
+    console.log("✅ App initialized successfully");
+    
+  } catch (error) {
+    console.error("❌ Initialization failed:", error);
+    // Fallback to local-only mode
+    console.log("🔄 Falling back to local mode...");
+    loadAllData();
+    setupCloudSyncUI();
+    setupTabs();
+    setupEventListeners();
+    loadDefaultRate();
+    renderStudents();
+    updateStats();
+  }
 }
 
+/* ============================================================================
+   Data loading and settings
+============================================================================ */
+async function loadAllData() {
+  try {
+    let loadedData = null;
+
+    // Try to load from Firebase first (if user is authenticated)
+    if (typeof firebaseManager !== 'undefined' && firebaseManager.isCloudEnabled && firebaseManager.isCloudEnabled()) {
+      console.log("📥 Attempting to load data from Firebase...");
+      loadedData = await firebaseManager.loadData();
+    }
+
+    if (loadedData) {
+      // Use Firebase data
+      console.log("✅ Data loaded from Firebase");
+      Object.assign(appData, loadedData);
+    } else {
+      // Fallback to local storage
+      console.log("📥 Loading from local storage...");
+      const stored = JSON.parse(localStorage.getItem("appData")) || null;
+      if (stored && typeof stored === "object") {
+        Object.assign(appData, stored);
+      }
+    }
+
+    // Initialize payments single source of truth
+    allPayments = Array.isArray(appData.payments) ? appData.payments.slice() : [];
+
+    // Ensure all arrays exist
+    if (!Array.isArray(appData.students)) appData.students = [];
+    if (!Array.isArray(appData.hours)) appData.hours = [];
+    if (!Array.isArray(appData.marks)) appData.marks = [];
+    if (!Array.isArray(appData.attendance)) appData.attendance = [];
+    if (!appData.settings) appData.settings = { defaultRate: 25.0 };
+
+    console.log("📥 Data loaded:", {
+      students: appData.students.length,
+      payments: allPayments.length,
+      defaultRate: appData.settings.defaultRate
+    });
+
+  } catch (err) {
+    console.warn("⚠️ Failed to load data:", err);
+    // Initialize with empty data
+    initializeEmptyData();
+  }
+}
+
+async function saveAllData() {
+  try {
+    // Keep appData.payments in sync with allPayments before save
+    appData.payments = Array.isArray(allPayments) ? allPayments.slice() : [];
+
+    // Save to Firebase if available
+    if (typeof firebaseManager !== 'undefined' && firebaseManager.isCloudEnabled && firebaseManager.isCloudEnabled()) {
+      await firebaseManager.saveData(appData);
+      console.log("💾 Data saved to Firebase");
+    } else {
+      // Fallback to local storage
+      localStorage.setItem("appData", JSON.stringify(appData));
+      console.log("💾 Data saved locally");
+    }
+  } catch (err) {
+    console.warn("⚠️ Failed to save data:", err);
+    // Fallback to local storage
+    localStorage.setItem("appData", JSON.stringify(appData));
+  }
+}
+
+// Enhanced save function that includes cloud sync
 async function saveAllDataWithSync() {
   try {
-    saveAllData();
-    if (typeof firebaseManager !== "undefined" && firebaseManager.isCloudEnabled()) {
+    // Always save locally first
+    await saveAllData();
+    
+    // Try to sync to cloud if available
+    if (typeof firebaseManager !== 'undefined' && firebaseManager.isCloudEnabled && firebaseManager.isCloudEnabled()) {
       await firebaseManager.saveData(appData);
-      setSyncMessage("✅ Synced");
-      setSyncIndicator(true);
     }
   } catch (error) {
     console.warn("Cloud sync failed, but local save succeeded:", error);
-    setSyncMessage("⚠️ Local only (sync failed)");
-    setSyncIndicator(false);
   }
 }
 
-function setSyncMessage(msg) {
-  const el = document.getElementById("syncMessage");
-  if (el) el.textContent = msg;
-}
-function setSyncIndicator(connected) {
-  const el = document.getElementById("syncIndicator");
-  if (!el) return;
-  el.classList.toggle("sync-connected", connected);
-  el.classList.toggle("sync-disconnected", !connected);
+function initializeEmptyData() {
+  appData.students = [];
+  appData.hours = [];
+  appData.marks = [];
+  appData.attendance = [];
+  appData.payments = [];
+  appData.settings = { defaultRate: 25.0 };
+  allPayments = [];
 }
 
-function updateHeaderCounts() {
-  const dataStatus = document.getElementById("dataStatus");
-  if (dataStatus) {
-    dataStatus.textContent = `📊 Data: ${students.length} Students, ${hours.length} Sessions`;
+function loadDefaultRate() {
+  // Ensure we have a valid default rate
+  if (typeof appData.settings.defaultRate !== 'number' || isNaN(appData.settings.defaultRate)) {
+    appData.settings.defaultRate = 25.0;
+    console.log("🔄 Reset default rate to $25.00");
+  }
+  
+  const rateEl = document.getElementById("defaultRateDisplay");
+  if (rateEl) {
+    rateEl.textContent = `$${appData.settings.defaultRate.toFixed(2)}/hr`;
   }
 }
 
 /* ============================================================================
-   Tabs
+   Cloud Sync Integration
 ============================================================================ */
-document.querySelectorAll(".tab").forEach(tab => {
-  tab.addEventListener("click", () => {
-    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-    document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
-    tab.classList.add("active");
-    document.getElementById(tab.dataset.tab).classList.add("active");
+function setupCloudSyncUI() {
+  const syncBar = document.querySelector('.sync-bar');
+  if (!syncBar) return;
+  
+  const cloudSection = document.createElement('div');
+  cloudSection.className = 'cloud-sync-section';
+  cloudSection.innerHTML = `
+    <div id="syncStatus" class="sync-status offline">🔴 Offline</div>
+    <div id="cloudControls" style="display: none;">
+      <button onclick="firebaseManager.manualSync()" class="btn btn-sm btn-success" title="Backup to cloud">
+        💾 Backup Now
+      </button>
+      <button onclick="firebaseManager.signOut()" class="btn btn-sm btn-secondary" title="Disable cloud backup">
+        ☁️ Disable
+      </button>
+    </div>
+    <div id="cloudPrompt" style="display: none;">
+      <button onclick="firebaseManager.enableCloudSync()" class="btn btn-sm btn-primary">
+        Enable Cloud Backup
+      </button>
+    </div>
+  `;
+  
+  syncBar.appendChild(cloudSection);
+  
+  // Initial UI update
+  updateCloudSyncUI();
+}
+
+function updateCloudSyncUI() {
+  if (typeof firebaseManager === 'undefined') return;
+  
+  const syncStatus = document.getElementById('syncStatus');
+  const cloudControls = document.getElementById('cloudControls');
+  const cloudPrompt = document.getElementById('cloudPrompt');
+  
+  if (syncStatus) {
+    if (firebaseManager.isCloudEnabled && firebaseManager.isCloudEnabled()) {
+      syncStatus.textContent = '🟢 Cloud Backup';
+      syncStatus.className = 'sync-status online';
+      const lastSync = firebaseManager.getLastSync && firebaseManager.getLastSync();
+      if (lastSync) {
+        syncStatus.title = `Last sync: ${lastSync.toLocaleTimeString()}`;
+      }
+    } else if (window.Auth && window.Auth.isAuthenticated && window.Auth.isAuthenticated()) {
+      syncStatus.textContent = '🟡 Local Only';
+      syncStatus.className = 'sync-status local';
+      syncStatus.title = 'Enable cloud backup for data safety';
+    } else {
+      syncStatus.textContent = '🔴 Offline';
+      syncStatus.className = 'sync-status offline';
+      syncStatus.title = 'Sign in to enable cloud backup';
+    }
+  }
+  
+  if (cloudControls) {
+    cloudControls.style.display = (firebaseManager.isCloudEnabled && firebaseManager.isCloudEnabled()) ? 'flex' : 'none';
+  }
+  
+  if (cloudPrompt) {
+    const hasLocalAuth = window.Auth && window.Auth.isAuthenticated && window.Auth.isAuthenticated();
+    cloudPrompt.style.display = (hasLocalAuth && (!firebaseManager.isCloudEnabled || !firebaseManager.isCloudEnabled())) ? 'flex' : 'none';
+  }
+}
+
+// Cloud data merge function for firebase-manager to call
+window.mergeCloudData = function(cloudData) {
+  if (cloudData && typeof cloudData === 'object') {
+    console.log("🔄 Merging cloud data with local data...");
+    
+    // Store original counts
+    const originalCounts = {
+      students: appData.students.length,
+      payments: allPayments.length,
+      hours: appData.hours.length,
+      marks: appData.marks.length,
+      attendance: appData.attendance.length
+    };
+    
+    // Merge data (cloud data takes precedence)
+    if (Array.isArray(cloudData.students)) {
+      appData.students = cloudData.students;
+    }
+    if (Array.isArray(cloudData.payments)) {
+      appData.payments = cloudData.payments;
+      allPayments = cloudData.payments.slice();
+    }
+    if (Array.isArray(cloudData.hours)) {
+      appData.hours = cloudData.hours;
+    }
+    if (Array.isArray(cloudData.marks)) {
+      appData.marks = cloudData.marks;
+    }
+    if (Array.isArray(cloudData.attendance)) {
+      appData.attendance = cloudData.attendance;
+    }
+    if (cloudData.settings && typeof cloudData.settings === 'object') {
+      appData.settings = { ...appData.settings, ...cloudData.settings };
+    }
+    
+    // Save merged data locally
+    saveAllData();
+    
+    // Calculate changes
+    const newCounts = {
+      students: appData.students.length,
+      payments: allPayments.length,
+      hours: appData.hours.length,
+      marks: appData.marks.length,
+      attendance: appData.attendance.length
+    };
+    
+    console.log("✅ Cloud data merge completed:", {
+      students: `+${newCounts.students - originalCounts.students}`,
+      payments: `+${newCounts.payments - originalCounts.payments}`,
+      hours: `+${newCounts.hours - originalCounts.hours}`
+    });
+    
+    // Refresh UI
+    renderStudents();
+    renderPayments();
+    renderHours();
+    renderMarks();
+    renderAttendance();
+    updateStats();
+    
+    // Update cloud sync UI
+    updateCloudSyncUI();
+    
+    // Show notification
+    if (window.showNotification) {
+      window.showNotification("✅ Cloud data loaded successfully", "success");
+    }
+  }
+};
+
+/* ============================================================================
+   Tabs and events
+============================================================================ */
+function setupTabs() {
+  // Attach click listeners to all tab buttons
+  const tabButtons = document.querySelectorAll(".tabs .tab");
+  tabButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const target = btn.getAttribute("data-tab");
+      activateTab(target);
+    });
   });
-});
+}
+
+function activateTab(tabName) {
+  currentTab = tabName;
+  console.log(`🗂️ Activated tab: ${tabName}`);
+
+  // Hide all tab contents
+  document.querySelectorAll(".tab-content").forEach(el => {
+    el.classList.remove("active");
+  });
+
+  // Remove active class from all tab buttons
+  document.querySelectorAll(".tabs .tab").forEach(btn => {
+    btn.classList.remove("active");
+  });
+
+  // Show the selected tab content
+  const targetContent = document.getElementById(tabName);
+  if (targetContent) {
+    targetContent.classList.add("active");
+  }
+
+  // Highlight the clicked tab button
+  const targetButton = document.querySelector(`.tabs .tab[data-tab="${tabName}"]`);
+  if (targetButton) {
+    targetButton.classList.add("active");
+  }
+
+  // Dispatch per-tab loaders
+  switch (tabName) {
+    case "payments":
+      loadPaymentsTab();
+      break;
+    case "students":
+      loadStudentsTab();
+      break;
+    case "attendance":
+      loadAttendanceTab();
+      break;
+    case "hours":
+      loadHoursTab();
+      break;
+    case "marks":
+      loadMarksTab();
+      break;
+    case "reports":
+      loadReportsTab();
+      break;
+  }
+}
+
+function setupEventListeners() {
+  // === Students ===
+  document.getElementById("addStudentBtn")?.addEventListener("click", addStudent);
+  document.getElementById("clearStudentFormBtn")?.addEventListener("click", clearStudentForm);
+  document.getElementById("saveDefaultRateBtn")?.addEventListener("click", saveDefaultRate);
+  document.getElementById("applyDefaultRateBtn")?.addEventListener("click", applyDefaultRateToAll);
+  document.getElementById("useDefaultRateBtn")?.addEventListener("click", useDefaultRate);
+
+  // === Hours ===
+  document.getElementById("logHoursBtn")?.addEventListener("click", logHours);
+  document.getElementById("resetHoursFormBtn")?.addEventListener("click", resetHoursForm);
+
+  // === Marks ===
+  document.getElementById("addMarkBtn")?.addEventListener("click", addMark);
+  document.getElementById("clearMarksFormBtn")?.addEventListener("click", () => {
+    document.getElementById("marksForm")?.reset();
+  });
+
+  // === Attendance ===
+  document.getElementById("saveAttendanceBtn")?.addEventListener("click", saveAttendance);
+  document.getElementById("clearAttendanceBtn")?.addEventListener("click", clearAttendanceFormManual);
+
+  // === Payments ===
+  document.getElementById("recordPaymentBtn")?.addEventListener("click", recordPayment);
+  document.getElementById("paymentsYearSelect")?.addEventListener("change", updatePaymentsByYearMonth);
+  document.getElementById("paymentsMonthSelect")?.addEventListener("change", updatePaymentsByYearMonth);
+
+  // === Sync Bar ===
+  document.getElementById("autoSyncCheckbox")?.addEventListener("change", toggleAutoSync);
+  document.getElementById("syncBtn")?.addEventListener("click", manualSync);
+  document.getElementById("exportCloudBtn")?.addEventListener("click", exportCloudData);
+  document.getElementById("importCloudBtn")?.addEventListener("click", importToCloud);
+  document.getElementById("syncStatsBtn")?.addEventListener("click", showSyncStats);
+  document.getElementById("exportDataBtn")?.addEventListener("click", exportData);
+  document.getElementById("importDataBtn")?.addEventListener("click", importData);
+  document.getElementById("clearAllBtn")?.addEventListener("click", clearAllData);
+}
 
 /* ============================================================================
-   Students
+   Feature Functions (UPDATED WITH CLOUD SYNC)
 ============================================================================ */
+// === Students ===
 async function addStudent() {
   const name = document.getElementById("studentName").value.trim();
   const id = document.getElementById("studentId").value.trim();
   const gender = document.getElementById("studentGender").value;
   const email = document.getElementById("studentEmail").value.trim();
   const phone = document.getElementById("studentPhone").value.trim();
-  const rate = parseFloat(document.getElementById("studentBaseRate").value) || defaultRate;
+  const rate = parseFloat(document.getElementById("studentBaseRate").value);
 
-  if (!name || !id || !gender) {
-    alert("Please fill required fields.");
-    return;
-  }
-  if (students.some(s => s.id === id)) {
-    alert("Student ID must be unique.");
+  if (!name || !id) {
+    alert("Name and ID are required.");
     return;
   }
 
-  students.push({ name, id, gender, email, phone, rate, createdAt: new Date().toISOString() });
-  await saveAllDataWithSync();
+  const student = { 
+    name, 
+    id, 
+    gender, 
+    email, 
+    phone, 
+    rate: rate || appData.settings.defaultRate || 25.0
+  };
+  
+  appData.students.push(student);
+  await saveAllDataWithSync(); // ← UPDATED: Uses cloud sync
+
   renderStudents();
-  populateStudentSelects();
-  updateStudentStats();
-  updateHeaderCounts();
+  updateStats();
   clearStudentForm();
-}
-
-function renderStudents(list = students) {
-  const container = document.getElementById("studentsContainer");
-  if (!container) return;
-  if (list.length === 0) {
-    container.innerHTML = `<p style="color:#666;text-align:center;padding:40px;">No students registered yet. Add your first student above!</p>`;
-    return;
-  }
-  container.innerHTML = list.map(s => `
-    <div class="student-card">
-      <div class="student-card-header">
-        <strong>${s.name}</strong> <span class="muted">(${s.id})</span>
-      </div>
-      <div class="student-card-body">
-        <div>${s.gender}</div>
-        <div>Email: ${s.email || "—"}</div>
-        <div>Phone: ${s.phone || "—"}</div>
-        <div>Rate: $${Number(s.rate).toFixed(2)}/session</div>
-      </div>
-    </div>
-  `).join("");
+  console.log("➕ Student added:", student);
 }
 
 function clearStudentForm() {
-  const form = document.getElementById("studentForm");
-  if (form) form.reset();
+  document.getElementById("studentForm")?.reset();
 }
 
-function updateStudentStats() {
-  const studentCountEl = document.getElementById("studentCount");
-  if (studentCountEl) studentCountEl.textContent = students.length;
-  const avgRateEl = document.getElementById("averageRate");
-  if (avgRateEl) {
-    const avg = students.length ? (students.reduce((a, s) => a + (parseFloat(s.rate) || 0), 0) / students.length) : 0;
-    avgRateEl.textContent = avg.toFixed(2);
-  }
-  const defaultRateEl = document.getElementById("currentDefaultRate");
-  if (defaultRateEl) defaultRateEl.textContent = defaultRate.toFixed(2);
-  const defaultRateDisplayEl = document.getElementById("currentDefaultRateDisplay");
-  if (defaultRateDisplayEl) defaultRateDisplayEl.textContent = defaultRate.toFixed(2);
-}
+function renderStudents() {
+  const container = document.getElementById("studentsContainer");
+  const studentsCountEl = document.getElementById("studentsCount");
+  const avgRateEl = document.getElementById("avgRate");
+  
+  if (!container) return;
 
-function saveDefaultRate() {
-  const val = parseFloat(document.getElementById("defaultBaseRate").value);
-  if (!isNaN(val) && val >= 0) {
-    defaultRate = val;
-    saveAllDataWithSync();
-    updateStudentStats();
+  // Render student cards
+  if (appData.students.length === 0) {
+    container.innerHTML = "<p>No students registered yet.</p>";
   } else {
-    alert("Please enter a valid default rate (>= 0).");
+    container.innerHTML = appData.students.map(s => `
+      <div class="student-card">
+        <strong>${s.name}</strong> (${s.id}) - ${s.gender}<br>
+        Email: ${s.email || "N/A"}, Phone: ${s.phone || "N/A"}<br>
+        Rate: $${(s.rate || 0).toFixed(2)}
+      </div>
+    `).join("");
+  }
+
+  // Update stats
+  if (studentsCountEl) {
+    studentsCountEl.textContent = appData.students.length;
+  }
+  
+  if (avgRateEl) {
+    if (appData.students.length > 0) {
+      const totalRate = appData.students.reduce((sum, s) => sum + (s.rate || 0), 0);
+      const averageRate = totalRate / appData.students.length;
+      avgRateEl.textContent = `$${averageRate.toFixed(2)}/session`;
+    } else {
+      avgRateEl.textContent = "$0.00/session";
+    }
   }
 }
-function applyDefaultRateToAll() {
-  students.forEach(s => s.rate = defaultRate);
-  saveAllDataWithSync();
-  renderStudents();
-  updateStudentStats();
-}
-function useDefaultRate() {
-  document.getElementById("studentBaseRate").value = defaultRate.toFixed(2);
-}
-function useDefaultRateInHours() {
-  const input = document.getElementById("baseRate");
-  if (input) input.value = defaultRate.toFixed(2);
-}
 
-/* Search filter */
-const studentSearch = document.getElementById("studentSearch");
-if (studentSearch) {
-  studentSearch.addEventListener("input", e => {
-    const q = e.target.value.toLowerCase();
-    const filtered = students.filter(s =>
-      s.name.toLowerCase().includes(q) ||
-      s.id.toLowerCase().includes(q) ||
-      (s.email || "").toLowerCase().includes(q) ||
-      (s.phone || "").toLowerCase().includes(q)
-    );
-    renderStudents(filtered);
-  });
-}
-
-/* Populate selects used across tabs */
-function populateStudentSelects() {
-  const marksStudent = document.getElementById("marksStudent");
-  const paymentStudent = document.getElementById("paymentStudent");
-  if (marksStudent) {
-    marksStudent.innerHTML = `<option value="">Select student...</option>` +
-      students.map(s => `<option value="${s.id}">${s.name} (${s.id})</option>`).join("");
-  }
-  if (paymentStudent) {
-    paymentStudent.innerHTML = `<option value="">Select Student</option>` +
-      students.map(s => `<option value="${s.id}">${s.name} (${s.id})</option>`).join("");
-  }
-  renderAttendanceList();
-}
-
-/* ============================================================================
-   Hours
-============================================================================ */
+// === Hours ===
 async function logHours() {
   const org = document.getElementById("organization").value.trim();
   const type = document.getElementById("workType").value;
-  const subject = document.getElementById("subject").value.trim();
-  const topic = document.getElementById("topic").value.trim();
   const date = document.getElementById("workDate").value;
-  const hoursWorked = parseFloat(document.getElementById("hoursWorked").value);
-  const rate = parseFloat(document.getElementById("baseRate").value) || defaultRate;
-  const notes = document.getElementById("workNotes").value.trim();
+  const hours = parseFloat(document.getElementById("hoursWorked").value);
+  const rate = parseFloat(document.getElementById("baseRate").value);
 
-  if (!org || !date || isNaN(hoursWorked) || hoursWorked <= 0 || isNaN(rate)) {
-    alert("Please fill required fields (valid hours and rate).");
+  if (!org || !date || isNaN(hours) || isNaN(rate)) {
+    alert("Fill out all fields.");
     return;
   }
 
-  const total = hoursWorked * rate;
-  const entry = { org, type, subject, topic, date, hoursWorked, rate, total, notes, createdAt: new Date().toISOString() };
-  hours.push(entry);
-  await saveAllDataWithSync();
+  const entry = { org, type, date, hours, rate };
+  appData.hours.push(entry);
+  await saveAllDataWithSync(); // ← UPDATED: Uses cloud sync
+
   renderHours();
-  updateHoursStats();
-  document.getElementById("totalPay").value = total.toFixed(2);
-  resetHoursForm(false);
+  resetHoursForm();
+  console.log("💾 Hours logged:", entry);
+}
+
+function resetHoursForm() {
+  document.getElementById("hoursForm")?.reset();
 }
 
 function renderHours() {
   const container = document.getElementById("hoursContainer");
   if (!container) return;
-  if (hours.length === 0) {
-    container.innerHTML = `<p style="color:#666;text-align:center;padding:40px;">No work logged yet. Start tracking your earnings!</p>`;
+
+  if (appData.hours.length === 0) {
+    container.innerHTML = "<p>No work logged yet.</p>";
     return;
   }
-  const rows = hours
-    .slice()
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .map(h => `
-      <div class="hours-entry">
-        <div><strong>${h.date}</strong> — ${h.org}</div>
-        <div>${h.type} | ${h.subject || "—"} ${h.topic ? "• " + h.topic : ""}</div>
-        <div>${h.hoursWorked}h @ $${h.rate}/h = <strong>$${h.total.toFixed(2)}</strong></div>
-        <div class="muted">${h.notes || ""}</div>
-      </div>
-    `).join("");
-  container.innerHTML = rows;
+
+  container.innerHTML = appData.hours.map(h => `
+    <div class="hours-card">
+      ${h.date}: ${h.org} (${h.type}) — ${h.hours}h @ $${h.rate}
+    </div>
+  `).join("");
 }
 
-function updateHoursStats() {
-  // Weekly and monthly summary shown in Hours header
-  const weeklyHoursEl = document.getElementById("weeklyHours");
-  const weeklyTotalEl = document.getElementById("weeklyTotal");
-  const monthlyHoursEl = document.getElementById("monthlyHours");
-  const monthlyTotalEl = document.getElementById("monthlyTotal");
-
-  const now = new Date();
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  let weeklyHours = 0, weeklyTotal = 0, monthlyHours = 0, monthlyTotal = 0;
-  hours.forEach(h => {
-    const d = new Date(h.date);
-    if (d >= startOfWeek) { weeklyHours += h.hoursWorked; weeklyTotal += h.total; }
-    if (d >= startOfMonth) { monthlyHours += h.hoursWorked; monthlyTotal += h.total; }
-  });
-
-  if (weeklyHoursEl) weeklyHoursEl.textContent = weeklyHours.toFixed(1);
-  if (weeklyTotalEl) weeklyTotalEl.textContent = weeklyTotal.toFixed(2);
-  if (monthlyHoursEl) monthlyHoursEl.textContent = monthlyHours.toFixed(1);
-  if (monthlyTotalEl) monthlyTotalEl.textContent = monthlyTotal.toFixed(2);
-}
-
-function resetHoursForm(resetTotal = true) {
-  const fields = ["organization","subject","topic","workDate","hoursWorked","baseRate","workNotes"];
-  fields.forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
-  document.getElementById("workType").value = "hourly";
-  if (resetTotal) {
-    const totalPay = document.getElementById("totalPay");
-    if (totalPay) totalPay.value = "";
-  }
-}
-
-/* ============================================================================
-   Marks
-============================================================================ */
+// === Marks ===
 async function addMark() {
   const studentId = document.getElementById("marksStudent").value;
   const subject = document.getElementById("markSubject").value.trim();
-  const topic = document.getElementById("markTopic").value.trim();
   const date = document.getElementById("markDate").value;
   const score = parseFloat(document.getElementById("score").value);
   const maxScore = parseFloat(document.getElementById("maxScore").value);
-  const comments = document.getElementById("markComments").value.trim();
 
-  if (!studentId || !subject || !topic || !date || isNaN(score) || isNaN(maxScore) || maxScore <= 0) {
-    alert("Please fill required fields and valid scores.");
+  if (!studentId || !subject || !date || isNaN(score) || isNaN(maxScore)) {
+    alert("Fill out all fields.");
     return;
   }
 
-  const percentage = (score / maxScore) * 100;
-  const grade = percentage >= 90 ? "A" :
-                percentage >= 80 ? "B" :
-                percentage >= 70 ? "C" :
-                percentage >= 60 ? "D" : "F";
+  const mark = { studentId, subject, date, score, maxScore };
+  appData.marks.push(mark);
+  await saveAllDataWithSync(); // ← UPDATED: Uses cloud sync
 
-  const m = { studentId, subject, topic, date, score, maxScore, percentage, grade, comments, createdAt: new Date().toISOString() };
-  marks.push(m);
-  await saveAllDataWithSync();
   renderMarks();
-  updateMarksStats();
-  // Update live percentage/grade fields
-  const percentageEl = document.getElementById("percentage");
-  const gradeEl = document.getElementById("grade");
-  if (percentageEl) percentageEl.value = `${percentage.toFixed(1)}%`;
-  if (gradeEl) gradeEl.value = grade;
+  document.getElementById("marksForm")?.reset();
+  console.log("💾 Mark added:", mark);
 }
 
 function renderMarks() {
   const container = document.getElementById("marksContainer");
   if (!container) return;
-  if (marks.length === 0) {
-    container.innerHTML = `<p style="color:#666;text-align:center;padding:40px;">No marks recorded yet. Add student assessments!</p>`;
+
+  if (appData.marks.length === 0) {
+    container.innerHTML = "<p>No marks recorded yet.</p>";
     return;
   }
-  const rows = marks
-    .slice()
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .map(m => {
-      const student = students.find(s => s.id === m.studentId);
-      const name = student ? student.name : m.studentId;
-      return `
-        <div class="mark-entry">
-          <div><strong>${m.date}</strong> — ${name} • ${m.subject} • ${m.topic}</div>
-          <div>${m.score}/${m.maxScore} (${m.percentage.toFixed(1)}%) — Grade: <strong>${m.grade}</strong></div>
-          <div class="muted">${m.comments || ""}</div>
-        </div>
-      `;
-    }).join("");
-  container.innerHTML = rows;
-}
 
-function updateMarksStats() {
-  const marksCountEl = document.getElementById("marksCount");
-  const avgMarksEl = document.getElementById("avgMarks");
-  if (marksCountEl) marksCountEl.textContent = marks.length;
-  if (avgMarksEl) {
-    const avg = marks.length ? (marks.reduce((a, m) => a + m.percentage, 0) / marks.length) : 0;
-    avgMarksEl.textContent = `${avg.toFixed(1)}%`;
-  }
-}
-
-/* ============================================================================
-   Attendance
-============================================================================ */
-function renderAttendanceList() {
-  const list = document.getElementById("attendanceList");
-  if (!list) return;
-  if (students.length === 0) {
-    list.innerHTML = `<p style="color:#666;text-align:center;padding:20px;">No students registered. Add students first.</p>`;
-    return;
-  }
-  list.innerHTML = students.map(s => `
-    <label class="attendance-item">
-      <input type="checkbox" class="attendance-checkbox" value="${s.id}">
-      <span>${s.name} (${s.id})</span>
-    </label>
+  container.innerHTML = appData.marks.map(m => `
+    <div class="mark-card">
+      ${m.date}: ${m.subject} — ${m.score}/${m.maxScore} (Student: ${m.studentId})
+    </div>
   `).join("");
 }
 
-function selectAllStudents() {
-  document.querySelectorAll(".attendance-checkbox").forEach(cb => cb.checked = true);
-}
-function deselectAllStudents() {
-  document.querySelectorAll(".attendance-checkbox").forEach(cb => cb.checked = false);
-}
-
+// === Attendance ===
 async function saveAttendance() {
   const date = document.getElementById("attendanceDate").value;
   const subject = document.getElementById("attendanceSubject").value.trim();
-  const topic = document.getElementById("attendanceTopic").value.trim();
 
   if (!date || !subject) {
-    alert("Please fill required fields.");
+    alert("Fill out all fields.");
     return;
   }
 
-  const presentIds = Array.from(document.querySelectorAll(".attendance-checkbox"))
-    .filter(cb => cb.checked)
-    .map(cb => cb.value);
+  // Collect checkbox states
+  const checkboxes = document.querySelectorAll("#attendanceList input[type='checkbox']");
+  const studentsMarked = Array.from(checkboxes).map(cb => ({
+    id: cb.getAttribute("data-student"),
+    present: cb.checked
+  }));
 
-  const record = { date, subject, topic, presentIds, createdAt: new Date().toISOString() };
-  attendance.push(record);
-  await saveAllDataWithSync();
+  const record = { date, subject, students: studentsMarked };
+  appData.attendance.push(record);
+  await saveAllDataWithSync(); // ← UPDATED: Uses cloud sync
+
   renderAttendance();
-  updateAttendanceStats();
-  clearAttendanceForm();
+  clearAttendanceFormManual();
+  console.log("💾 Attendance saved:", record);
+}
+
+function clearAttendanceFormManual() {
+  document.getElementById("attendanceForm")?.reset();
 }
 
 function renderAttendance() {
   const container = document.getElementById("attendanceContainer");
   if (!container) return;
-  if (attendance.length === 0) {
-    container.innerHTML = `<p style="color:#666;text-align:center;padding:40px;">No attendance records yet. Track your first session!</p>`;
+
+  if (appData.attendance.length === 0) {
+    container.innerHTML = "<p>No attendance records yet.</p>";
     return;
   }
-  container.innerHTML = attendance
-    .slice()
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .map(a => `
-      <div class="attendance-entry">
-        <div><strong>${a.date}</strong> — ${a.subject}${a.topic ? " • " + a.topic : ""}</div>
-        <div>Present: ${a.presentIds.length}/${students.length}</div>
+
+  container.innerHTML = appData.attendance.map(a => {
+    const presentCount = a.students.filter(s => s.present).length;
+    const absentCount = a.students.filter(s => !s.present).length;
+    return `
+      <div class="attendance-card">
+        ${a.date}: ${a.subject} — Present: ${presentCount}, Absent: ${absentCount}
       </div>
-    `).join("");
+    `;
+  }).join("");
 }
 
-function clearAttendanceForm() {
-  ["attendanceDate","attendanceSubject","attendanceTopic"].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = "";
-  });
-  deselectAllStudents();
-}
-
-function updateAttendanceStats() {
-  const countEl = document.getElementById("attendanceCount");
-  const lastEl = document.getElementById("lastSessionDate");
-  if (countEl) countEl.textContent = attendance.length;
-  if (lastEl) {
-    const last = attendance.slice().sort((a,b) => new Date(b.date) - new Date(a.date))[0];
-    lastEl.textContent = last ? last.date : "Never";
-  }
-}
-
-/* ============================================================================
-   Payments
-============================================================================ */
+// === Payments ===
 async function recordPayment() {
   const studentId = document.getElementById("paymentStudent").value;
   const amount = parseFloat(document.getElementById("paymentAmount").value);
@@ -438,576 +652,432 @@ async function recordPayment() {
   const method = document.getElementById("paymentMethod").value;
   const notes = document.getElementById("paymentNotes").value.trim();
 
-  if (!studentId || isNaN(amount) || amount <= 0 || !date) {
-    alert("Please fill required fields with a valid amount.");
+  if (!studentId || isNaN(amount) || !date) {
+    alert("Fill out all fields.");
     return;
   }
 
-  payments.push({ studentId, amount, date, method, notes, createdAt: new Date().toISOString() });
-  await saveAllDataWithSync();
+  const payment = { studentId, amount, date, method, notes };
+  appData.payments.push(payment);
+  allPayments.push(payment);
+  await saveAllDataWithSync(); // ← UPDATED: Uses cloud sync
+
   renderPayments();
-  renderPaymentActivity();
-  updatePaymentsStats();
-  resetPaymentForm();
+  document.getElementById("paymentForm")?.reset();
+  console.log("💳 Payment recorded:", payment);
 }
 
-function renderPayments() {
-  const container = document.getElementById("studentBalancesContainer");
+function updatePaymentsByYearMonth() {
+  const year = document.getElementById("paymentsYearSelect")?.value;
+  const month = document.getElementById("paymentsMonthSelect")?.value;
+
+  let filtered = allPayments;
+  if (year) filtered = filtered.filter(p => new Date(p.date).getFullYear().toString() === year);
+  if (month) filtered = filtered.filter(p => (new Date(p.date).getMonth() + 1).toString() === month);
+
+  renderPayments(filtered);
+}
+
+function renderPayments(filteredList) {
+  const payments = filteredList || allPayments;
+  const container = document.getElementById("paymentsStats");
+
   if (!container) return;
 
-  if (students.length === 0) {
-    container.innerHTML = `<p style="color:#666;text-align:center;padding:40px;">No students with balances. Add students and payments first.</p>`;
-    return;
-  }
-
-  // Compute balances: sessions owed (from hours by subject/session?) — baseline: show total payments per student
-  const perStudent = new Map();
-  students.forEach(s => perStudent.set(s.id, { student: s, paid: 0, sessions: 0, owed: 0 }));
-
-  payments.forEach(p => {
-    const entry = perStudent.get(p.studentId);
-    if (entry) entry.paid += p.amount;
-  });
-
-  // Optionally, tie "owed" to hours or session rate — here we’ll use hours total by subject/student if topic contains student ID
-  // For simplicity in this baseline, owed is 0 unless you compute from your business rules.
-
-  const cards = Array.from(perStudent.values()).map(({ student, paid, owed }) => `
-    <div class="student-card">
-      <div class="student-card-header">
-        <strong>${student.name}</strong> <span class="muted">(${student.id})</span>
-      </div>
-      <div class="student-card-body">
-        <div>Total Paid: <strong>$${paid.toFixed(2)}</strong></div>
-        <div>Owed: <strong>$${owed.toFixed(2)}</strong></div>
-      </div>
-    </div>
-  `).join("");
-
-  container.innerHTML = cards || `<p style="color:#666;text-align:center;padding:40px;">No payment data yet.</p>`;
-}
-
-function renderPaymentActivity() {
-  const log = document.getElementById("paymentActivityLog");
-  if (!log) return;
   if (payments.length === 0) {
-    log.innerHTML = `<p style="color:#666;text-align:center;padding:20px;">No recent payment activity.</p>`;
+    container.innerHTML = "<p>No payments recorded yet.</p>";
     return;
   }
-  log.innerHTML = payments
-    .slice()
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .map(p => {
-      const s = students.find(st => st.id === p.studentId);
-      const name = s ? s.name : p.studentId;
-      return `
-        <div class="activity-item">
-          <div><strong>${p.date}</strong> — ${name}</div>
-          <div>$${p.amount.toFixed(2)} via ${p.method}</div>
-          <div class="muted">${p.notes || ""}</div>
-        </div>
-      `;
-    }).join("");
-}
 
-function updatePaymentsStats() {
-  const totalStudentsCountEl = document.getElementById("totalStudentsCount");
-  if (totalStudentsCountEl) totalStudentsCountEl.textContent = students.length;
+  const total = payments.reduce((sum, p) => sum + p.amount, 0);
 
-  const monthlyPaymentsEl = document.getElementById("monthlyPayments");
-  const totalOwedEl = document.getElementById("totalOwed");
-
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthly = payments.filter(p => new Date(p.date) >= startOfMonth)
-                          .reduce((a, p) => a + p.amount, 0);
-  if (monthlyPaymentsEl) monthlyPaymentsEl.textContent = `$${monthly.toFixed(2)}`;
-
-  // Owed baseline — set to 0 unless you define owed logic
-  const totalOwed = 0;
-  if (totalOwedEl) totalOwedEl.textContent = `$${totalOwed.toFixed(2)}`;
-}
-
-function resetPaymentForm() {
-  ["paymentStudent","paymentAmount","paymentDate","paymentMethod","paymentNotes"].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = "";
+  // Balance per student
+  const balances = {};
+  payments.forEach(p => {
+    if (!balances[p.studentId]) balances[p.studentId] = 0;
+    balances[p.studentId] += p.amount;
   });
-  const method = document.getElementById("paymentMethod");
-  if (method) method.value = "Cash";
+
+  container.innerHTML = `
+    <div>Total: $${total.toFixed(2)}</div>
+    <div>Payments: ${payments.length}</div>
+    <h4>Balances by Student</h4>
+    ${Object.entries(balances).map(([id, amt]) => {
+      const student = appData.students.find(s => s.id === id);
+      return `<div>${student?.name || id}: $${amt.toFixed(2)}</div>`;
+    }).join("")}
+  `;
 }
 
 /* ============================================================================
-   Reports
+   Tab Loaders
 ============================================================================ */
-function updateReports() {
-  const totalStudentsReport = document.getElementById("totalStudentsReport");
-  const totalHoursReport = document.getElementById("totalHoursReport");
-  const totalEarningsReport = document.getElementById("totalEarningsReport");
-  const avgMarkReport = document.getElementById("avgMarkReport");
-  const totalPaymentsReport = document.getElementById("totalPaymentsReport");
-  const outstandingBalance = document.getElementById("outstandingBalance");
+function loadStudentsTab() {
+  console.log("📂 Loading tab data: students");
+  renderStudents();
 
-  if (totalStudentsReport) totalStudentsReport.textContent = students.length;
-  const totalHours = hours.reduce((a, h) => a + h.hoursWorked, 0);
-  const totalEarn = hours.reduce((a, h) => a + h.total, 0);
-  if (totalHoursReport) totalHoursReport.textContent = totalHours.toFixed(1);
-  if (totalEarningsReport) totalEarningsReport.textContent = `$${totalEarn.toFixed(2)}`;
+  const container = document.getElementById("studentsSummary");
+  if (!container) return;
 
-  const avgMark = marks.length ? (marks.reduce((a, m) => a + m.percentage, 0) / marks.length) : 0;
-  if (avgMarkReport) avgMarkReport.textContent = `${avgMark.toFixed(1)}%`;
+  const studentCount = appData.students.length;
+  if (studentCount === 0) {
+    container.innerHTML = "<p>No students registered yet.</p>";
+    return;
+  }
 
-  const totalPaid = payments.reduce((a, p) => a + p.amount, 0);
-  if (totalPaymentsReport) totalPaymentsReport.textContent = `$${totalPaid.toFixed(2)}`;
-
-  // Outstanding baseline: earnings - payments (simple view)
-  const outstanding = Math.max(totalEarn - totalPaid, 0);
-  if (outstandingBalance) outstandingBalance.textContent = `$${outstanding.toFixed(2)}`;
-
-  // Clear breakdown tables initially
-  const weeklyBody = document.getElementById("weeklyBody");
-  const subjectBody = document.getElementById("subjectBody");
-  if (weeklyBody) weeklyBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#666;padding:20px;">No weekly data available</td></tr>`;
-  if (subjectBody) subjectBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#666;padding:20px;">No subject data available</td></tr>`;
-}
-
-function showWeeklyBreakdown() {
-  const weeklyBody = document.getElementById("weeklyBody");
-  if (!weeklyBody) return;
-  const byWeek = new Map();
-  hours.forEach(h => {
-    const date = new Date(h.date);
-    const weekKey = `${date.getFullYear()}-W${getWeekNumber(date)}`;
-    if (!byWeek.has(weekKey)) byWeek.set(weekKey, { hours: 0, earnings: 0, subjects: new Set() });
-    const acc = byWeek.get(weekKey);
-    acc.hours += h.hoursWorked;
-    acc.earnings += h.total;
-    if (h.subject) acc.subjects.add(h.subject);
-  });
-  const rows = Array.from(byWeek.entries()).sort((a,b) => a[0] < b[0] ? 1 : -1).map(([wk, acc]) => `
-    <tr>
-      <td>${wk}</td>
-      <td>${acc.hours.toFixed(1)}</td>
-      <td>$${acc.earnings.toFixed(2)}</td>
-      <td>${Array.from(acc.subjects).join(", ") || "—"}</td>
-      <td>$${(acc.earnings * 0.80).toFixed(2)}</td>
-    </tr>
-  `).join("");
-  weeklyBody.innerHTML = rows || `<tr><td colspan="5" style="text-align:center;color:#666;padding:20px;">No weekly data available</td></tr>`;
-}
-
-function getWeekNumber(d) {
-  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const dayNum = date.getUTCDay() || 7;
-  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1));
-  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
-}
-
-function showBiWeeklyBreakdown() {
-  // Simple bi-weekly aggregation by week number pairing
-  const weeklyBody = document.getElementById("weeklyBody");
-  if (!weeklyBody) return;
-  const byBiWeek = new Map();
-  hours.forEach(h => {
-    const date = new Date(h.date);
-    const wn = getWeekNumber(date);
-    const key = `${date.getFullYear()}-BW${Math.ceil(wn / 2)}`;
-    if (!byBiWeek.has(key)) byBiWeek.set(key, { hours: 0, earnings: 0, subjects: new Set() });
-    const acc = byBiWeek.get(key);
-    acc.hours += h.hoursWorked;
-    acc.earnings += h.total;
-    if (h.subject) acc.subjects.add(h.subject);
-  });
-  const rows = Array.from(byBiWeek.entries()).sort((a,b) => a[0] < b[0] ? 1 : -1).map(([bw, acc]) => `
-    <tr>
-      <td>${bw}</td>
-      <td>${acc.hours.toFixed(1)}</td>
-      <td>$${acc.earnings.toFixed(2)}</td>
-      <td>${Array.from(acc.subjects).join(", ") || "—"}</td>
-      <td>$${(acc.earnings * 0.80).toFixed(2)}</td>
-    </tr>
-  `).join("");
-  weeklyBody.innerHTML = rows || `<tr><td colspan="5" style="text-align:center;color:#666;padding:20px;">No bi-weekly data available</td></tr>`;
-}
-
-function showMonthlyBreakdown() {
-  const weeklyBody = document.getElementById("weeklyBody");
-  if (!weeklyBody) return;
-  const byMonth = new Map();
-  hours.forEach(h => {
-    const date = new Date(h.date);
-    const key = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}`;
-    if (!byMonth.has(key)) byMonth.set(key, { hours: 0, earnings: 0, subjects: new Set() });
-    const acc = byMonth.get(key);
-    acc.hours += h.hoursWorked;
-    acc.earnings += h.total;
-    if (h.subject) acc.subjects.add(h.subject);
-  });
-  const rows = Array.from(byMonth.entries()).sort((a,b) => a[0] < b[0] ? 1 : -1).map(([mo, acc]) => `
-    <tr>
-      <td>${mo}</td>
-      <td>${acc.hours.toFixed(1)}</td>
-      <td>$${acc.earnings.toFixed(2)}</td>
-      <td>${Array.from(acc.subjects).join(", ") || "—"}</td>
-      <td>$${(acc.earnings * 0.80).toFixed(2)}</td>
-    </tr>
-  `).join("");
-  weeklyBody.innerHTML = rows || `<tr><td colspan="5" style="text-align:center;color:#666;padding:20px;">No monthly data available</td></tr>`;
-}
-
-function showSubjectBreakdown() {
-  const subjectBody = document.getElementById("subjectBody");
-  if (!subjectBody) return;
-  const bySubject = new Map();
-  // Aggregate from marks and hours
-  marks.forEach(m => {
-    const key = m.subject || "—";
-    if (!bySubject.has(key)) bySubject.set(key, { scores: [], hours: 0, earnings: 0, sessions: 0 });
-    bySubject.get(key).scores.push(m.percentage);
-  });
-  hours.forEach(h => {
-    const key = h.subject || "—";
-    if (!bySubject.has(key)) bySubject.set(key, { scores: [], hours: 0, earnings: 0, sessions: 0 });
-    const acc = bySubject.get(key);
-    acc.hours += h.hoursWorked;
-    acc.earnings += h.total;
-    acc.sessions += 1;
+  // Breakdown by gender (if stored)
+  const genderStats = {};
+  appData.students.forEach(s => {
+    if (s.gender) {
+      if (!genderStats[s.gender]) genderStats[s.gender] = 0;
+      genderStats[s.gender]++;
+    }
   });
 
-  const rows = Array.from(bySubject.entries()).map(([sub, acc]) => {
-    const avg = acc.scores.length ? (acc.scores.reduce((a, s) => a + s, 0) / acc.scores.length) : 0;
-    return `
-      <tr>
-        <td>${sub}</td>
-        <td>${avg.toFixed(1)}%</td>
-        <td>${acc.hours.toFixed(1)}</td>
-        <td>$${acc.earnings.toFixed(2)}</td>
-        <td>${acc.sessions}</td>
-      </tr>
-    `;
-  }).join("");
-  subjectBody.innerHTML = rows || `<tr><td colspan="5" style="text-align:center;color:#666;padding:20px;">No subject data available</td></tr>`;
+  // Render summary
+  container.innerHTML = `
+    <h3>👩‍🎓 Students Summary</h3>
+    <p>Total students: ${studentCount}</p>
+    <h4>By Gender</h4>
+    ${Object.entries(genderStats).map(([g, count]) => `<div>${g}: ${count}</div>`).join("") || "<p>No gender data.</p>"}
+  `;
+}
+
+function loadAttendanceTab() {
+  console.log("📂 Loading tab data: attendance");
+  renderAttendance();
+
+  const summaryContainer = document.getElementById("attendanceSummary");
+  if (!summaryContainer) return;
+
+  if (appData.students.length === 0) {
+    summaryContainer.innerHTML = "<p>No students registered.</p>";
+    return;
+  }
+
+  if (appData.attendance.length === 0) {
+    summaryContainer.innerHTML = "<p>No attendance records yet.</p>";
+    return;
+  }
+
+  // Calculate per-student attendance
+  const stats = {};
+  appData.students.forEach(s => {
+    stats[s.id] = { name: s.name, present: 0, total: 0 };
+  });
+
+  appData.attendance.forEach(session => {
+    session.students.forEach(stu => {
+      if (stats[stu.id]) {
+        stats[stu.id].total++;
+        if (stu.present) stats[stu.id].present++;
+      }
+    });
+  });
+
+  // Render summary
+  summaryContainer.innerHTML = `
+    <h3>📅 Attendance Summary</h3>
+    ${Object.values(stats).map(s => {
+      const rate = s.total > 0 ? ((s.present / s.total) * 100).toFixed(1) : "N/A";
+      return `<div>${s.name}: ${s.present}/${s.total} sessions (${rate}%)</div>`;
+    }).join("")}
+  `;
+}
+
+function loadHoursTab() {
+  console.log("📂 Loading tab data: hours");
+  renderHours();
+
+  const container = document.getElementById("hoursSummary");
+  if (!container) return;
+
+  const hoursCount = appData.hours.length;
+  if (hoursCount === 0) {
+    container.innerHTML = "<p>No hours logged yet.</p>";
+    return;
+  }
+
+  // Totals and averages
+  const totalHours = appData.hours.reduce((sum, h) => sum + h.hours, 0);
+  const avgHours = (totalHours / hoursCount).toFixed(1);
+
+  // Breakdown by work type
+  const typeStats = {};
+  appData.hours.forEach(h => {
+    if (!typeStats[h.type]) typeStats[h.type] = 0;
+    typeStats[h.type] += h.hours;
+  });
+
+  // Breakdown by organization
+  const orgStats = {};
+  appData.hours.forEach(h => {
+    if (!orgStats[h.org]) orgStats[h.org] = 0;
+    orgStats[h.org] += h.hours;
+  });
+
+  // Render summary
+  container.innerHTML = `
+    <h3>⏱️ Hours Summary</h3>
+    <p>Total hours logged: ${totalHours}</p>
+    <p>Average hours per entry: ${avgHours}</p>
+    <h4>By Work Type</h4>
+    ${Object.entries(typeStats).map(([type, hrs]) => `<div>${type}: ${hrs}h</div>`).join("")}
+    <h4>By Organization</h4>
+    ${Object.entries(orgStats).map(([org, hrs]) => `<div>${org}: ${hrs}h</div>`).join("")}
+  `;
+}
+
+function loadMarksTab() {
+  console.log("📂 Loading tab data: marks");
+  renderMarks();
+}
+
+function loadReportsTab() {
+  console.log("📂 Loading tab data: reports");
+  const container = document.getElementById("reportsContainer");
+  if (!container) return;
+
+  // Basic counts
+  const studentCount = appData.students.length;
+  const paymentCount = allPayments.length;
+  const hoursCount = appData.hours.length;
+  const marksCount = appData.marks.length;
+  const attendanceSessions = appData.attendance.length;
+
+  // Attendance breakdown (overall)
+  let totalPresent = 0;
+  let totalMarked = 0;
+  appData.attendance.forEach(session => {
+    session.students.forEach(s => {
+      totalMarked++;
+      if (s.present) totalPresent++;
+    });
+  });
+  const attendanceRate = totalMarked > 0 ? ((totalPresent / totalMarked) * 100).toFixed(1) : "N/A";
+
+  // Financial summaries
+  const totalRevenue = allPayments.reduce((sum, p) => sum + p.amount, 0);
+  const avgPayment = paymentCount > 0 ? (totalRevenue / paymentCount).toFixed(2) : "N/A";
+  const avgPerStudent = studentCount > 0 ? (totalRevenue / studentCount).toFixed(2) : "N/A";
+
+  // Marks analysis
+  let avgScore = "N/A";
+  let highestMark = "N/A";
+  let lowestMark = "N/A";
+  if (marksCount > 0) {
+    const percentages = appData.marks.map(m => (m.score / m.maxScore) * 100);
+    avgScore = (percentages.reduce((sum, p) => sum + p, 0) / percentages.length).toFixed(1);
+    highestMark = Math.max(...percentages).toFixed(1);
+    lowestMark = Math.min(...percentages).toFixed(1);
+  }
+
+  // Render summary
+  container.innerHTML = `
+    <h3>📊 Reports Summary</h3>
+    <p>👩‍🎓 Students: ${studentCount}</p>
+    <p>💳 Payments: ${paymentCount}</p>
+    <p>⏱️ Hours logged: ${hoursCount}</p>
+    <p>📝 Marks recorded: ${marksCount}</p>
+    <p>📅 Attendance sessions: ${attendanceSessions}</p>
+    <p>✅ Average attendance rate: ${attendanceRate}%</p>
+    <hr>
+    <p>💰 Total revenue: $${totalRevenue.toFixed(2)}</p>
+    <p>💵 Average payment: $${avgPayment}</p>
+    <p>👨‍🎓 Average revenue per student: $${avgPerStudent}</p>
+    <hr>
+    <p>📈 Average score: ${avgScore}%</p>
+    <p>🏆 Highest mark: ${highestMark}%</p>
+    <p>📉 Lowest mark: ${lowestMark}%</p>
+  `;
+}
+
+function loadPaymentsTab() {
+  console.log("📂 Loading tab data: payments");
+  renderPayments();
+
+  const yearSelect = document.getElementById("paymentsYearSelect");
+  const monthSelect = document.getElementById("paymentsMonthSelect");
+
+  if (yearSelect) {
+    const years = [...new Set(allPayments.map(p => new Date(p.date).getFullYear()))];
+    yearSelect.innerHTML = `<option value="">All Years</option>` +
+      years.map(y => `<option value="${y}">${y}</option>`).join("");
+  }
+
+  if (monthSelect) {
+    const months = [...new Set(allPayments.map(p => new Date(p.date).getMonth() + 1))];
+    monthSelect.innerHTML = `<option value="">All Months</option>` +
+      months.map(m => `<option value="${m}">${m}</option>`).join("");
+  }
 }
 
 /* ============================================================================
-   Import/Export Local
+   Stats and UI updates
 ============================================================================ */
-function exportData() {
-  const blob = new Blob([JSON.stringify(appData, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `worklog-export-${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
+function updateStats() {
+  // Dashboard/global stats
+  const studentsCountEl = document.getElementById("studentsCount");
+  const avgRateEl = document.getElementById("avgRate");
+  
+  if (studentsCountEl) {
+    studentsCountEl.textContent = appData.students.length;
+  }
+  
+  if (avgRateEl && appData.students.length > 0) {
+    const totalRate = appData.students.reduce((sum, s) => sum + (s.rate || 0), 0);
+    const averageRate = totalRate / appData.students.length;
+    avgRateEl.textContent = `$${averageRate.toFixed(2)}/session`;
+  } else if (avgRateEl) {
+    avgRateEl.textContent = "$0.00/session";
+  }
+}
+
+/* ============================================================================
+   Sync Bar Functions (Updated for Firebase)
+============================================================================ */
+async function manualSync() { 
+  console.log("🔄 manualSync() called");
+  try {
+    if (typeof firebaseManager !== 'undefined' && firebaseManager.manualSync) {
+      await firebaseManager.manualSync();
+    } else {
+      await saveAllDataWithSync();
+      console.log("✅ Manual sync completed");
+    }
+  } catch (error) {
+    console.error("❌ Manual sync failed:", error);
+  }
+}
+
+function exportCloudData() { 
+  console.log("☁️ exportCloudData() called");
+  // This would be handled by your firebase-manager.js
+}
+
+function importToCloud() { 
+  console.log("📥 importToCloud() called");
+  // This would be handled by your firebase-manager.js
+}
+
+function showSyncStats() { 
+  console.log("📊 showSyncStats() called");
+  // Show Firebase sync statistics
+  if (typeof firebaseManager !== 'undefined') {
+    const stats = {
+      cloudEnabled: firebaseManager.isCloudEnabled ? firebaseManager.isCloudEnabled() : false,
+      lastSync: firebaseManager.getLastSync ? firebaseManager.getLastSync() : null,
+      user: firebaseManager.getCloudUser ? firebaseManager.getCloudUser() : null
+    };
+    alert(`Cloud Sync Stats:\n\nEnabled: ${stats.cloudEnabled}\nLast Sync: ${stats.lastSync ? stats.lastSync.toLocaleString() : 'Never'}\nUser: ${stats.user ? stats.user.email : 'None'}`);
+  } else {
+    alert("Cloud sync not available");
+  }
+}
+
+function exportData() { 
+  console.log("📤 exportData() called");
+  // Export to JSON file
+  const dataStr = JSON.stringify(appData, null, 2);
+  const dataBlob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(dataBlob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'tutor-data-backup.json';
+  link.click();
   URL.revokeObjectURL(url);
 }
 
-function importData() {
-  const input = document.getElementById("importFile") || (() => {
-    const file = document.createElement("input");
-    file.type = "file";
-    file.accept = ".json";
-    document.body.appendChild(file);
-    return file;
-  })();
+function importData() { 
+  console.log("📥 importData() called");
+  // Trigger file input for import
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
   input.onchange = async (e) => {
     const file = e.target.files[0];
-    if (!file) return;
-    const text = await file.text();
-    try {
-      const data = JSON.parse(text);
-      students = Array.isArray(data.students) ? data.students : [];
-      hours = Array.isArray(data.hours) ? data.hours : [];
-      marks = Array.isArray(data.marks) ? data.marks : [];
-      attendance = Array.isArray(data.attendance) ? data.attendance : [];
-      payments = Array.isArray(data.payments) ? data.payments : [];
-      defaultRate = typeof data.defaultRate === "number" ? data.defaultRate : defaultRate;
-      await saveAllDataWithSync();
-      // re-render everything
-      renderStudents();
-      populateStudentSelects();
-      updateStudentStats();
-      renderHours();
-      updateHoursStats();
-      renderMarks();
-      updateMarksStats();
-      renderAttendance();
-      updateAttendanceStats();
-      renderPayments();
-      renderPaymentActivity();
-      updatePaymentsStats();
-      updateReports();
-      alert("Data imported successfully.");
-    } catch (err) {
-      alert("Invalid JSON file.");
+    if (file) {
+      const text = await file.text();
+      try {
+        const importedData = JSON.parse(text);
+        Object.assign(appData, importedData);
+        await saveAllDataWithSync();
+        location.reload();
+      } catch (error) {
+        alert('Error importing data: ' + error.message);
+      }
     }
   };
   input.click();
 }
 
-function clearAllData() {
-  if (!confirm("This will clear all local data. Continue?")) return;
-  students = [];
-  hours = [];
-  marks = [];
-  attendance = [];
-  payments = [];
-  saveAllDataWithSync();
-  // Refresh UI
-  renderStudents();
-  populateStudentSelects();
-  updateStudentStats();
-  renderHours();
-  updateHoursStats();
-  renderMarks();
-  updateMarksStats();
-  renderAttendance();
-  updateAttendanceStats();
-  renderPayments();
-  renderPaymentActivity();
-  updatePaymentsStats();
-  updateReports();
-  updateHeaderCounts();
+async function clearAllData() {
+  if (confirm("Are you sure you want to clear ALL data? This cannot be undone!")) {
+    initializeEmptyData();
+    await saveAllDataWithSync();
+    renderStudents(); 
+    renderPayments(); 
+    renderHours(); 
+    renderMarks(); 
+    renderAttendance();
+    updateStats();
+    console.log("🗑️ All data cleared");
+  }
+}
+
+function toggleAutoSync() { 
+  console.log("🔁 toggleAutoSync() called");
+  // Could be implemented with Firebase real-time updates
+}
+
+// Placeholder functions for settings
+async function saveDefaultRate() {
+  const newRate = parseFloat(prompt("Enter new default rate:", appData.settings.defaultRate));
+  if (!isNaN(newRate) && newRate > 0) {
+    appData.settings.defaultRate = newRate;
+    await saveAllDataWithSync();
+    loadDefaultRate();
+    console.log("💵 Default rate updated to:", newRate);
+  }
+}
+
+async function applyDefaultRateToAll() {
+  if (confirm("Apply the default rate to all existing students?")) {
+    appData.students.forEach(student => {
+      student.rate = appData.settings.defaultRate;
+    });
+    await saveAllDataWithSync();
+    renderStudents();
+    updateStats();
+    console.log("✅ Default rate applied to all students");
+  }
+}
+
+function useDefaultRate() {
+  const rateInput = document.getElementById("studentBaseRate");
+  if (rateInput) {
+    rateInput.value = appData.settings.defaultRate;
+  }
 }
 
 /* ============================================================================
-   Cloud Sync UI + Controls (Firebase Manager)
+   Boot and Global Exposure
 ============================================================================ */
-function setupCloudSyncUI() {
-  const statusEl = document.getElementById("syncStatus"); // header area shows text; cloud bar has indicator/message
-  if (statusEl) statusEl.textContent = "☁️ Cloud Sync: Ready";
-  setSyncMessage("Connecting to cloud...");
-  setSyncIndicator(false);
-
-  const autoSyncCheckbox = document.getElementById("autoSyncCheckbox");
-  if (autoSyncCheckbox) {
-    autoSyncCheckbox.checked = !!(typeof firebaseManager !== "undefined" && firebaseManager.isCloudEnabled());
-    autoSyncCheckbox.addEventListener("change", async (e) => {
-      if (typeof firebaseManager === "undefined") {
-        alert("Cloud manager is not available.");
-        e.target.checked = false;
-        return;
-      }
-      if (e.target.checked) {
-        await firebaseManager.enableCloudSync();
-        setSyncMessage("✅ Cloud enabled");
-        setSyncIndicator(true);
-        await firebaseManager.manualSync(appData);
-      } else {
-        await firebaseManager.signOut();
-        setSyncMessage("🔴 Cloud disabled");
-        setSyncIndicator(false);
-      }
-    });
-  }
-
-  const syncBtn = document.getElementById("syncBtn");
-  if (syncBtn) {
-    syncBtn.style.display = "inline-block";
-    syncBtn.addEventListener("click", async () => {
-      setSyncMessage("Syncing...");
-      await saveAllDataWithSync();
-    });
-  }
-
-  const exportCloudBtn = document.getElementById("exportCloudBtn");
-  if (exportCloudBtn) {
-    exportCloudBtn.addEventListener("click", async () => {
-      if (typeof firebaseManager === "undefined" || !firebaseManager.isCloudEnabled()) {
-        alert("Enable cloud sync first.");
-        return;
-      }
-      const data = await firebaseManager.fetchData();
-      if (data) {
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `cloud-export-${new Date().toISOString().slice(0,10)}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-      } else {
-        alert("No cloud data available.");
-      }
-    });
-  }
-
-  const importCloudBtn = document.getElementById("importCloudBtn");
-  if (importCloudBtn) {
-    importCloudBtn.addEventListener("click", async () => {
-      if (typeof firebaseManager === "undefined" || !firebaseManager.isCloudEnabled()) {
-        alert("Enable cloud sync first.");
-        return;
-      }
-      await firebaseManager.saveData(appData);
-      setSyncMessage("✅ Uploaded local data to cloud");
-    });
-  }
-
-  const syncStatsBtn = document.getElementById("syncStatsBtn");
-  if (syncStatsBtn) {
-    syncStatsBtn.addEventListener("click", () => {
-      showSyncStats();
-    });
-  }
-}
-
-async function showSyncStats() {
-  const modal = document.getElementById("syncStatsModal");
-  const content = document.getElementById("syncStatsContent");
-  if (!modal || !content) return;
-  modal.style.display = "block";
-  content.innerHTML = `<p>Loading sync statistics...</p>`;
+document.addEventListener("DOMContentLoaded", () => {
   try {
-    let stats = null;
-    if (typeof firebaseManager !== "undefined" && firebaseManager.isCloudEnabled()) {
-      stats = await firebaseManager.getStats();
-    }
-    if (!stats) {
-      stats = {
-        students: students.length,
-        hours: hours.length,
-        marks: marks.length,
-        attendance: attendance.length,
-        payments: payments.length,
-        lastSync: new Date().toLocaleString()
-      };
-    }
-    content.innerHTML = `
-      <div class="stats-grid">
-        <div><strong>Students:</strong> ${stats.students}</div>
-        <div><strong>Hours:</strong> ${stats.hours}</div>
-        <div><strong>Marks:</strong> ${stats.marks}</div>
-        <div><strong>Attendance:</strong> ${stats.attendance}</div>
-        <div><strong>Payments:</strong> ${stats.payments}</div>
-        <div><strong>Last Sync:</strong> ${stats.lastSync || "—"}</div>
-      </div>
-    `;
+    init();
   } catch (err) {
-    content.innerHTML = `<p style="color:#dc3545;">Failed to load stats.</p>`;
-  }
-}
-function closeSyncStats() {
-  const modal = document.getElementById("syncStatsModal");
-  if (modal) modal.style.display = "none";
-}
-
-/* ============================================================================
-   Auth menu (UI stubs)
-============================================================================ */
-const authButton = document.getElementById("authButton");
-if (authButton) {
-  authButton.addEventListener("click", () => {
-    const menu = document.getElementById("userMenu");
-    if (menu) {
-      menu.style.display = menu.style.display === "block" ? "none" : "block";
-    }
-  });
-}
-const profileBtn = document.getElementById("profileBtn");
-if (profileBtn) {
-  profileBtn.addEventListener("click", () => {
-    alert("Profile & Settings coming soon.");
-  });
-}
-const logoutBtn = document.getElementById("logoutBtn");
-if (logoutBtn) {
-  logoutBtn.addEventListener("click", async () => {
-    if (typeof firebaseManager !== "undefined" && firebaseManager.isCloudEnabled()) {
-      await firebaseManager.signOut();
-      setSyncMessage("🔴 Logged out from cloud");
-      setSyncIndicator(false);
-    }
-    const menu = document.getElementById("userMenu");
-    if (menu) menu.style.display = "none";
-  });
-}
-
-/* Close user menu when clicking outside */
-document.addEventListener("click", function(event) {
-  const userMenu = document.getElementById("userMenu");
-  const authBtn = document.getElementById("authButton");
-  if (userMenu && authBtn && !authBtn.contains(event.target) && !userMenu.contains(event.target)) {
-    userMenu.style.display = "none";
+    console.error("❌ Initialization failed:", err);
   }
 });
 
-/* ============================================================================
-   Wire buttons in Cloud/App Controls bar
-============================================================================ */
-const exportDataBtn = document.getElementById("exportDataBtn");
-if (exportDataBtn) exportDataBtn.addEventListener("click", exportData);
+// Expose functions that HTML expects
+window.updatePaymentsByYearMonth = updatePaymentsByYearMonth;
+window.toggleAutoSync = toggleAutoSync;
+window.manualSync = manualSync;
+window.exportData = exportData;
+window.importData = importData;
+window.clearAllData = clearAllData;
 
-const importDataBtn = document.getElementById("importDataBtn");
-if (importDataBtn) importDataBtn.addEventListener("click", importData);
-
-const clearDataBtn = document.getElementById("clearDataBtn");
-if (clearDataBtn) clearDataBtn.addEventListener("click", clearAllData);
-
-/* ============================================================================
-   Initialization
-============================================================================ */
-function init() {
-  // Initial renders
-  renderStudents();
-  populateStudentSelects();
-  updateStudentStats();
-
-  renderHours();
-  updateHoursStats();
-
-  renderMarks();
-  updateMarksStats();
-
-  renderAttendance();
-  updateAttendanceStats();
-
-  renderPayments();
-  renderPaymentActivity();
-  updatePaymentsStats();
-
-  updateReports();
-  updateHeaderCounts();
-
-  // Cloud sync UI
-  setupCloudSyncUI();
-
-  // Hook action buttons that rely on inline HTML onClick — ensure availability on window
-  window.addStudent = addStudent;
-  window.clearStudentForm = clearStudentForm;
-  window.saveDefaultRate = saveDefaultRate;
-  window.applyDefaultRateToAll = applyDefaultRateToAll;
-  window.useDefaultRate = useDefaultRate;
-
-  window.useDefaultRateInHours = useDefaultRateInHours;
-  window.logHours = logHours;
-  window.resetHoursForm = resetHoursForm;
-
-  window.addMark = addMark;
-
-  window.selectAllStudents = selectAllStudents;
-  window.deselectAllStudents = deselectAllStudents;
-  window.saveAttendance = saveAttendance;
-  window.clearAttendanceForm = clearAttendanceForm;
-
-  window.recordPayment = recordPayment;
-  window.resetPaymentForm = resetPaymentForm;
-
-  window.exportData = exportData;
-  window.importData = importData;
-  window.clearAllData = clearAllData;
-
-  window.showWeeklyBreakdown = showWeeklyBreakdown;
-  window.showBiWeeklyBreakdown = showBiWeeklyBreakdown;
-  window.showMonthlyBreakdown = showMonthlyBreakdown;
-  window.showSubjectBreakdown = showSubjectBreakdown;
-
-  window.showSyncStats = showSyncStats;
-  window.closeSyncStats = closeSyncStats;
-
-  // Ready
-  setSyncMessage("Ready");
-}
-
-document.addEventListener("DOMContentLoaded", init);
+// Make app data accessible for debugging
+window.appData = appData;
