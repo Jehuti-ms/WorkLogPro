@@ -266,10 +266,12 @@ function updateCloudSyncUI() {
       if (lastSync) {
         syncStatus.title = `Last sync: ${lastSync.toLocaleTimeString()}`;
       }
+      setSyncIndicator("online");
     } else {
       syncStatus.textContent = '🔴 Offline';
       syncStatus.className = 'sync-status offline';
       syncStatus.title = 'Enable cloud backup for data safety';
+      setSyncIndicator("offline");
     }
   }
 
@@ -279,6 +281,37 @@ function updateCloudSyncUI() {
 
   if (cloudPrompt) {
     cloudPrompt.style.display = !cloudEnabled ? 'flex' : 'none';
+  }
+}
+
+
+//Sync Indicator
+function setSyncIndicator(state) {
+  const indicator = document.getElementById("syncIndicator");
+  const message = document.getElementById("syncMessage");
+  if (!indicator || !message) return;
+
+  // Reset classes
+  indicator.className = "sync-indicator";
+
+  switch (state) {
+    case "online":
+      indicator.classList.add("sync-connected");
+      indicator.style.background = "green";
+      message.textContent = "🟢 Cloud Backup Enabled";
+      break;
+
+    case "local":
+      indicator.classList.add("sync-local");
+      indicator.style.background = "orange";
+      message.textContent = "🟡 Local Only (not synced)";
+      break;
+
+    default:
+      indicator.classList.add("sync-offline");
+      indicator.style.background = "red";
+      message.textContent = "🔴 Offline";
+      break;
   }
 }
 
