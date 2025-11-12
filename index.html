@@ -102,6 +102,43 @@
 
         <!-- Your App -->
         <script src="app.js"></script>
+<!-- Add this to index.html before closing </body> tag -->
+<script>
+// Authentication check for index.html
+console.log("🔐 Checking authentication status...");
 
+function checkAuthAndRedirect() {
+    // Check if auth system is loaded and user is authenticated
+    const isAuthSystemLoaded = typeof Auth !== 'undefined' && Auth.isAuthenticated;
+    const isAuthenticated = isAuthSystemLoaded ? Auth.isAuthenticated() : false;
+    
+    console.log("Auth check:", {
+        systemLoaded: isAuthSystemLoaded,
+        authenticated: isAuthenticated,
+        currentPath: window.location.pathname
+    });
+    
+    // If not authenticated and we're on the main app page, redirect to auth
+    if (!isAuthenticated && !window.location.pathname.includes('auth.html')) {
+        console.log("🚫 Not authenticated - redirecting to auth page");
+        // Small delay to let user see what's happening
+        setTimeout(() => {
+            window.location.href = 'auth.html';
+        }, 1000);
+        return false;
+    }
+    
+    return true;
+}
+
+// Wait for auth system to load, then check
+setTimeout(() => {
+    const canProceed = checkAuthAndRedirect();
+    if (canProceed) {
+        console.log("✅ Authentication valid - loading main app");
+        // The app.js will continue initialization
+    }
+}, 500);
+</script>
 </body>
 </html>
