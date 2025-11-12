@@ -91,18 +91,53 @@
       <div id="reports" class="tab-content"></div>
     </div>
   </div>
-    <!-- Firebase SDKs -->
+     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
-    <!-- Your Firebase Files as MODULES -->
-    <script type="module" src="firebase-config.js"></script>
-    <script type="module" src="firebase-manager.js"></script>
+    <!-- Your Firebase Files -->
+    <script src="firebase-config.js"></script>
+    <script src="firebase-manager.js"></script>
 
-        <!-- Your App -->
-        <script src="app.js"></script>
-<!-- Add this to index.html before closing </body> tag -->
+    <!-- Auth System -->
+    <script src="auth.js"></script>
+
+    <!-- Main App -->
+    <script src="app.js"></script>
+
+    <!-- Auth Check - Runs after everything is loaded -->
+    <script>
+    console.log("🔐 Starting final auth check...");
+    
+    // Wait for everything to load
+    setTimeout(() => {
+        const loadingScreen = document.getElementById('loadingScreen');
+        
+        // Check if auth system is properly loaded
+        if (typeof Auth === 'undefined') {
+            console.error("❌ Auth system not loaded - redirecting to auth page");
+            window.location.href = 'auth.html';
+            return;
+        }
+        
+        // Check authentication status
+        const isAuthenticated = Auth.isAuthenticated();
+        console.log("✅ Auth system loaded, authenticated:", isAuthenticated);
+        
+        if (!isAuthenticated) {
+            console.log("🚫 Not authenticated - redirecting to auth page");
+            window.location.href = 'auth.html';
+        } else {
+            console.log("✅ User authenticated - showing main app");
+            // Hide loading screen and show app
+            if (loadingScreen) {
+                loadingScreen.style.display = 'none';
+            }
+            // App will continue initialization
+        }
+    }, 2000); // Give everything 2 seconds to load
+    </script>
 <script>
 // Authentication check for index.html
 console.log("🔐 Checking authentication status...");
