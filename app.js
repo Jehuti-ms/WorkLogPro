@@ -912,6 +912,83 @@ function loadPaymentsTab() {
   }
 }
 
+// Context-aware FAB
+function updateFabAction() {
+  const activeTab = document.querySelector(".tab.active")?.dataset.tab;
+  const fab = document.getElementById("fab");
+  if (!fab) return;
+
+  switch (activeTab) {
+    case "students":
+      fab.textContent = "👤";
+      fab.title = "Add Student";
+      fab.onclick = () => {
+        document.getElementById("students").classList.add("active");
+        document.getElementById("studentName").focus();
+      };
+      break;
+
+    case "hours":
+      fab.textContent = "⏱️";
+      fab.title = "Log Hours";
+      fab.onclick = () => {
+        document.getElementById("hours").classList.add("active");
+        document.getElementById("organization").focus();
+      };
+      break;
+
+    case "marks":
+      fab.textContent = "📊";
+      fab.title = "Add Mark";
+      fab.onclick = () => {
+        document.getElementById("marks").classList.add("active");
+        document.getElementById("marksStudent").focus();
+      };
+      break;
+
+    case "attendance":
+      fab.textContent = "✅";
+      fab.title = "Record Attendance";
+      fab.onclick = () => {
+        document.getElementById("attendance").classList.add("active");
+        document.getElementById("attendanceDate").focus();
+      };
+      break;
+
+    case "payments":
+      fab.textContent = "💰";
+      fab.title = "Record Payment";
+      fab.onclick = () => {
+        document.getElementById("payments").classList.add("active");
+        document.getElementById("paymentStudent").focus();
+      };
+      break;
+
+    case "reports":
+      fab.textContent = "📈";
+      fab.title = "View Reports";
+      fab.onclick = () => {
+        document.getElementById("reports").classList.add("active");
+      };
+      break;
+
+    default:
+      fab.textContent = "➕";
+      fab.title = "Quick Action";
+      fab.onclick = () => {};
+  }
+}
+
+// Update FAB whenever a tab is clicked
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    updateFabAction();
+  });
+});
+
+// Initialize FAB on load
+document.addEventListener("DOMContentLoaded", updateFabAction);
+
 /* ============================================================================
    Stats and UI updates
 ============================================================================ */
