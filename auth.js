@@ -45,15 +45,41 @@ document.getElementById("loginForm")?.addEventListener("submit", async (e) => {
 // Register
 document.getElementById("registerForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
+  console.log("Register form submitted"); // Debug line
+
+  const name = document.getElementById("registerName").value.trim();
   const email = document.getElementById("registerEmail").value.trim();
   const password = document.getElementById("registerPassword").value;
+  const confirmPassword = document.getElementById("registerConfirmPassword").value;
+  const acceptTerms = document.getElementById("acceptTerms").checked;
+
+  // Basic validation
+  if (!acceptTerms) {
+    alert("You must accept the Terms of Service and Privacy Policy.");
+    return;
+  }
+  if (password !== confirmPassword) {
+    alert("Passwords do not match.");
+    return;
+  }
+
   try {
-    await createUserWithEmailAndPassword(auth, email, password);
+    // Create account in Firebase
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+
+    // Optionally set displayName
+    if (name) {
+      await import("https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js")
+        .then(({ updateProfile }) => updateProfile(userCredential.user, { displayName: name }));
+    }
+
     alert("Account created successfully!");
   } catch (err) {
+    console.error("Registration error:", err);
     alert("Registration failed: " + err.message);
   }
 });
+
 
 // Forgot password
 document.getElementById("forgotPasswordForm")?.addEventListener("submit", async (e) => {
