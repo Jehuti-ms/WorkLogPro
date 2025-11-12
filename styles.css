@@ -667,3 +667,57 @@ p {
     margin-left: 0;
   }
 }
+
+/* Cloud Sync Styles */
+.cloud-sync-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.sync-status {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid;
+}
+
+.sync-status.online {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.sync-status.local {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.sync-status.offline {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+#cloudControls, #cloudPrompt {
+  display: flex;
+  gap: 8px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .cloud-sync-section {
+    margin-left: 0;
+    justify-content: center;
+    width: 100%;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+}
+
