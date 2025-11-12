@@ -205,138 +205,82 @@ function loadDefaultRate() {
 function setupCloudSyncUI() {
   const syncBar = document.querySelector('.sync-bar');
   if (!syncBar) return;
-  
+
   const cloudSection = document.createElement('div');
   cloudSection.className = 'cloud-sync-section';
   cloudSection.innerHTML = `
     <div id="syncStatus" class="sync-status offline">🔴 Offline</div>
     <div id="cloudControls" style="display: none;">
-      <button onclick="firebaseManager.manualSync()" class="btn btn-sm btn-success" title="Backup to cloud">
+      <button id="backupBtn" class="btn btn-sm btn-success" title="Backup to cloud">
         💾 Backup Now
       </button>
-      <button onclick="firebaseManager.signOut()" class="btn btn-sm btn-secondary" title="Disable cloud backup">
+      <button id="disableBtn" class="btn btn-sm btn-secondary" title="Disable cloud backup">
         ☁️ Disable
       </button>
     </div>
     <div id="cloudPrompt" style="display: none;">
-      <button onclick="firebaseManager.enableCloudSync()" class="btn btn-sm btn-primary">
+      <button id="enableBtn" class="btn btn-sm btn-primary">
         Enable Cloud Backup
       </button>
     </div>
   `;
-  
+
   syncBar.appendChild(cloudSection);
-  
+
+  // Wire buttons explicitly
+  document.getElementById("backupBtn").addEventListener("click", () => {
+    firebaseManager.manualSync(appData);
+    updateCloudSyncUI();
+  });
+  document.getElementById("disableBtn").addEventListener("click", () => {
+    firebaseManager.signOut();
+    updateCloudSyncUI();
+  });
+  document.getElementById("enableBtn").addEventListener("click", () => {
+    firebaseManager.enableCloudSync();
+    updateCloudSyncUI();
+  });
+
   // Initial UI update
   updateCloudSyncUI();
 }
 
 function updateCloudSyncUI() {
   if (typeof firebaseManager === 'undefined') return;
-  
+
   const syncStatus = document.getElementById('syncStatus');
   const cloudControls = document.getElementById('cloudControls');
   const cloudPrompt = document.getElementById('cloudPrompt');
-  
+
+  const cloudEnabled = typeof firebaseManager.isCloudEnabled === "function"
+    ? firebaseManager.isCloudEnabled()
+    : firebaseManager.isCloudEnabled;
+
   if (syncStatus) {
-    if (firebaseManager.isCloudEnabled && firebaseManager.isCloudEnabled()) {
+    if (cloudEnabled) {
       syncStatus.textContent = '🟢 Cloud Backup';
       syncStatus.className = 'sync-status online';
-      const lastSync = firebaseManager.getLastSync && firebaseManager.getLastSync();
+      const lastSync = typeof firebaseManager.getLastSync === "function"
+        ? firebaseManager.getLastSync()
+        : null;
       if (lastSync) {
         syncStatus.title = `Last sync: ${lastSync.toLocaleTimeString()}`;
       }
-    } else if (window.Auth && window.Auth.isAuthenticated && window.Auth.isAuthenticated()) {
-      syncStatus.textContent = '🟡 Local Only';
-      syncStatus.className = 'sync-status local';
-      syncStatus.title = 'Enable cloud backup for data safety';
     } else {
       syncStatus.textContent = '🔴 Offline';
       syncStatus.className = 'sync-status offline';
-      syncStatus.title = 'Sign in to enable cloud backup';
+      syncStatus.title = 'Enable cloud backup for data safety';
     }
   }
-  
+
   if (cloudControls) {
-    cloudControls.style.display = (firebaseManager.isCloudEnabled && firebaseManager.isCloudEnabled()) ? 'flex' : 'none';
+    cloudControls.style.display = cloudEnabled ? 'flex' : 'none';
   }
-  
+
   if (cloudPrompt) {
-    const hasLocalAuth = window.Auth && window.Auth.isAuthenticated && window.Auth.isAuthenticated();
-    cloudPrompt.style.display = (hasLocalAuth && (!firebaseManager.isCloudEnabled || !firebaseManager.isCloudEnabled())) ? 'flex' : 'none';
+    cloudPrompt.style.display = !cloudEnabled ? 'flex' : 'none';
   }
 }
-
-// Cloud data merge function for firebase-manager to call
-window.mergeCloudData = function(cloudData) {
-  if (cloudData && typeof cloudData === 'object') {
-    console.log("🔄 Merging cloud data with local data...");
-    
-    // Store original counts
-    const originalCounts = {
-      students: appData.students.length,
-      payments: allPayments.length,
-      hours: appData.hours.length,
-      marks: appData.marks.length,
-      attendance: appData.attendance.length
-    };
-    
-    // Merge data (cloud data takes precedence)
-    if (Array.isArray(cloudData.students)) {
-      appData.students = cloudData.students;
-    }
-    if (Array.isArray(cloudData.payments)) {
-      appData.payments = cloudData.payments;
-      allPayments = cloudData.payments.slice();
-    }
-    if (Array.isArray(cloudData.hours)) {
-      appData.hours = cloudData.hours;
-    }
-    if (Array.isArray(cloudData.marks)) {
-      appData.marks = cloudData.marks;
-    }
-    if (Array.isArray(cloudData.attendance)) {
-      appData.attendance = cloudData.attendance;
-    }
-    if (cloudData.settings && typeof cloudData.settings === 'object') {
-      appData.settings = { ...appData.settings, ...cloudData.settings };
-    }
-    
-    // Save merged data locally
-    saveAllData();
-    
-    // Calculate changes
-    const newCounts = {
-      students: appData.students.length,
-      payments: allPayments.length,
-      hours: appData.hours.length,
-      marks: appData.marks.length,
-      attendance: appData.attendance.length
-    };
-    
-    console.log("✅ Cloud data merge completed:", {
-      students: `+${newCounts.students - originalCounts.students}`,
-      payments: `+${newCounts.payments - originalCounts.payments}`,
-      hours: `+${newCounts.hours - originalCounts.hours}`
-    });
-    
-    // Refresh UI
-    renderStudents();
-    renderPayments();
-    renderHours();
-    renderMarks();
-    renderAttendance();
-    updateStats();
-    
-    // Update cloud sync UI
-    updateCloudSyncUI();
-    
-    // Show notification
-    if (window.showNotification) {
-      window.showNotification("✅ Cloud data loaded successfully", "success");
-    }
-  }
-};
 
 /* ============================================================================
    Tabs and events
