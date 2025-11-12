@@ -406,5 +406,34 @@
             alert('Privacy Policy: This app stores data locally in your browser. No data is sent to external servers except for authentication purposes.');
         }
     </script>
+    <!-- Add this to auth.html before closing </body> tag -->
+<script>
+// Auto-redirect if already authenticated
+console.log("🔐 Auth page loaded - checking if already logged in...");
+
+function checkIfAlreadyAuthenticated() {
+    const isAuthSystemLoaded = typeof Auth !== 'undefined' && Auth.isAuthenticated;
+    const isAuthenticated = isAuthSystemLoaded ? Auth.isAuthenticated() : false;
+    
+    console.log("Auth page check:", {
+        systemLoaded: isAuthSystemLoaded,
+        authenticated: isAuthenticated
+    });
+    
+    if (isAuthenticated) {
+        console.log("✅ Already authenticated - redirecting to main app");
+        // Show a message then redirect
+        setTimeout(() => {
+            window.location.href = 'index.html';
+        }, 1500);
+        return true;
+    }
+    
+    return false;
+}
+
+// Check after auth system loads
+setTimeout(checkIfAlreadyAuthenticated, 1000);
+</script>
 </body>
 </html>
