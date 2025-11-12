@@ -205,6 +205,61 @@ function getCurrentUserId() {
     return authState.currentUser ? authState.currentUser.id : null;
 }
 
+// Add this to your auth.js file (in the AUTH OPERATIONS section)
+function validateSession() {
+    const sessionId = localStorage.getItem('worklog_session');
+    console.log("🔍 Validating session:", sessionId);
+    
+    if (!sessionId) {
+        console.log("❌ No session found");
+        return false;
+    }
+    
+    // Find user with this session
+    const user = authState.users.find(u => u.id === sessionId);
+    
+    if (!user) {
+        console.log("❌ Session invalid - user not found");
+        localStorage.removeItem('worklog_session');
+        return false;
+    }
+    
+    console.log("✅ Session valid for user:", user.email);
+    
+    // Update auth state
+    authState.isAuthenticated = true;
+    authState.currentUser = user;
+    
+    return true;
+}
+
+// Update your checkExistingSession function to use validateSession
+function checkExistingSession() {
+    return validateSession();
+}
+
+// Update your initAuth function to be more robust
+function initAuth() {
+    console.log('🔐 Initializing auth system...');
+    loadAuthData();
+    
+    const hasValidSession = validateSession();
+    
+    if (window.location.pathname.includes('auth.html')) {
+        setupAuthEventListeners();
+        if (hasValidSession) {
+            console.log('✅ Already logged in, will redirect to app...');
+        }
+    } else {
+        // We're on index.html - setup main app UI if authenticated
+        if (hasValidSession) {
+            console.log('✅ Valid session - user can access main app');
+        } else {
+            console.log('❌ No valid session - user should be redirected to auth page');
+        }
+    }
+}
+
 // ============================================================================
 // UI MANAGEMENT
 // ============================================================================
