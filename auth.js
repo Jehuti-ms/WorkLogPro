@@ -16,12 +16,12 @@ import {
 
 // Replace with your Firebase project config
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyDdLP_LgiC6EgzC3hUP_mGuNW4_BUEACs8",
+  authDomain: "worklogpro-4284e.firebaseapp.com",
+  projectId: "worklogpro-4284e",
+  storageBucket: "worklogpro-4284e.firebasestorage.app",
+  messagingSenderId: "299567233913",
+  appId: "1:299567233913:web:7232a5a5a8aa9b79948da8"
 };
 
 // Initialize Firebase
