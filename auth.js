@@ -1,6 +1,6 @@
 // auth.js
 // WorkLog Authentication using Firebase CDN modules
-
+console.log("✅ auth.js loaded");
 // Import Firebase directly from CDN
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import {
