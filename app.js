@@ -370,10 +370,26 @@ function setSyncIndicator(state) {
   }
 }
 
+// Auto Sync Toggle
+const autoSyncToggle = document.getElementById("autoSyncToggle");
+const syncBtn = document.getElementById("syncBtn");
+
+if (autoSyncToggle) {
+  autoSyncToggle.addEventListener("change", () => {
+    if (autoSyncToggle.checked) {
+      syncBtn.textContent = "⚡ Auto Sync";
+      startAutoSync();
+    } else {
+      syncBtn.textContent = "🔄 Sync Now";
+      stopAutoSync();
+    }
+  });
+}
+
 function startAutoSync() {
   updateSyncStatus("syncing", "⚡ Auto Sync enabled");
 
-  // Clear any existing interval
+  // Clear any existing interval before starting a new one
   if (window.autoSyncInterval) clearInterval(window.autoSyncInterval);
 
   // 🔥 Run one sync immediately
@@ -387,7 +403,7 @@ function startAutoSync() {
       console.error(err);
     });
 
-  // Then continue syncing every 60 seconds
+  // Keep syncing every 60 seconds until unchecked
   window.autoSyncInterval = setInterval(async () => {
     try {
       await performCloudSync();
@@ -400,9 +416,11 @@ function startAutoSync() {
   }, 60000);
 }
 
-
 function stopAutoSync() {
-  clearInterval(window.autoSyncInterval);
+  if (window.autoSyncInterval) {
+    clearInterval(window.autoSyncInterval);
+    window.autoSyncInterval = null;
+  }
   updateSyncStatus("offline", "⚠️ Auto Sync disabled");
 }
 
