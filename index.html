@@ -43,39 +43,31 @@
         </div>
     </header>
 
-    <!-- Cloud Sync Bar -->
-          <div class="cloud-sync-bar">
-            <div class="sync-status">
-              <span class="sync-indicator sync-connected" id="syncIndicator"></span>
-              <span id="syncMessage">Connecting to cloud...</span>
-            </div>
-          
-            <div class="sync-controls">
-              <div class="sync-options">
-                <label>
-                  <input type="checkbox" id="autoSyncCheckbox"> Auto-sync
-                </label>
-                <button id="syncBtn" class="btn btn-sm btn-primary">🔄 Sync Now</button>
-              </div>
-              <!-- Persistent message line -->
-              <div id="syncMessageLine" class="sync-message-line">Status: Not synced yet</div>
-              <!-- Pulsing dot indicator -->
-              <span id="autoSyncDot" class="auto-sync-dot" style="display:none;"></span>
-            </div>
-          </div>
+   <!-- Cloud Sync Bar -->
+<div class="cloud-sync-bar">
+  <div class="sync-status">
+    <span class="sync-indicator sync-connected" id="syncIndicator"></span>
+    <span id="syncMessage">Connecting to cloud...</span>
+  </div>
 
-          <button id="syncBtn" class="btn btn-sm">🔄 Sync Now</button>
-          <button id="exportCloudBtn" class="btn btn-sm">☁️ Export Cloud</button>
-          <button id="importCloudBtn" class="btn btn-sm">📥 Import Cloud</button>
-          <button id="syncStatsBtn" class="btn btn-sm">📊 Sync Stats</button>
-        </div>
-        <div class="app-controls">
-          <button id="exportDataBtn" class="btn btn-sm">📤 Export Data</button>
-          <button id="importDataBtn" class="btn btn-sm">📥 Import Data</button>
-          <button id="clearDataBtn" class="btn btn-sm btn-danger">🗑️ Clear All</button>
-        </div>
-      </div>
-    </div>
+  <div class="sync-controls-row">
+    <!-- Sync Controls -->
+    <button id="syncBtn" class="btn btn-sm btn-primary">🔄 Sync Now</button>
+    <label class="auto-sync-label">
+      <input type="checkbox" id="autoSyncCheckbox"> Auto-sync
+    </label>
+    <span id="autoSyncDot" class="auto-sync-dot" style="display:none;"></span>
+
+    <!-- App-Level Buttons -->
+    <button id="exportCloudBtn" class="btn btn-sm btn-secondary">Export Cloud</button>
+    <button id="importCloudBtn" class="btn btn-sm btn-secondary">Import Cloud</button>
+    <button id="syncStatsBtn" class="btn btn-sm btn-info">Sync Stats</button>
+
+    <!-- Persistent Message -->
+    <div id="syncMessageLine" class="sync-message-line">Status: Not synced yet</div>
+  </div>
+</div>
+
 
     <!-- Tabs -->
     <div class="tabs-container">
