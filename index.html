@@ -408,9 +408,8 @@
 
     <!-- Auth Check - Runs after everything is loaded -->
    <script type="module">
-  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-  const auth = getAuth();
+  import { auth } from "./firebase-config.js";
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
   console.log("🔐 Starting auth check on index.html...");
 
