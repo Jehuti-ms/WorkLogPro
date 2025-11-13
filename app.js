@@ -297,19 +297,24 @@ function setupCloudSyncUI() {
     }
   });
 
-  const autoSyncToggle = document.getElementById("autoSyncToggle");
-  if (autoSyncToggle) {
-    autoSyncToggle.addEventListener("change", () => {
-      const syncBtn = document.getElementById("syncBtn");
-      if (autoSyncToggle.checked) {
-        syncBtn.textContent = "⚡ Auto Sync";
-        startAutoSync();
-      } else {
-        syncBtn.textContent = "🔄 Sync Now";
-        stopAutoSync();
-      }
-    });
-  }
+ const autoSyncToggle = document.getElementById("autoSyncCheckbox");
+const syncBtn = document.getElementById("syncBtn");
+const autoSyncDot = document.getElementById("autoSyncDot");
+
+if (autoSyncToggle) {
+  autoSyncToggle.addEventListener("change", () => {
+    if (autoSyncToggle.checked) {
+      syncBtn.textContent = "⚡ Auto Sync";
+      autoSyncDot.style.display = "inline-block";
+      startAutoSync();
+    } else {
+      syncBtn.textContent = "🔄 Sync Now";
+      autoSyncDot.style.display = "none";
+      stopAutoSync();
+    }
+  });
+}
+
 
   // Initial UI update
   updateCloudSyncUI();
