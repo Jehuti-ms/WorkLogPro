@@ -1,317 +1,136 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WorkLog - Sign In</title>
-    <link rel="stylesheet" href="auth.css">
-    <style>
-        /* Additional styles for auth page */
-        .auth-container {
-            min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        
-        .auth-card {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-            padding: 40px;
-            width: 100%;
-            max-width: 400px;
-            text-align: center;
-        }
-        
-        .auth-logo {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }
-        
-        .auth-subtitle {
-            color: #6c757d;
-            margin-bottom: 30px;
-            font-size: 1.1em;
-        }
-        
-        .back-to-app {
-            margin-top: 20px;
-            text-align: center;
-        }
-        
-        .back-to-app a {
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 500;
-        }
-        
-        .back-to-app a:hover {
-            text-decoration: underline;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WorkLog - Auth</title>
+  <link rel="stylesheet" href="auth.css" />
+  <style>
+    .auth-tabs {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
 
-        /* Google Auth Styles */
-        .google-auth-section {
-            text-align: center;
-            margin: 25px 0;
-            padding: 20px 0;
-            border-top: 1px solid #e8ecef;
-        }
+    .auth-tabs .tab {
+      padding: 10px 20px;
+      margin: 0 5px;
+      border: none;
+      background: #eee;
+      cursor: pointer;
+      font-weight: normal;
+      transition: background 0.3s;
+    }
 
-        .auth-divider {
-            display: flex;
-            align-items: center;
-            margin: 20px 0;
-            color: #6c757d;
-        }
+    .auth-tabs .tab.active {
+      background: #007bff;
+      color: #fff;
+      font-weight: bold;
+    }
 
-        .auth-divider::before,
-        .auth-divider::after {
-            content: '';
-            flex: 1;
-            border-bottom: 1px solid #e8ecef;
-        }
+    .auth-tab-content {
+      display: none;
+    }
 
-        .auth-divider span {
-            padding: 0 15px;
-            font-size: 0.9em;
-        }
-
-        .btn-google {
-            background: white !important;
-            color: #757575 !important;
-            border: 1px solid #dadce0 !important;
-            padding: 12px 24px !important;
-            border-radius: 4px !important;
-            font-weight: 500 !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: 12px !important;
-            width: 100% !important;
-            justify-content: center !important;
-            cursor: pointer !important;
-            transition: all 0.3s ease !important;
-            margin: 10px 0 !important;
-        }
-
-        .btn-google:hover {
-            background: #f8f9fa !important;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-            transform: translateY(-1px) !important;
-            border-color: #c6c6c6 !important;
-        }
-
-        .google-icon {
-            width: 18px;
-            height: 18px;
-        }
-    </style>
+    .auth-tab-content.active {
+      display: block;
+    }
+  </style>
 </head>
 <body>
-    <div class="auth-container">
-        <div class="auth-card">
-            <!-- Logo and Title -->
-            <div class="auth-logo">
-                <img src="icons/worklog_cogs.svg" alt="WorkLog" style="height: 100px; width: 100px;">
-                <div class="auth-title"><h1>WorkLog</h1></div>
-            </div>
-            <p class="auth-subtitle">Student Tracker & Hours Management</p>
-            
-            <!-- Auth Tabs -->
-            <div class="auth-tabs">
-                <button class="auth-tab active" data-tab-target="login">Sign In</button>
-                <button class="auth-tab" data-tab-target="register">Register</button>
-            </div>
-            
-       <!-- Login Form -->
-<div id="login" class="auth-tab-content active">
-  <form id="loginForm">
-    <div class="form-group">
-      <label for="loginEmail">Email Address</label>
-      <input type="email" id="loginEmail" required placeholder="your@email.com">
-    </div>
-    
-    <div class="form-group">
-      <label for="loginPassword">Password</label>
-      <input type="password" id="loginPassword" required placeholder="••••••••">
-    </div>
-    
-    <div class="form-options">
-      <label class="checkbox">
-        <input type="checkbox" id="rememberMe">
-        <span class="checkmark"></span>
-        Remember me
-      </label>
-      <!-- Switch to Forgot Password tab -->
-      <a href="#" class="forgot-password" data-tab-target="forgot">Forgot password?</a>
-    </div>
-    
-    <button type="submit" class="btn btn-primary btn-block">
-      <span class="btn-text">Sign In</span>
-      <span class="btn-loading" style="display: none;">Signing in...</span>
-    </button>
-  </form>
-</div>
+  <div class="auth-container">
+    <div class="auth-card">
+      <h1>WorkLog</h1>
+      <p>Student Tracker & Hours Management</p>
 
-  <!-- Google Auth Section -->
-  <div class="google-auth-section">
-    <div class="auth-divider">
-      <span>or continue with</span>
-    </div>
-    <button type="button" class="btn btn-google" id="googleSignInBtn">
-      <svg class="google-icon" viewBox="0 0 18 18">
-        <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18Z"/>
-        <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17Z"/>
-        <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18l2.67-2.07Z"/>
-        <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.3Z"/>
-      </svg>
-      Sign in with Google
-    </button>
-  </div>
-</div>
+      <!-- Tab Buttons -->
+      <div class="auth-tabs">
+        <button class="tab active" data-tab-target="login">Sign In</button>
+        <button class="tab" data-tab-target="register">Register</button>
+        <button class="tab" data-tab-target="forgot">Forgot Password</button>
+      </div>
 
-            <!-- Register Form -->
-<div id="register" class="auth-tab-content">
-  <form id="registerForm">
-    <div class="form-group">
-      <label for="registerName">Full Name</label>
-      <input type="text" id="registerName" required placeholder="John Doe">
-    </div>
+      <!-- Login Panel -->
+      <div id="login" class="auth-tab-content active">
+        <form id="loginForm">
+          <label>Email</label>
+          <input type="email" id="loginEmail" required />
+          <label>Password</label>
+          <input type="password" id="loginPassword" required />
+          <button type="submit">Sign In</button>
+        </form>
+        <a href="#" data-tab-target="forgot">Forgot password?</a>
+      </div>
 
-    <div class="form-group">
-      <label for="registerEmail">Email Address</label>
-      <input type="email" id="registerEmail" required placeholder="your@email.com">
-    </div>
+      <!-- Register Panel -->
+      <div id="register" class="auth-tab-content">
+        <form id="registerForm">
+          <label>Full Name</label>
+          <input type="text" id="registerName" required />
+          <label>Email</label>
+          <input type="email" id="registerEmail" required />
+          <label>Password</label>
+          <input type="password" id="registerPassword" required />
+          <label>Confirm Password</label>
+          <input type="password" id="registerConfirmPassword" required />
+          <label>
+            <input type="checkbox" id="acceptTerms" required />
+            I agree to the Terms and Privacy Policy
+          </label>
+          <button type="submit">Create Account</button>
+        </form>
+      </div>
 
-    <div class="form-group">
-      <label for="registerPassword">Password</label>
-      <input type="password" id="registerPassword" required placeholder="••••••••">
-      <div class="password-strength">
-        <div class="strength-bar">
-          <div class="strength-fill" id="passwordStrength"></div>
-        </div>
-        <small>Use 8+ characters with letters and numbers</small>
+      <!-- Forgot Password Panel -->
+      <div id="forgot" class="auth-tab-content">
+        <form id="forgotPasswordForm">
+          <label>Email</label>
+          <input type="email" id="forgotEmail" required />
+          <button type="submit">Send Reset Link</button>
+        </form>
+        <a href="#" data-tab-target="login">← Back to Sign In</a>
       </div>
     </div>
+  </div>
 
-    <div class="form-group">
-      <label for="registerConfirmPassword">Confirm Password</label>
-      <input type="password" id="registerConfirmPassword" required placeholder="••••••••">
-    </div>
+  <!-- Firebase Auth Logic -->
+  <script type="module" src="auth.js"></script>
 
-    <div class="form-options">
-      <label class="checkbox">
-        <input type="checkbox" id="acceptTerms" required>
-        <span class="checkmark"></span>
-        I agree to the
-        <a href="terms.html" target="_blank">Terms of Service</a> and
-        <a href="privacy.html" target="_blank">Privacy Policy</a>
-      </label>
-    </div>
+  <!-- Tab Switch Script -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const tabButtons = document.querySelectorAll(".tab[data-tab-target]");
+      const tabContents = document.querySelectorAll(".auth-tab-content");
 
-    <button type="submit" class="btn btn-primary btn-block">
-      <span class="btn-text">Create Account</span>
-      <span class="btn-loading" style="display: none;">Creating account...</span>
-    </button>
-  </form>
-</div>
-
-                
-                <!-- Google Auth Section for Register -->
-                <div class="google-auth-section">
-                    <div class="auth-divider">
-                        <span>or sign up with</span>
-                    </div>
-                    
-                    <!-- Google Sign-In Button Container -->
-                    <div id="googleSignInButtonRegister"></div>
-                    
-                    <!-- Fallback Google Button -->
-                    <button type="button" class="btn btn-google" onclick="signInWithGoogle()" style="display: none;" id="fallbackGoogleButtonRegister">
-                        <svg class="google-icon" viewBox="0 0 18 18">
-                            <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18Z"/>
-                            <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17Z"/>
-                            <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18l2.67-2.07Z"/>
-                            <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.3Z"/>
-                        </svg>
-                        Sign up with Google
-                    </button>
-                </div>
-            </div>
-            
-            <!-- Forgot Password Form -->
-            <div id="forgotPassword" class="auth-tab-content" style="display: none;">
-                <h3>Reset Your Password</h3>
-                <p style="color: #6c757d; margin-bottom: 20px;">Enter your email address and we'll send you a link to reset your password.</p>
-                
-                <form id="forgotPasswordForm">
-                    <div class="form-group">
-                        <label for="forgotEmail">Email Address</label>
-                        <input type="email" id="forgotEmail" required placeholder="your@email.com">
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary btn-block">
-                        <span class="btn-text">Send Reset Link</span>
-                        <span class="btn-loading" style="display: none;">Sending...</span>
-                    </button>
-                </form>
-                
-                <div class="back-to-login">
-                    <a href="#" onclick="showLogin()">← Back to Sign In</a>
-                </div>
-            </div>
-            
-            <!-- Back to App - Enhanced version -->
-            <div class="back-to-app">
-                <a href="#" id="backToAppLink">← Back to WorkLog App</a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Loading Spinner -->
-    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
-        <div class="loading-spinner"></div>
-        <p>Please wait...</p>
-    </div>
-
-    <script type="module" src="auth.js"></script>
-        <script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const tabButtons = document.querySelectorAll("[data-tab-target]");
-    const tabContents = document.querySelectorAll(".auth-tab-content");
-
-    // Hide all tab contents initially
-    tabContents.forEach(content => {
-      content.style.display = "none";
-    });
-
-    // Show default tab (login)
-    const defaultTabId = "login";
-    document.getElementById(defaultTabId).style.display = "block";
-    document.querySelector(`[data-tab-target="${defaultTabId}"]`)?.classList.add("active");
-
-    // Attach click listeners to tab buttons
-    tabButtons.forEach(button => {
-      button.addEventListener("click", () => {
-        const targetId = button.getAttribute("data-tab-target");
-
-        // Hide all tab contents
+      function showTab(targetId) {
         tabContents.forEach(content => {
-          content.style.display = "none";
+          content.classList.remove("active");
+        });
+        tabButtons.forEach(btn => {
+          btn.classList.remove("active");
         });
 
-        // Remove active class from all buttons
-        tabButtons.forEach(btn => btn.classList.remove("active"));
+        document.getElementById(targetId)?.classList.add("active");
+        document.querySelector(`.tab[data-tab-target="${targetId}"]`)?.classList.add("active");
+      }
 
-        // Show selected tab and mark button active
-        document.getElementById(targetId).style.display = "block";
-        button.classList.add("active");
+      tabButtons.forEach(button => {
+        button.addEventListener("click", () => {
+          const targetId = button.getAttribute("data-tab-target");
+          showTab(targetId);
+        });
       });
-    });
-  });
-</script>
 
-   </body>
+      document.querySelectorAll("[data-tab-target]").forEach(link => {
+        link.addEventListener("click", e => {
+          e.preventDefault();
+          const targetId = link.getAttribute("data-tab-target");
+          showTab(targetId);
+        });
+      });
+
+      showTab("login"); // default
+    });
+  </script>
+</body>
 </html>
