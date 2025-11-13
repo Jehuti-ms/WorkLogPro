@@ -1,8 +1,13 @@
 // auth.js
 import { auth } from "./firebase-config.js";
-import { onAuthStateChanged, signInWithEmailAndPassword, 
-         createUserWithEmailAndPassword, signOut } 
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut,
+  setPersistence,
+  browserLocalPersistence
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 // --- Persist session locally ---
 setPersistence(auth, browserLocalPersistence)
