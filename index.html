@@ -412,73 +412,24 @@
     <script src="app.js"></script>
 
     <!-- Auth Check - Runs after everything is loaded -->
-    <script>
-    console.log("🔐 Starting final auth check...");
-    
-    // Wait for everything to load
-    setTimeout(() => {
-        const loadingScreen = document.getElementById('loadingScreen');
-        
-        // Check if auth system is properly loaded
-        if (typeof Auth === 'undefined') {
-            console.error("❌ Auth system not loaded - redirecting to auth page");
-            window.location.href = 'auth.html';
-            return;
-        }
-        
-        // Check authentication status
-        const isAuthenticated = Auth.isAuthenticated();
-        console.log("✅ Auth system loaded, authenticated:", isAuthenticated);
-        
-        if (!isAuthenticated) {
-            console.log("🚫 Not authenticated - redirecting to auth page");
-            window.location.href = 'auth.html';
-        } else {
-            console.log("✅ User authenticated - showing main app");
-            // Hide loading screen and show app
-            if (loadingScreen) {
-                loadingScreen.style.display = 'none';
-            }
-            // App will continue initialization
-        }
-    }, 2000); // Give everything 2 seconds to load
-    </script>
-<script>
-// Authentication check for index.html
-console.log("🔐 Checking authentication status...");
+   <script type="module">
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-function checkAuthAndRedirect() {
-    // Check if auth system is loaded and user is authenticated
-    const isAuthSystemLoaded = typeof Auth !== 'undefined' && Auth.isAuthenticated;
-    const isAuthenticated = isAuthSystemLoaded ? Auth.isAuthenticated() : false;
-    
-    console.log("Auth check:", {
-        systemLoaded: isAuthSystemLoaded,
-        authenticated: isAuthenticated,
-        currentPath: window.location.pathname
-    });
-    
-    // If not authenticated and we're on the main app page, redirect to auth
-    if (!isAuthenticated && !window.location.pathname.includes('auth.html')) {
-        console.log("🚫 Not authenticated - redirecting to auth page");
-        // Small delay to let user see what's happening
-        setTimeout(() => {
-            window.location.href = 'auth.html';
-        }, 1000);
-        return false;
-    }
-    
-    return true;
-}
+  const auth = getAuth();
 
-// Wait for auth system to load, then check
-setTimeout(() => {
-    const canProceed = checkAuthAndRedirect();
-    if (canProceed) {
-        console.log("✅ Authentication valid - loading main app");
-        // The app.js will continue initialization
+  console.log("🔐 Starting auth check on index.html...");
+
+  onAuthStateChanged(auth, user => {
+    if (user) {
+      console.log("✅ User authenticated:", user.email);
+      // Show app UI
+      document.querySelector(".container").style.display = "block";
+    } else {
+      console.log("🚫 No user authenticated - redirecting to login");
+      window.location.href = "auth.html";
     }
-}, 500);
+  });
 </script>
+
 </body>
 </html>
