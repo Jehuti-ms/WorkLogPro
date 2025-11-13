@@ -51,87 +51,64 @@
 </div>
 
 
-      <!-- Login Panel -->
-      <div id="login" class="auth-tab-content active">
-        <form id="loginForm">
-          <label>Email</label>
-          <input type="email" id="loginEmail" required />
-          <label>Password</label>
-          <input type="password" id="loginPassword" required />
-          <button type="submit">Sign In</button>
-        </form>
-        <a href="#" data-tab-target="forgot">Forgot password?</a>
-      </div>
+   <div id="login" class="auth-tab-content active">
+  <form id="loginForm"> ... </form>
+  <a href="#" class="forgot-password" data-link-target="forgot">Forgot password?</a>
+</div>
 
-      <!-- Register Panel -->
-      <div id="register" class="auth-tab-content">
-        <form id="registerForm">
-          <label>Full Name</label>
-          <input type="text" id="registerName" required />
-          <label>Email</label>
-          <input type="email" id="registerEmail" required />
-          <label>Password</label>
-          <input type="password" id="registerPassword" required />
-          <label>Confirm Password</label>
-          <input type="password" id="registerConfirmPassword" required />
-          <label>
-            <input type="checkbox" id="acceptTerms" required />
-            I agree to the Terms and Privacy Policy
-          </label>
-          <button type="submit">Create Account</button>
-        </form>
-      </div>
+<div id="register" class="auth-tab-content">
+  <form id="registerForm"> ... </form>
+</div>
 
-      <!-- Forgot Password Panel -->
-      <div id="forgot" class="auth-tab-content">
-        <form id="forgotPasswordForm">
-          <label>Email</label>
-          <input type="email" id="forgotEmail" required />
-          <button type="submit">Send Reset Link</button>
-        </form>
-        <a href="#" data-tab-target="login">← Back to Sign In</a>
-      </div>
-    </div>
-  </div>
+<div id="forgot" class="auth-tab-content">
+  <form id="forgotPasswordForm"> ... </form>
+  <a href="#" class="back-to-login" data-link-target="login">← Back to Sign In</a>
+</div>
+
 
   <!-- Firebase Auth Logic -->
   <script type="module" src="auth.js"></script>
 
   <!-- Tab Switch Script -->
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const tabButtons = document.querySelectorAll(".tab[data-tab-target]");
-      const tabContents = document.querySelectorAll(".auth-tab-content");
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const tabButtons = document.querySelectorAll(".tab[data-tab-target]");
+  const tabContents = document.querySelectorAll(".auth-tab-content");
+  const internalLinks = document.querySelectorAll("[data-link-target]");
 
-      function showTab(targetId) {
-        tabContents.forEach(content => {
-          content.classList.remove("active");
-        });
-        tabButtons.forEach(btn => {
-          btn.classList.remove("active");
-        });
+  function showTab(targetId) {
+    // Hide all panels
+    tabContents.forEach(content => content.classList.remove("active"));
+    // Remove active from top buttons
+    tabButtons.forEach(btn => btn.classList.remove("active"));
 
-        document.getElementById(targetId)?.classList.add("active");
-        document.querySelector(`.tab[data-tab-target="${targetId}"]`)?.classList.add("active");
-      }
+    // Show target panel
+    document.getElementById(targetId)?.classList.add("active");
+    // Highlight top button if it exists
+    document.querySelector(`.tab[data-tab-target="${targetId}"]`)?.classList.add("active");
+  }
 
-      tabButtons.forEach(button => {
-        button.addEventListener("click", () => {
-          const targetId = button.getAttribute("data-tab-target");
-          showTab(targetId);
-        });
-      });
-
-      document.querySelectorAll("[data-tab-target]").forEach(link => {
-        link.addEventListener("click", e => {
-          e.preventDefault();
-          const targetId = link.getAttribute("data-tab-target");
-          showTab(targetId);
-        });
-      });
-
-      showTab("login"); // default
+  // Top tab buttons
+  tabButtons.forEach(button => {
+    button.addEventListener("click", () => {
+      const targetId = button.getAttribute("data-tab-target");
+      showTab(targetId);
     });
-  </script>
+  });
+
+  // Internal links (forgot/back)
+  internalLinks.forEach(link => {
+    link.addEventListener("click", e => {
+      e.preventDefault();
+      const targetId = link.getAttribute("data-link-target");
+      showTab(targetId);
+    });
+  });
+
+  // Default tab
+  showTab("login");
+});
+</script>
+
 </body>
 </html>
