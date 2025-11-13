@@ -423,3 +423,20 @@ p {
   background: var(--primary-dark);
   transform: scale(1.05);
 }
+
+.user-menu {
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 10px;
+  position: absolute;
+  right: 10px;
+  top: 60px;
+  display: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.user-info {
+  margin-bottom: 10px;
+  font-size: 0.9em;
+}
