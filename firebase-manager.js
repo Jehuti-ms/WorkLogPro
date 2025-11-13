@@ -13,7 +13,6 @@ export async function initFirebaseManager() {
     console.log("🔄 Initializing Firebase Manager...");
     console.log("✅ Firebase Manager initialized successfully");
 
-    // Example: listen for auth changes
     onAuthStateChanged(auth, user => {
       if (user) {
         console.log("🟢 Manager sees user:", user.email);
