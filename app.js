@@ -338,6 +338,38 @@ function setSyncIndicator(state) {
   }
 }
 
+const autoSyncToggle = document.getElementById("autoSyncToggle");
+
+if (autoSyncToggle) {
+  autoSyncToggle.addEventListener("change", () => {
+    if (autoSyncToggle.checked) {
+      syncBtn.textContent = "⚡ Auto Sync";
+      startAutoSync();
+    } else {
+      syncBtn.textContent = "🔄 Sync Now";
+      stopAutoSync();
+    }
+  });
+}
+
+function startAutoSync() {
+  updateSyncStatus("syncing", "⚡ Auto Sync enabled");
+  window.autoSyncInterval = setInterval(async () => {
+    try {
+      await performCloudSync();
+      const now = new Date().toLocaleTimeString();
+      updateSyncStatus("connected", `☁️ Auto Sync: Up to date (Last synced: ${now})`);
+    } catch (err) {
+      updateSyncStatus("error", "❌ Auto Sync failed");
+    }
+  }, 60000); // every 60 seconds
+}
+
+function stopAutoSync() {
+  clearInterval(window.autoSyncInterval);
+  updateSyncStatus("offline", "⚠️ Auto Sync disabled");
+}
+
 /* ============================================================================
    Tabs and events
 ============================================================================ */
