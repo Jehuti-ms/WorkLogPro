@@ -1,5 +1,28 @@
 // app.js - COMPLETE FILE WITH CLOUD SYNC INTEGRATION
-console.log("📦 App.js loaded - Cloud Sync Edition");
+import { auth, db } from "./firebase-config.js";
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+console.log("📦 App.js loaded");
+
+// Check auth state
+onAuthStateChanged(auth, user => {
+  if (user) {
+    console.log("✅ User authenticated:", user.email);
+    document.querySelector(".container").style.display = "block";
+  } else {
+    console.log("🚫 No user authenticated - redirecting to login");
+    window.location.href = "auth.html";
+  }
+});
+
+// Example logout button
+const logoutBtn = document.getElementById("logoutBtn");
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", async () => {
+    await signOut(auth);
+    window.location.href = "auth.html";
+  });
+}
 
 /* ============================================================================
    Global state
