@@ -1,32 +1,38 @@
 // app.js - COMPLETE FILE WITH CLOUD SYNC INTEGRATION
-import { initFirebaseManager } from "./firebase-manager.js";
-import { auth, db } from "./firebase-config.js";
+import { auth } from "./firebase-config.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-console.log("📦 App.js loaded");
+const authButton = document.getElementById("authButton");
+const userMenu = document.getElementById("userMenu");
+const userName = document.getElementById("userName");
+const userEmail = document.getElementById("userEmail");
+const profileBtn = document.getElementById("profileBtn");
+const logoutBtn = document.getElementById("logoutBtn");
 
-// Check auth state first
-onAuthStateChanged(auth, user => {
-  if (user) {
-    console.log("✅ User authenticated:", user.email);
-    document.querySelector(".container").style.display = "block";
-    // Only initialize app once user is authenticated
-    init();
-  } else {
-    console.log("🚫 No user authenticated - redirecting to login");
-    window.location.href = "auth.html";
-  }
+// Toggle profile menu
+profileBtn.addEventListener("click", () => {
+  userMenu.style.display = userMenu.style.display === "block" ? "none" : "block";
 });
 
-// Logout button
-const logoutBtn = document.getElementById("logoutBtn");
-if (logoutBtn) {
-  logoutBtn.addEventListener("click", async () => {
-    await signOut(auth);
-    console.log("✅ User signed out");
-    window.location.href = "auth.html";
-  });
-}
+// Logout
+logoutBtn.addEventListener("click", async () => {
+  await signOut(auth);
+  console.log("✅ User signed out");
+  window.location.href = "auth.html";
+});
+
+// Update profile info when auth state changes
+onAuthStateChanged(auth, user => {
+  if (user) {
+    authButton.style.display = "none";
+    userMenu.style.display = "block";
+    userName.textContent = user.displayName || "Staff Member";
+    userEmail.textContent = user.email;
+  } else {
+    authButton.style.display = "inline-block";
+    userMenu.style.display = "none";
+  }
+});
 
 /* ============================================================================
    Global state
