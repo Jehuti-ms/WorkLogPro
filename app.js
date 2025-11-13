@@ -1,7 +1,6 @@
 // app.js - COMPLETE FILE WITH CLOUD SYNC INTEGRATION
 import { auth } from "./firebase-config.js";
 import { initFirebaseManager } from "./firebase-manager.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const authButton = document.getElementById("authButton");
