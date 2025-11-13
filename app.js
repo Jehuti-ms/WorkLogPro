@@ -67,12 +67,17 @@ async function init() {
   console.log("🎯 App initialization started");
 
   try {
+    // Show syncing state at start
+    updateSyncStatus("syncing", "Connecting to cloud...");
+
     // Initialize Firebase manager (modular import)
     const firebaseReady = await initFirebaseManager();
     if (firebaseReady) {
       console.log("✅ Firebase manager ready");
+      updateSyncStatus("connected", "☁️ Cloud Sync: Ready");
     } else {
       console.warn("⚠️ Firebase manager not ready, running in offline mode");
+      updateSyncStatus("offline", "⚠️ Offline mode - using local storage");
     }
 
     // Load data - try Firebase first, then fallback to local
@@ -96,7 +101,7 @@ async function init() {
     
   } catch (error) {
     console.error("❌ Initialization failed:", error);
-    console.log("🔄 Falling back to local mode...");
+    updateSyncStatus("error", "❌ Sync error - fallback to local mode");
 
     // Fallback sequence
     await loadAllData();
@@ -1129,6 +1134,34 @@ function useDefaultRate() {
   const rateInput = document.getElementById("studentBaseRate");
   if (rateInput) {
     rateInput.value = appData.settings.defaultRate;
+  }
+}
+
+// Utility to update sync message and indicator
+function updateSyncStatus(state, message) {
+  const syncMessage = document.getElementById("syncMessage");
+  const syncIndicator = document.getElementById("syncIndicator");
+
+  if (!syncMessage || !syncIndicator) return;
+
+  syncMessage.textContent = message;
+
+  // Reset classes
+  syncIndicator.classList.remove("sync-connected", "sync-error", "sync-offline", "sync-syncing");
+
+  switch (state) {
+    case "connected":
+      syncIndicator.classList.add("sync-connected");
+      break;
+    case "syncing":
+      syncIndicator.classList.add("sync-syncing");
+      break;
+    case "offline":
+      syncIndicator.classList.add("sync-offline");
+      break;
+    case "error":
+      syncIndicator.classList.add("sync-error");
+      break;
   }
 }
 
