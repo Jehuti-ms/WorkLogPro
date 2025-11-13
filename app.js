@@ -1,7 +1,18 @@
 // app.js - COMPLETE FILE WITH CLOUD SYNC INTEGRATION
-import { auth } from "./firebase-config.js";
+
+// Local Firebase config + manager
+import { auth, db } from "./firebase-config.js";
 import { initFirebaseManager } from "./firebase-manager.js";
-import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+// Firebase Auth SDK functions
+import { onAuthStateChanged, signOut } 
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+// Firebase Firestore SDK functions
+import { doc, setDoc, getDoc } 
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+
 
 const authButton = document.getElementById("authButton");
 const userMenu = document.getElementById("userMenu");
@@ -377,6 +388,41 @@ function stopAutoSync() {
   updateSyncStatus("offline", "⚠️ Auto Sync disabled");
 }
 
+// Perform a cloud sync: push local data to Firestore and pull latest back
+export async function performCloudSync() {
+  try {
+    if (!auth || !db) {
+      throw new Error("Firebase not initialized");
+    }
+
+    console.log("☁️ Starting cloud sync...");
+
+    // Example: push local appData to Firestore
+    const user = auth.currentUser;
+    if (user) {
+      const docRef = doc(db, "users", user.uid);
+      await setDoc(docRef, appData, { merge: true });
+      console.log("✅ Data pushed to cloud");
+    }
+
+    // Example: pull latest data back
+    if (user) {
+      const docRef = doc(db, "users", user.uid);
+      const snapshot = await getDoc(docRef);
+      if (snapshot.exists()) {
+        appData = snapshot.data();
+        console.log("📥 Data pulled from cloud:", appData);
+        renderStudents();
+        updateStats();
+      }
+    }
+
+    return true;
+  } catch (err) {
+    console.error("❌ Cloud sync failed:", err);
+    return false;
+  }
+}
 
 /* ============================================================================
    Tabs and events
