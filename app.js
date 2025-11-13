@@ -97,7 +97,9 @@ async function init() {
   } catch (error) {
     console.error("❌ Initialization failed:", error);
     console.log("🔄 Falling back to local mode...");
-    loadAllData();
+
+    // Fallback sequence
+    await loadAllData();
     setupCloudSyncUI();
     setupTabs();
     setupEventListeners();
