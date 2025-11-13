@@ -5,22 +5,25 @@ import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/
 
 console.log("📦 App.js loaded");
 
-// Check auth state
+// Check auth state first
 onAuthStateChanged(auth, user => {
   if (user) {
     console.log("✅ User authenticated:", user.email);
     document.querySelector(".container").style.display = "block";
+    // Only initialize app once user is authenticated
+    init();
   } else {
     console.log("🚫 No user authenticated - redirecting to login");
     window.location.href = "auth.html";
   }
 });
 
-// Example logout button
+// Logout button
 const logoutBtn = document.getElementById("logoutBtn");
 if (logoutBtn) {
   logoutBtn.addEventListener("click", async () => {
     await signOut(auth);
+    console.log("✅ User signed out");
     window.location.href = "auth.html";
   });
 }
@@ -39,25 +42,16 @@ let appData = {
   }
 };
 
-// Single source of truth for payments across tabs
 let allPayments = [];
-
-// Attendance edit guard (prevents sync while editing)
 let isEditingAttendance = false;
-
-// Hours editing state (kept for compatibility)
 let editingHoursIndex = null;
-
-// Public hours entries (kept for compatibility with existing code)
 window.hoursEntries = [];
 
-// Month names for reports
 const monthNames = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
+  "January","February","March","April","May","June",
+  "July","August","September","October","November","December"
 ];
 
-// Track current tab
 let currentTab = "dashboard";
 
 /* ============================================================================
@@ -67,19 +61,12 @@ async function init() {
   console.log("🎯 App initialization started");
 
   try {
-    // Wait for Firebase scripts to load
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    // Initialize Firebase manager
-    if (typeof firebaseManager !== 'undefined' && firebaseManager.init) {
-      const firebaseReady = await firebaseManager.init();
-      if (firebaseReady) {
-        console.log("✅ Firebase initialized successfully");
-      } else {
-        console.warn("⚠️ Firebase manager not ready, running in offline mode");
-      }
+    // Initialize Firebase manager (modular import)
+    const firebaseReady = await initFirebaseManager();
+    if (firebaseReady) {
+      console.log("✅ Firebase manager ready");
     } else {
-      console.warn("⚠️ Firebase manager not found, running in offline mode");
+      console.warn("⚠️ Firebase manager not ready, running in offline mode");
     }
 
     // Load data - try Firebase first, then fallback to local
@@ -103,7 +90,6 @@ async function init() {
     
   } catch (error) {
     console.error("❌ Initialization failed:", error);
-    // Fallback to local-only mode
     console.log("🔄 Falling back to local mode...");
     loadAllData();
     setupCloudSyncUI();
