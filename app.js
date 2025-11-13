@@ -372,6 +372,22 @@ function setSyncIndicator(state) {
 
 function startAutoSync() {
   updateSyncStatus("syncing", "⚡ Auto Sync enabled");
+
+  // Clear any existing interval
+  if (window.autoSyncInterval) clearInterval(window.autoSyncInterval);
+
+  // 🔥 Run one sync immediately
+  performCloudSync()
+    .then(() => {
+      const now = new Date().toLocaleTimeString();
+      updateSyncStatus("connected", `☁️ Auto Sync: Up to date (Last synced: ${now})`);
+    })
+    .catch(err => {
+      updateSyncStatus("error", "❌ Auto Sync failed");
+      console.error(err);
+    });
+
+  // Then continue syncing every 60 seconds
   window.autoSyncInterval = setInterval(async () => {
     try {
       await performCloudSync();
@@ -379,9 +395,11 @@ function startAutoSync() {
       updateSyncStatus("connected", `☁️ Auto Sync: Up to date (Last synced: ${now})`);
     } catch (err) {
       updateSyncStatus("error", "❌ Auto Sync failed");
+      console.error(err);
     }
   }, 60000);
 }
+
 
 function stopAutoSync() {
   clearInterval(window.autoSyncInterval);
