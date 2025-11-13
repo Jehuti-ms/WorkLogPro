@@ -4,8 +4,7 @@ import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/f
 
 console.log("🔥 Firebase Manager loaded");
 
-// --- Manager init ---
-export function initFirebaseManager() {
+export async function initFirebaseManager() {
   try {
     if (!auth || !db) {
       throw new Error("Firebase SDK not available");
@@ -23,9 +22,9 @@ export function initFirebaseManager() {
       }
     });
 
-    return { auth, db };
+    return true;
   } catch (err) {
     console.error("❌ Firebase Manager init failed:", err);
-    return null;
+    return false;
   }
 }
