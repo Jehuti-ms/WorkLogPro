@@ -240,6 +240,12 @@ function setupCloudSyncUI() {
       <button id="disableBtn" class="btn btn-sm btn-secondary" title="Disable cloud backup">
         ☁️ Disable
       </button>
+      <button id="syncBtn" class="btn btn-sm btn-primary" title="Manual sync">
+        🔄 Sync Now
+      </button>
+      <label style="margin-left:10px;">
+        <input type="checkbox" id="autoSyncToggle"> Auto Sync
+      </label>
     </div>
     <div id="cloudPrompt" style="display: none;">
       <button id="enableBtn" class="btn btn-sm btn-primary">
@@ -251,49 +257,66 @@ function setupCloudSyncUI() {
   syncBar.appendChild(cloudSection);
 
   // Wire buttons explicitly
-  document.getElementById("backupBtn").addEventListener("click", () => {
-    firebaseManager.manualSync(appData);
+  document.getElementById("backupBtn").addEventListener("click", async () => {
+    await performCloudSync();
     updateCloudSyncUI();
   });
+
   document.getElementById("disableBtn").addEventListener("click", () => {
-    firebaseManager.signOut();
+    signOut(auth); // modular signOut
     updateCloudSyncUI();
   });
+
   document.getElementById("enableBtn").addEventListener("click", () => {
-    firebaseManager.enableCloudSync();
+    // Example: enabling cloud sync could just re-init Firebase
+    initFirebaseManager();
     updateCloudSyncUI();
   });
+
+  document.getElementById("syncBtn").addEventListener("click", async () => {
+    updateSyncStatus("syncing", "🔄 Syncing data...");
+    try {
+      await performCloudSync();
+      const now = new Date().toLocaleTimeString();
+      updateSyncStatus("connected", `☁️ Cloud Sync: Up to date (Last synced: ${now})`);
+    } catch (err) {
+      updateSyncStatus("error", "❌ Sync failed - check connection");
+    }
+  });
+
+  const autoSyncToggle = document.getElementById("autoSyncToggle");
+  if (autoSyncToggle) {
+    autoSyncToggle.addEventListener("change", () => {
+      const syncBtn = document.getElementById("syncBtn");
+      if (autoSyncToggle.checked) {
+        syncBtn.textContent = "⚡ Auto Sync";
+        startAutoSync();
+      } else {
+        syncBtn.textContent = "🔄 Sync Now";
+        stopAutoSync();
+      }
+    });
+  }
 
   // Initial UI update
   updateCloudSyncUI();
 }
 
 function updateCloudSyncUI() {
-  if (typeof firebaseManager === 'undefined') return;
-
   const syncStatus = document.getElementById('syncStatus');
   const cloudControls = document.getElementById('cloudControls');
   const cloudPrompt = document.getElementById('cloudPrompt');
 
-  const cloudEnabled = typeof firebaseManager.isCloudEnabled === "function"
-    ? firebaseManager.isCloudEnabled()
-    : firebaseManager.isCloudEnabled;
+  const cloudEnabled = auth.currentUser ? true : false;
 
   if (syncStatus) {
     if (cloudEnabled) {
       syncStatus.textContent = '🟢 Cloud Backup';
       syncStatus.className = 'sync-status online';
-      const lastSync = typeof firebaseManager.getLastSync === "function"
-        ? firebaseManager.getLastSync()
-        : null;
-      if (lastSync) {
-        syncStatus.title = `Last sync: ${lastSync.toLocaleTimeString()}`;
-      }
       setSyncIndicator("online");
     } else {
       syncStatus.textContent = '🔴 Offline';
       syncStatus.className = 'sync-status offline';
-      syncStatus.title = 'Enable cloud backup for data safety';
       setSyncIndicator("offline");
     }
   }
@@ -307,14 +330,12 @@ function updateCloudSyncUI() {
   }
 }
 
-
-//Sync Indicator
+// Sync Indicator
 function setSyncIndicator(state) {
   const indicator = document.getElementById("syncIndicator");
   const message = document.getElementById("syncMessage");
   if (!indicator || !message) return;
 
-  // Reset classes
   indicator.className = "sync-indicator";
 
   switch (state) {
@@ -323,33 +344,17 @@ function setSyncIndicator(state) {
       indicator.style.background = "green";
       message.textContent = "🟢 Cloud Backup Enabled";
       break;
-
     case "local":
       indicator.classList.add("sync-local");
       indicator.style.background = "orange";
       message.textContent = "🟡 Local Only (not synced)";
       break;
-
     default:
       indicator.classList.add("sync-offline");
       indicator.style.background = "red";
       message.textContent = "🔴 Offline";
       break;
   }
-}
-
-const autoSyncToggle = document.getElementById("autoSyncToggle");
-
-if (autoSyncToggle) {
-  autoSyncToggle.addEventListener("change", () => {
-    if (autoSyncToggle.checked) {
-      syncBtn.textContent = "⚡ Auto Sync";
-      startAutoSync();
-    } else {
-      syncBtn.textContent = "🔄 Sync Now";
-      stopAutoSync();
-    }
-  });
 }
 
 function startAutoSync() {
@@ -362,13 +367,14 @@ function startAutoSync() {
     } catch (err) {
       updateSyncStatus("error", "❌ Auto Sync failed");
     }
-  }, 60000); // every 60 seconds
+  }, 60000);
 }
 
 function stopAutoSync() {
   clearInterval(window.autoSyncInterval);
   updateSyncStatus("offline", "⚠️ Auto Sync disabled");
 }
+
 
 /* ============================================================================
    Tabs and events
