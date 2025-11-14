@@ -598,3 +598,36 @@ p {
   box-shadow: 0 2px 6px rgba(0,0,0,0.1);
   min-width: 180px;
 }
+
+.auth-gate {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: #fff;
+  border: 1px solid #ccc;
+  min-width: 220px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  padding: 8px;
+  z-index: 10;
+}
+
+.dropdown-menu.show {
+  display: block;
+}
+
+.dropdown-item-text {
+  padding: 6px 12px;
+  font-size: 0.85em;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: #ddd;
+  margin: 6px 0;
+}
