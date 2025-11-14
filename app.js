@@ -408,9 +408,9 @@ function useDefaultRateInHours() {
 }
 
 // ----------------------
-// Hours Tab Reset
+// Hours Tab
 // ----------------------
-function resetHoursForm() {
+async function logHours() {
   const orgEl   = document.getElementById("organization");
   const typeEl  = document.getElementById("workType");
   const dateEl  = document.getElementById("workDate");
@@ -418,15 +418,42 @@ function resetHoursForm() {
   const rateEl  = document.getElementById("baseRate");
   const totalEl = document.getElementById("totalPay");
 
-  if (orgEl)   orgEl.value   = "";
-  if (typeEl)  typeEl.value  = "hourly";
-  if (dateEl)  dateEl.value  = "";
-  if (hoursEl) hoursEl.value = "";
-  if (rateEl)  rateEl.value  = "";
-  if (totalEl) totalEl.value = "";
+  const organization = orgEl?.value.trim();
+  const workType     = typeEl?.value || "hourly";
+  const workDate     = dateEl?.value;
+  const hours        = parseFloat(hoursEl?.value) || 0;
+  const rate         = parseFloat(rateEl?.value) || 0;
+
+  if (!organization || !workDate || hours <= 0 || rate <= 0) {
+    alert("Please fill required fields: Organization, Date, Hours, Rate");
+    return;
+  }
+
+  const total = workType === "hourly" ? hours * rate : rate;
+  if (totalEl) totalEl.value = fmtMoney(total);
+
+  const user = auth.currentUser;
+  if (!user) return;
+  await addDoc(collection(db, "users", user.uid, "hours"), {
+    organization,
+    workType,
+    date: workDate,
+    dateIso: fmtDateISO(workDate),
+    hours,
+    rate,
+    total
+  });
+
+  console.log("✅ Hours logged");
+  await recalcSummaryStats(user.uid);
+  refreshTimestamp();
+  await renderRecentHours();
+  resetHoursForm();
 }
 
-async function logHours()
+// ----------------------
+// Render recent hours
+// ----------------------
 async function renderRecentHours(limit = 10) {
   const user = auth.currentUser;
   if (!user) return;
@@ -435,7 +462,6 @@ async function renderRecentHours(limit = 10) {
 
   container.innerHTML = "";
 
-  // Basic fetch and sort client-side by dateIso desc
   const snap = await getDocs(collection(db, "users", user.uid, "hours"));
   const rows = [];
   snap.forEach(d => rows.push(d.data()));
