@@ -10,28 +10,17 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>WorkLog - Student Tracker & Hours Management</title>
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/svg+xml" href="favicon_cogs32x32.svg">
+  <link rel="manifest" href="app.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="icons/favicon_cogs32x32.svg">
   <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
-  <!-- Auth Gate -->
-  <div id="authGate" style="display: none;">
-    <div class="auth-gate">
-      <h2>🔐 Authentication Required</h2>
-      <p>Please sign in to access the application.</p>
-      <button onclick="window.location.href='auth.html'" class="btn btn-primary">
-        Sign In
-      </button>
-    </div>
-  </div>
-
-  <div class="container" style="display: none;">
+  <div class="container">
     <!-- Header -->
     <header class="header">
       <h1>
-        <img src="worklog_cogs.svg" alt="WorkLog" style="height: 100px; width: 100px;">
+        <img src="icons/worklog_cogs.svg" alt="WorkLog" style="height: 100px; width: 100px;">
       </h1>
       <h1>WorkLog</h1>
       <p class="subtitle">Student Tracker & Hours Management System</p>
@@ -42,61 +31,58 @@
         <span id="dataStatus">📊 Data: 0 Students, 0 Sessions</span>   
 
         <!-- Auth Section inside header -->
-        <div class="auth-section dropdown">
-          <button id="authButton" class="btn btn-sm btn-outline-dark dropdown-toggle">
-            👤 <span id="userName">Loading...</span>
-          </button>
-          <div id="userMenu" class="dropdown-menu dropdown-menu-end">
-            <div class="dropdown-item-text">
-              <strong id="userDisplayName">User</strong><br>
-              <small id="userEmail">user@example.com</small>
+         <div class="auth-section dropdown">
+              <button id="authButton" class="btn btn-sm btn-outline-dark dropdown-toggle">
+                👤 <span id="userName">Loading...</span>
+              </button>
+              <div id="userMenu" class="dropdown-menu dropdown-menu-end">
+                <div class="dropdown-item-text">
+                  <strong id="userDisplayName">User</strong><br>
+                  <small id="userEmail">user@example.com</small>
+                </div>
+                <div class="dropdown-divider"></div>
+                <div class="dropdown-item-text">
+                  <strong>📊 Usage Stats</strong><br>
+                  <small>Students: <span id="statStudents">0</span></small><br>
+                  <small>Hours Worked: <span id="statHours">0</span></small><br>
+                  <small>Money Earned: $<span id="statEarnings">0.00</span></small>
+                </div>
+                <div class="dropdown-item-text">
+                  <small>Last updated: <span id="statUpdated">Never</span></small>
+                </div>
+                <div class="dropdown-divider"></div>
+                <button class="dropdown-item text-danger" id="logoutBtn">🚪 Logout</button>
+              </div>
             </div>
-            <div class="dropdown-divider"></div>
-            <div class="dropdown-item-text">
-              <strong>📊 Usage Stats</strong><br>
-              <small>Students: <span id="statStudents">0</span></small><br>
-              <small>Hours Worked: <span id="statHours">0</span></small><br>
-              <small>Money Earned: $<span id="statEarnings">0.00</span></small>
-            </div>
-            <div class="dropdown-item-text">
-              <small>Last updated: <span id="statUpdated">Never</span></small>
-            </div>
-            <div class="dropdown-divider"></div>
-            <button class="dropdown-item text-danger" id="logoutBtn">🚪 Logout</button>
+      </header>
+
+         <!-- Cloud Sync Bar -->
+        <div class="cloud-sync-bar">
+          <div class="sync-status">
+            <span class="sync-indicator sync-connected" id="syncIndicator"></span>
+            <span id="syncMessage">Cloud Sync: Ready</span>
+            <div id="syncMessageLine" class="sync-message-line">Status: Not synced yet</div>
+             <span id="syncSpinner" class="sync-spinner"></span> <!-- NEW spinner -->
           </div>
-        </div>
-      </div>
-    </header>
 
-    <!-- Cloud Sync Bar -->
-    <div class="cloud-sync-bar">
-      <div class="sync-status">
-        <span class="sync-indicator sync-connected" id="syncIndicator"></span>
-        <span id="syncMessage">Cloud Sync: Ready</span>
-        <div id="syncMessageLine" class="sync-message-line">Status: Not synced yet</div>
-        <span id="syncSpinner" class="sync-spinner"></span>
-      </div>
+          <div class="sync-toolbar">
+            <input type="checkbox" id="autoSyncCheckbox" />
+              <span class="auto-sync-text" id="autoSyncText">Manual</span>
+              </label>
+            </div>
+            <button id="syncBtn" class="btn btn-sm btn-primary">🔄 Sync Now</button>
+            <span id="autoSyncDot" class="auto-sync-dot" style="display:none;"></span>
+        
+            <button id="exportCloudBtn" class="btn btn-sm btn-success">Export Cloud</button>
+            <button id="importCloudBtn" class="btn btn-sm btn-info">Import Cloud</button>
+            <button id="syncStatsBtn" class="btn btn-sm btn-light">Sync Stats</button>
+        
+            <button id="exportDataBtn" class="btn btn-sm btn-primary">📤 Export Data</button>
+            <button id="importDataBtn" class="btn btn-sm btn-primary">📥 Import Data</button>
+            <button id="clearDataBtn" class="btn btn-sm btn-danger">🗑️ Clear All</button>
+         </div>
 
-      <div class="sync-toolbar">
-        <label class="auto-sync-label" id="autoSyncLabel">
-          <input type="checkbox" id="autoSyncCheckbox" />
-          <span class="auto-sync-text" id="autoSyncText">Manual</span>
-        </label>
-        
-        <button id="syncButton" class="btn btn-sm btn-primary">🔄 Sync Now</button>
-        <span id="autoSyncDot" class="auto-sync-dot" style="display:none;"></span>
-        
-        <button id="exportCloudBtn" class="btn btn-sm btn-success">Export Cloud</button>
-        <button id="importCloudBtn" class="btn btn-sm btn-info">Import Cloud</button>
-        <button id="syncStatsBtn" class="btn btn-sm btn-light">Sync Stats</button>
-        
-        <button id="exportDataBtn" class="btn btn-sm btn-primary">📤 Export Data</button>
-        <button id="importDataBtn" class="btn btn-sm btn-primary">📥 Import Data</button>
-        <button id="clearAllBtn" class="btn btn-sm btn-danger">🗑️ Clear All</button>
-      </div>
-    </div>
-
-    <!-- Tabs -->
+   <!-- Tabs -->
     <div class="tabs-container">
       <div class="tabs">
         <button class="tab active" data-tab="students">👥 Students</button>
@@ -107,7 +93,6 @@
         <button class="tab" data-tab="reports">📈 Reports</button>
       </div>
     </div>
-
 
    <!-- Students Tab -->
 <div id="students" class="tab-content active">
@@ -437,27 +422,23 @@
     <script type="module" src="app.js"></script>
 
     <!-- Auth Check - Runs after everything is loaded -->
-    <!-- Auth Check - Also as module -->
-  <script type="module">
-    import { auth } from "./firebase-config.js";
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+   <script type="module">
+  import { auth } from "./firebase-config.js";
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-    console.log("🔐 Starting auth check on index.html...");
+  console.log("🔐 Starting auth check on index.html...");
 
-    onAuthStateChanged(auth, user => {
-      if (user) {
-        console.log("✅ User authenticated:", user.email);
-        // Show app UI, hide auth gate
-        document.querySelector(".container").style.display = "block";
-        document.getElementById("authGate").style.display = "none";
-      } else {
-        console.log("🚫 No user authenticated - showing auth gate");
-        // Show auth gate, hide app UI
-        document.getElementById("authGate").style.display = "block";
-        document.querySelector(".container").style.display = "none";
-      }
-    });
-  </script>
+  onAuthStateChanged(auth, user => {
+    if (user) {
+      console.log("✅ User authenticated:", user.email);
+      // Show app UI
+      document.querySelector(".container").style.display = "block";
+    } else {
+      console.log("🚫 No user authenticated - redirecting to login");
+      window.location.href = "auth.html";
+    }
+  });
+</script>
 
 </body>
 </html>
