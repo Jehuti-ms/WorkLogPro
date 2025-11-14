@@ -39,28 +39,28 @@ document.addEventListener("DOMContentLoaded", () => {
     if (statUpdated) statUpdated.textContent = now;
   }
 
-  async function performSync(uid, mode = "Manual") {
-    if (!syncIndicator || !syncMessageLine || !syncSpinner) return;
+async function performSync(uid, mode = "Manual") {
+  if (!syncIndicator || !syncMessageLine) return;
 
-    try {
-      syncIndicator.classList.add("sync-active");
-      syncIndicator.classList.remove("sync-error");
-      syncSpinner.style.display = "inline-block";
-      syncMessageLine.textContent = `Status: ${mode} syncing…`;
+  try {
+    syncIndicator.classList.add("sync-active");
+    syncIndicator.classList.remove("sync-error");
+    if (syncSpinner) syncSpinner.style.display = "inline-block";
+    syncMessageLine.textContent = `Status: ${mode} syncing…`;
 
-      await loadUserStats(uid);
+    await loadUserStats(uid);
 
-      updateLastSyncTimestamp();
-      syncSpinner.style.display = "none";
-      syncIndicator.classList.remove("sync-active");
-    } catch (err) {
-      syncSpinner.style.display = "none";
-      syncIndicator.classList.remove("sync-active");
-      syncIndicator.classList.add("sync-error");
-      syncMessageLine.textContent = `Status: ${mode} sync failed`;
-      console.error(`❌ ${mode} sync error:`, err);
-    }
+    updateLastSyncTimestamp();
+    if (syncSpinner) syncSpinner.style.display = "none";
+    syncIndicator.classList.remove("sync-active");
+  } catch (err) {
+    if (syncSpinner) syncSpinner.style.display = "none";
+    syncIndicator.classList.remove("sync-active");
+    syncIndicator.classList.add("sync-error");
+    syncMessageLine.textContent = `Status: ${mode} sync failed`;
+    console.error(`❌ ${mode} sync error:`, err);
   }
+}
 
   // Toggle autosync
   if (autoSyncCheckbox) {
