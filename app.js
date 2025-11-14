@@ -84,7 +84,7 @@ async function loadUserStats(uid) {
     }
 
     // Update timestamp
-    statUpdated.textContent = new Date().toLocaleString();
+    refreshTimestamp();
 
   } catch (err) {
     console.error("❌ Error loading stats:", err);
@@ -102,10 +102,19 @@ export async function updateUserStats(uid, newStats) {
     if (newStats.earnings !== undefined) statEarnings.textContent = newStats.earnings.toFixed(2);
 
     // Update timestamp
-    statUpdated.textContent = new Date().toLocaleString();
+    refreshTimestamp();
 
   } catch (err) {
     console.error("❌ Error updating stats:", err);
+  }
+}
+
+function refreshTimestamp() {
+  const now = new Date();
+  const formatted = now.toLocaleString();
+  const statUpdated = document.getElementById("statUpdated");
+  if (statUpdated) {
+    statUpdated.textContent = formatted;
   }
 }
 
@@ -1425,3 +1434,6 @@ window.clearAllData = clearAllData;
 
 // Make app data accessible for debugging
 window.appData = appData;
+
+// Auto-refresh timestamp every 60 seconds
+setInterval(refreshTimestamp, 60000);
