@@ -57,28 +57,19 @@
       </header>
 
          <!-- Cloud Sync Bar -->
-        <div class="sync-toolbar">
-  <!-- Manual sync button -->
-  <button id="syncButton">Manual Sync</button>
+        <div class="cloud-sync-bar">
+          <div class="sync-status">
+            <span class="sync-indicator sync-connected" id="syncIndicator"></span>
+            <span id="syncMessage">Cloud Sync: Ready</span>
+            <div id="syncMessageLine" class="sync-message-line">Status: Not synced yet</div>
+             <span id="syncSpinner" class="sync-spinner"></span> <!-- NEW spinner -->
+          </div>
 
-  <!-- Auto-sync checkbox styled as button -->
-  <label class="auto-sync-label" id="autoSyncLabel">
-    <input type="checkbox" id="autoSyncCheckbox">
-    <span id="autoSyncText">Manual</span>
-  </label>
-
-  <!-- Sync status indicators -->
-  <span class="sync-indicator sync-connected" id="syncIndicator"></span>
-  <span id="syncMessage">Cloud Sync: Ready</span>
-  <div id="syncMessageLine" class="sync-message-line">Status: Not synced yet</div>
-  <span id="syncSpinner" class="sync-spinner"></span>
-</div>
-
-<!-- Dropdown timestamp -->
-<div class="dropdown-item-text">
-  <small>Last updated: <span id="statUpdated">Never</span></small>
-</div>
-
+          <div class="sync-toolbar">
+            <input type="checkbox" id="autoSyncCheckbox" />
+              <span class="auto-sync-text" id="autoSyncText">Manual</span>
+              </label>
+            </div>
             <button id="syncBtn" class="btn btn-sm btn-primary">🔄 Sync Now</button>
             <span id="autoSyncDot" class="auto-sync-dot" style="display:none;"></span>
         
