@@ -26,30 +26,54 @@ const statUpdated  = document.getElementById("statUpdated"); // NEW timestamp el
 // ----------------------
 const autoSyncCheckbox = document.getElementById("autoSyncCheckbox");
 const syncButton       = document.getElementById("syncButton");
+const syncIndicator    = document.getElementById("syncIndicator");
+const syncMessage      = document.getElementById("syncMessage");
+const syncMessageLine  = document.getElementById("syncMessageLine");
+const statUpdated      = document.getElementById("statUpdated"); // profile dropdown timestamp
 
 let autoSyncInterval = null;
 
+// Helper: update both sync bar + dropdown timestamp
+function updateLastSyncTimestamp() {
+  const now = new Date().toLocaleString();
+  syncMessageLine.textContent = "Status: Last synced at " + now;
+  if (statUpdated) statUpdated.textContent = now;
+}
+
+// Toggle autosync
 autoSyncCheckbox.addEventListener("change", () => {
   if (autoSyncCheckbox.checked) {
-    // Change button state
     syncButton.textContent = "Auto";
+    syncIndicator.classList.add("sync-active");
+    syncIndicator.classList.remove("sync-error");
+    syncMessage.textContent = "Cloud Sync: Auto";
+    syncMessageLine.textContent = "Status: Auto-sync enabled";
 
-    // Start syncing every 60 seconds (adjust as needed)
-    autoSyncInterval = setInterval(() => {
+    autoSyncInterval = setInterval(async () => {
       const user = auth.currentUser;
       if (user) {
-        console.log("🔄 Auto-sync triggered");
-        loadUserStats(user.uid); // refresh stats from Firestore
+        try {
+          syncIndicator.classList.add("sync-active");
+          syncMessageLine.textContent = "Status: Syncing…";
+          await loadUserStats(user.uid);
+          updateLastSyncTimestamp();
+        } catch (err) {
+          syncIndicator.classList.remove("sync-active");
+          syncIndicator.classList.add("sync-error");
+          syncMessageLine.textContent = "Status: Sync failed";
+          console.error("❌ Auto-sync error:", err);
+        }
       }
-    }, 60000);
+    }, 60000); // every 60 seconds
 
     console.log("✅ Auto-sync enabled");
-
   } else {
-    // Reset button state
     syncButton.textContent = "Manual";
+    syncIndicator.classList.remove("sync-active", "sync-error");
+    syncIndicator.classList.add("sync-connected");
+    syncMessage.textContent = "Cloud Sync: Ready";
+    syncMessageLine.textContent = "Status: Auto-sync disabled";
 
-    // Stop interval
     if (autoSyncInterval) {
       clearInterval(autoSyncInterval);
       autoSyncInterval = null;
@@ -59,12 +83,22 @@ autoSyncCheckbox.addEventListener("change", () => {
   }
 });
 
-// Manual Sync when clicked
-syncButton.addEventListener("click", () => {
+// Manual sync
+syncButton.addEventListener("click", async () => {
   const user = auth.currentUser;
   if (user) {
-    console.log("🔄 Manual sync triggered");
-    loadUserStats(user.uid);
+    try {
+      syncIndicator.classList.add("sync-active");
+      syncMessageLine.textContent = "Status: Syncing…";
+      await loadUserStats(user.uid);
+      updateLastSyncTimestamp();
+      setTimeout(() => syncIndicator.classList.remove("sync-active"), 2000);
+    } catch (err) {
+      syncIndicator.classList.remove("sync-active");
+      syncIndicator.classList.add("sync-error");
+      syncMessageLine.textContent = "Status: Manual sync failed";
+      console.error("❌ Manual sync error:", err);
+    }
   }
 });
 
