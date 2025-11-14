@@ -1,61 +1,60 @@
-// app.js - COMPLETE FILE WITH CLOUD SYNC + AUTH FLOW + USAGE STATS
-// Local Firebase config + manager
+// app.js - COMPLETE FILE WITH CLOUD SYNC + AUTH FLOW + USAGE STATS + TIMESTAMP
+
 import { auth, db } from "./firebase-config.js";
 import { initFirebaseManager } from "./firebase-manager.js";
-
-// Firebase Auth SDK functions
 import { onAuthStateChanged, signOut } 
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-// Firebase Firestore SDK functions
 import { doc, setDoc, getDoc } 
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+// ----------------------
 // DOM elements
+// ----------------------
 const authButton   = document.getElementById("authButton");
 const userMenu     = document.getElementById("userMenu");
 const userName     = document.getElementById("userName");
 const userEmail    = document.getElementById("userEmail");
-const profileBtn   = document.getElementById("profileBtn");
 const logoutBtn    = document.getElementById("logoutBtn");
 
 // Stats elements in dropdown
 const statStudents = document.getElementById("statStudents");
 const statHours    = document.getElementById("statHours");
 const statEarnings = document.getElementById("statEarnings");
+const statUpdated  = document.getElementById("statUpdated"); // NEW timestamp element
 
-// Toggle dropdown menu
+// ----------------------
+// Dropdown toggle + logout
+// ----------------------
 authButton.addEventListener("click", () => {
   userMenu.classList.toggle("show");
 });
 
-// Logout
 logoutBtn.addEventListener("click", async () => {
   await signOut(auth);
   console.log("✅ User signed out");
   window.location.href = "auth.html";
 });
 
+// ----------------------
 // Auth state listener
+// ----------------------
 onAuthStateChanged(auth, async user => {
   if (user) {
     console.log("✅ User authenticated:", user.email);
 
-    // Update profile button and dropdown
     userName.textContent  = user.displayName || "User";
     userEmail.textContent = user.email || "No email";
 
-    // Show app UI
     document.querySelector(".container").style.display = "block";
     document.getElementById("authGate").style.display = "none";
 
-    // Route to Students tab
     document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
     document.querySelectorAll(".tab-content").forEach(tab => tab.classList.remove("active"));
     document.querySelector('[data-tab="students"]').classList.add("active");
     document.getElementById("students").classList.add("active");
 
-    // Load usage stats
+    initFirebaseManager(user);
+
     await loadUserStats(user.uid);
 
   } else {
@@ -68,8 +67,6 @@ onAuthStateChanged(auth, async user => {
 // ----------------------
 // Usage Stats Functions
 // ----------------------
-
-// Example: stats stored in Firestore under users/{uid}/stats
 async function loadUserStats(uid) {
   try {
     const statsRef = doc(db, "users", uid);
@@ -81,27 +78,73 @@ async function loadUserStats(uid) {
       statHours.textContent    = stats.hours || 0;
       statEarnings.textContent = stats.earnings ? stats.earnings.toFixed(2) : "0.00";
     } else {
-      // Initialize stats if none exist
       await setDoc(statsRef, { students: 0, hours: 0, earnings: 0 });
       statStudents.textContent = 0;
       statHours.textContent    = 0;
       statEarnings.textContent = "0.00";
     }
+
+    // Update timestamp
+    statUpdated.textContent = new Date().toLocaleString();
+
   } catch (err) {
     console.error("❌ Error loading stats:", err);
   }
 }
 
-// Example: update stats after adding student, logging hours, etc.
 export async function updateUserStats(uid, newStats) {
   try {
     const statsRef = doc(db, "users", uid);
     await setDoc(statsRef, newStats, { merge: true });
     console.log("✅ Stats updated:", newStats);
+
+    if (newStats.students !== undefined) statStudents.textContent = newStats.students;
+    if (newStats.hours !== undefined) statHours.textContent = newStats.hours;
+    if (newStats.earnings !== undefined) statEarnings.textContent = newStats.earnings.toFixed(2);
+
+    // Update timestamp
+    statUpdated.textContent = new Date().toLocaleString();
+
   } catch (err) {
     console.error("❌ Error updating stats:", err);
   }
 }
+
+// ----------------------
+// Hooks into existing actions
+// ----------------------
+window.addStudent = async function() {
+  // ... your existing add student logic ...
+  const uid = auth.currentUser.uid;
+  const currentCount = parseInt(statStudents.textContent) || 0;
+  await updateUserStats(uid, { students: currentCount + 1 });
+};
+
+window.logHours = async function() {
+  // ... your existing log hours logic ...
+  const uid = auth.currentUser.uid;
+  const hoursWorked = parseFloat(document.getElementById("hoursWorked").value) || 0;
+  const totalPay    = parseFloat(document.getElementById("totalPay").value) || 0;
+
+  const currentHours    = parseFloat(statHours.textContent) || 0;
+  const currentEarnings = parseFloat(statEarnings.textContent) || 0;
+
+  await updateUserStats(uid, { 
+    hours: currentHours + hoursWorked,
+    earnings: currentEarnings + totalPay
+  });
+};
+
+window.recordPayment = async function() {
+  // ... your existing record payment logic ...
+  const uid = auth.currentUser.uid;
+  const paymentAmount = parseFloat(document.getElementById("paymentAmount").value) || 0;
+  const currentEarnings = parseFloat(statEarnings.textContent) || 0;
+
+  await updateUserStats(uid, { 
+    earnings: currentEarnings + paymentAmount
+  });
+};
 
 /* ============================================================================
    Global state
