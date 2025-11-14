@@ -53,20 +53,20 @@
     <button id="importDataBtn" class="btn btn-sm btn-primary">📥 Import Data</button>
     <button id="clearDataBtn" class="btn btn-sm btn-danger">🗑️ Clear All</button>
 
-    <!-- Auth Section (inline with toolbar) -->
-    <div class="auth-section">
-      <button id="authButton" class="btn btn-sm btn-outline-dark">👤 Sign In</button>
-      <div id="userMenu" class="user-menu" style="display:none;">
-        <div class="user-info">
-          <strong id="userName">User</strong>
-          <span id="userEmail"></span>
-        </div>
-        <button class="user-menu-item" id="profileBtn">👤 Profile & Settings</button>
-        <button class="user-menu-item" id="logoutBtn" style="color: #dc3545;">🚪 Logout</button>
-      </div>
-    </div>
-  </div>
+    <!-- Auth Section inside sync-toolbar -->
+<div class="auth-section dropdown">
+  <button id="authButton" class="btn btn-sm btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+    👤 <span id="userName">User</span>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end" id="userMenu">
+    <li class="dropdown-item-text">
+      <small id="userEmail">user@example.com</small>
+    </li>
+    <li><button class="dropdown-item" id="profileBtn">👤 Profile & Settings</button></li>
+    <li><button class="dropdown-item text-danger" id="logoutBtn">🚪 Logout</button></li>
+  </ul>
 </div>
+
 
 
     <!-- Tabs -->
