@@ -57,30 +57,24 @@
       </header>
 
          <!-- Cloud Sync Bar -->
-        <div class="cloud-sync-bar">
-          <div class="sync-status">
-            <span class="sync-indicator sync-connected" id="syncIndicator"></span>
-            <span id="syncMessage">Cloud Sync: Ready</span>
-            <div id="syncMessageLine" class="sync-message-line">Status: Not synced yet</div>
-             <span id="syncSpinner" class="sync-spinner"></span> <!-- NEW spinner -->
-          </div>
+        <div class="sync-toolbar">
+  <label class="auto-sync-label" id="autoSyncLabel">
+    <input type="checkbox" id="autoSyncCheckbox">
+    <span class="auto-sync-text" id="autoSyncText">Manual</span>
+  </label>
 
-          <div class="sync-toolbar">
-            <input type="checkbox" id="autoSyncCheckbox" />
-              <span class="auto-sync-text" id="autoSyncText">Manual</span>
-              </label>
-            </div>
-            <button id="syncBtn" class="btn btn-sm btn-primary">🔄 Sync Now</button>
-            <span id="autoSyncDot" class="auto-sync-dot" style="display:none;"></span>
-        
-            <button id="exportCloudBtn" class="btn btn-sm btn-success">Export Cloud</button>
-            <button id="importCloudBtn" class="btn btn-sm btn-info">Import Cloud</button>
-            <button id="syncStatsBtn" class="btn btn-sm btn-light">Sync Stats</button>
-        
-            <button id="exportDataBtn" class="btn btn-sm btn-primary">📤 Export Data</button>
-            <button id="importDataBtn" class="btn btn-sm btn-primary">📥 Import Data</button>
-            <button id="clearDataBtn" class="btn btn-sm btn-danger">🗑️ Clear All</button>
-         </div>
+  <button id="syncButton" class="btn btn-sm btn-primary">🔄 Sync Now</button>
+  <span id="autoSyncDot" class="auto-sync-dot" style="display:none;"></span>
+
+  <button id="exportCloudBtn" class="btn btn-sm btn-success">Export Cloud</button>
+  <button id="importCloudBtn" class="btn btn-sm btn-info">Import Cloud</button>
+  <button id="syncStatsBtn" class="btn btn-sm btn-light">Sync Stats</button>
+
+  <button id="exportDataBtn" class="btn btn-sm btn-primary">📤 Export Data</button>
+  <button id="importDataBtn" class="btn btn-sm btn-primary">📥 Import Data</button>
+  <button id="clearDataBtn" class="btn btn-sm btn-danger">🗑️ Clear All</button>
+</div>
+
 
    <!-- Tabs -->
     <div class="tabs-container">
