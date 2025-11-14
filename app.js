@@ -1,5 +1,4 @@
 // app.js - COMPLETE FILE WITH CLOUD SYNC + AUTH FLOW + USAGE STATS + TIMESTAMP
-
 import { auth, db } from "./firebase-config.js";
 import { initFirebaseManager } from "./firebase-manager.js";
 import { onAuthStateChanged, signOut } 
@@ -414,7 +413,6 @@ if (autoSyncToggle) {
     }
   });
 }
-
 
   // Initial UI update
   updateCloudSyncUI();
