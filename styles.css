@@ -675,3 +675,31 @@ p {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+/* Hide the raw checkbox */
+.auto-sync-label input[type="checkbox"] {
+  display: none;
+}
+
+/* Style the label itself like a button */
+.auto-sync-label {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 4px;
+  background-color: #444; /* default inactive */
+  color: #fff;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.3s, transform 0.1s;
+}
+
+/* Active (checked) state */
+.auto-sync-label input[type="checkbox"]:checked + .auto-sync-label {
+  background-color: #2a7; /* green when active */
+}
+
+/* Hover effect */
+.auto-sync-label:hover {
+  background-color: #555;
+  transform: scale(1.05);
+}
