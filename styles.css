@@ -767,3 +767,39 @@ p {
   transform: rotate(45deg);
   margin-left: -12px; /* positions the tick over the box */
 }
+
+.sync-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px; /* space between buttons/controls */
+}
+
+.auto-sync-label {
+  display: inline-flex; /* keep text + hidden checkbox inline */
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 4px;
+  background-color: #444;
+  color: #fff;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.3s, transform 0.1s;
+}
+
+.auto-sync-label:hover {
+  background-color: #555;
+  transform: scale(1.05);
+}
+
+.auto-sync-label input[type="checkbox"] {
+  display: none; /* hide raw checkbox */
+}
+
+.auto-sync-label input[type="checkbox"]:checked + span {
+  font-weight: bold;
+  color: #fff;
+}
+
+.auto-sync-label.checked {
+  background-color: #2a7; /* green when active */
+}
