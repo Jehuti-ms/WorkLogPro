@@ -510,3 +510,71 @@ p {
   100% { transform: scale(0.9); opacity: 0.7; }
 }
 
+.sync-toolbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, auto));
+  gap: 10px;
+  align-items: center;
+  margin-top: 8px;
+  padding-bottom: 4px;
+}
+
+@media (min-width: 768px) {
+  .sync-toolbar {
+    grid-template-columns: repeat(13, auto); /* includes auth section */
+  }
+}
+
+.auto-sync-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9em;
+}
+
+.sync-message-line {
+  font-size: 0.85em;
+  color: #555;
+  white-space: nowrap;
+}
+
+.auto-sync-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: green;
+  animation: pulse 1.5s infinite;
+}
+
+.auth-section {
+  position: relative;
+}
+
+.user-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: #fff;
+  border: 1px solid #ccc;
+  padding: 8px;
+  z-index: 10;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.user-menu-item {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  font-size: 0.9em;
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.user-info {
+  font-size: 0.85em;
+  margin-bottom: 6px;
+  color: #333;
+}
