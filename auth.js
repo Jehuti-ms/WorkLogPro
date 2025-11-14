@@ -1,106 +1,129 @@
-// auth.js
-import { auth } from "./firebase-config.js";
-import { 
-  onAuthStateChanged, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut,
-  setPersistence,
-  browserLocalPersistence
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+// app.js - Cloud Sync + Stats + Profile Dropdown Integration
 
-// --- Persist session locally ---
-setPersistence(auth, browserLocalPersistence)
-  .then(() => console.log("✅ Persistence set to local"))
-  .catch(err => console.error("Persistence error:", err));
+import { auth, db } from "./firebase-config.js";
+import { initFirebaseManager } from "./firebase-manager.js";
 
-// --- Auth state listener ---
-onAuthStateChanged(auth, user => {
+// Firebase Auth SDK
+import { onAuthStateChanged } 
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+// Firebase Firestore SDK
+import { doc, setDoc, getDoc } 
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// ----------------------
+// DOM Elements
+// ----------------------
+const userName     = document.getElementById("userName");
+const userEmail    = document.getElementById("userEmail");
+const userMenu     = document.getElementById("userMenu");
+
+const statStudents = document.getElementById("statStudents");
+const statHours    = document.getElementById("statHours");
+const statEarnings = document.getElementById("statEarnings");
+
+// ----------------------
+// Auth State Listener
+// ----------------------
+onAuthStateChanged(auth, async user => {
   if (user) {
-    console.log("🟢 Signed in:", user.email);
-    // Redirect to main app
-    if (!window.location.pathname.includes("index.html")) {
-      window.location.href = "index.html";
-    }
+    console.log("✅ User authenticated:", user.email);
+
+    // Update profile button + dropdown
+    userName.textContent  = user.displayName || "User";
+    userEmail.textContent = user.email || "No email";
+
+    // Show app UI
+    document.querySelector(".container").style.display = "block";
+    const gate = document.getElementById("authGate");
+    if (gate) gate.style.display = "none";
+
+    // Route to Students tab
+    document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
+    document.querySelectorAll(".tab-content").forEach(tab => tab.classList.remove("active"));
+    document.querySelector('[data-tab="students"]').classList.add("active");
+    document.getElementById("students").classList.add("active");
+
+    // Initialize Firebase Manager (cloud sync)
+    initFirebaseManager(user);
+
+    // Load usage stats
+    await loadUserStats(user.uid);
+
   } else {
-    console.log("🔴 No user signed in");
-    // Stay on auth.html until login/register
+    console.log("🚫 No user authenticated");
+    document.querySelector(".container").style.display = "none";
+    const gate = document.getElementById("authGate");
+    if (gate) gate.style.display = "block";
   }
 });
 
-// --- Login Form ---
-const loginForm = document.getElementById("loginForm");
-if (loginForm) {
-  loginForm.addEventListener("submit", async e => {
-    e.preventDefault();
-    const email = document.getElementById("loginEmail").value.trim();
-    const password = document.getElementById("loginPassword").value.trim();
+// ----------------------
+// Usage Stats Functions
+// ----------------------
+async function loadUserStats(uid) {
+  try {
+    const statsRef = doc(db, "users", uid);
+    const statsSnap = await getDoc(statsRef);
 
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      console.log("✅ Login successful");
-      window.location.href = "index.html";
-    } catch (err) {
-      console.error("❌ Login error:", err.code, err.message);
-      alert("Login failed: " + err.message);
+    if (statsSnap.exists()) {
+      const stats = statsSnap.data();
+      statStudents.textContent = stats.students || 0;
+      statHours.textContent    = stats.hours || 0;
+      statEarnings.textContent = stats.earnings ? stats.earnings.toFixed(2) : "0.00";
+    } else {
+      // Initialize stats if none exist
+      await setDoc(statsRef, { students: 0, hours: 0, earnings: 0 });
+      statStudents.textContent = 0;
+      statHours.textContent    = 0;
+      statEarnings.textContent = "0.00";
     }
-  });
+  } catch (err) {
+    console.error("❌ Error loading stats:", err);
+  }
 }
 
-// --- Register Form ---
-const registerForm = document.getElementById("registerForm");
-if (registerForm) {
-  registerForm.addEventListener("submit", async e => {
-    e.preventDefault();
-    const name = document.getElementById("registerName").value.trim();
-    const email = document.getElementById("registerEmail").value.trim();
-    const password = document.getElementById("registerPassword").value.trim();
-    const confirmPassword = document.getElementById("registerConfirmPassword").value.trim();
+export async function updateUserStats(uid, newStats) {
+  try {
+    const statsRef = doc(db, "users", uid);
+    await setDoc(statsRef, newStats, { merge: true });
+    console.log("✅ Stats updated:", newStats);
 
-    if (password !== confirmPassword) {
-      alert("Passwords do not match");
-      return;
-    }
-
-    try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      console.log("✅ Account created for:", name, email);
-      window.location.href = "index.html";
-    } catch (err) {
-      console.error("❌ Registration error:", err.code, err.message);
-      alert("Registration failed: " + err.message);
-    }
-  });
+    // Refresh dropdown values
+    if (newStats.students !== undefined) statStudents.textContent = newStats.students;
+    if (newStats.hours !== undefined) statHours.textContent = newStats.hours;
+    if (newStats.earnings !== undefined) statEarnings.textContent = newStats.earnings.toFixed(2);
+  } catch (err) {
+    console.error("❌ Error updating stats:", err);
+  }
 }
 
-// --- Forgot Password Form ---
-const forgotForm = document.getElementById("forgotPasswordForm");
-if (forgotForm) {
-  forgotForm.addEventListener("submit", async e => {
-    e.preventDefault();
-    const email = document.getElementById("forgotEmail").value.trim();
+// ----------------------
+// Hook into existing actions
+// ----------------------
 
-    try {
-      await sendPasswordResetEmail(auth, email);
-      console.log("✅ Reset email sent to:", email);
-      alert("Password reset email sent!");
-    } catch (err) {
-      console.error("❌ Reset error:", err.code, err.message);
-      alert("Reset failed: " + err.message);
-    }
-  });
-}
+// Example: Add Student
+window.addStudent = async function() {
+  // ... your existing add student logic ...
 
-// --- Logout Button ---
-const logoutBtn = document.getElementById("logoutBtn");
-if (logoutBtn) {
-  logoutBtn.addEventListener("click", async () => {
-    try {
-      await signOut(auth);
-      console.log("✅ User signed out");
-      window.location.href = "auth.html";
-    } catch (err) {
-      console.error("❌ Sign-out error:", err.code, err.message);
-    }
+  const uid = auth.currentUser.uid;
+  const currentCount = parseInt(statStudents.textContent) || 0;
+  await updateUserStats(uid, { students: currentCount + 1 });
+};
+
+// Example: Log Hours
+window.logHours = async function() {
+  // ... your existing log hours logic ...
+
+  const uid = auth.currentUser.uid;
+  const hoursWorked = parseFloat(document.getElementById("hoursWorked").value) || 0;
+  const totalPay    = parseFloat(document.getElementById("totalPay").value) || 0;
+
+  const currentHours    = parseFloat(statHours.textContent) || 0;
+  const currentEarnings = parseFloat(statEarnings.textContent) || 0;
+
+  await updateUserStats(uid, { 
+    hours: currentHours + hoursWorked,
+    earnings: currentEarnings + totalPay
   });
-}
+};
