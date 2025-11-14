@@ -22,6 +22,53 @@ const statEarnings = document.getElementById("statEarnings");
 const statUpdated  = document.getElementById("statUpdated"); // NEW timestamp element
 
 // ----------------------
+// Autosync elements
+// ----------------------
+const autoSyncCheckbox = document.getElementById("autoSyncCheckbox");
+const syncButton       = document.getElementById("syncButton");
+
+let autoSyncInterval = null;
+
+autoSyncCheckbox.addEventListener("change", () => {
+  if (autoSyncCheckbox.checked) {
+    // Change button state
+    syncButton.textContent = "Auto";
+
+    // Start syncing every 60 seconds (adjust as needed)
+    autoSyncInterval = setInterval(() => {
+      const user = auth.currentUser;
+      if (user) {
+        console.log("🔄 Auto-sync triggered");
+        loadUserStats(user.uid); // refresh stats from Firestore
+      }
+    }, 60000);
+
+    console.log("✅ Auto-sync enabled");
+
+  } else {
+    // Reset button state
+    syncButton.textContent = "Manual";
+
+    // Stop interval
+    if (autoSyncInterval) {
+      clearInterval(autoSyncInterval);
+      autoSyncInterval = null;
+    }
+
+    console.log("⏹️ Auto-sync disabled");
+  }
+});
+
+// Manual Sync when clicked
+syncButton.addEventListener("click", () => {
+  const user = auth.currentUser;
+  if (user) {
+    console.log("🔄 Manual sync triggered");
+    loadUserStats(user.uid);
+  }
+});
+
+// ----------------------
 // Dropdown toggle + logout
 // ----------------------
 authButton.addEventListener("click", () => {
