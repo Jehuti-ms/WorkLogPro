@@ -13,7 +13,6 @@ import { doc, setDoc, getDoc }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 
-
 const authButton = document.getElementById("authButton");
 const userMenu = document.getElementById("userMenu");
 const userName = document.getElementById("userName");
@@ -36,13 +35,17 @@ logoutBtn.addEventListener("click", async () => {
 // Update profile info when auth state changes
 onAuthStateChanged(auth, user => {
   if (user) {
-    authButton.style.display = "none";
-    userMenu.style.display = "block";
-    userName.textContent = user.displayName || "Staff Member";
-    userEmail.textContent = user.email;
+    // Update profile button and dropdown
+    document.getElementById("userName").textContent = user.displayName || "User";
+    document.getElementById("userEmail").textContent = user.email || "No email";
+
+    // Show app UI
+    document.querySelector(".container").style.display = "block";
+    document.getElementById("authGate").style.display = "none";
   } else {
-    authButton.style.display = "inline-block";
-    userMenu.style.display = "none";
+    // Redirect or show login screen
+    document.querySelector(".container").style.display = "none";
+    document.getElementById("authGate").style.display = "block";
   }
 });
 
