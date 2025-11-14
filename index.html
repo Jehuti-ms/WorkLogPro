@@ -14,6 +14,14 @@
   <link rel="icon" type="image/svg+xml" href="icons/favicon_cogs32x32.svg">
   <link rel="stylesheet" href="styles.css">
 </head>
+
+  <!-- Auth Gate -->
+<div id="authGate" class="auth-gate">
+  <h2>🔐 Welcome to WorkLog Pro</h2>
+  <p>Please sign in or register to continue.</p>
+  <button id="signInBtn" class="btn btn-primary">Sign In with Google</button>
+</div>
+
 <body>
   <div class="container">
     <!-- Header -->
@@ -30,15 +38,23 @@
         <span id="dataStatus">📊 Data: 0 Students, 0 Sessions</span>   
 
         <!-- Auth Section inside header -->
-          <div class="auth-section dropdown">
-              <button id="authButton" class="btn btn-sm btn-outline-dark dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
+         <div class="auth-section dropdown">
+              <button id="authButton" class="btn btn-sm btn-outline-dark dropdown-toggle">
                 👤 <span id="userName">Loading...</span>
               </button>
               <div id="userMenu" class="dropdown-menu dropdown-menu-end">
                 <div class="dropdown-item-text">
-                  <small id="userEmail">Loading...</small>
+                  <strong id="userDisplayName">User</strong><br>
+                  <small id="userEmail">user@example.com</small>
                 </div>
-                <button class="dropdown-item" id="profileBtn">👤 Profile & Settings</button>
+                <div class="dropdown-divider"></div>
+                <div class="dropdown-item-text">
+                  <strong>📊 Usage Stats</strong><br>
+                  <small>Students: <span id="statStudents">0</span></small><br>
+                  <small>Hours Worked: <span id="statHours">0</span></small><br>
+                  <small>Money Earned: $<span id="statEarnings">0.00</span></small>
+                </div>
+                <div class="dropdown-divider"></div>
                 <button class="dropdown-item text-danger" id="logoutBtn">🚪 Logout</button>
               </div>
             </div>
