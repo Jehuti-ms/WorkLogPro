@@ -57,15 +57,18 @@
       </header>
 
          <!-- Cloud Sync Bar -->
-        <div class="cloud-sync-bar">
-          <div class="sync-status">
-            <span class="sync-indicator sync-connected" id="syncIndicator"></span>
-            <span id="syncMessage">Cloud Sync: Ready</span>
-            <div id="syncMessageLine" class="sync-message-line">Status: Not synced yet</div>
-             <span id="syncSpinner" class="sync-spinner"></span> <!-- NEW spinner -->
-          </div>
-
-          <div class="sync-toolbar">
+        <div class="sync-toolbar">
+          <button id="syncButton">Manual Sync</button>
+              <label class="auto-sync-label" id="autoSyncLabel">
+                <input type="checkbox" id="autoSyncCheckbox">
+                <span id="autoSyncText">Manual</span>
+              </label>
+            <span id="syncIndicator"></span>
+          <span id="syncMessage">Cloud Sync: Ready</span>
+         <div id="syncMessageLine">Status: Not synced yet</div>
+        <span id="syncSpinner"></span>
+      </div>
+         <div class="sync-toolbar">
             <input type="checkbox" id="autoSyncCheckbox" />
               <span class="auto-sync-text" id="autoSyncText">Manual</span>
               </label>
