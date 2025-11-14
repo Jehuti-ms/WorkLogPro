@@ -11,20 +11,11 @@ const firebaseConfig = {
   storageBucket: "worklogpro-4284e.firebasestorage.app",
   messagingSenderId: "299567233913",
   appId: "1:299567233913:web:7232a5a5a8aa9b79948da8",
-};
-
+  };
+  
 // --- Initialize once ---
-let app;
-let auth;
-let db;
+const app = initializeApp(firebaseConfig);
+console.log("✅ Firebase initialized successfully");
 
-try {
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getFirestore(app);
-  console.log("✅ Firebase initialized successfully");
-} catch (error) {
-  console.error("❌ Firebase initialization failed:", error);
-}
-
-export { auth, db };
+export const auth = getAuth(app);
+export const db = getFirestore(app);
