@@ -285,12 +285,19 @@ async function renderStudents() {
 }
 
 function addStudent() {
-  const name   = document.getElementById("studentName")?.value.trim();
-  const id     = document.getElementById("studentId")?.value.trim();
-  const gender = document.getElementById("studentGender")?.value;
-  const email  = document.getElementById("studentEmail")?.value.trim();
-  const phone  = document.getElementById("studentPhone")?.value.trim();
-  const rate   = parseFloat(document.getElementById("studentBaseRate")?.value) || 0;
+  const nameEl   = document.getElementById("studentName");
+  const idEl     = document.getElementById("studentId");
+  const genderEl = document.getElementById("studentGender");
+  const emailEl  = document.getElementById("studentEmail");
+  const phoneEl  = document.getElementById("studentPhone");
+  const rateEl   = document.getElementById("studentBaseRate");
+
+  const name   = nameEl?.value.trim();
+  const id     = idEl?.value.trim();
+  const gender = genderEl?.value;
+  const email  = emailEl?.value.trim();
+  const phone  = phoneEl?.value.trim();
+  const rate   = parseFloat(rateEl?.value) || 0;
 
   if (!name || !id || !gender) {
     alert("Please fill required fields: Name, ID, Gender");
@@ -381,41 +388,7 @@ function resetHoursForm() {
   if (totalEl) totalEl.value = "";
 }
 
-async function logHours() {
-  const organization = document.getElementById("organization")?.value.trim();
-  const workType     = document.getElementById("workType")?.value || "hourly";
-  const workDate     = document.getElementById("workDate")?.value;
-  const hours        = parseFloat(document.getElementById("hoursWorked")?.value) || 0;
-  const rate         = parseFloat(document.getElementById("baseRate")?.value) || 0;
-
-  if (!organization || !workDate || hours <= 0 || rate <= 0) {
-    alert("Please fill required fields: Organization, Date, Hours, Rate");
-    return;
-  }
-
-  const total        = workType === "hourly" ? hours * rate : rate;
-  const totalPayEl   = document.getElementById("totalPay");
-  if (totalPayEl) totalPayEl.value = fmtMoney(total);
-
-  const user = auth.currentUser;
-  if (!user) return;
-  await addDoc(collection(db, "users", user.uid, "hours"), {
-    organization,
-    workType,
-    date: workDate,
-    dateIso: fmtDateISO(workDate),
-    hours,
-    rate,
-    total
-  });
-
-  console.log("✅ Hours logged");
-  await recalcSummaryStats(user.uid);
-  refreshTimestamp();
-  await renderRecentHours();
-  resetHoursForm();
-}
-
+async function logHours()
 async function renderRecentHours(limit = 10) {
   const user = auth.currentUser;
   if (!user) return;
@@ -451,12 +424,21 @@ async function renderRecentHours(limit = 10) {
 // Marks Tab
 // ----------------------
 async function addMark() {
-  const student = document.getElementById("marksStudent")?.value;
-  const subject = document.getElementById("markSubject")?.value.trim();
-  const topic   = document.getElementById("markTopic")?.value.trim();
-  const date    = document.getElementById("markDate")?.value;
-  const score   = parseFloat(document.getElementById("score")?.value);
-  const max     = parseFloat(document.getElementById("maxScore")?.value);
+  const studentEl = document.getElementById("marksStudent");
+  const subjectEl = document.getElementById("markSubject");
+  const topicEl   = document.getElementById("markTopic");
+  const dateEl    = document.getElementById("markDate");
+  const scoreEl   = document.getElementById("score");
+  const maxEl     = document.getElementById("maxScore");
+  const pctEl     = document.getElementById("percentage");
+  const gradeEl   = document.getElementById("grade");
+
+  const student = studentEl?.value;
+  const subject = subjectEl?.value.trim();
+  const topic   = topicEl?.value.trim();
+  const date    = dateEl?.value;
+  const score   = parseFloat(scoreEl?.value);
+  const max     = parseFloat(maxEl?.value);
 
   if (!student || !subject || !topic || !date || !Number.isFinite(score) || !Number.isFinite(max) || max <= 0) {
     alert("Please fill all required fields and ensure score/max are valid");
@@ -470,8 +452,8 @@ async function addMark() {
                 pctVal >= 70 ? "C" :
                 pctVal >= 60 ? "D" : "F";
 
-  document.getElementById("percentage")?.setAttribute("value", `${percentage}%`);
-  document.getElementById("grade")?.setAttribute("value", grade);
+  if (pctEl)   pctEl.value   = `${percentage}%`;
+  if (gradeEl) gradeEl.value = grade;
 
   const user = auth.currentUser;
   if (!user) return;
@@ -540,9 +522,13 @@ function resetMarksForm() {
 // Attendance Tab
 // ----------------------
 async function saveAttendance() {
-  const date    = document.getElementById("attendanceDate")?.value;
-  const subject = document.getElementById("attendanceSubject")?.value.trim();
-  const topic   = document.getElementById("attendanceTopic")?.value.trim();
+  const dateEl    = document.getElementById("attendanceDate");
+  const subjectEl = document.getElementById("attendanceSubject");
+  const topicEl   = document.getElementById("attendanceTopic");
+
+  const date    = dateEl?.value;
+  const subject = subjectEl?.value.trim();
+  const topic   = topicEl?.value.trim();
 
   if (!date || !subject) {
     alert("Please fill required fields: Date, Subject");
@@ -628,11 +614,17 @@ async function renderAttendanceRecent(limit = 10) {
 // Payments Tab
 // ----------------------
 async function recordPayment() {
-  const student = document.getElementById("paymentStudent")?.value;
-  const amount  = parseFloat(document.getElementById("paymentAmount")?.value);
-  const date    = document.getElementById("paymentDate")?.value;
-  const method  = document.getElementById("paymentMethod")?.value;
-  const notes   = document.getElementById("paymentNotes")?.value.trim();
+  const studentEl = document.getElementById("paymentStudent");
+  const amountEl  = document.getElementById("paymentAmount");
+  const dateEl    = document.getElementById("paymentDate");
+  const methodEl  = document.getElementById("paymentMethod");
+  const notesEl   = document.getElementById("paymentNotes");
+
+  const student = studentEl?.value;
+  const amount  = parseFloat(amountEl?.value);
+  const date    = dateEl?.value;
+  const method  = methodEl?.value;
+  const notes   = notesEl?.value.trim();
 
   if (!student || !Number.isFinite(amount) || amount <= 0 || !date) {
     alert("Please fill required fields: Student, Amount (>0), Date");
@@ -649,6 +641,7 @@ async function recordPayment() {
   refreshTimestamp();
   await renderPaymentActivity();
   await renderStudentBalances();
+  resetPaymentForm();
 }
 
 // ----------------------
