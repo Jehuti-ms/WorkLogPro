@@ -1292,6 +1292,20 @@ function updateSyncStatus(state, message) {
   }
 }
 
+    const authButton = document.getElementById("authButton");
+const userMenu = document.getElementById("userMenu");
+
+authButton.addEventListener("click", () => {
+  userMenu.classList.toggle("show");
+});
+
+// Optional: close when clicking outside
+document.addEventListener("click", (e) => {
+  if (!authButton.contains(e.target) && !userMenu.contains(e.target)) {
+    userMenu.classList.remove("show");
+  }
+});
+
 /* ============================================================================
    Boot and Global Exposure
 ============================================================================ */
