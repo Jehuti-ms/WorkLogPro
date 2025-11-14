@@ -158,6 +158,7 @@ onAuthStateChanged(auth, async user => {
 // ----------------------
 // Usage Stats Functions
 // ----------------------
+// Load stats from Firestore and update DOM
 async function loadUserStats(uid) {
   try {
     const statsRef = doc(db, "users", uid);
@@ -183,15 +184,41 @@ async function loadUserStats(uid) {
   }
 }
 
-async function performSync(uid, mode = "Manual") { … } updateUserStats(uid, newStats) {
+// Perform sync and then update stats
+async function performSync(uid, mode = "Manual") {
+  try {
+    // show spinner/indicator here if needed
+    await loadUserStats(uid);
+
+    // Example: update stats after sync
+    await updateUserStats(uid, {
+      lastSync: new Date().toLocaleString()
+    });
+
+  } catch (err) {
+    console.error(`❌ ${mode} sync error:`, err);
+  }
+}
+
+// Update stats in Firestore and DOM
+async function updateUserStats(uid, newStats) {
   try {
     const statsRef = doc(db, "users", uid);
     await setDoc(statsRef, newStats, { merge: true });
     console.log("✅ Stats updated:", newStats);
 
-    if (newStats.students !== undefined) statStudents.textContent = newStats.students;
-    if (newStats.hours !== undefined) statHours.textContent = newStats.hours;
-    if (newStats.earnings !== undefined) statEarnings.textContent = newStats.earnings.toFixed(2);
+    if (newStats.students !== undefined) {
+      statStudents.textContent = newStats.students;
+    }
+    if (newStats.hours !== undefined) {
+      statHours.textContent = newStats.hours;
+    }
+    if (newStats.earnings !== undefined) {
+      statEarnings.textContent = newStats.earnings.toFixed(2);
+    }
+    if (newStats.lastSync !== undefined) {
+      statUpdated.textContent = newStats.lastSync;
+    }
 
     // Update timestamp
     refreshTimestamp();
