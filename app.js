@@ -1,5 +1,4 @@
-// app.js - COMPLETE FILE WITH CLOUD SYNC INTEGRATION
-
+// app.js - COMPLETE FILE WITH CLOUD SYNC + AUTH FLOW + USAGE STATS
 // Local Firebase config + manager
 import { auth, db } from "./firebase-config.js";
 import { initFirebaseManager } from "./firebase-manager.js";
@@ -12,17 +11,22 @@ import { onAuthStateChanged, signOut }
 import { doc, setDoc, getDoc } 
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+// DOM elements
+const authButton   = document.getElementById("authButton");
+const userMenu     = document.getElementById("userMenu");
+const userName     = document.getElementById("userName");
+const userEmail    = document.getElementById("userEmail");
+const profileBtn   = document.getElementById("profileBtn");
+const logoutBtn    = document.getElementById("logoutBtn");
 
-const authButton = document.getElementById("authButton");
-const userMenu = document.getElementById("userMenu");
-const userName = document.getElementById("userName");
-const userEmail = document.getElementById("userEmail");
-const profileBtn = document.getElementById("profileBtn");
-const logoutBtn = document.getElementById("logoutBtn");
+// Stats elements in dropdown
+const statStudents = document.getElementById("statStudents");
+const statHours    = document.getElementById("statHours");
+const statEarnings = document.getElementById("statEarnings");
 
-// Toggle profile menu
-profileBtn.addEventListener("click", () => {
-  userMenu.style.display = userMenu.style.display === "block" ? "none" : "block";
+// Toggle dropdown menu
+authButton.addEventListener("click", () => {
+  userMenu.classList.toggle("show");
 });
 
 // Logout
@@ -32,22 +36,72 @@ logoutBtn.addEventListener("click", async () => {
   window.location.href = "auth.html";
 });
 
-// Update profile info when auth state changes
-onAuthStateChanged(auth, user => {
+// Auth state listener
+onAuthStateChanged(auth, async user => {
   if (user) {
+    console.log("✅ User authenticated:", user.email);
+
     // Update profile button and dropdown
-    document.getElementById("userName").textContent = user.displayName || "User";
-    document.getElementById("userEmail").textContent = user.email || "No email";
+    userName.textContent  = user.displayName || "User";
+    userEmail.textContent = user.email || "No email";
 
     // Show app UI
     document.querySelector(".container").style.display = "block";
     document.getElementById("authGate").style.display = "none";
+
+    // Route to Students tab
+    document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
+    document.querySelectorAll(".tab-content").forEach(tab => tab.classList.remove("active"));
+    document.querySelector('[data-tab="students"]').classList.add("active");
+    document.getElementById("students").classList.add("active");
+
+    // Load usage stats
+    await loadUserStats(user.uid);
+
   } else {
-    // Redirect or show login screen
+    console.log("🚫 No user authenticated");
     document.querySelector(".container").style.display = "none";
     document.getElementById("authGate").style.display = "block";
   }
 });
+
+// ----------------------
+// Usage Stats Functions
+// ----------------------
+
+// Example: stats stored in Firestore under users/{uid}/stats
+async function loadUserStats(uid) {
+  try {
+    const statsRef = doc(db, "users", uid);
+    const statsSnap = await getDoc(statsRef);
+
+    if (statsSnap.exists()) {
+      const stats = statsSnap.data();
+      statStudents.textContent = stats.students || 0;
+      statHours.textContent    = stats.hours || 0;
+      statEarnings.textContent = stats.earnings ? stats.earnings.toFixed(2) : "0.00";
+    } else {
+      // Initialize stats if none exist
+      await setDoc(statsRef, { students: 0, hours: 0, earnings: 0 });
+      statStudents.textContent = 0;
+      statHours.textContent    = 0;
+      statEarnings.textContent = "0.00";
+    }
+  } catch (err) {
+    console.error("❌ Error loading stats:", err);
+  }
+}
+
+// Example: update stats after adding student, logging hours, etc.
+export async function updateUserStats(uid, newStats) {
+  try {
+    const statsRef = doc(db, "users", uid);
+    await setDoc(statsRef, newStats, { merge: true });
+    console.log("✅ Stats updated:", newStats);
+  } catch (err) {
+    console.error("❌ Error updating stats:", err);
+  }
+}
 
 /* ============================================================================
    Global state
