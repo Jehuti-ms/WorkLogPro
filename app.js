@@ -20,7 +20,7 @@ const statStudents = document.getElementById("statStudents");
 const statHours    = document.getElementById("statHours");
 const statEarnings = document.getElementById("statEarnings");
 
-document.addEventListener("DOMContentLoaded", () => {
+() => {
   const autoSyncCheckbox = document.getElementById("autoSyncCheckbox");
   const autoSyncLabel    = document.getElementById("autoSyncLabel");
   const autoSyncText     = document.getElementById("autoSyncText");
@@ -335,7 +335,7 @@ async function loadAllData() {
     let loadedData = null;
 
     // Try to load from Firebase first (if user is authenticated)
-    if (typeof firebaseManager !== 'undefined' && firebaseManager.isCloudEnabled && firebaseManager.isCloudEnabled()) {
+    if (window.firebaseManager && typeof window.firebaseManager.isCloudEnabled === 'function' && window.firebaseManager.isCloudEnabled()) {
       console.log("📥 Attempting to load data from Firebase...");
       loadedData = await firebaseManager.loadData();
     }
@@ -382,7 +382,7 @@ async function saveAllData() {
     appData.payments = Array.isArray(allPayments) ? allPayments.slice() : [];
 
     // Save to Firebase if available
-    if (typeof firebaseManager !== 'undefined' && firebaseManager.isCloudEnabled && firebaseManager.isCloudEnabled()) {
+    if (window.firebaseManager && typeof window.firebaseManager.isCloudEnabled === 'function' && window.firebaseManager.isCloudEnabled()) {
       await firebaseManager.saveData(appData);
       console.log("💾 Data saved to Firebase");
     } else {
@@ -404,7 +404,7 @@ async function saveAllDataWithSync() {
     await saveAllData();
     
     // Try to sync to cloud if available
-    if (typeof firebaseManager !== 'undefined' && firebaseManager.isCloudEnabled && firebaseManager.isCloudEnabled()) {
+    if (window.firebaseManager && typeof window.firebaseManager.isCloudEnabled === 'function' && window.firebaseManager.isCloudEnabled()) {
       await firebaseManager.saveData(appData);
     }
   } catch (error) {
@@ -486,7 +486,7 @@ function setupCloudSyncUI() {
     updateCloudSyncUI();
   });
 
-  document.getElementById("syncBtn").addEventListener("click", async () => {
+  document.getElementById("syncButton").addEventListener("click", async () => {
     updateSyncStatus("syncing", "🔄 Syncing data...");
     try {
       await performCloudSync();
@@ -498,7 +498,7 @@ function setupCloudSyncUI() {
   });
 
  const autoSyncToggle = document.getElementById("autoSyncCheckbox");
-const syncBtn = document.getElementById("syncBtn");
+const syncBtn = document.getElementById("syncButton");
 const autoSyncDot = document.getElementById("autoSyncDot");
 
 if (autoSyncToggle) {
@@ -576,7 +576,7 @@ function setSyncIndicator(state) {
 
 // Auto Sync Toggle
 const autoSyncToggle = document.getElementById("autoSyncToggle");
-const syncBtn = document.getElementById("syncBtn");
+const syncBtn = document.getElementById("syncButton");
 
 if (autoSyncToggle) {
   autoSyncToggle.addEventListener("change", () => {
@@ -756,7 +756,7 @@ function setupEventListeners() {
 
   // === Sync Bar ===
   document.getElementById("autoSyncCheckbox")?.addEventListener("change", toggleAutoSync);
-  document.getElementById("syncBtn")?.addEventListener("click", manualSync);
+  document.getElementById("syncButton")?.addEventListener("click", manualSync);
   document.getElementById("exportCloudBtn")?.addEventListener("click", exportCloudData);
   document.getElementById("importCloudBtn")?.addEventListener("click", importToCloud);
   document.getElementById("syncStatsBtn")?.addEventListener("click", showSyncStats);
@@ -839,7 +839,37 @@ function renderStudents() {
     }
   }
 }
+// Add these missing function implementations
+function selectAllStudents() {
+  const checkboxes = document.querySelectorAll('#attendanceList input[type="checkbox"]');
+  checkboxes.forEach(cb => cb.checked = true);
+}
 
+function deselectAllStudents() {
+  const checkboxes = document.querySelectorAll('#attendanceList input[type="checkbox"]');
+  checkboxes.forEach(cb => cb.checked = false);
+}
+
+function resetPaymentForm() {
+  document.getElementById("paymentForm")?.reset();
+}
+
+function useDefaultRateInHours() {
+  const rateInput = document.getElementById("baseRate");
+  if (rateInput) {
+    rateInput.value = appData.settings.defaultRate || 25.0;
+  }
+}
+
+function closeSyncStats() {
+  document.getElementById("syncStatsModal").style.display = "none";
+}
+
+// Placeholder functions for reports tab
+function showWeeklyBreakdown() { /* implementation */ }
+function showBiWeeklyBreakdown() { /* implementation */ }
+function showMonthlyBreakdown() { /* implementation */ }
+function showSubjectBreakdown() { /* implementation */ }
 // === Hours ===
 async function logHours() {
   const org = document.getElementById("organization").value.trim();
@@ -1313,7 +1343,7 @@ document.querySelectorAll(".tab").forEach(tab => {
 });
 
 // Initialize FAB on load
-document.addEventListener("DOMContentLoaded", updateFabAction);
+updateFabAction);
 
 /* ============================================================================
    Stats and UI updates
@@ -1490,17 +1520,6 @@ function updateSyncStatus(state, message) {
       break;
   }
 }
-
-authButton.addEventListener("click", () => {
-  userMenu.classList.toggle("show");
-});
-
-// Optional: close when clicking outside
-document.addEventListener("click", (e) => {
-  if (!authButton.contains(e.target) && !userMenu.contains(e.target)) {
-    userMenu.classList.remove("show");
-  }
-});
 
 /* ============================================================================
    Boot and Global Exposure
