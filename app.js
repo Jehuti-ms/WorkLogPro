@@ -110,8 +110,6 @@ async function performSync(uid, mode = "Manual") {
       if (user) performSync(user.uid, "Manual");
     });
   }
-});
-
 
 // ----------------------
 // Dropdown toggle + logout
