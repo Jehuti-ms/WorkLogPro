@@ -311,8 +311,12 @@ function addStudent() {
   }
 }
 
+// ----------------------
+// Students Tab Reset
+// ----------------------
 function clearStudentForm() {
-  document.getElementById("studentForm")?.reset();
+  const form = document.getElementById("studentForm");
+  if (form) form.reset();
 }
 
 function saveDefaultRate() {
@@ -358,13 +362,23 @@ function useDefaultRateInHours() {
   }
 }
 
+// ----------------------
+// Hours Tab Reset
+// ----------------------
 function resetHoursForm() {
-  document.getElementById("organization")?.value = "";
-  document.getElementById("workType")?.value = "hourly";
-  document.getElementById("workDate")?.value = "";
-  document.getElementById("hoursWorked")?.value = "";
-  document.getElementById("baseRate")?.value = "";
-  document.getElementById("totalPay")?.value = "";
+  const orgEl   = document.getElementById("organization");
+  const typeEl  = document.getElementById("workType");
+  const dateEl  = document.getElementById("workDate");
+  const hoursEl = document.getElementById("hoursWorked");
+  const rateEl  = document.getElementById("baseRate");
+  const totalEl = document.getElementById("totalPay");
+
+  if (orgEl)   orgEl.value   = "";
+  if (typeEl)  typeEl.value  = "hourly";
+  if (dateEl)  dateEl.value  = "";
+  if (hoursEl) hoursEl.value = "";
+  if (rateEl)  rateEl.value  = "";
+  if (totalEl) totalEl.value = "";
 }
 
 async function logHours() {
@@ -510,6 +524,19 @@ async function renderRecentMarks(limit = 10) {
 }
 
 // ----------------------
+// Marks Tab Reset
+// ----------------------
+function resetMarksForm() {
+  const form = document.getElementById("marksForm");
+  if (form) form.reset();
+
+  const pctEl   = document.getElementById("percentage");
+  const gradeEl = document.getElementById("grade");
+  if (pctEl)   pctEl.value   = "";
+  if (gradeEl) gradeEl.value = "";
+}
+
+// ----------------------
 // Attendance Tab
 // ----------------------
 async function saveAttendance() {
@@ -537,11 +564,20 @@ async function saveAttendance() {
   await renderAttendanceRecent();
 }
 
+// ----------------------
+// Attendance Tab Reset
+// ----------------------
 function clearAttendanceForm() {
-  document.getElementById("attendanceDate")?.setAttribute("value", "");
-  document.getElementById("attendanceSubject")?.setAttribute("value", "");
-  document.getElementById("attendanceTopic")?.setAttribute("value", "");
-  document.querySelectorAll("#attendanceList input[type=checkbox]").forEach(cb => cb.checked = false);
+  const dateEl    = document.getElementById("attendanceDate");
+  const subjectEl = document.getElementById("attendanceSubject");
+  const topicEl   = document.getElementById("attendanceTopic");
+
+  if (dateEl)    dateEl.value    = "";
+  if (subjectEl) subjectEl.value = "";
+  if (topicEl)   topicEl.value   = "";
+
+  document.querySelectorAll("#attendanceList input[type=checkbox]")
+    .forEach(cb => cb.checked = false);
 }
 
 function selectAllStudents() {
@@ -615,12 +651,21 @@ async function recordPayment() {
   await renderStudentBalances();
 }
 
+// ----------------------
+// Payments Tab Reset
+// ----------------------
 function resetPaymentForm() {
-  document.getElementById("paymentStudent")?.setAttribute("value", "");
-  document.getElementById("paymentAmount")?.setAttribute("value", "");
-  document.getElementById("paymentDate")?.setAttribute("value", "");
-  document.getElementById("paymentMethod")?.setAttribute("value", "Cash");
-  document.getElementById("paymentNotes")?.setAttribute("value", "");
+  const studentEl = document.getElementById("paymentStudent");
+  const amountEl  = document.getElementById("paymentAmount");
+  const dateEl    = document.getElementById("paymentDate");
+  const methodEl  = document.getElementById("paymentMethod");
+  const notesEl   = document.getElementById("paymentNotes");
+
+  if (studentEl) studentEl.value = "";
+  if (amountEl)  amountEl.value  = "";
+  if (dateEl)    dateEl.value    = "";
+  if (methodEl)  methodEl.value  = "Cash";
+  if (notesEl)   notesEl.value   = "";
 }
 
 async function renderPaymentActivity(limit = 10) {
