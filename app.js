@@ -1399,8 +1399,7 @@ function updateSyncStatus(state, message) {
   }
 }
 
-    const authButton = document.getElementById("authButton");
-const userMenu = document.getElementById("userMenu");
+   const userMenu = document.getElementById("userMenu");
 
 authButton.addEventListener("click", () => {
   userMenu.classList.toggle("show");
