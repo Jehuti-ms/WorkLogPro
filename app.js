@@ -19,33 +19,11 @@ const logoutBtn    = document.getElementById("logoutBtn");
 const statStudents = document.getElementById("statStudents");
 const statHours    = document.getElementById("statHours");
 const statEarnings = document.getElementById("statEarnings");
-const statUpdated  = document.getElementById("statUpdated"); // NEW timestamp element
 
 document.addEventListener("DOMContentLoaded", () => {
-  // ----------------------
-  // Autosync elements
-  // ----------------------
-  if (autoSyncCheckbox) {
-  autoSyncCheckbox.addEventListener("change", () => {
-    const isAuto = autoSyncCheckbox.checked;
-    const autoSyncText = document.getElementById("autoSyncText");
-    const autoSyncLabel = document.getElementById("autoSyncLabel");
-
-    if (isAuto) {
-      if (syncButton) syncButton.textContent = "Auto";
-      if (autoSyncText) autoSyncText.textContent = "Auto-sync";
-      if (autoSyncLabel) autoSyncLabel.classList.add("checked");
-      // ... your existing autosync enable logic
-    } else {
-      if (syncButton) syncButton.textContent = "Manual";
-      if (autoSyncText) autoSyncText.textContent = "Manual";
-      if (autoSyncLabel) autoSyncLabel.classList.remove("checked");
-      // ... your existing autosync disable logic
-    }
-  });
-}
-
   const autoSyncCheckbox = document.getElementById("autoSyncCheckbox");
+  const autoSyncLabel    = document.getElementById("autoSyncLabel");
+  const autoSyncText     = document.getElementById("autoSyncText");
   const syncButton       = document.getElementById("syncButton");
   const syncIndicator    = document.getElementById("syncIndicator");
   const syncMessage      = document.getElementById("syncMessage");
@@ -55,14 +33,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let autoSyncInterval = null;
 
-  // Helper: update both sync bar + dropdown timestamp
   function updateLastSyncTimestamp() {
     const now = new Date().toLocaleString();
     if (syncMessageLine) syncMessageLine.textContent = "Status: Last synced at " + now;
     if (statUpdated) statUpdated.textContent = now;
   }
 
-  // Perform sync (manual or auto)
   async function performSync(uid, mode = "Manual") {
     if (!syncIndicator || !syncMessageLine || !syncSpinner) return;
 
@@ -86,47 +62,46 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-    // Toggle autosync
-if (autoSyncCheckbox) {
-  autoSyncCheckbox.addEventListener("change", () => {
-    const isAuto = autoSyncCheckbox.checked;
-    const user = auth.currentUser;
+  // Toggle autosync
+  if (autoSyncCheckbox) {
+    autoSyncCheckbox.addEventListener("change", () => {
+      const isAuto = autoSyncCheckbox.checked;
+      const user = auth.currentUser;
 
-    if (isAuto) {
-      if (syncButton) syncButton.textContent = "Auto";
-      const autoSyncText = document.getElementById("autoSyncText");
-      if (autoSyncText) autoSyncText.textContent = "Auto-sync";
+      if (isAuto) {
+        if (syncButton) syncButton.textContent = "Auto";
+        if (autoSyncText) autoSyncText.textContent = "Auto-sync";
+        if (autoSyncLabel) autoSyncLabel.classList.add("checked");
 
-      if (syncMessage) syncMessage.textContent = "Cloud Sync: Auto";
-      if (syncMessageLine) syncMessageLine.textContent = "Status: Auto-sync enabled";
+        if (syncMessage) syncMessage.textContent = "Cloud Sync: Auto";
+        if (syncMessageLine) syncMessageLine.textContent = "Status: Auto-sync enabled";
 
-      autoSyncInterval = setInterval(() => {
-        if (user) performSync(user.uid, "Auto");
-      }, 60000);
+        autoSyncInterval = setInterval(() => {
+          if (user) performSync(user.uid, "Auto");
+        }, 60000);
 
-      console.log("✅ Auto-sync enabled");
-    } else {
-      if (syncButton) syncButton.textContent = "Manual";
-      const autoSyncText = document.getElementById("autoSyncText");
-      if (autoSyncText) autoSyncText.textContent = "Manual";
+        console.log("✅ Auto-sync enabled");
+      } else {
+        if (syncButton) syncButton.textContent = "Manual";
+        if (autoSyncText) autoSyncText.textContent = "Manual";
+        if (autoSyncLabel) autoSyncLabel.classList.remove("checked");
 
-      if (syncIndicator) {
-        syncIndicator.classList.remove("sync-active", "sync-error");
-        syncIndicator.classList.add("sync-connected");
+        if (syncIndicator) {
+          syncIndicator.classList.remove("sync-active", "sync-error");
+          syncIndicator.classList.add("sync-connected");
+        }
+        if (syncMessage) syncMessage.textContent = "Cloud Sync: Ready";
+        if (syncMessageLine) syncMessageLine.textContent = "Status: Auto-sync disabled";
+
+        if (autoSyncInterval) {
+          clearInterval(autoSyncInterval);
+          autoSyncInterval = null;
+        }
+
+        console.log("⏹️ Auto-sync disabled");
       }
-      if (syncMessage) syncMessage.textContent = "Cloud Sync: Ready";
-      if (syncMessageLine) syncMessageLine.textContent = "Status: Auto-sync disabled";
-
-      if (autoSyncInterval) {
-        clearInterval(autoSyncInterval);
-        autoSyncInterval = null;
-      }
-
-      console.log("⏹️ Auto-sync disabled");
-    }
-  });
-}
-
+    });
+  }
 
   // Manual sync
   if (syncButton) {
@@ -136,6 +111,7 @@ if (autoSyncCheckbox) {
     });
   }
 });
+
 
 // ----------------------
 // Dropdown toggle + logout
