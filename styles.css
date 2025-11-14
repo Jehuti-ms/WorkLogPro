@@ -604,17 +604,18 @@ p {
   padding: 60px 20px;
 }
 
+/* Add these styles if missing */
 .dropdown-menu {
   display: none;
   position: absolute;
   top: 100%;
   right: 0;
-  background: #fff;
-  border: 1px solid #ccc;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
   min-width: 220px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  box-shadow: var(--shadow);
   padding: 8px;
-  z-index: 10;
+  z-index: 1000;
 }
 
 .dropdown-menu.show {
@@ -628,10 +629,17 @@ p {
 
 .dropdown-divider {
   height: 1px;
-  background: #ddd;
+  background: var(--border);
   margin: 6px 0;
 }
 
+.auth-gate {
+  text-align: center;
+  padding: 60px 20px;
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  margin: 20px;
+}
 .sync-indicator {
   display: inline-block;
   width: 10px;
