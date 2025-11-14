@@ -29,7 +29,6 @@ const syncButton       = document.getElementById("syncButton");
 const syncIndicator    = document.getElementById("syncIndicator");
 const syncMessage      = document.getElementById("syncMessage");
 const syncMessageLine  = document.getElementById("syncMessageLine");
-const statUpdated      = document.getElementById("statUpdated"); // profile dropdown timestamp
 
 let autoSyncInterval = null;
 
