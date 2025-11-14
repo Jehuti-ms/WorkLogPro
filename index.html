@@ -27,49 +27,50 @@
       <div class="storage-status">
         <span id="localStatus">💾 Local Storage: Active</span>
         <span id="syncStatus">☁️ Cloud Sync: Ready</span>
-        <span id="dataStatus">📊 Data: 0 Students, 0 Sessions</span>     
-    </header>
+        <span id="dataStatus">📊 Data: 0 Students, 0 Sessions</span>   
 
- <!-- Cloud Sync Bar -->
-<div class="cloud-sync-bar">
-  <div class="sync-status">
-    <span class="sync-indicator sync-connected" id="syncIndicator"></span>
-    <span id="syncMessage">Cloud Sync: Ready</span>
-    <div id="syncMessageLine" class="sync-message-line">Status: Not synced yet</div>
-  </div>
+        <!-- Auth Section inside header -->
+          <div class="auth-section">
+            <div class="dropdown">
+              <button id="authButton" class="btn btn-sm btn-outline-dark dropdown-toggle">
+                👤 <span id="userName">User</span>
+              </button>
+              <div id="userMenu" class="dropdown-menu">
+                <div class="dropdown-item-text">
+                  <small id="userEmail">user@example.com</small>
+                </div>
+                <button class="dropdown-item" id="profileBtn">👤 Profile & Settings</button>
+                <button class="dropdown-item text-danger" id="logoutBtn">🚪 Logout</button>
+              </div>
+            </div>
+          </div>
+      </header>
 
-  <div class="sync-toolbar">
-    <label class="auto-sync-label">
-      <input type="checkbox" id="autoSyncCheckbox"> Auto-sync
-    </label>
-    <button id="syncBtn" class="btn btn-sm btn-primary">🔄 Sync Now</button>
-    <span id="autoSyncDot" class="auto-sync-dot" style="display:none;"></span>
+         <!-- Cloud Sync Bar -->
+        <div class="cloud-sync-bar">
+          <div class="sync-status">
+            <span class="sync-indicator sync-connected" id="syncIndicator"></span>
+            <span id="syncMessage">Cloud Sync: Ready</span>
+            <div id="syncMessageLine" class="sync-message-line">Status: Not synced yet</div>
+          </div>
+        
+          <div class="sync-toolbar">
+            <label class="auto-sync-label">
+              <input type="checkbox" id="autoSyncCheckbox"> Auto-sync
+            </label>
+            <button id="syncBtn" class="btn btn-sm btn-primary">🔄 Sync Now</button>
+            <span id="autoSyncDot" class="auto-sync-dot" style="display:none;"></span>
+        
+            <button id="exportCloudBtn" class="btn btn-sm btn-success">Export Cloud</button>
+            <button id="importCloudBtn" class="btn btn-sm btn-info">Import Cloud</button>
+            <button id="syncStatsBtn" class="btn btn-sm btn-light">Sync Stats</button>
+        
+            <button id="exportDataBtn" class="btn btn-sm btn-primary">📤 Export Data</button>
+            <button id="importDataBtn" class="btn btn-sm btn-primary">📥 Import Data</button>
+            <button id="clearDataBtn" class="btn btn-sm btn-danger">🗑️ Clear All</button>
+         </div>
 
-    <button id="exportCloudBtn" class="btn btn-sm btn-success">Export Cloud</button>
-    <button id="importCloudBtn" class="btn btn-sm btn-info">Import Cloud</button>
-    <button id="syncStatsBtn" class="btn btn-sm btn-light">Sync Stats</button>
-
-    <button id="exportDataBtn" class="btn btn-sm btn-primary">📤 Export Data</button>
-    <button id="importDataBtn" class="btn btn-sm btn-primary">📥 Import Data</button>
-    <button id="clearDataBtn" class="btn btn-sm btn-danger">🗑️ Clear All</button>
-
-    <!-- Auth Section inside sync-toolbar -->
-<div class="auth-section dropdown">
-  <button id="authButton" class="btn btn-sm btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-    👤 <span id="userName">User</span>
-  </button>
-  <ul class="dropdown-menu dropdown-menu-end" id="userMenu">
-    <li class="dropdown-item-text">
-      <small id="userEmail">user@example.com</small>
-    </li>
-    <li><button class="dropdown-item" id="profileBtn">👤 Profile & Settings</button></li>
-    <li><button class="dropdown-item text-danger" id="logoutBtn">🚪 Logout</button></li>
-  </ul>
-</div>
-
-
-
-    <!-- Tabs -->
+   <!-- Tabs -->
     <div class="tabs-container">
       <div class="tabs">
         <button class="tab active" data-tab="students">👥 Students</button>
