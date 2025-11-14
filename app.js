@@ -25,6 +25,26 @@ document.addEventListener("DOMContentLoaded", () => {
   // ----------------------
   // Autosync elements
   // ----------------------
+  if (autoSyncCheckbox) {
+  autoSyncCheckbox.addEventListener("change", () => {
+    const isAuto = autoSyncCheckbox.checked;
+    const autoSyncText = document.getElementById("autoSyncText");
+    const autoSyncLabel = document.getElementById("autoSyncLabel");
+
+    if (isAuto) {
+      if (syncButton) syncButton.textContent = "Auto";
+      if (autoSyncText) autoSyncText.textContent = "Auto-sync";
+      if (autoSyncLabel) autoSyncLabel.classList.add("checked");
+      // ... your existing autosync enable logic
+    } else {
+      if (syncButton) syncButton.textContent = "Manual";
+      if (autoSyncText) autoSyncText.textContent = "Manual";
+      if (autoSyncLabel) autoSyncLabel.classList.remove("checked");
+      // ... your existing autosync disable logic
+    }
+  });
+}
+
   const autoSyncCheckbox = document.getElementById("autoSyncCheckbox");
   const syncButton       = document.getElementById("syncButton");
   const syncIndicator    = document.getElementById("syncIndicator");
