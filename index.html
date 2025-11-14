@@ -437,23 +437,27 @@
     <script type="module" src="app.js"></script>
 
     <!-- Auth Check - Runs after everything is loaded -->
-   <script type="module">
-  import { auth } from "./firebase-config.js";
-  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    <!-- Auth Check - Also as module -->
+  <script type="module">
+    import { auth } from "./firebase-config.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-  console.log("🔐 Starting auth check on index.html...");
+    console.log("🔐 Starting auth check on index.html...");
 
-  onAuthStateChanged(auth, user => {
-    if (user) {
-      console.log("✅ User authenticated:", user.email);
-      // Show app UI
-      document.querySelector(".container").style.display = "block";
-    } else {
-      console.log("🚫 No user authenticated - redirecting to login");
-      window.location.href = "auth.html";
-    }
-  });
-</script>
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        console.log("✅ User authenticated:", user.email);
+        // Show app UI, hide auth gate
+        document.querySelector(".container").style.display = "block";
+        document.getElementById("authGate").style.display = "none";
+      } else {
+        console.log("🚫 No user authenticated - showing auth gate");
+        // Show auth gate, hide app UI
+        document.getElementById("authGate").style.display = "block";
+        document.querySelector(".container").style.display = "none";
+      }
+    });
+  </script>
 
 </body>
 </html>
