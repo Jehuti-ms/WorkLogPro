@@ -578,3 +578,23 @@ p {
   margin-bottom: 6px;
   color: #333;
 }
+
+/* Auth section sits inline in the grid */
+.auth-section {
+  display: flex;
+  align-items: center;
+  position: relative; /* keep dropdown anchored */
+}
+
+/* Dropdown menu styled but not floating over stats */
+.user-menu {
+  position: absolute;
+  top: 100%;   /* directly below the button */
+  right: 0;
+  background: #fff;
+  border: 1px solid #ccc;
+  padding: 8px;
+  z-index: 100; /* just above toolbar, not whole header */
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  min-width: 180px;
+}
