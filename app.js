@@ -66,38 +66,47 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Toggle autosync
-  if (autoSyncCheckbox) {
-    autoSyncCheckbox.addEventListener("change", () => {
-      if (autoSyncCheckbox.checked) {
-        if (syncButton) syncButton.textContent = "Auto";
-        if (syncMessage) syncMessage.textContent = "Cloud Sync: Auto";
-        if (syncMessageLine) syncMessageLine.textContent = "Status: Auto-sync enabled";
+    // Toggle autosync
+if (autoSyncCheckbox) {
+  autoSyncCheckbox.addEventListener("change", () => {
+    const isAuto = autoSyncCheckbox.checked;
+    const user = auth.currentUser;
 
-        autoSyncInterval = setInterval(() => {
-          const user = auth.currentUser;
-          if (user) performSync(user.uid, "Auto");
-        }, 60000);
+    if (isAuto) {
+      if (syncButton) syncButton.textContent = "Auto";
+      const autoSyncText = document.getElementById("autoSyncText");
+      if (autoSyncText) autoSyncText.textContent = "Auto-sync";
 
-        console.log("✅ Auto-sync enabled");
-      } else {
-        if (syncButton) syncButton.textContent = "Manual";
-        if (syncIndicator) {
-          syncIndicator.classList.remove("sync-active", "sync-error");
-          syncIndicator.classList.add("sync-connected");
-        }
-        if (syncMessage) syncMessage.textContent = "Cloud Sync: Ready";
-        if (syncMessageLine) syncMessageLine.textContent = "Status: Auto-sync disabled";
+      if (syncMessage) syncMessage.textContent = "Cloud Sync: Auto";
+      if (syncMessageLine) syncMessageLine.textContent = "Status: Auto-sync enabled";
 
-        if (autoSyncInterval) {
-          clearInterval(autoSyncInterval);
-          autoSyncInterval = null;
-        }
+      autoSyncInterval = setInterval(() => {
+        if (user) performSync(user.uid, "Auto");
+      }, 60000);
 
-        console.log("⏹️ Auto-sync disabled");
+      console.log("✅ Auto-sync enabled");
+    } else {
+      if (syncButton) syncButton.textContent = "Manual";
+      const autoSyncText = document.getElementById("autoSyncText");
+      if (autoSyncText) autoSyncText.textContent = "Manual";
+
+      if (syncIndicator) {
+        syncIndicator.classList.remove("sync-active", "sync-error");
+        syncIndicator.classList.add("sync-connected");
       }
-    });
-  }
+      if (syncMessage) syncMessage.textContent = "Cloud Sync: Ready";
+      if (syncMessageLine) syncMessageLine.textContent = "Status: Auto-sync disabled";
+
+      if (autoSyncInterval) {
+        clearInterval(autoSyncInterval);
+        autoSyncInterval = null;
+      }
+
+      console.log("⏹️ Auto-sync disabled");
+    }
+  });
+}
+
 
   // Manual sync
   if (syncButton) {
