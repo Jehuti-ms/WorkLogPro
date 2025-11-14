@@ -711,3 +711,33 @@ p {
 .auto-sync-label.checked {
   background-color: #2a7; /* green when active */
 }
+
+.sync-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px; /* keeps everything in one horizontal line */
+}
+
+.auto-sync-label input[type="checkbox"] {
+  display: none; /* hide raw checkbox */
+}
+
+.auto-sync-label {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 4px;
+  background-color: #444; /* inactive */
+  color: #fff;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.3s, transform 0.1s;
+}
+
+.auto-sync-label:hover {
+  background-color: #555;
+  transform: scale(1.05);
+}
+
+.auto-sync-label.checked {
+  background-color: #2a7; /* green when active */
+}
