@@ -183,7 +183,7 @@ async function loadUserStats(uid) {
   }
 }
 
-export async function updateUserStats(uid, newStats) {
+async function performSync(uid, mode = "Manual") { … } updateUserStats(uid, newStats) {
   try {
     const statsRef = doc(db, "users", uid);
     await setDoc(statsRef, newStats, { merge: true });
@@ -629,7 +629,7 @@ function stopAutoSync() {
 }
 
 // Perform a cloud sync: push local data to Firestore and pull latest back
-export async function performCloudSync() {
+async function performSync(uid, mode = "Manual") { … } performCloudSync() {
   try {
     if (!auth || !db) {
       throw new Error("Firebase not initialized");
