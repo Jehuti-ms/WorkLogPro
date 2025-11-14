@@ -102,7 +102,7 @@ export async function updateUserStats(uid, newStats) {
 // Hook into existing actions
 // ----------------------
 
-// Example: Add Student
+// Add Student
 window.addStudent = async function() {
   // ... your existing add student logic ...
 
@@ -111,7 +111,7 @@ window.addStudent = async function() {
   await updateUserStats(uid, { students: currentCount + 1 });
 };
 
-// Example: Log Hours
+// Log Hours
 window.logHours = async function() {
   // ... your existing log hours logic ...
 
@@ -125,5 +125,19 @@ window.logHours = async function() {
   await updateUserStats(uid, { 
     hours: currentHours + hoursWorked,
     earnings: currentEarnings + totalPay
+  });
+};
+
+// Record Payment
+window.recordPayment = async function() {
+  // ... your existing record payment logic ...
+
+  const uid = auth.currentUser.uid;
+  const paymentAmount = parseFloat(document.getElementById("paymentAmount").value) || 0;
+
+  const currentEarnings = parseFloat(statEarnings.textContent) || 0;
+
+  await updateUserStats(uid, { 
+    earnings: currentEarnings + paymentAmount
   });
 };
