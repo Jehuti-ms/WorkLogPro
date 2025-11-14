@@ -19,13 +19,11 @@ setPersistence(auth, browserLocalPersistence)
 onAuthStateChanged(auth, user => {
   if (user) {
     console.log("🟢 Signed in:", user.email);
-    // Redirect to main app if not already there
     if (!window.location.pathname.includes("index.html")) {
       window.location.href = "index.html";
     }
   } else {
     console.log("🔴 No user signed in");
-    // Stay on auth.html until login/register
   }
 });
 
