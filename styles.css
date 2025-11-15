@@ -960,199 +960,77 @@ textarea::placeholder {
 /*=================================
       Modal Styling
 =================================*/
-/* Profile Modal Styles */
-.modal {
-  position: fixed;
-  z-index: 1000;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  animation: fadeIn 0.3s ease;
-}
+function setupProfileModal() {
+  const profileBtn = document.getElementById('profileBtn');
+  const profileModal = document.getElementById('profileModal');
+  const closeProfileModal = document.getElementById('closeProfileModal');
+  const logoutBtn = document.getElementById('logoutBtn');
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
+  console.log('🔧 Setting up profile modal...');
+  console.log('Profile button:', profileBtn);
+  console.log('Profile modal:', profileModal);
 
-.modal-content {
-  background: var(--surface);
-  border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  width: 90%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow: auto;
-  border: 1px solid var(--border);
-  animation: slideUp 0.3s ease;
-}
-
-@keyframes slideUp {
-  from { 
-    opacity: 0;
-    transform: translateY(30px);
+  // Open modal
+  if (profileBtn && profileModal) {
+    profileBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('👤 Profile button clicked');
+      
+      // Update modal content with latest data
+      updateProfileModal();
+      
+      // Show modal
+      profileModal.style.display = 'flex';
+      
+      // Prevent body scroll
+      document.body.classList.add('modal-open');
+      
+      console.log('📱 Profile modal opened');
+    });
+  } else {
+    console.error('❌ Profile button or modal not found');
   }
-  to { 
-    opacity: 1;
-    transform: translateY(0);
+
+  // Close modal with X button
+  if (closeProfileModal) {
+    closeProfileModal.addEventListener('click', () => {
+      closeModal();
+    });
   }
-}
 
-.profile-modal {
-  max-width: 450px;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 24px;
-  border-bottom: 1px solid var(--border-light);
-  background: var(--surface);
-  border-radius: 12px 12px 0 0;
-}
-
-.modal-header h2 {
-  margin: 0;
-  color: var(--text);
-  font-size: 1.5em;
-}
-
-.close {
-  color: var(--muted);
-  font-size: 28px;
-  font-weight: bold;
-  cursor: pointer;
-  padding: 5px;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-  line-height: 1;
-}
-
-.close:hover {
-  color: var(--text);
-  background: var(--border-light);
-}
-
-.modal-body {
-  padding: 0;
-}
-
-.profile-section {
-  padding: 24px;
-  border-bottom: 1px solid var(--border-light);
-}
-
-.profile-section:last-child {
-  border-bottom: none;
-}
-
-.profile-section h3 {
-  margin: 0 0 16px 0;
-  color: var(--text);
-  font-size: 1.2em;
-}
-
-.info-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.info-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 0;
-}
-
-.info-item label {
-  font-weight: 600;
-  color: var(--text);
-  font-size: 14px;
-}
-
-.info-item span {
-  color: var(--muted);
-  font-size: 14px;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.stat-card {
-  background: var(--surface);
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  padding: 16px;
-  text-align: center;
-}
-
-.stat-value {
-  font-size: 1.5em;
-  font-weight: bold;
-  color: var(--primary);
-  margin-bottom: 4px;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.last-updated {
-  text-align: center;
-  font-size: 12px;
-  color: var(--muted);
-  font-style: italic;
-}
-
-.actions-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.btn-full {
-  width: 100%;
-  justify-content: center;
-}
-
-.btn-danger {
-  background: #ef4444;
-  color: white;
-  border: none;
-  padding: 12px 24px;
-}
-
-.btn-danger:hover {
-  background: #dc2626;
-}
-
-/* Responsive design */
-@media (max-width: 480px) {
-  .modal-content {
-    width: 95%;
-    margin: 20px;
+  // Logout functionality
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      if (confirm('Are you sure you want to logout?')) {
+        try {
+          await signOut(auth);
+          window.location.href = "auth.html";
+        } catch (error) {
+          console.error('Logout error:', error);
+          NotificationSystem.notifyError('Logout failed');
+        }
+      }
+    });
   }
-  
-  .stats-grid {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-  
-  .profile-section {
-    padding: 20px;
+
+  // Close modal when clicking outside
+  window.addEventListener('click', (event) => {
+    if (profileModal && event.target === profileModal) {
+      closeModal();
+    }
+  });
+
+  // Close modal with Escape key
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && profileModal && profileModal.style.display === 'flex') {
+      closeModal();
+    }
+  });
+
+  function closeModal() {
+    profileModal.style.display = 'none';
+    document.body.classList.remove('modal-open');
+    console.log('📱 Profile modal closed');
   }
 }
