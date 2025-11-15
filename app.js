@@ -123,7 +123,12 @@ function setupProfileModal() {
       // Update modal content with latest data
       updateProfileModal();
       
+      // Show modal
       profileModal.style.display = 'flex';
+      
+      // Prevent body scroll
+      document.body.classList.add('modal-open');
+      
       console.log('📱 Profile modal opened');
     });
   } else {
@@ -133,10 +138,45 @@ function setupProfileModal() {
   // Close modal with X button
   if (closeProfileModal) {
     closeProfileModal.addEventListener('click', () => {
-      profileModal.style.display = 'none';
-      console.log('📱 Profile modal closed');
+      closeModal();
     });
   }
+
+  // Logout functionality
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      if (confirm('Are you sure you want to logout?')) {
+        try {
+          await signOut(auth);
+          window.location.href = "auth.html";
+        } catch (error) {
+          console.error('Logout error:', error);
+          NotificationSystem.notifyError('Logout failed');
+        }
+      }
+    });
+  }
+
+  // Close modal when clicking outside
+  window.addEventListener('click', (event) => {
+    if (profileModal && event.target === profileModal) {
+      closeModal();
+    }
+  });
+
+  // Close modal with Escape key
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && profileModal && profileModal.style.display === 'flex') {
+      closeModal();
+    }
+  });
+
+  function closeModal() {
+    profileModal.style.display = 'none';
+    document.body.classList.remove('modal-open');
+    console.log('📱 Profile modal closed');
+  }
+}
 
   // Logout functionality
   if (logoutBtn) {
