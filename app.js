@@ -80,6 +80,8 @@ const syncIndicator    = document.getElementById("syncIndicator");
 const syncSpinner      = document.getElementById("syncSpinner");
 const autoSyncCheckbox = document.getElementById("autoSyncCheckbox");
 const autoSyncText     = document.getElementById("autoSyncText");
+const syncMessage      = document.getElementById("syncMessage");
+const syncMessageLine  = document.getElementById("syncMessageLine");
 
 const syncBtn          = document.getElementById("syncBtn");
 const exportCloudBtn   = document.getElementById("exportCloudBtn");
