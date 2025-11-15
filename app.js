@@ -485,45 +485,42 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ----------------------
-// Local Data Helpers
+// Local Data Actions
 // ----------------------
 async function exportData() {
-  try {
-    // Example: grab your local state and stringify
-    const data = {
-      students: [], // TODO: replace with actual data
-      hours: [],
-      marks: [],
-      attendance: [],
-      payments: []
-    };
-
-    // For now just log it
-    console.log("📤 Export Data:", JSON.stringify(data, null, 2));
-
-    // Later: trigger download or save to file
-  } catch (err) {
-    console.error("❌ Export Data failed:", err);
-  }
+  console.log("📤 ExportData triggered");
+  // Example: simulate export
+  const dummy = { students: [], hours: [], marks: [], attendance: [], payments: [] };
+  const blob = new Blob([JSON.stringify(dummy, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "worklog-export.json";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 async function importData() {
-  try {
-    // Example: prompt for file input
-    console.log("📥 Import Data triggered");
-    // TODO: implement file picker + JSON parse
-  } catch (err) {
-    console.error("❌ Import Data failed:", err);
-  }
+  console.log("📥 ImportData triggered");
+  // Example: prompt for file input
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".json";
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const text = await file.text();
+    const data = JSON.parse(text);
+    console.log("✅ Imported Data:", data);
+    // TODO: validate and apply to Firestore/local state
+  };
+  input.click();
 }
 
 async function clearData() {
-  try {
-    console.log("🗑️ Clear Data triggered");
-    // TODO: wipe local collections or reset state
-  } catch (err) {
-    console.error("❌ Clear Data failed:", err);
-  }
+  console.log("🗑️ ClearData triggered");
+  // Example: simulate clear
+  // TODO: wipe Firestore collections or local state
 }
 
 // ----------------------
