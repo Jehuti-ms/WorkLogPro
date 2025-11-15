@@ -358,16 +358,6 @@ async function importUserData(uid) {
   }
 }
 
-async function recalcSummaryStats(uid) {
-  try {
-    console.log("📊 RecalcSummaryStats called for", uid);
-    // TODO: implement actual stats recalculation
-    console.log("✅ Stats recalculated");
-  } catch (err) {
-    console.error("❌ Stats sync failed:", err);
-  }
-}
-
 // Autosync loop
 function startAutosync() {
   if (autosyncInterval) clearInterval(autosyncInterval);
