@@ -781,7 +781,7 @@ textarea::placeholder {
 /* ===========================
    Theme Toggle & Responsive
    =========================== */
-/* Theme Toggle Button - Icon Only (Responsive) */
+/* Theme Toggle Button - Fixed (No Duplicate Icons) */
 .theme-toggle {
   display: flex;
   align-items: center;
@@ -801,6 +801,10 @@ textarea::placeholder {
   transition: all 0.3s ease;
   padding: 0;
   margin: 0;
+  
+  /* Remove any default button styling */
+  color: transparent; /* Hide text content */
+  overflow: hidden; /* Ensure no text shows */
 }
 
 .theme-toggle button:hover {
@@ -813,16 +817,25 @@ textarea::placeholder {
   transform: scale(0.95);
 }
 
-/* Remove any text */
-.theme-toggle button * {
+/* Remove ALL text content - including any spans or direct text */
+.theme-toggle button *,
+.theme-toggle button .toggle-text,
+.theme-toggle button span {
   display: none !important;
 }
 
-/* Ensure proper emoji display */
+/* Show ONLY the emoji via pseudo-element */
 .theme-toggle button::before {
   content: "🌓";
   display: block;
   line-height: 1;
+  color: inherit; /* Make emoji visible */
+  font-size: inherit;
+}
+
+/* Make sure no other pseudo-elements are adding content */
+.theme-toggle button::after {
+  content: none !important;
 }
 
 /* High-resolution screens */
