@@ -1050,3 +1050,223 @@ textarea::placeholder {
 /*=================================
       Modal Styling
 =================================*/
+/* Profile Modal Styles - Fixed Positioning */
+.modal {
+  position: fixed;
+  z-index: 10000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+  overflow: auto;
+}
+
+.modal-content {
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow: auto;
+  border: 1px solid var(--border);
+  animation: modalSlideIn 0.3s ease;
+  position: relative;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.profile-modal {
+  max-width: 450px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid var(--border-light);
+  background: var(--surface);
+  border-radius: 12px 12px 0 0;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.modal-header h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.4em;
+}
+
+.close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 4px;
+  color: var(--muted);
+  transition: all 0.2s ease;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.close:hover {
+  color: var(--text);
+  background: var(--border-light);
+}
+
+.modal-body {
+  padding: 0;
+}
+
+.profile-section {
+  padding: 20px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.profile-section:last-child {
+  border-bottom: none;
+}
+
+.profile-section h3 {
+  margin: 0 0 15px 0;
+  color: var(--text);
+  font-size: 1.1em;
+}
+
+.info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.info-item label {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.info-item span {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 15px;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 1.3em;
+  font-weight: bold;
+  color: var(--primary);
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.last-updated {
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.actions-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.btn-full {
+  width: 100%;
+  justify-content: center;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  font-size: 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
+/* Prevent body scroll when modal is open */
+body.modal-open {
+  overflow: hidden;
+}
+
+/* Responsive design */
+@media (max-width: 480px) {
+  .modal {
+    padding: 10px;
+  }
+  
+  .modal-content {
+    width: 95%;
+    max-height: 90vh;
+  }
+  
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  
+  .profile-section {
+    padding: 15px;
+  }
+  
+  .modal-header {
+    padding: 15px;
+  }
+}
