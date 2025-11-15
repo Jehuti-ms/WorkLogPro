@@ -223,10 +223,6 @@ function initializeNotificationStyles() {
 // ===========================
 // SYNC BAR FUNCTIONALITY (Updated to use new notification system)
 // ===========================
-
-let autoSyncInterval = null;
-let isAutoSyncEnabled = false;
-
 // 1. Manual to Auto-Sync Toggle
 function setupAutoSyncToggle() {
   const autoSyncCheckbox = document.getElementById('autoSyncCheckbox');
