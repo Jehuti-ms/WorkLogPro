@@ -88,30 +88,336 @@
     </div>
 
     <!-- Students Tab -->
-    <div id="students" class="tabcontent active">
-      <!-- ... corrected Students Tab markup from earlier ... -->
+<div id="students" class="tabcontent active">
+  <div class="section-header">
+    <h2>📚 Student Management</h2>
+    <div class="student-stats">
+      <span class="stat-badge" id="studentCount">0</span>
+      <span class="stat-divider">|</span>
+      <span class="stat-text">Avg Rate: $<span id="averageRate">0.00</span>/session</span>
     </div>
+  </div>
+
+  <!-- Default Rate Settings -->
+  <div class="default-rate-panel">
+    <h4>💰 Default Rate Settings</h4>
+    <div class="form-group">
+      <label for="defaultBaseRate">Set Default Rate ($/session)</label>
+      <div class="rate-input-wrapper">
+        <span class="currency-symbol">$</span>
+        <input type="number" id="defaultBaseRate" step="0.01" min="0" placeholder="25.00">
+        <span class="rate-suffix">/ session</span>
+      </div>
+      <div class="help-text">This rate will be automatically filled for new students</div>
+    </div>
+    <div class="current-rate-display">
+      <span class="current-label">Current Default Rate:</span>
+      <span class="current-value">$<span id="currentDefaultRate">0.00</span>/session</span>
+    </div>
+    <div class="rate-actions">
+      <button type="button" class="button success" onclick="saveDefaultRate()">💾 Save Default Rate</button>
+      <button type="button" class="button warning" onclick="applyDefaultRateToAll()">🔄 Apply to All Students</button>
+      <button type="button" class="button secondary" onclick="useDefaultRate()">📝 Use in Student Form</button>
+    </div>
+  </div>
+
+  <!-- Student Registration Form -->
+  <div class="section-card">
+    <h3>👤 Student Registration</h3>
+    <form id="studentForm">
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="studentName">Full Name *</label>
+          <input type="text" id="studentName" required>
+        </div>
+        <div class="form-group">
+          <label for="studentId">Student ID *</label>
+          <input type="text" id="studentId" required>
+        </div>
+        <div class="form-group">
+          <label for="studentGender">Gender *</label>
+          <select id="studentGender" required>
+            <option value="">Select gender</option>
+            <option>Male</option><option>Female</option><option>Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="studentEmail">Email</label>
+          <input type="email" id="studentEmail">
+        </div>
+        <div class="form-group">
+          <label for="studentPhone">Phone</label>
+          <input type="tel" id="studentPhone">
+        </div>
+        <div class="form-group">
+          <label for="studentBaseRate">Base Rate ($/session)</label>
+          <input type="number" id="studentBaseRate" step="0.01" min="0">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="button primary" onclick="addStudent()">➕ Add Student</button>
+        <button type="button" class="button secondary" onclick="clearStudentForm()">🗑️ Clear Form</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Student List -->
+  <div class="section-card">
+    <div class="section-header">
+      <h3>📋 Registered Students</h3>
+      <div class="list-controls">
+        <input type="text" id="studentSearch" placeholder="🔍 Search students...">
+      </div>
+    </div>
+    <div class="students-container" id="studentsContainer">
+      <p class="empty-message">No students registered yet.</p>
+    </div>
+  </div>
+</div>
 
     <!-- Hours Tab -->
-    <div id="hours" class="tabcontent">
-      <!-- ... corrected Hours Tab markup from earlier ... -->
+<div id="hours" class="tabcontent">
+  <div class="section-header">
+    <h2>⏱️ Earnings Tracker</h2>
+    <div class="student-stats">
+      <span class="stat-text">This Week: <span id="weeklyHours">0</span>h / $<span id="weeklyTotal">0</span></span>
+      <span class="stat-divider">|</span>
+      <span class="stat-text">This Month: <span id="monthlyHours">0</span>h / $<span id="monthlyTotal">0</span></span>
     </div>
+  </div>
+
+  <div class="form-grid">
+    <div class="section-card">
+      <h3>➕ Log Work & Earnings</h3>
+      <!-- Hours form -->
+      <div class="form-group">
+        <label for="organization">Organization *</label>
+        <input type="text" id="organization" required>
+      </div>
+      <div class="form-group">
+        <label for="workType">Work Type</label>
+        <select id="workType">
+          <option value="hourly">Hourly</option>
+          <option value="session">Per-Session</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="workDate">Date *</label>
+        <input type="date" id="workDate" required>
+      </div>
+      <div class="form-group">
+        <label for="hoursWorked">Hours Worked *</label>
+        <input type="number" id="hoursWorked" step="0.5" required>
+      </div>
+      <div class="form-group">
+        <label for="baseRate">Your Hourly Rate *</label>
+        <input type="number" id="baseRate" step="0.01" required>
+        <button type="button" class="button small" onclick="useDefaultRateInHours()">
+          Use Default (<span id="currentDefaultRateDisplay">25.00</span>)
+        </button>
+      </div>
+      <div class="form-group">
+        <label for="totalPay">Total Earnings</label>
+        <input type="text" id="totalPay" readonly>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="button primary" onclick="logHours()">💾 Log Work</button>
+        <button type="button" class="button secondary" onclick="resetHoursForm()">🗑️ Clear Form</button>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>📊 Recent Earnings</h3>
+      <div id="hoursContainer">
+        <p class="empty-message">No work logged yet.</p>
+      </div>
+    </div>
+  </div>
+</div>
 
     <!-- Marks Tab -->
-    <div id="marks" class="tabcontent">
-      <!-- ... corrected Marks Tab markup from earlier ... -->
+<div id="marks" class="tabcontent">
+  <div class="section-header">
+    <h2>📊 Marks & Assessments</h2>
+    <div class="student-stats">
+      <span class="stat-badge" id="marksCount">0</span>
+      <span class="stat-divider">|</span>
+      <span class="stat-text">Avg Score: <span id="avgMarks">0%</span></span>
     </div>
+  </div>
+
+  <div class="form-grid">
+    <div class="section-card">
+      <h3>➕ Add New Mark</h3>
+      <form id="marksForm">
+        <div class="form-group">
+          <label for="marksStudent">Student *</label>
+          <select id="marksStudent" required></select>
+        </div>
+        <div class="form-group">
+          <label for="markSubject">Subject *</label>
+          <input type="text" id="markSubject" required>
+        </div>
+        <div class="form-group">
+          <label for="markTopic">Topic *</label>
+          <input type="text" id="markTopic" required>
+        </div>
+        <div class="form-group">
+          <label for="markDate">Date *</label>
+          <input type="date" id="markDate" required>
+        </div>
+        <div class="form-group">
+          <label for="score">Score *</label>
+          <input type="number" id="score" required>
+        </div>
+        <div class="form-group">
+          <label for="maxScore">Max Score *</label>
+          <input type="number" id="maxScore" required>
+        </div>
+        <div class="form-group">
+          <label for="percentage">Percentage</label>
+          <input type="text" id="percentage" readonly>
+        </div>
+        <div class="form-group">
+          <label for="grade">Grade</label>
+          <input type="text" id="grade" readonly>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="button primary" onclick="addMark()">💾 Save Mark</button>
+          <button type="button" class="button secondary" onclick="resetMarksForm()">🗑️ Clear Form</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="section-card">
+      <h3>📋 Recent Marks</h3>
+      <div id="marksContainer">
+        <p class="empty-message">No marks recorded yet.</p>
+      </div>
+    </div>
+  </div>
+</div>
 
     <!-- Attendance Tab -->
-    <div id="attendance" class="tabcontent">
-      <!-- ... corrected Attendance Tab markup from earlier ... -->
+<div id="attendance" class="tabcontent">
+  <div class="section-header">
+    <h2>✅ Attendance Tracking</h2>
+    <div class="student-stats">
+      <span class="stat-badge" id="attendanceCount">0</span>
+      <span class="stat-divider">|</span>
+      <span class="stat-text">Last Session: <span id="lastSessionDate">Never</span></span>
     </div>
+  </div>
+
+  <div class="form-grid">
+    <div class="section-card">
+      <h3>📅 Quick Attendance</h3>
+      <div class="form-group">
+        <label for="attendanceDate">Date *</label>
+        <input type="date" id="attendanceDate" required>
+      </div>
+      <div class="form-group">
+        <label for="attendanceSubject">Subject *</label>
+        <input type="text" id="attendanceSubject" required>
+      </div>
+      <div class="form-group">
+        <label for="attendanceTopic">Topic</label>
+        <input type="text" id="attendanceTopic">
+      </div>
+
+      <div class="attendance-container">
+        <div class="attendance-header">
+          <h4>Select Present Students:</h4>
+          <div class="attendance-quick-actions">
+            <button type="button" class="button small" onclick="selectAllStudents()">✅ Select All</button>
+            <button type="button" class="button small" onclick="deselectAllStudents()">❌ Deselect All</button>
+          </div>
+        </div>
+        <div id="attendanceList">
+          <p class="empty-message">No students registered. Add students first.</p>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="button primary" onclick="saveAttendance()">💾 Save Attendance</button>
+        <button type="button" class="button secondary" onclick="clearAttendanceForm()">🗑️ Clear Form</button>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>📋 Recent Attendance</h3>
+      <div id="attendanceContainer">
+        <p class="empty-message">No attendance records yet.</p>
+      </div>
+    </div>
+  </div>
+</div>
 
     <!-- Payments Tab -->
-    <div id="payments" class="tabcontent">
-      <!-- ... corrected Payments Tab markup from earlier ... -->
+<div id="payments" class="tabcontent">
+  <div class="section-header">
+    <h2>💰 Payment Management</h2>
+    <div class="student-stats">
+      <span class="stat-text">Total Students: <span id="totalStudentsCount">0</span></span>
+      <span class="stat-divider">|</span>
+      <span class="stat-text">Total Owed: <span id="totalOwed">$0</span></span>
+      <span class="stat-divider">|</span>
+      <span class="stat-text">This Month: <span id="monthlyPayments">$0</span></span>
+    </div>
+  </div>
+
+  <div class="form-grid">
+    <div class="section-card">
+      <h3>💳 Record Payment</h3>
+      <div class="form-group">
+        <label for="paymentStudent">Student *</label>
+        <select id="paymentStudent" required></select>
+      </div>
+      <div class="form-group">
+        <label for="paymentAmount">Amount ($) *</label>
+        <input type="number" id="paymentAmount" step="0.01" min="0.01" required>
+      </div>
+      <div class="form-group">
+        <label for="paymentDate">Date *</label>
+        <input type="date" id="paymentDate" required>
+      </div>
+      <div class="form-group">
+        <label for="paymentMethod">Method</label>
+        <select id="paymentMethod">
+          <option>Cash</option>
+          <option>Bank Transfer</option>
+          <option>Credit Card</option>
+          <option>PayPal</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="paymentNotes">Notes</label>
+        <textarea id="paymentNotes"></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="button primary" onclick="recordPayment()">💾 Record Payment</button>
+        <button type="button" class="button secondary" onclick="resetPaymentForm()">🗑️ Clear Form</button>
+      </div>
     </div>
 
+    <div class="section-card">
+      <h3>👥 Student Balances</h3>
+      <div id="studentBalancesContainer">
+        <p class="empty-message">No payment data yet.</p>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <h3>📜 Payment Activity</h3>
+      <div id="paymentActivityLog">
+        <p class="empty-message">No recent payment activity.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+   
     <!-- Reports Tab -->
     <div id="reports" class="tabcontent">
       <!-- ... corrected Reports Tab markup from earlier ... -->
