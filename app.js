@@ -167,14 +167,15 @@ function fmtDateISO(yyyyMmDd) {
 // ----------------------
 async function loadUserStats(uid) {
   try {
-    if (!navigator.onLine) {
-      console.warn("⚠️ Offline mode: skipping stats load");
-      if (syncMessageLine) syncMessageLine.textContent = "Status: Offline - stats unavailable";
-      return;
-    }
-
     const statsRef = doc(db, "users", uid);
-    const statsSnap = await getDoc(statsRef);
+
+    // Try cache first, then server
+    let statsSnap;
+    try {
+      statsSnap = await getDoc(statsRef, { source: "cache" });
+    } catch {
+      statsSnap = await getDoc(statsRef); // fallback to server
+    }
 
     if (statsSnap.exists()) {
       const stats = statsSnap.data();
@@ -184,6 +185,7 @@ async function loadUserStats(uid) {
         ? fmtMoney(stats.earnings)
         : "0.00";
     } else {
+      // Initialize if no stats doc exists
       await setDoc(statsRef, { students: 0, hours: 0, earnings: 0 });
       if (statStudents) statStudents.textContent = 0;
       if (statHours)    statHours.textContent    = 0;
@@ -193,7 +195,9 @@ async function loadUserStats(uid) {
     refreshTimestamp();
   } catch (err) {
     console.error("❌ Error loading stats:", err);
-    if (syncMessageLine) syncMessageLine.textContent = "Status: Failed to load stats";
+    if (syncMessageLine) {
+      syncMessageLine.textContent = "Status: Offline – stats unavailable";
+    }
   }
 }
 
@@ -225,25 +229,32 @@ async function updateUserStats(uid, newStats) {
 
 // Recalculate summary stats (students count, total hours, total earnings)
 async function recalcSummaryStats(uid) {
-  const studentsSnap = await getDocs(collection(db, "users", uid, "students"));
-  const hoursSnap    = await getDocs(collection(db, "users", uid, "hours"));
+  try {
+    const studentsSnap = await getDocs(collection(db, "users", uid, "students"));
+    const hoursSnap    = await getDocs(collection(db, "users", uid, "hours"));
 
-  const studentsCount = studentsSnap.size;
+    const studentsCount = studentsSnap.size;
 
-  let totalHours = 0;
-  let totalEarnings = 0;
-  hoursSnap.forEach(h => {
-    const d = h.data();
-    totalHours += safeNumber(d.hours);
-    totalEarnings += safeNumber(d.total);
-  });
+    let totalHours = 0;
+    let totalEarnings = 0;
+    hoursSnap.forEach(h => {
+      const d = h.data();
+      totalHours += safeNumber(d.hours);
+      totalEarnings += safeNumber(d.total);
+    });
 
-  await updateUserStats(uid, {
-    students: studentsCount,
-    hours: totalHours,
-    earnings: totalEarnings
-  });
+    await updateUserStats(uid, {
+      students: studentsCount,
+      hours: totalHours,
+      earnings: totalEarnings,
+      lastSync: new Date().toLocaleString()
+    });
+  } catch (err) {
+    console.error("❌ Error recalculating stats:", err);
+    if (syncMessageLine) syncMessageLine.textContent = "Status: Failed to recalc stats";
+  }
 }
+
 
 // ----------------------
 // Students Tab
