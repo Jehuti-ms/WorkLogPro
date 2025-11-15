@@ -1618,6 +1618,785 @@ onAuthStateChanged(auth, (user) => {
 });
 
 // ===========================
+// MISSING UTILITY FUNCTIONS
+// ===========================
+
+// Safe number conversion
+function safeNumber(n, fallback = 0) {
+  if (n === null || n === undefined || n === '') return fallback;
+  const v = Number(n);
+  return Number.isFinite(v) ? v : fallback;
+}
+
+// Format money
+function fmtMoney(n) {
+  return safeNumber(n).toFixed(2);
+}
+
+// Format date to ISO
+function fmtDateISO(yyyyMmDd) {
+  if (!yyyyMmDd) return new Date().toISOString();
+  try {
+    const d = new Date(yyyyMmDd);
+    return d.toISOString();
+  } catch {
+    return new Date().toISOString();
+  }
+}
+
+// Format date for display
+function formatDate(dateString) {
+  if (!dateString) return 'Never';
+  try {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch {
+    return dateString;
+  }
+}
+
+// Refresh timestamp display
+function refreshTimestamp() {
+  const now = new Date().toLocaleString();
+  const syncMessageLine = document.getElementById('syncMessageLine');
+  const statUpdated = document.getElementById('statUpdated');
+  
+  if (syncMessageLine) syncMessageLine.textContent = "Status: Last synced at " + now;
+  if (statUpdated) statUpdated.textContent = now;
+}
+
+// ===========================
+// MISSING UI INITIALIZATION FUNCTIONS
+// ===========================
+
+// Theme management
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('theme', newTheme);
+  console.log(`🎨 Theme changed to ${newTheme}`);
+}
+
+function initializeTheme() {
+  const savedTheme = localStorage.getItem('theme') || 'light';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  console.log(`🎨 Theme initialized to ${savedTheme}`);
+}
+
+// Tab management
+function initTabs() {
+  const tabs = document.querySelectorAll('.tab');
+  const tabContents = document.querySelectorAll('.tabcontent');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.getAttribute('data-tab');
+
+      // Remove active class from all tabs
+      tabs.forEach(t => t.classList.remove('active'));
+
+      // Hide all tabcontent
+      tabContents.forEach(tc => tc.style.display = 'none');
+
+      // Activate clicked tab
+      tab.classList.add('active');
+
+      // Show the selected tab content
+      const selected = document.getElementById(target);
+      if (selected) {
+        selected.style.display = 'block';
+        console.log(`📑 Switched to ${target} tab`);
+      }
+    });
+  });
+
+  // Default: show the first tab's content
+  const firstActive = document.querySelector('.tab.active');
+  if (firstActive) {
+    const target = firstActive.getAttribute('data-tab');
+    const selected = document.getElementById(target);
+    if (selected) selected.style.display = 'block';
+  }
+  
+  console.log('✅ Tabs initialized');
+}
+
+// UI event bindings
+function bindUiEvents() {
+  console.log('🔧 Binding UI events...');
+  
+  // Theme toggle
+  const themeToggle = document.querySelector('.theme-toggle button');
+  if (themeToggle) {
+    themeToggle.addEventListener('click', toggleTheme);
+  }
+  
+  // Form submissions prevention
+  const forms = document.querySelectorAll('form');
+  forms.forEach(form => {
+    form.addEventListener('submit', (e) => e.preventDefault());
+  });
+  
+  // Auto-calculate total in hours form
+  const hoursInput = document.getElementById('hoursWorked');
+  const rateInput = document.getElementById('baseRate');
+  const workTypeSelect = document.getElementById('workType');
+  
+  const calculateTotal = () => {
+    const hours = parseFloat(hoursInput?.value) || 0;
+    const rate = parseFloat(rateInput?.value) || 0;
+    const workType = workTypeSelect?.value || "hourly";
+    const totalEl = document.getElementById('totalPay');
+    
+    if (totalEl) {
+      const total = workType === "hourly" ? hours * rate : rate;
+      if ("value" in totalEl) {
+        totalEl.value = fmtMoney(total);
+      } else {
+        totalEl.textContent = fmtMoney(total);
+      }
+    }
+  };
+
+  if (hoursInput) hoursInput.addEventListener('input', calculateTotal);
+  if (rateInput) rateInput.addEventListener('input', calculateTotal);
+  if (workTypeSelect) workTypeSelect.addEventListener('change', calculateTotal);
+  
+  // Real-time percentage calculation for marks
+  const scoreInput = document.getElementById('marksScore');
+  const maxInput = document.getElementById('marksMax');
+  if (scoreInput) scoreInput.addEventListener('input', updateMarksPercentage);
+  if (maxInput) maxInput.addEventListener('input', updateMarksPercentage);
+  
+  console.log('✅ UI events bound');
+}
+
+function initEventListeners() {
+  console.log('🔧 Initializing event listeners...');
+  
+  // Set default dates to today
+  const dateInputs = document.querySelectorAll('input[type="date"]');
+  const today = new Date().toISOString().split('T')[0];
+  dateInputs.forEach(input => {
+    if (!input.value) {
+      input.value = today;
+    }
+  });
+  
+  // Initialize student dropdowns
+  loadStudentsForDropdowns();
+  
+  console.log('✅ Event listeners initialized');
+}
+
+// ===========================
+// MISSING STUDENT MANAGEMENT FUNCTIONS
+// ===========================
+
+async function loadStudentsForDropdowns() {
+  const user = auth.currentUser;
+  if (!user) return [];
+
+  try {
+    const studentsSnap = await getDocs(collection(db, "users", user.uid, "students"));
+    const studentsList = [];
+    studentsSnap.forEach(doc => {
+      studentsList.push({ id: doc.id, ...doc.data() });
+    });
+    
+    updateStudentDropdowns(studentsList);
+    return studentsList;
+  } catch (error) {
+    console.error("Error loading students:", error);
+    return [];
+  }
+}
+
+function updateStudentDropdowns(students) {
+  const dropdowns = [
+    'marksStudent',
+    'paymentStudent',
+    'hoursStudent'
+  ];
+  
+  dropdowns.forEach(dropdownId => {
+    const select = document.getElementById(dropdownId);
+    if (select) {
+      // Clear existing options except the first one
+      while (select.options.length > 1) {
+        select.remove(1);
+      }
+      
+      students.forEach(student => {
+        const option = document.createElement('option');
+        option.value = student.id;
+        option.textContent = `${student.name} (${student.id})`;
+        select.appendChild(option);
+      });
+    }
+  });
+}
+
+// ===========================
+// MISSING MARKS/GRADE FUNCTIONS
+// ===========================
+
+function updateMarksPercentage() {
+  const scoreEl = document.getElementById('marksScore');
+  const maxEl = document.getElementById('marksMax');
+  const pctEl = document.getElementById('percentage');
+  const gradeEl = document.getElementById('grade');
+
+  const score = parseFloat(scoreEl?.value);
+  const max = parseFloat(maxEl?.value);
+
+  if (Number.isFinite(score) && Number.isFinite(max) && max > 0) {
+    const percentage = (score / max) * 100;
+    if (pctEl) pctEl.value = percentage.toFixed(1);
+    if (gradeEl) gradeEl.value = calculateGrade(percentage);
+  }
+}
+
+function calculateGrade(percentage) {
+  if (percentage >= 90) return 'A';
+  if (percentage >= 80) return 'B';
+  if (percentage >= 70) return 'C';
+  if (percentage >= 60) return 'D';
+  return 'F';
+}
+
+// ===========================
+// MISSING DATA RENDERING FUNCTIONS
+// ===========================
+
+async function renderStudents() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const container = document.getElementById('studentsContainer');
+  if (!container) return;
+  
+  container.innerHTML = '<div class="loading">Loading students...</div>';
+
+  try {
+    const studentsSnap = await getDocs(collection(db, "users", user.uid, "students"));
+    
+    if (studentsSnap.size === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>No Students Yet</h3>
+          <p>Add your first student to get started</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+    
+    studentsSnap.forEach(docSnap => {
+      const student = { id: docSnap.id, ...docSnap.data() };
+      
+      const card = document.createElement("div");
+      card.className = "student-card";
+      card.innerHTML = `
+        <div class="student-card-header">
+          <div>
+            <strong>${student.name}</strong>
+            <span class="student-id">${student.id}</span>
+          </div>
+          <div class="student-actions">
+            <button class="btn-icon" onclick="editStudent('${student.id}')" title="Edit">
+              ✏️
+            </button>
+            <button class="btn-icon" onclick="deleteStudent('${student.id}')" title="Delete">
+              🗑️
+            </button>
+          </div>
+        </div>
+        <div class="student-details">
+          <div class="muted">${student.gender} • ${student.email || 'No email'} • ${student.phone || 'No phone'}</div>
+          <div class="student-rate">Rate: $${fmtMoney(student.rate)}/session</div>
+          <div class="student-meta">Added: ${formatDate(student.createdAt)}</div>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+
+  } catch (error) {
+    console.error("Error rendering students:", error);
+    container.innerHTML = '<div class="error">Error loading students</div>';
+  }
+}
+
+async function renderRecentHours(limit = 10) {
+  const user = auth.currentUser;
+  if (!user) return;
+  
+  const container = document.getElementById('hoursContainer');
+  if (!container) return;
+
+  container.innerHTML = '<div class="loading">Loading recent hours...</div>';
+
+  try {
+    const hoursQuery = query(
+      collection(db, "users", user.uid, "hours"),
+      orderBy("dateIso", "desc")
+    );
+    
+    const snap = await getDocs(hoursQuery);
+    const rows = [];
+    snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+
+    if (rows.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>No Hours Logged</h3>
+          <p>Log your first work session to get started</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+    rows.slice(0, limit).forEach(entry => {
+      const item = document.createElement("div");
+      item.className = "hours-entry";
+      item.innerHTML = `
+        <div class="hours-header">
+          <strong>${entry.organization}</strong>
+          <span class="hours-type">${entry.workType}</span>
+        </div>
+        <div class="muted">${formatDate(entry.date)} • ${entry.subject || 'General'}</div>
+        <div class="hours-details">
+          <span>Hours: ${safeNumber(entry.hours)}</span>
+          <span>Rate: $${fmtMoney(entry.rate)}</span>
+          <span class="hours-total">Total: $${fmtMoney(entry.total)}</span>
+        </div>
+        ${entry.student ? `<div class="muted">Student: ${entry.student}</div>` : ''}
+      `;
+      container.appendChild(item);
+    });
+
+  } catch (error) {
+    console.error("Error rendering hours:", error);
+    container.innerHTML = '<div class="error">Error loading hours</div>';
+  }
+}
+
+async function renderRecentMarks(limit = 10) {
+  const user = auth.currentUser;
+  if (!user) return;
+  const container = document.getElementById('marksContainer');
+  if (!container) return;
+
+  container.innerHTML = '<div class="loading">Loading recent marks...</div>';
+
+  try {
+    const marksQuery = query(
+      collection(db, "users", user.uid, "marks"),
+      orderBy("dateIso", "desc")
+    );
+    
+    const snap = await getDocs(marksQuery);
+    const rows = [];
+    snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+
+    if (rows.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>No Marks Recorded</h3>
+          <p>Add your first mark to get started</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+    rows.slice(0, limit).forEach(entry => {
+      const item = document.createElement("div");
+      item.className = "mark-entry";
+      item.innerHTML = `
+        <div><strong>${entry.student}</strong> — ${entry.subject} (${entry.topic})</div>
+        <div class="muted">${formatDate(entry.date)}</div>
+        <div>Score: ${safeNumber(entry.score)}/${safeNumber(entry.max)} — ${safeNumber(entry.percentage).toFixed(2)}% — Grade: ${entry.grade}</div>
+      `;
+      container.appendChild(item);
+    });
+
+    // Update marks summary
+    const marksCountEl = document.getElementById('marksCount');
+    const avgMarksEl = document.getElementById('avgMarks');
+    if (marksCountEl) marksCountEl.textContent = rows.length;
+    if (avgMarksEl) {
+      const avg = rows.length ? rows.reduce((s, r) => s + safeNumber(r.percentage), 0) / rows.length : 0;
+      avgMarksEl.textContent = `${avg.toFixed(1)}%`;
+    }
+
+  } catch (error) {
+    console.error("Error rendering marks:", error);
+    container.innerHTML = '<div class="error">Error loading marks</div>';
+  }
+}
+
+async function renderAttendanceRecent(limit = 10) {
+  const user = auth.currentUser;
+  if (!user) return;
+  const container = document.getElementById('attendanceContainer');
+  if (!container) return;
+
+  container.innerHTML = '<div class="loading">Loading attendance records...</div>';
+
+  try {
+    const attendanceQuery = query(
+      collection(db, "users", user.uid, "attendance"),
+      orderBy("dateIso", "desc")
+    );
+    
+    const snap = await getDocs(attendanceQuery);
+    const rows = [];
+    snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+
+    if (rows.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>No Attendance Records</h3>
+          <p>Record your first attendance session</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+    rows.slice(0, limit).forEach(entry => {
+      const item = document.createElement("div");
+      item.className = "attendance-entry";
+      item.innerHTML = `
+        <div><strong>${entry.subject}</strong> — ${entry.topic || "—"}</div>
+        <div class="muted">${formatDate(entry.date)}</div>
+        <div>Present: ${Array.isArray(entry.present) ? entry.present.length : 0} students</div>
+      `;
+      container.appendChild(item);
+    });
+
+    // Update attendance summary
+    if (lastSessionDateEl) lastSessionDateEl.textContent = rows[0]?.date ? formatDate(rows[0].date) : "Never";
+    if (attendanceCountEl) attendanceCountEl.textContent = rows.length;
+
+  } catch (error) {
+    console.error("Error rendering attendance:", error);
+    container.innerHTML = '<div class="error">Error loading attendance</div>';
+  }
+}
+
+async function renderPaymentActivity(limit = 10) {
+  const user = auth.currentUser;
+  if (!user) return;
+  const container = document.getElementById('paymentActivityLog');
+  if (!container) return;
+
+  container.innerHTML = '<div class="loading">Loading payment activity...</div>';
+
+  try {
+    const paymentsQuery = query(
+      collection(db, "users", user.uid, "payments"),
+      orderBy("dateIso", "desc")
+    );
+    
+    const snap = await getDocs(paymentsQuery);
+    const rows = [];
+    snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+
+    if (rows.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>No Payment Activity</h3>
+          <p>No recent payment activity recorded</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+    rows.slice(0, limit).forEach(entry => {
+      const item = document.createElement("div");
+      item.className = "activity-item";
+      item.innerHTML = `
+        <div><strong>$${fmtMoney(entry.amount)}</strong> — ${entry.student}</div>
+        <div class="muted">${formatDate(entry.date)} | ${entry.method}</div>
+        <div>${entry.notes || ""}</div>
+      `;
+      container.appendChild(item);
+    });
+
+    // Update monthly payments
+    if (monthlyPaymentsEl) {
+      const now = new Date();
+      const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+      const sum = rows
+        .filter(r => (r.date || "").startsWith(ym))
+        .reduce((s, r) => s + safeNumber(r.amount), 0);
+      monthlyPaymentsEl.textContent = `$${fmtMoney(sum)}`;
+    }
+
+  } catch (error) {
+    console.error("Error rendering payments:", error);
+    container.innerHTML = '<div class="error">Error loading payments</div>';
+  }
+}
+
+async function renderStudentBalances() {
+  const user = auth.currentUser;
+  if (!user) return;
+  const container = document.getElementById('studentBalancesContainer');
+  if (!container) return;
+
+  container.innerHTML = '<div class="loading">Loading student balances...</div>';
+
+  try {
+    const [studentsSnap, hoursSnap, paymentsSnap] = await Promise.all([
+      getDocs(collection(db, "users", user.uid, "students")),
+      getDocs(collection(db, "users", user.uid, "hours")),
+      getDocs(collection(db, "users", user.uid, "payments"))
+    ]);
+
+    const earningsByStudent = {};
+    hoursSnap.forEach(d => {
+      const row = d.data();
+      const sid = row.student || "__unknown__";
+      earningsByStudent[sid] = (earningsByStudent[sid] || 0) + safeNumber(row.total);
+    });
+
+    const paymentsByStudent = {};
+    paymentsSnap.forEach(d => {
+      const row = d.data();
+      const sid = row.student || "__unknown__";
+      paymentsByStudent[sid] = (paymentsByStudent[sid] || 0) + safeNumber(row.amount);
+    });
+
+    if (studentsSnap.size === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>No Student Data</h3>
+          <p>Add students and record hours/payments to see balances</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+    let totalOwed = 0;
+    
+    studentsSnap.forEach(snap => {
+      const student = snap.data();
+      const sid = student.id;
+      const earned = earningsByStudent[sid] || 0;
+      const paid = paymentsByStudent[sid] || 0;
+      const owed = Math.max(earned - paid, 0);
+      totalOwed += owed;
+
+      const item = document.createElement("div");
+      item.className = "activity-item";
+      item.innerHTML = `
+        <div><strong>${student.name}</strong> (${student.id})</div>
+        <div>Earned: $${fmtMoney(earned)} | Paid: $${fmtMoney(paid)} | Owed: $${fmtMoney(owed)}</div>
+      `;
+      container.appendChild(item);
+    });
+
+    // Update total owed display
+    if (totalStudentsCountEl) totalStudentsCountEl.textContent = studentsSnap.size;
+    if (totalOwedEl) totalOwedEl.textContent = `$${fmtMoney(totalOwed)}`;
+
+  } catch (error) {
+    console.error("Error rendering balances:", error);
+    container.innerHTML = '<div class="error">Error loading balances</div>';
+  }
+}
+
+async function renderOverviewReports() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    const [studentsSnap, hoursSnap, marksSnap, paymentsSnap] = await Promise.all([
+      getDocs(collection(db, "users", user.uid, "students")),
+      getDocs(collection(db, "users", user.uid, "hours")),
+      getDocs(collection(db, "users", user.uid, "marks")),
+      getDocs(collection(db, "users", user.uid, "payments"))
+    ]);
+
+    // Calculate totals
+    let hoursTotal = 0;
+    let earningsTotal = 0;
+    hoursSnap.forEach(d => {
+      const r = d.data();
+      hoursTotal += safeNumber(r.hours);
+      earningsTotal += safeNumber(r.total);
+    });
+
+    let markSum = 0;
+    let markCount = 0;
+    marksSnap.forEach(d => {
+      const r = d.data();
+      markSum += safeNumber(r.percentage);
+      markCount += 1;
+    });
+    const avgMark = markCount ? (markSum / markCount) : 0;
+
+    let paymentsTotal = 0;
+    paymentsSnap.forEach(d => {
+      const r = d.data();
+      paymentsTotal += safeNumber(r.amount);
+    });
+
+    const outstanding = Math.max(earningsTotal - paymentsTotal, 0);
+
+    // Update overview elements
+    if (totalStudentsReport) totalStudentsReport.textContent = studentsSnap.size;
+    if (totalHoursReport) totalHoursReport.textContent = hoursTotal.toFixed(1);
+    if (totalEarningsReport) totalEarningsReport.textContent = `$${fmtMoney(earningsTotal)}`;
+    if (avgMarkReport) avgMarkReport.textContent = `${avgMark.toFixed(1)}%`;
+    if (totalPaymentsReport) totalPaymentsReport.textContent = `$${fmtMoney(paymentsTotal)}`;
+    if (outstandingBalance) outstandingBalance.textContent = `$${fmtMoney(outstanding)}`;
+
+  } catch (error) {
+    console.error("Error rendering overview:", error);
+  }
+}
+
+// ===========================
+// MISSING FORM RESET FUNCTIONS
+// ===========================
+
+function clearStudentForm() {
+  const form = document.getElementById("studentForm");
+  if (form) form.reset();
+}
+
+function resetHoursForm() {
+  const form = document.getElementById("hoursForm");
+  if (form) {
+    form.reset();
+    console.log("✅ Hours form reset");
+  }
+}
+
+function resetMarksForm() {
+  const form = document.getElementById("marksForm");
+  if (form) form.reset();
+
+  const pctEl = document.getElementById("percentage");
+  const gradeEl = document.getElementById("grade");
+  if (pctEl) pctEl.value = "";
+  if (gradeEl) gradeEl.value = "";
+}
+
+function clearAttendanceForm() {
+  const dateEl = document.getElementById("attendanceDate");
+  const subjectEl = document.getElementById("attendanceSubject");
+  const topicEl = document.getElementById("attendanceTopic");
+
+  if (dateEl) dateEl.value = "";
+  if (subjectEl) subjectEl.value = "";
+  if (topicEl) topicEl.value = "";
+
+  document.querySelectorAll("#attendanceList input[type=checkbox]")
+    .forEach(cb => cb.checked = false);
+}
+
+function resetPaymentForm() {
+  const studentEl = document.getElementById("paymentStudent");
+  const amountEl = document.getElementById("paymentAmount");
+  const dateEl = document.getElementById("paymentDate");
+  const methodEl = document.getElementById("paymentMethod");
+  const notesEl = document.getElementById("paymentNotes");
+
+  if (studentEl) studentEl.value = "";
+  if (amountEl) amountEl.value = "";
+  if (dateEl) dateEl.value = "";
+  if (methodEl) methodEl.value = methodEl.options[0]?.value || "";
+  if (notesEl) notesEl.value = "";
+}
+
+// ===========================
+// MISSING STUDENT ACTION FUNCTIONS
+// ===========================
+
+function selectAllStudents() {
+  document.querySelectorAll("#attendanceList input[type=checkbox]").forEach(cb => cb.checked = true);
+}
+
+function deselectAllStudents() {
+  document.querySelectorAll("#attendanceList input[type=checkbox]").forEach(cb => cb.checked = false);
+}
+
+// Placeholder functions for student actions
+async function editStudent(studentId) {
+  SyncBar.notifyInfo("Edit student feature coming soon");
+}
+
+async function deleteStudent(studentId) {
+  if (confirm("Are you sure you want to delete this student? This action cannot be undone.")) {
+    const user = auth.currentUser;
+    if (user) {
+      try {
+        await deleteDoc(doc(db, "users", user.uid, "students", studentId));
+        SyncBar.notifySuccess("Student deleted successfully");
+        await renderStudents();
+        await loadStudentsForDropdowns();
+      } catch (error) {
+        console.error("Error deleting student:", error);
+        SyncBar.notifyError("Failed to delete student");
+      }
+    }
+  }
+}
+
+// ===========================
+// MISSING RATE MANAGEMENT FUNCTIONS
+// ===========================
+
+function saveDefaultRate() {
+  const input = document.getElementById("defaultBaseRate");
+  const currentDisplay = document.getElementById("currentDefaultRate");
+  const hoursDisplay = document.getElementById("currentDefaultRateDisplay");
+
+  const val = parseFloat(input?.value) || 0;
+  if (currentDisplay) currentDisplay.textContent = fmtMoney(val);
+  if (hoursDisplay) hoursDisplay.textContent = fmtMoney(val);
+  SyncBar.notifySuccess("Default rate saved");
+}
+
+function applyDefaultRateToAll() {
+  const val = parseFloat(document.getElementById("defaultBaseRate")?.value) || 0;
+  const user = auth.currentUser;
+  if (!user) return;
+  
+  SyncBar.notifyInfo("Applying default rate to all students...");
+  
+  // This would need to be implemented with your Firestore update logic
+  SyncBar.notifyWarning("This feature needs Firestore implementation");
+}
+
+function useDefaultRate() {
+  const val = parseFloat(document.getElementById("defaultBaseRate")?.value) || 0;
+  const input = document.getElementById("studentBaseRate");
+  if (input) input.value = fmtMoney(val);
+}
+
+function useDefaultRateInHours() {
+  const defaultRateDisplay = document.getElementById("currentDefaultRateDisplay");
+  const baseRateInput = document.getElementById("baseRate");
+  if (defaultRateDisplay && baseRateInput) {
+    baseRateInput.value = parseFloat(defaultRateDisplay.textContent) || 0;
+  }
+}
+
+// ===========================
 // BOOT THE APPLICATION
 // ===========================
 
