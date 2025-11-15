@@ -2190,6 +2190,26 @@ async function deleteStudent(studentId) {
 // APP INITIALIZATION
 // ===========================
 
+function initializeApp() {
+  console.log('🚀 Initializing WorkLog App...');
+  
+  UIManager.init();
+  SyncBar.init();
+  setupProfileModal();
+  setupFloatingAddButton();
+  
+  if (syncMessage) syncMessage.textContent = "Cloud Sync: Ready";
+  if (syncMessageLine) syncMessageLine.textContent = "Status: Connected";
+  
+  const user = auth.currentUser;
+  if (user) {
+    console.log('👤 User authenticated, loading data...');
+    loadInitialData(user);
+  }
+  
+  console.log('✅ WorkLog App Fully Initialized');
+}
+
 async function loadInitialData(user) {
   try {
     console.log('📥 Loading initial data for user:', user.uid);
