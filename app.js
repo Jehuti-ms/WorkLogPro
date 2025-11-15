@@ -256,52 +256,86 @@ async function recalcSummaryStats(uid) {
 }
 
 // ----------------------
-// Sync Bar Controls
+// Sync Toolbar Controls
 // ----------------------
-const syncToggleBtn   = document.getElementById("syncToggleBtn");
-const syncNowBtn      = document.getElementById("syncNowBtn");   // NEW manual button
+const syncIndicator   = document.getElementById("syncIndicator");
 const syncSpinner     = document.getElementById("syncSpinner");
-const syncMessageLine = document.getElementById("syncMessageLine");
-const statUpdated     = document.getElementById("statUpdated");
+const autoSyncCheckbox = document.getElementById("autoSyncCheckbox");
+const autoSyncText    = document.getElementById("autoSyncText");
+const syncBtn         = document.getElementById("syncBtn");
+const exportCloudBtn  = document.getElementById("exportCloudBtn");
+const importCloudBtn  = document.getElementById("importCloudBtn");
+const syncStatsBtn    = document.getElementById("syncStatsBtn");
 
-let autosyncEnabled = false;
 let autosyncInterval = null;
 
-// Toggle autosync on/off
-if (syncToggleBtn) {
-  syncToggleBtn.addEventListener("click", () => {
-    autosyncEnabled = !autosyncEnabled;
-
-    if (autosyncEnabled) {
-      syncToggleBtn.textContent = "⏸ Pause Sync";
-      syncMessageLine.textContent = "Status: Autosync enabled";
+// Toggle autosync
+if (autoSyncCheckbox) {
+  autoSyncCheckbox.addEventListener("change", () => {
+    if (autoSyncCheckbox.checked) {
+      autoSyncText.textContent = "Auto";
+      syncIndicator.style.backgroundColor = "green";
       startAutosync();
     } else {
-      syncToggleBtn.textContent = "▶ Resume Sync";
-      syncMessageLine.textContent = "Status: Autosync paused";
+      autoSyncText.textContent = "Manual";
+      syncIndicator.style.backgroundColor = "red";
       stopAutosync();
     }
   });
 }
 
-// Manual sync button
-if (syncNowBtn) {
-  syncNowBtn.addEventListener("click", async () => {
-    await runSync(true); // force immediate sync
+// Manual sync
+if (syncBtn) {
+  syncBtn.addEventListener("click", async () => {
+    await runSync(true);
   });
 }
 
-// Start autosync loop
+// Export cloud
+if (exportCloudBtn) {
+  exportCloudBtn.addEventListener("click", async () => {
+    const user = auth.currentUser;
+    if (user) {
+      await exportUserData(user.uid);
+    } else {
+      console.warn("⚠️ Not logged in, export skipped");
+      if (syncMessageLine) syncMessageLine.textContent = "Status: Not logged in";
+    }
+  });
+}
+
+
+// Import cloud
+if (importCloudBtn) {
+  importCloudBtn.addEventListener("click", async () => {
+    const user = auth.currentUser;
+    if (user) {
+      await importUserData(user.uid);
+    } else {
+      console.warn("⚠️ Not logged in, import skipped");
+      if (syncMessageLine) syncMessageLine.textContent = "Status: Not logged in";
+    }
+  });
+}
+
+// Sync stats only
+if (syncStatsBtn) {
+  syncStatsBtn.addEventListener("click", async () => {
+    const user = auth.currentUser;
+    if (user) {
+      await recalcSummaryStats(user.uid);
+      console.log("✅ Stats synced");
+    }
+  });
+}
+
+// Autosync loop
 function startAutosync() {
   if (autosyncInterval) clearInterval(autosyncInterval);
-
-  autosyncInterval = setInterval(async () => {
-    await runSync();
-  }, 60 * 1000); // every 60 seconds
+  autosyncInterval = setInterval(runSync, 60 * 1000); // every 60s
   runSync(); // run immediately
 }
 
-// Stop autosync loop
 function stopAutosync() {
   if (autosyncInterval) {
     clearInterval(autosyncInterval);
@@ -312,24 +346,114 @@ function stopAutosync() {
 // Run one sync cycle
 async function runSync(manual = false) {
   try {
-    if (syncSpinner) syncSpinner.style.display = "inline-block";
-    syncMessageLine.textContent = manual ? "Status: Manual sync…" : "Status: Syncing…";
+    syncSpinner.style.display = "inline-block";
 
     const user = auth.currentUser;
     if (user) {
       await recalcSummaryStats(user.uid);
-      if (statUpdated) statUpdated.textContent = new Date().toLocaleString();
-      syncMessageLine.textContent = manual ? "Status: Manual sync complete" : "Status: Sync complete";
+      statUpdated.textContent = new Date().toLocaleString();
+      console.log(manual ? "✅ Manual sync complete" : "✅ Autosync complete");
     } else {
-      syncMessageLine.textContent = "Status: Not logged in";
+      console.warn("⚠️ Not logged in, sync skipped");
     }
   } catch (err) {
     console.error("❌ Sync error:", err);
-    syncMessageLine.textContent = "Status: Sync failed";
   } finally {
-    if (syncSpinner) syncSpinner.style.display = "none";
+    syncSpinner.style.display = "none";
   }
 }
+
+// ----------------------
+// Sync Bar Logic
+// ----------------------
+// Export all user data to a cloud backup collection
+async function exportUserData(uid) {
+  try {
+    const userRef = doc(db, "users", uid);
+    const backupRef = doc(db, "backups", uid);
+
+    // Get the main stats doc
+    const statsSnap = await getDoc(userRef);
+    const statsData = statsSnap.exists() ? statsSnap.data() : {};
+
+    // Get subcollections (students, hours, payments, etc.)
+    const studentsSnap = await getDocs(collection(db, "users", uid, "students"));
+    const hoursSnap    = await getDocs(collection(db, "users", uid, "hours"));
+    const paymentsSnap = await getDocs(collection(db, "users", uid, "payments"));
+
+    const students = studentsSnap.docs.map(d => d.data());
+    const hours    = hoursSnap.docs.map(d => d.data());
+    const payments = paymentsSnap.docs.map(d => d.data());
+
+    // Save everything into a backup doc
+    await setDoc(backupRef, {
+      stats: statsData,
+      students,
+      hours,
+      payments,
+      exportedAt: new Date().toISOString()
+    });
+
+    console.log("✅ Export complete");
+    if (syncMessageLine) syncMessageLine.textContent = "Status: Exported to cloud";
+  } catch (err) {
+    console.error("❌ Export failed:", err);
+    if (syncMessageLine) syncMessageLine.textContent = "Status: Export failed";
+  }
+}
+
+// Import user data from cloud backup into live collections
+async function importUserData(uid) {
+  try {
+    const backupRef = doc(db, "backups", uid);
+    const backupSnap = await getDoc(backupRef);
+
+    if (!backupSnap.exists()) {
+      console.warn("⚠️ No backup found for user:", uid);
+      if (syncMessageLine) syncMessageLine.textContent = "Status: No backup found";
+      return;
+    }
+
+    const backupData = backupSnap.data();
+
+    // Restore stats doc
+    if (backupData.stats) {
+      await setDoc(doc(db, "users", uid), backupData.stats, { merge: true });
+    }
+
+    // Restore students
+    if (backupData.students) {
+      for (const student of backupData.students) {
+        const studentRef = doc(db, "users", uid, "students", student.id);
+        await setDoc(studentRef, student, { merge: true });
+      }
+    }
+
+    // Restore hours
+    if (backupData.hours) {
+      for (const entry of backupData.hours) {
+        await addDoc(collection(db, "users", uid, "hours"), entry);
+      }
+    }
+
+    // Restore payments
+    if (backupData.payments) {
+      for (const payment of backupData.payments) {
+        await addDoc(collection(db, "users", uid, "payments"), payment);
+      }
+    }
+
+    console.log("✅ Import complete");
+    if (syncMessageLine) syncMessageLine.textContent = "Status: Import complete";
+
+    // Recalculate stats after import
+    await recalcSummaryStats(uid);
+  } catch (err) {
+    console.error("❌ Import failed:", err);
+    if (syncMessageLine) syncMessageLine.textContent = "Status: Import failed";
+  }
+}
+
 
 // ----------------------
 // Students Tab
