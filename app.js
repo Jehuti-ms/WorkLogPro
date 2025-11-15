@@ -387,6 +387,13 @@ async function recalcSummaryStats(uid) {
 // Sync Bar Logic
 // ----------------------
 // Export all user data to a cloud backup collection
+console.log({
+  syncBtn,
+  exportCloudBtn,
+  importCloudBtn,
+  syncStatsBtn
+});
+
 async function exportUserData(uid) {
   try {
     const userRef = doc(db, "users", uid);
