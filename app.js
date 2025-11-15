@@ -29,6 +29,7 @@ import {
 
 let autoSyncInterval = null;
 let isAutoSyncEnabled = false;
+let currentUserData = null;
 
 // DOM Elements
 const syncIndicator = document.getElementById("syncIndicator");
@@ -96,6 +97,264 @@ function calculateGrade(percentage) {
   if (percentage >= 70) return 'C';
   if (percentage >= 60) return 'D';
   return 'F';
+}
+
+// ===========================
+// USER PROFILE & AUTHENTICATION
+// ===========================
+
+async function loadUserProfile(uid) {
+  console.log('👤 Loading user profile for:', uid);
+  try {
+    const userRef = doc(db, "users", uid);
+    const userSnap = await getDoc(userRef);
+    
+    if (userSnap.exists()) {
+      currentUserData = { uid, ...userSnap.data() };
+      console.log('✅ User profile loaded:', currentUserData);
+      
+      // Update profile button with user info
+      updateProfileButton(currentUserData);
+      
+      // Initialize default rate if it exists
+      if (currentUserData.defaultRate !== undefined) {
+        initializeDefaultRate(currentUserData.defaultRate);
+      }
+      
+      return currentUserData;
+    } else {
+      // Create new user profile with default rate
+      const defaultProfile = {
+        email: auth.currentUser?.email || '',
+        createdAt: new Date().toISOString(),
+        defaultRate: 0,
+        lastLogin: new Date().toISOString()
+      };
+      
+      await setDoc(userRef, defaultProfile);
+      currentUserData = { uid, ...defaultProfile };
+      console.log('✅ New user profile created');
+      
+      updateProfileButton(currentUserData);
+      initializeDefaultRate(0);
+      
+      return currentUserData;
+    }
+  } catch (err) {
+    console.error("❌ Error loading user profile:", err);
+    return null;
+  }
+}
+
+function updateProfileButton(userData) {
+  const profileBtn = document.getElementById('profileBtn');
+  if (profileBtn) {
+    const email = userData.email || 'User';
+    const displayName = email.split('@')[0];
+    profileBtn.innerHTML = `👤 ${displayName}`;
+    profileBtn.title = `Logged in as ${email}`;
+  }
+}
+
+function initializeDefaultRate(rate) {
+  const defaultRateInput = document.getElementById("defaultBaseRate");
+  const currentRateDisplay = document.getElementById("currentDefaultRate");
+  const hoursRateDisplay = document.getElementById("currentDefaultRateDisplay");
+  
+  if (defaultRateInput) defaultRateInput.value = rate;
+  if (currentRateDisplay) currentRateDisplay.textContent = fmtMoney(rate);
+  if (hoursRateDisplay) hoursRateDisplay.textContent = fmtMoney(rate);
+  
+  console.log('💰 Default rate initialized:', rate);
+}
+
+async function updateUserDefaultRate(uid, newRate) {
+  try {
+    const userRef = doc(db, "users", uid);
+    await updateDoc(userRef, {
+      defaultRate: newRate,
+      updatedAt: new Date().toISOString()
+    });
+    
+    if (currentUserData) {
+      currentUserData.defaultRate = newRate;
+    }
+    
+    console.log('✅ Default rate updated:', newRate);
+    return true;
+  } catch (err) {
+    console.error("❌ Error updating default rate:", err);
+    return false;
+  }
+}
+
+async function applyDefaultRateToAllStudents(uid, newRate) {
+  try {
+    const studentsSnap = await getDocs(collection(db, "users", uid, "students"));
+    const batch = writeBatch(db);
+    let updateCount = 0;
+
+    studentsSnap.forEach((docSnap) => {
+      const studentRef = doc(db, "users", uid, "students", docSnap.id);
+      batch.update(studentRef, { rate: newRate });
+      updateCount++;
+    });
+
+    if (updateCount > 0) {
+      await batch.commit();
+      NotificationSystem.notifySuccess(`Default rate applied to ${updateCount} students`);
+      await renderStudents(); // Refresh the display
+    } else {
+      NotificationSystem.notifyInfo("No students found to update");
+    }
+    
+    return updateCount;
+  } catch (err) {
+    console.error("❌ Error applying rate to all students:", err);
+    NotificationSystem.notifyError("Failed to apply rate to all students");
+    return 0;
+  }
+}
+
+function setupProfileModal() {
+  const profileBtn = document.getElementById('profileBtn');
+  const profileModal = document.getElementById('profileModal');
+  const closeProfileModal = document.getElementById('closeProfileModal');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const userEmail = document.getElementById('userEmail');
+  const userSince = document.getElementById('userSince');
+  const profileDefaultRate = document.getElementById('profileDefaultRate');
+
+  if (profileBtn && profileModal) {
+    profileBtn.addEventListener('click', () => {
+      if (currentUserData) {
+        userEmail.textContent = currentUserData.email || 'Not available';
+        userSince.textContent = formatDate(currentUserData.createdAt);
+        profileDefaultRate.textContent = fmtMoney(currentUserData.defaultRate || 0);
+      }
+      profileModal.style.display = 'block';
+    });
+  }
+
+  if (closeProfileModal) {
+    closeProfileModal.addEventListener('click', () => {
+      profileModal.style.display = 'none';
+    });
+  }
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      if (confirm('Are you sure you want to logout?')) {
+        try {
+          await signOut(auth);
+          window.location.href = "auth.html";
+        } catch (error) {
+          console.error('Logout error:', error);
+          NotificationSystem.notifyError('Logout failed');
+        }
+      }
+    });
+  }
+
+  // Close modal when clicking outside
+  window.addEventListener('click', (event) => {
+    if (profileModal && event.target === profileModal) {
+      profileModal.style.display = 'none';
+    }
+  });
+}
+
+// ===========================
+// FLOATING ADD BUTTON
+// ===========================
+
+function setupFloatingAddButton() {
+  const fab = document.getElementById('floatingAddBtn');
+  const fabMenu = document.getElementById('fabMenu');
+  const fabOverlay = document.getElementById('fabOverlay');
+
+  if (!fab) return;
+
+  fab.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isExpanded = fab.getAttribute('data-expanded') === 'true';
+    
+    if (isExpanded) {
+      // Close menu
+      fab.setAttribute('data-expanded', 'false');
+      if (fabMenu) fabMenu.classList.remove('show');
+      if (fabOverlay) fabOverlay.style.display = 'none';
+    } else {
+      // Open menu
+      fab.setAttribute('data-expanded', 'true');
+      if (fabMenu) fabMenu.classList.add('show');
+      if (fabOverlay) fabOverlay.style.display = 'block';
+    }
+  });
+
+  // Close menu when clicking on overlay
+  if (fabOverlay) {
+    fabOverlay.addEventListener('click', () => {
+      fab.setAttribute('data-expanded', 'false');
+      if (fabMenu) fabMenu.classList.remove('show');
+      fabOverlay.style.display = 'none';
+    });
+  }
+
+  // Setup quick action buttons
+  const quickActions = {
+    'fabAddStudent': () => {
+      document.querySelector('[data-tab="students"]').click();
+      setTimeout(() => {
+        const form = document.getElementById('studentForm');
+        if (form) form.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    },
+    'fabAddHours': () => {
+      document.querySelector('[data-tab="hours"]').click();
+      setTimeout(() => {
+        const form = document.getElementById('hoursForm');
+        if (form) form.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    },
+    'fabAddMark': () => {
+      document.querySelector('[data-tab="marks"]').click();
+      setTimeout(() => {
+        const form = document.getElementById('marksForm');
+        if (form) form.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    },
+    'fabAddAttendance': () => {
+      document.querySelector('[data-tab="attendance"]').click();
+      setTimeout(() => {
+        const form = document.getElementById('attendanceForm');
+        if (form) form.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  };
+
+  // Attach event listeners to quick action buttons
+  Object.keys(quickActions).forEach(btnId => {
+    const btn = document.getElementById(btnId);
+    if (btn) {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        quickActions[btnId]();
+        
+        // Close FAB menu
+        fab.setAttribute('data-expanded', 'false');
+        if (fabMenu) fabMenu.classList.remove('show');
+        if (fabOverlay) fabOverlay.style.display = 'none';
+      });
+    }
+  });
+
+  // Close menu when clicking outside
+  document.addEventListener('click', () => {
+    fab.setAttribute('data-expanded', 'false');
+    if (fabMenu) fabMenu.classList.remove('show');
+    if (fabOverlay) fabOverlay.style.display = 'none';
+  });
 }
 
 // ===========================
@@ -1478,24 +1737,52 @@ function deselectAllStudents() {
 // RATE MANAGEMENT FUNCTIONS
 // ===========================
 
-function saveDefaultRate() {
+async function saveDefaultRate() {
   const input = document.getElementById("defaultBaseRate");
-  const currentDisplay = document.getElementById("currentDefaultRate");
-  const hoursDisplay = document.getElementById("currentDefaultRateDisplay");
+  const user = auth.currentUser;
+  
+  if (!user) {
+    NotificationSystem.notifyError("Please log in to save default rate");
+    return;
+  }
 
   const val = parseFloat(input?.value) || 0;
-  if (currentDisplay) currentDisplay.textContent = fmtMoney(val);
-  if (hoursDisplay) hoursDisplay.textContent = fmtMoney(val);
-  NotificationSystem.notifySuccess("Default rate saved");
+  
+  const success = await updateUserDefaultRate(user.uid, val);
+  
+  if (success) {
+    const currentDisplay = document.getElementById("currentDefaultRate");
+    const hoursDisplay = document.getElementById("currentDefaultRateDisplay");
+    
+    if (currentDisplay) currentDisplay.textContent = fmtMoney(val);
+    if (hoursDisplay) hoursDisplay.textContent = fmtMoney(val);
+    
+    NotificationSystem.notifySuccess("Default rate saved and synced to cloud");
+  } else {
+    NotificationSystem.notifyError("Failed to save default rate");
+  }
 }
 
-function applyDefaultRateToAll() {
-  const val = parseFloat(document.getElementById("defaultBaseRate")?.value) || 0;
+async function applyDefaultRateToAll() {
   const user = auth.currentUser;
-  if (!user) return;
+  if (!user) {
+    NotificationSystem.notifyError("Please log in to apply default rate");
+    return;
+  }
+
+  const val = parseFloat(document.getElementById("defaultBaseRate")?.value) || 0;
   
-  NotificationSystem.notifyInfo("Applying default rate to all students...");
-  NotificationSystem.notifyWarning("This feature needs Firestore implementation");
+  if (val <= 0) {
+    NotificationSystem.notifyError("Please set a valid default rate first");
+    return;
+  }
+
+  const confirmed = confirm(`This will update the rate for ALL students to $${fmtMoney(val)}. This action cannot be undone. Continue?`);
+  
+  if (confirmed) {
+    const updateCount = await applyDefaultRateToAllStudents(user.uid, val);
+    // No need to show notification here - it's handled in the function
+  }
 }
 
 function useDefaultRate() {
@@ -1513,7 +1800,7 @@ function useDefaultRateInHours() {
 }
 
 // ===========================
-// FORM SUBMISSION FUNCTIONS (MISSING)
+// FORM SUBMISSION FUNCTIONS
 // ===========================
 
 async function addStudent() {
@@ -1790,6 +2077,8 @@ function initializeApp() {
   
   UIManager.init();
   SyncBar.init();
+  setupProfileModal();
+  setupFloatingAddButton();
   
   if (syncMessage) syncMessage.textContent = "Cloud Sync: Ready";
   if (syncMessageLine) syncMessageLine.textContent = "Status: Connected";
@@ -1805,6 +2094,7 @@ function initializeApp() {
 
 async function loadInitialData(user) {
   try {
+    await loadUserProfile(user.uid);
     await Promise.all([
       loadUserStats(user.uid),
       loadStudentsForDropdowns(),
@@ -1851,7 +2141,7 @@ if (document.readyState === "loading") {
 }
 
 // ===========================
-// REPORT FUNCTIONS (MISSING)
+// REPORT FUNCTIONS
 // ===========================
 
 async function showWeeklyBreakdown() {
@@ -2031,7 +2321,7 @@ async function showSubjectBreakdown() {
 // ===========================
 
 // Make sure all functions are defined before exposing them to window
-window.toggleTheme = () => UIManager.toggleTheme(); // Add this line
+window.toggleTheme = () => UIManager.toggleTheme();
 
 window.addStudent = addStudent;
 window.clearStudentForm = clearStudentForm;
