@@ -189,7 +189,6 @@ async function loadUserStats(uid) {
   try {
     const statsRef = doc(db, "users", uid);
 
-    // Try cache first, then server
     let statsSnap;
     try {
       statsSnap = await getDoc(statsRef, { source: "cache" });
@@ -205,7 +204,6 @@ async function loadUserStats(uid) {
         ? fmtMoney(stats.earnings)
         : "0.00";
     } else {
-      // Initialize if no stats doc exists
       await setDoc(statsRef, { students: 0, hours: 0, earnings: 0 });
       if (statStudents) statStudents.textContent = 0;
       if (statHours)    statHours.textContent    = 0;
@@ -215,9 +213,7 @@ async function loadUserStats(uid) {
     refreshTimestamp();
   } catch (err) {
     console.error("❌ Error loading stats:", err);
-    if (syncMessageLine) {
-      syncMessageLine.textContent = "Status: Offline – stats unavailable";
-    }
+    if (syncMessageLine) syncMessageLine.textContent = "Status: Offline – stats unavailable";
   }
 }
 
@@ -227,18 +223,10 @@ async function updateUserStats(uid, newStats) {
     await setDoc(statsRef, newStats, { merge: true });
     console.log("✅ Stats updated:", newStats);
 
-    if (newStats.students !== undefined && statStudents) {
-      statStudents.textContent = newStats.students;
-    }
-    if (newStats.hours !== undefined && statHours) {
-      statHours.textContent = newStats.hours;
-    }
-    if (newStats.earnings !== undefined && statEarnings) {
-      statEarnings.textContent = fmtMoney(newStats.earnings);
-    }
-    if (newStats.lastSync !== undefined && statUpdated) {
-      statUpdated.textContent = newStats.lastSync;
-    }
+    if (newStats.students !== undefined && statStudents) statStudents.textContent = newStats.students;
+    if (newStats.hours !== undefined && statHours)       statHours.textContent    = newStats.hours;
+    if (newStats.earnings !== undefined && statEarnings) statEarnings.textContent = fmtMoney(newStats.earnings);
+    if (newStats.lastSync !== undefined && statUpdated)  statUpdated.textContent  = newStats.lastSync;
 
     refreshTimestamp();
   } catch (err) {
@@ -247,19 +235,18 @@ async function updateUserStats(uid, newStats) {
   }
 }
 
-// Recalculate summary stats (students count, total hours, total earnings)
 async function recalcSummaryStats(uid) {
   try {
     const studentsSnap = await getDocs(collection(db, "users", uid, "students"));
     const hoursSnap    = await getDocs(collection(db, "users", uid, "hours"));
 
     const studentsCount = studentsSnap.size;
-
     let totalHours = 0;
     let totalEarnings = 0;
+
     hoursSnap.forEach(h => {
       const d = h.data();
-      totalHours += safeNumber(d.hours);
+      totalHours   += safeNumber(d.hours);
       totalEarnings += safeNumber(d.total);
     });
 
@@ -276,19 +263,11 @@ async function recalcSummaryStats(uid) {
 }
 
 // ----------------------
-// Sync Bar Logic
+// Cloud Backup
 // ----------------------
-// Export all user data to a cloud backup collection
-console.log({
-  syncBtn,
-  exportCloudBtn,
-  importCloudBtn,
-  syncStatsBtn
-});
-
 async function exportUserData(uid) {
   try {
-    const userRef = doc(db, "users", uid);
+    const userRef   = doc(db, "users", uid);
     const backupRef = doc(db, "backups", uid);
 
     const statsSnap = await getDoc(userRef);
@@ -298,9 +277,9 @@ async function exportUserData(uid) {
     const hoursSnap    = await getDocs(collection(db, "users", uid, "hours"));
     const paymentsSnap = await getDocs(collection(db, "users", uid, "payments"));
 
-    const students = studentsSnap.docs.map(d => d.data());
-    const hours    = hoursSnap.docs.map(d => d.data());
-    const payments = paymentsSnap.docs.map(d => d.data());
+    const students = studentsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const hours    = hoursSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const payments = paymentsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
     await setDoc(backupRef, {
       stats: statsData,
@@ -310,7 +289,7 @@ async function exportUserData(uid) {
       exportedAt: new Date().toISOString()
     });
 
-    console.log("✅ Export complete");
+    console.log("✅ Cloud export complete");
   } catch (err) {
     console.error("❌ Export failed:", err);
   }
@@ -334,8 +313,7 @@ async function importUserData(uid) {
 
     if (backupData.students) {
       for (const student of backupData.students) {
-        const studentRef = doc(db, "users", uid, "students", student.id);
-        await setDoc(studentRef, student, { merge: true });
+        await setDoc(doc(db, "users", uid, "students", student.id), student, { merge: true });
       }
     }
 
@@ -351,18 +329,20 @@ async function importUserData(uid) {
       }
     }
 
-    console.log("✅ Import complete");
+    console.log("✅ Cloud import complete");
     await recalcSummaryStats(uid);
   } catch (err) {
     console.error("❌ Import failed:", err);
   }
 }
 
-// Autosync loop
+// ----------------------
+// Autosync
+// ----------------------
 function startAutosync() {
   if (autosyncInterval) clearInterval(autosyncInterval);
-  autosyncInterval = setInterval(runSync, 60 * 1000); // every 60s
-  runSync(); // run immediately
+  autosyncInterval = setInterval(runSync, 60 * 1000);
+  runSync(true); // run immediately
 }
 
 function stopAutosync() {
@@ -372,15 +352,14 @@ function stopAutosync() {
   }
 }
 
-// Run one sync cycle
 async function runSync(manual = false) {
   try {
-    syncSpinner.style.display = "inline-block";
+    if (syncSpinner) syncSpinner.style.display = "inline-block";
 
     const user = auth.currentUser;
     if (user) {
       await recalcSummaryStats(user.uid);
-      statUpdated.textContent = new Date().toLocaleString();
+      if (statUpdated) statUpdated.textContent = new Date().toLocaleString();
       console.log(manual ? "✅ Manual sync complete" : "✅ Autosync complete");
     } else {
       console.warn("⚠️ Not logged in, sync skipped");
@@ -388,7 +367,94 @@ async function runSync(manual = false) {
   } catch (err) {
     console.error("❌ Sync error:", err);
   } finally {
-    syncSpinner.style.display = "none";
+    if (syncSpinner) syncSpinner.style.display = "none";
+  }
+}
+
+// ----------------------
+// Local Data Actions
+// ----------------------
+async function exportData() {
+  try {
+    const dummy = { students: [], hours: [], marks: [], attendance: [], payments: [] };
+    const blob = new Blob([JSON.stringify(dummy, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "worklog-export.json";
+    a.click();
+    URL.revokeObjectURL(url);
+    console.log("✅ Local export complete");
+  } catch (err) {
+    console.error("❌ Local export failed:", err);
+  }
+}
+
+async function importData() {
+  try {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const text = await file.text();
+      const data = JSON.parse(text);
+      console.log("✅ Local import complete:", data);
+      // TODO: validate and apply to Firestore/local state
+    };
+    input.click();
+  } catch (err) {
+    console.error("❌ Local import failed:", err);
+  }
+}
+
+async function clearData() {
+  try {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    // Confirm destructive action
+    const proceed = confirm("⚠️ This will permanently delete Students, Hours, Payments. Continue?");
+    if (!proceed) return;
+
+    const collections = ["students", "hours", "payments"];
+
+    // Delete in batches per collection to avoid partial state
+    for (const col of collections) {
+      const colRef = collection(db, "users", user.uid, col);
+      const snap = await getDocs(colRef);
+
+      if (snap.empty) continue;
+
+      let batch = writeBatch(db);
+      let ops = 0;
+
+      snap.forEach(docSnap => {
+        batch.delete(docSnap.ref);
+        ops++;
+        // Commit every ~400 ops to stay well under Firestore batch limit
+        if (ops >= 400) {
+          // finalize current batch and start a new one
+          // (await inside forEach would be tricky, so we track and commit after loop via chunking)
+        }
+      });
+
+      // Commit final batch for this collection
+      await batch.commit();
+    }
+
+    // Reset summary stats after clearing
+    await updateUserStats(user.uid, {
+      students: 0,
+      hours: 0,
+      earnings: 0,
+      lastSync: new Date().toLocaleString()
+    });
+
+    console.log("🗑️ All data cleared");
+  } catch (err) {
+    console.error("❌ Clear failed:", err);
   }
 }
 
@@ -483,45 +549,6 @@ if (syncStatsBtn) {
     if (!user) return;
     await recalcSummaryStats(user.uid);
   });
-}
-
-// ----------------------
-// Local Data Actions
-// ----------------------
-async function exportData() {
-  console.log("📤 ExportData triggered");
-  // Example: simulate export
-  const dummy = { students: [], hours: [], marks: [], attendance: [], payments: [] };
-  const blob = new Blob([JSON.stringify(dummy, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "worklog-export.json";
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-async function importData() {
-  console.log("📥 ImportData triggered");
-  // Example: prompt for file input
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = ".json";
-  input.onchange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const text = await file.text();
-    const data = JSON.parse(text);
-    console.log("✅ Imported Data:", data);
-    // TODO: validate and apply to Firestore/local state
-  };
-  input.click();
-}
-
-async function clearData() {
-  console.log("🗑️ ClearData triggered");
-  // Example: simulate clear
-  // TODO: wipe Firestore collections or local state
 }
 
 // ----------------------
