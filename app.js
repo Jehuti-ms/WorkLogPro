@@ -1832,3 +1832,218 @@ if (document.readyState === "loading") {
 } else {
   initializeApp();
 }
+
+// ===========================
+// REPORT FUNCTIONS (MISSING)
+// ===========================
+
+async function showWeeklyBreakdown() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const weeklyBody = document.getElementById('weeklyBody');
+  if (!weeklyBody) return;
+
+  weeklyBody.innerHTML = "";
+
+  try {
+    const snap = await getDocs(collection(db, "users", user.uid, "hours"));
+    const rows = [];
+    snap.forEach(d => rows.push(d.data()));
+
+    // Group by approximate ISO week
+    const groups = {};
+    rows.forEach(r => {
+      const d = new Date(r.date || r.dateIso || new Date().toISOString());
+      const year = d.getFullYear();
+      const tmp = new Date(d);
+      tmp.setHours(0,0,0,0);
+      const oneJan = new Date(year, 0, 1);
+      const week = Math.ceil((((tmp - oneJan) / 86400000) + oneJan.getDay() + 1) / 7);
+      const key = `${year}-W${String(week).padStart(2,"0")}`;
+      if (!groups[key]) groups[key] = { hours: 0, earnings: 0, subjects: new Set() };
+      groups[key].hours += safeNumber(r.hours);
+      groups[key].earnings += safeNumber(r.total);
+      if (r.subject) groups[key].subjects.add(r.subject);
+    });
+
+    const keys = Object.keys(groups).sort((a, b) => {
+      const [ay, aw] = a.split("-W").map(Number);
+      const [by, bw] = b.split("-W").map(Number);
+      return by === ay ? bw - aw : by - ay;
+    });
+
+    if (keys.length === 0) {
+      weeklyBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#666;padding:20px;">No data available</td></tr>`;
+      return;
+    }
+
+    keys.forEach(k => {
+      const g = groups[k];
+      const subjectsCount = g.subjects.size || 0;
+      const net = g.earnings * 0.8;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${k}</td>
+        <td>${safeNumber(g.hours).toFixed(1)}</td>
+        <td>$${fmtMoney(g.earnings)}</td>
+        <td>${subjectsCount}</td>
+        <td>$${fmtMoney(net)}</td>
+      `;
+      weeklyBody.appendChild(tr);
+    });
+  } catch (error) {
+    console.error("Error showing weekly breakdown:", error);
+    weeklyBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#666;padding:20px;">Error loading data</td></tr>`;
+  }
+}
+
+async function showBiWeeklyBreakdown() {
+  // Simple approach: reuse weekly
+  await showWeeklyBreakdown();
+}
+
+async function showMonthlyBreakdown() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const weeklyBody = document.getElementById('weeklyBody');
+  if (!weeklyBody) return;
+
+  weeklyBody.innerHTML = "";
+
+  try {
+    const snap = await getDocs(collection(db, "users", user.uid, "hours"));
+    const rows = [];
+    snap.forEach(d => rows.push(d.data()));
+
+    const groups = {};
+    rows.forEach(r => {
+      const d = new Date(r.date || r.dateIso || new Date().toISOString());
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+      if (!groups[key]) groups[key] = { hours: 0, earnings: 0, subjects: new Set() };
+      groups[key].hours += safeNumber(r.hours);
+      groups[key].earnings += safeNumber(r.total);
+      if (r.subject) groups[key].subjects.add(r.subject);
+    });
+
+    const keys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+    if (keys.length === 0) {
+      weeklyBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#666;padding:20px;">No data available</td></tr>`;
+      return;
+    }
+
+    keys.forEach(k => {
+      const g = groups[k];
+      const subjectsCount = g.subjects.size || 0;
+      const net = g.earnings * 0.8;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${k}</td>
+        <td>${safeNumber(g.hours).toFixed(1)}</td>
+        <td>$${fmtMoney(g.earnings)}</td>
+        <td>${subjectsCount}</td>
+        <td>$${fmtMoney(net)}</td>
+      `;
+      weeklyBody.appendChild(tr);
+    });
+  } catch (error) {
+    console.error("Error showing monthly breakdown:", error);
+    weeklyBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#666;padding:20px;">Error loading data</td></tr>`;
+  }
+}
+
+async function showSubjectBreakdown() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const subjectBody = document.getElementById('subjectBody');
+  if (!subjectBody) return;
+
+  subjectBody.innerHTML = "";
+
+  try {
+    const marksSnap = await getDocs(collection(db, "users", user.uid, "marks"));
+    const hoursSnap = await getDocs(collection(db, "users", user.uid, "hours"));
+
+    const bySubject = {};
+
+    marksSnap.forEach(d => {
+      const r = d.data();
+      const subj = r.subject?.trim() || "Unknown";
+      if (!bySubject[subj]) bySubject[subj] = { marks: [], hours: 0, earnings: 0, sessions: 0 };
+      bySubject[subj].marks.push(safeNumber(r.percentage));
+    });
+
+    hoursSnap.forEach(d => {
+      const r = d.data();
+      const subj = r.subject?.trim() || "General";
+      if (!bySubject[subj]) bySubject[subj] = { marks: [], hours: 0, earnings: 0, sessions: 0 };
+      bySubject[subj].hours += safeNumber(r.hours);
+      bySubject[subj].earnings += safeNumber(r.total);
+      bySubject[subj].sessions += 1;
+    });
+
+    const keys = Object.keys(bySubject).sort();
+    if (keys.length === 0) {
+      subjectBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#666;padding:20px;">No data available</td></tr>`;
+      return;
+    }
+
+    keys.forEach(subj => {
+      const g = bySubject[subj];
+      const avgMark = g.marks.length ? (g.marks.reduce((s, v) => s + v, 0) / g.marks.length) : 0;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${subj}</td>
+        <td>${avgMark.toFixed(1)}%</td>
+        <td>${safeNumber(g.hours).toFixed(1)}</td>
+        <td>$${fmtMoney(g.earnings)}</td>
+        <td>${g.sessions}</td>
+      `;
+      subjectBody.appendChild(tr);
+    });
+  } catch (error) {
+    console.error("Error showing subject breakdown:", error);
+    subjectBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#666;padding:20px;">Error loading data</td></tr>`;
+  }
+}
+// ===========================
+// GLOBAL FUNCTION EXPORTS
+// ===========================
+
+// Expose functions to window for inline onclick handlers
+window.addStudent = addStudent;
+window.clearStudentForm = clearStudentForm;
+window.saveDefaultRate = saveDefaultRate;
+window.applyDefaultRateToAll = applyDefaultRateToAll;
+window.useDefaultRate = useDefaultRate;
+
+window.logHours = logHours;
+window.resetHoursForm = resetHoursForm;
+window.useDefaultRateInHours = useDefaultRateInHours;
+
+window.addMark = addMark;
+window.resetMarksForm = resetMarksForm;
+window.updateMarksPercentage = updateMarksPercentage;
+
+window.saveAttendance = saveAttendance;
+window.clearAttendanceForm = clearAttendanceForm;
+window.selectAllStudents = selectAllStudents;
+window.deselectAllStudents = deselectAllStudents;
+
+window.recordPayment = recordPayment;
+window.resetPaymentForm = resetPaymentForm;
+
+window.showWeeklyBreakdown = showWeeklyBreakdown;
+window.showBiWeeklyBreakdown = showBiWeeklyBreakdown;
+window.showMonthlyBreakdown = showMonthlyBreakdown;
+window.showSubjectBreakdown = showSubjectBreakdown;
+window.renderOverviewReports = renderOverviewReports;
+
+// SyncBar notification methods for global access
+window.NotificationSystem = NotificationSystem;
+
+// Student actions
+window.editStudent = editStudent;
+window.deleteStudent = deleteStudent;
