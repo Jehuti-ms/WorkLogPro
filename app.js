@@ -99,6 +99,504 @@ function calculateGrade(percentage) {
 }
 
 // ===========================
+// FIRESTORE DATA FUNCTIONS
+// ===========================
+
+async function loadUserStats(uid) {
+  try {
+    const statsRef = doc(db, "users", uid);
+    let statsSnap;
+
+    try {
+      statsSnap = await getDoc(statsRef, { source: "cache" });
+    } catch {
+      statsSnap = await getDoc(statsRef); // fallback to server
+    }
+
+    if (statsSnap.exists()) {
+      const stats = statsSnap.data();
+      if (document.getElementById('statStudents')) document.getElementById('statStudents').textContent = stats.students ?? 0;
+      if (document.getElementById('statHours')) document.getElementById('statHours').textContent = stats.hours ?? 0;
+      if (document.getElementById('statEarnings')) document.getElementById('statEarnings').textContent = stats.earnings != null ? fmtMoney(stats.earnings) : "0.00";
+    } else {
+      await setDoc(statsRef, { students: 0, hours: 0, earnings: 0 });
+      if (document.getElementById('statStudents')) document.getElementById('statStudents').textContent = 0;
+      if (document.getElementById('statHours')) document.getElementById('statHours').textContent = 0;
+      if (document.getElementById('statEarnings')) document.getElementById('statEarnings').textContent = "0.00";
+    }
+
+    refreshTimestamp();
+  } catch (err) {
+    console.error("❌ Error loading stats:", err);
+    if (syncMessageLine) syncMessageLine.textContent = "Status: Offline – stats unavailable";
+  }
+}
+
+async function updateUserStats(uid, newStats) {
+  try {
+    const statsRef = doc(db, "users", uid);
+    await setDoc(statsRef, newStats, { merge: true });
+    console.log("✅ Stats updated:", newStats);
+
+    if (newStats.students !== undefined && document.getElementById('statStudents')) {
+      document.getElementById('statStudents').textContent = newStats.students;
+    }
+    if (newStats.hours !== undefined && document.getElementById('statHours')) {
+      document.getElementById('statHours').textContent = newStats.hours;
+    }
+    if (newStats.earnings !== undefined && document.getElementById('statEarnings')) {
+      document.getElementById('statEarnings').textContent = fmtMoney(newStats.earnings);
+    }
+    if (newStats.lastSync !== undefined && document.getElementById('statUpdated')) {
+      document.getElementById('statUpdated').textContent = newStats.lastSync;
+    }
+
+    refreshTimestamp();
+  } catch (err) {
+    console.error("❌ Error updating stats:", err);
+    if (syncMessageLine) syncMessageLine.textContent = "Status: Failed to update stats";
+  }
+}
+
+async function recalcSummaryStats(uid) {
+  try {
+    const studentsSnap = await getDocs(collection(db, "users", uid, "students"));
+    const hoursSnap = await getDocs(collection(db, "users", uid, "hours"));
+
+    const studentsCount = studentsSnap.size;
+    let totalHours = 0;
+    let totalEarnings = 0;
+
+    hoursSnap.forEach(h => {
+      const d = h.data();
+      totalHours += safeNumber(d.hours);
+      totalEarnings += safeNumber(d.total);
+    });
+
+    await updateUserStats(uid, {
+      students: studentsCount,
+      hours: totalHours,
+      earnings: totalEarnings,
+      lastSync: new Date().toLocaleString()
+    });
+  } catch (err) {
+    console.error("❌ Error recalculating stats:", err);
+    if (syncMessageLine) syncMessageLine.textContent = "Status: Failed to recalc stats";
+  }
+}
+
+// ===========================
+// DATA RENDERING FUNCTIONS
+// ===========================
+
+async function renderStudents() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const container = document.getElementById('studentsContainer');
+  if (!container) return;
+  
+  container.innerHTML = '<div class="loading">Loading students...</div>';
+
+  try {
+    const studentsSnap = await getDocs(collection(db, "users", user.uid, "students"));
+    
+    if (studentsSnap.size === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>No Students Yet</h3>
+          <p>Add your first student to get started</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+    
+    studentsSnap.forEach(docSnap => {
+      const student = { id: docSnap.id, ...docSnap.data() };
+      
+      const card = document.createElement("div");
+      card.className = "student-card";
+      card.innerHTML = `
+        <div class="student-card-header">
+          <div>
+            <strong>${student.name}</strong>
+            <span class="student-id">${student.id}</span>
+          </div>
+          <div class="student-actions">
+            <button class="btn-icon" onclick="editStudent('${student.id}')" title="Edit">
+              ✏️
+            </button>
+            <button class="btn-icon" onclick="deleteStudent('${student.id}')" title="Delete">
+              🗑️
+            </button>
+          </div>
+        </div>
+        <div class="student-details">
+          <div class="muted">${student.gender} • ${student.email || 'No email'} • ${student.phone || 'No phone'}</div>
+          <div class="student-rate">Rate: $${fmtMoney(student.rate)}/session</div>
+          <div class="student-meta">Added: ${formatDate(student.createdAt)}</div>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+
+  } catch (error) {
+    console.error("Error rendering students:", error);
+    container.innerHTML = '<div class="error">Error loading students</div>';
+  }
+}
+
+async function renderRecentHours(limit = 10) {
+  const user = auth.currentUser;
+  if (!user) return;
+  
+  const container = document.getElementById('hoursContainer');
+  if (!container) return;
+
+  container.innerHTML = '<div class="loading">Loading recent hours...</div>';
+
+  try {
+    const hoursQuery = query(
+      collection(db, "users", user.uid, "hours"),
+      orderBy("dateIso", "desc")
+    );
+    
+    const snap = await getDocs(hoursQuery);
+    const rows = [];
+    snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+
+    if (rows.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>No Hours Logged</h3>
+          <p>Log your first work session to get started</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+    rows.slice(0, limit).forEach(entry => {
+      const item = document.createElement("div");
+      item.className = "hours-entry";
+      item.innerHTML = `
+        <div class="hours-header">
+          <strong>${entry.organization}</strong>
+          <span class="hours-type">${entry.workType}</span>
+        </div>
+        <div class="muted">${formatDate(entry.date)} • ${entry.subject || 'General'}</div>
+        <div class="hours-details">
+          <span>Hours: ${safeNumber(entry.hours)}</span>
+          <span>Rate: $${fmtMoney(entry.rate)}</span>
+          <span class="hours-total">Total: $${fmtMoney(entry.total)}</span>
+        </div>
+        ${entry.student ? `<div class="muted">Student: ${entry.student}</div>` : ''}
+      `;
+      container.appendChild(item);
+    });
+
+  } catch (error) {
+    console.error("Error rendering hours:", error);
+    container.innerHTML = '<div class="error">Error loading hours</div>';
+  }
+}
+
+async function renderRecentMarks(limit = 10) {
+  const user = auth.currentUser;
+  if (!user) return;
+  const container = document.getElementById('marksContainer');
+  if (!container) return;
+
+  container.innerHTML = '<div class="loading">Loading recent marks...</div>';
+
+  try {
+    const marksQuery = query(
+      collection(db, "users", user.uid, "marks"),
+      orderBy("dateIso", "desc")
+    );
+    
+    const snap = await getDocs(marksQuery);
+    const rows = [];
+    snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+
+    if (rows.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>No Marks Recorded</h3>
+          <p>Add your first mark to get started</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+    rows.slice(0, limit).forEach(entry => {
+      const item = document.createElement("div");
+      item.className = "mark-entry";
+      item.innerHTML = `
+        <div><strong>${entry.student}</strong> — ${entry.subject} (${entry.topic})</div>
+        <div class="muted">${formatDate(entry.date)}</div>
+        <div>Score: ${safeNumber(entry.score)}/${safeNumber(entry.max)} — ${safeNumber(entry.percentage).toFixed(2)}% — Grade: ${entry.grade}</div>
+      `;
+      container.appendChild(item);
+    });
+
+    // Update marks summary
+    const marksCountEl = document.getElementById('marksCount');
+    const avgMarksEl = document.getElementById('avgMarks');
+    if (marksCountEl) marksCountEl.textContent = rows.length;
+    if (avgMarksEl) {
+      const avg = rows.length ? rows.reduce((s, r) => s + safeNumber(r.percentage), 0) / rows.length : 0;
+      avgMarksEl.textContent = `${avg.toFixed(1)}%`;
+    }
+
+  } catch (error) {
+    console.error("Error rendering marks:", error);
+    container.innerHTML = '<div class="error">Error loading marks</div>';
+  }
+}
+
+async function renderAttendanceRecent(limit = 10) {
+  const user = auth.currentUser;
+  if (!user) return;
+  const container = document.getElementById('attendanceContainer');
+  if (!container) return;
+
+  container.innerHTML = '<div class="loading">Loading attendance records...</div>';
+
+  try {
+    const attendanceQuery = query(
+      collection(db, "users", user.uid, "attendance"),
+      orderBy("dateIso", "desc")
+    );
+    
+    const snap = await getDocs(attendanceQuery);
+    const rows = [];
+    snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+
+    if (rows.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>No Attendance Records</h3>
+          <p>Record your first attendance session</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+    rows.slice(0, limit).forEach(entry => {
+      const item = document.createElement("div");
+      item.className = "attendance-entry";
+      item.innerHTML = `
+        <div><strong>${entry.subject}</strong> — ${entry.topic || "—"}</div>
+        <div class="muted">${formatDate(entry.date)}</div>
+        <div>Present: ${Array.isArray(entry.present) ? entry.present.length : 0} students</div>
+      `;
+      container.appendChild(item);
+    });
+
+    // Update attendance summary
+    const lastSessionDateEl = document.getElementById('lastSessionDate');
+    const attendanceCountEl = document.getElementById('attendanceCount');
+    if (lastSessionDateEl) lastSessionDateEl.textContent = rows[0]?.date ? formatDate(rows[0].date) : "Never";
+    if (attendanceCountEl) attendanceCountEl.textContent = rows.length;
+
+  } catch (error) {
+    console.error("Error rendering attendance:", error);
+    container.innerHTML = '<div class="error">Error loading attendance</div>';
+  }
+}
+
+async function renderPaymentActivity(limit = 10) {
+  const user = auth.currentUser;
+  if (!user) return;
+  const container = document.getElementById('paymentActivityLog');
+  if (!container) return;
+
+  container.innerHTML = '<div class="loading">Loading payment activity...</div>';
+
+  try {
+    const paymentsQuery = query(
+      collection(db, "users", user.uid, "payments"),
+      orderBy("dateIso", "desc")
+    );
+    
+    const snap = await getDocs(paymentsQuery);
+    const rows = [];
+    snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+
+    if (rows.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>No Payment Activity</h3>
+          <p>No recent payment activity recorded</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+    rows.slice(0, limit).forEach(entry => {
+      const item = document.createElement("div");
+      item.className = "activity-item";
+      item.innerHTML = `
+        <div><strong>$${fmtMoney(entry.amount)}</strong> — ${entry.student}</div>
+        <div class="muted">${formatDate(entry.date)} | ${entry.method}</div>
+        <div>${entry.notes || ""}</div>
+      `;
+      container.appendChild(item);
+    });
+
+    // Update monthly payments
+    const monthlyPaymentsEl = document.getElementById('monthlyPayments');
+    if (monthlyPaymentsEl) {
+      const now = new Date();
+      const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+      const sum = rows
+        .filter(r => (r.date || "").startsWith(ym))
+        .reduce((s, r) => s + safeNumber(r.amount), 0);
+      monthlyPaymentsEl.textContent = `$${fmtMoney(sum)}`;
+    }
+
+  } catch (error) {
+    console.error("Error rendering payments:", error);
+    container.innerHTML = '<div class="error">Error loading payments</div>';
+  }
+}
+
+async function renderStudentBalances() {
+  const user = auth.currentUser;
+  if (!user) return;
+  const container = document.getElementById('studentBalancesContainer');
+  if (!container) return;
+
+  container.innerHTML = '<div class="loading">Loading student balances...</div>';
+
+  try {
+    const [studentsSnap, hoursSnap, paymentsSnap] = await Promise.all([
+      getDocs(collection(db, "users", user.uid, "students")),
+      getDocs(collection(db, "users", user.uid, "hours")),
+      getDocs(collection(db, "users", user.uid, "payments"))
+    ]);
+
+    const earningsByStudent = {};
+    hoursSnap.forEach(d => {
+      const row = d.data();
+      const sid = row.student || "__unknown__";
+      earningsByStudent[sid] = (earningsByStudent[sid] || 0) + safeNumber(row.total);
+    });
+
+    const paymentsByStudent = {};
+    paymentsSnap.forEach(d => {
+      const row = d.data();
+      const sid = row.student || "__unknown__";
+      paymentsByStudent[sid] = (paymentsByStudent[sid] || 0) + safeNumber(row.amount);
+    });
+
+    if (studentsSnap.size === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>No Student Data</h3>
+          <p>Add students and record hours/payments to see balances</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+    let totalOwed = 0;
+    
+    studentsSnap.forEach(snap => {
+      const student = snap.data();
+      const sid = student.id;
+      const earned = earningsByStudent[sid] || 0;
+      const paid = paymentsByStudent[sid] || 0;
+      const owed = Math.max(earned - paid, 0);
+      totalOwed += owed;
+
+      const item = document.createElement("div");
+      item.className = "activity-item";
+      item.innerHTML = `
+        <div><strong>${student.name}</strong> (${student.id})</div>
+        <div>Earned: $${fmtMoney(earned)} | Paid: $${fmtMoney(paid)} | Owed: $${fmtMoney(owed)}</div>
+      `;
+      container.appendChild(item);
+    });
+
+    // Update total owed display
+    const totalStudentsCountEl = document.getElementById('totalStudentsCount');
+    const totalOwedEl = document.getElementById('totalOwed');
+    if (totalStudentsCountEl) totalStudentsCountEl.textContent = studentsSnap.size;
+    if (totalOwedEl) totalOwedEl.textContent = `$${fmtMoney(totalOwed)}`;
+
+  } catch (error) {
+    console.error("Error rendering balances:", error);
+    container.innerHTML = '<div class="error">Error loading balances</div>';
+  }
+}
+
+async function renderOverviewReports() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    const [studentsSnap, hoursSnap, marksSnap, paymentsSnap] = await Promise.all([
+      getDocs(collection(db, "users", user.uid, "students")),
+      getDocs(collection(db, "users", user.uid, "hours")),
+      getDocs(collection(db, "users", user.uid, "marks")),
+      getDocs(collection(db, "users", user.uid, "payments"))
+    ]);
+
+    // Calculate totals
+    let hoursTotal = 0;
+    let earningsTotal = 0;
+    hoursSnap.forEach(d => {
+      const r = d.data();
+      hoursTotal += safeNumber(r.hours);
+      earningsTotal += safeNumber(r.total);
+    });
+
+    let markSum = 0;
+    let markCount = 0;
+    marksSnap.forEach(d => {
+      const r = d.data();
+      markSum += safeNumber(r.percentage);
+      markCount += 1;
+    });
+    const avgMark = markCount ? (markSum / markCount) : 0;
+
+    let paymentsTotal = 0;
+    paymentsSnap.forEach(d => {
+      const r = d.data();
+      paymentsTotal += safeNumber(r.amount);
+    });
+
+    const outstanding = Math.max(earningsTotal - paymentsTotal, 0);
+
+    // Update overview elements
+    const totalStudentsReport = document.getElementById('totalStudentsReport');
+    const totalHoursReport = document.getElementById('totalHoursReport');
+    const totalEarningsReport = document.getElementById('totalEarningsReport');
+    const avgMarkReport = document.getElementById('avgMarkReport');
+    const totalPaymentsReport = document.getElementById('totalPaymentsReport');
+    const outstandingBalance = document.getElementById('outstandingBalance');
+
+    if (totalStudentsReport) totalStudentsReport.textContent = studentsSnap.size;
+    if (totalHoursReport) totalHoursReport.textContent = hoursTotal.toFixed(1);
+    if (totalEarningsReport) totalEarningsReport.textContent = `$${fmtMoney(earningsTotal)}`;
+    if (avgMarkReport) avgMarkReport.textContent = `${avgMark.toFixed(1)}%`;
+    if (totalPaymentsReport) totalPaymentsReport.textContent = `$${fmtMoney(paymentsTotal)}`;
+    if (outstandingBalance) outstandingBalance.textContent = `$${fmtMoney(outstanding)}`;
+
+  } catch (error) {
+    console.error("Error rendering overview:", error);
+  }
+}
+
+// ===========================
 // NOTIFICATION SYSTEM MODULE
 // ===========================
 
@@ -994,6 +1492,250 @@ function useDefaultRateInHours() {
   const baseRateInput = document.getElementById("baseRate");
   if (defaultRateDisplay && baseRateInput) {
     baseRateInput.value = parseFloat(defaultRateDisplay.textContent) || 0;
+  }
+}
+
+// ===========================
+// FORM SUBMISSION FUNCTIONS (MISSING)
+// ===========================
+
+async function addStudent() {
+  const nameEl = document.getElementById("studentName");
+  const idEl = document.getElementById("studentId");
+  const genderEl = document.getElementById("studentGender");
+  const emailEl = document.getElementById("studentEmail");
+  const phoneEl = document.getElementById("studentPhone");
+  const rateEl = document.getElementById("studentBaseRate");
+
+  const name = nameEl?.value.trim();
+  const id = idEl?.value.trim();
+  const gender = genderEl?.value;
+  const email = emailEl?.value.trim();
+  const phone = phoneEl?.value.trim();
+  const rate = parseFloat(rateEl?.value) || 0;
+
+  if (!name || !id || !gender) {
+    NotificationSystem.notifyError("Please fill required fields: Name, ID, Gender");
+    return;
+  }
+
+  const student = { 
+    name, 
+    id, 
+    gender, 
+    email, 
+    phone, 
+    rate,
+    createdAt: new Date().toISOString()
+  };
+
+  const user = auth.currentUser;
+  if (user) {
+    try {
+      const studentRef = doc(db, "users", user.uid, "students", id);
+      await setDoc(studentRef, student);
+      
+      NotificationSystem.notifySuccess("Student added successfully");
+      clearStudentForm();
+      await renderStudents();
+      await loadStudentsForDropdowns();
+
+    } catch (err) {
+      console.error("Error adding student:", err);
+      NotificationSystem.notifyError("Failed to add student");
+    }
+  }
+}
+
+async function logHours() {
+  const studentEl = document.getElementById("hoursStudent");
+  const orgEl = document.getElementById("organization");
+  const typeEl = document.getElementById("workType");
+  const dateEl = document.getElementById("workDate");
+  const hoursEl = document.getElementById("hoursWorked");
+  const rateEl = document.getElementById("baseRate");
+
+  const studentId = studentEl?.value;
+  const organization = orgEl?.value.trim();
+  const workType = typeEl?.value || "hourly";
+  const workDate = dateEl?.value;
+  const hours = parseFloat(hoursEl?.value);
+  const rate = parseFloat(rateEl?.value);
+
+  if (!organization || !workDate || !Number.isFinite(hours) || hours <= 0 || !Number.isFinite(rate) || rate <= 0) {
+    NotificationSystem.notifyError("Please fill required fields: Organization, Date, Hours, Rate");
+    return;
+  }
+
+  const total = workType === "hourly" ? hours * rate : rate;
+  
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    const hoursData = {
+      student: studentId || null,
+      organization,
+      workType,
+      date: workDate,
+      dateIso: fmtDateISO(workDate),
+      hours,
+      rate,
+      total,
+      loggedAt: new Date().toISOString()
+    };
+
+    await addDoc(collection(db, "users", user.uid, "hours"), hoursData);
+    
+    NotificationSystem.notifySuccess("Hours logged successfully");
+    await recalcSummaryStats(user.uid);
+    await renderRecentHours();
+    resetHoursForm();
+    
+  } catch (err) {
+    console.error("Error logging hours:", err);
+    NotificationSystem.notifyError("Failed to log hours");
+  }
+}
+
+async function addMark() {
+  const studentEl = document.getElementById("marksStudent");
+  const subjectEl = document.getElementById("marksSubject");
+  const topicEl = document.getElementById("marksTopic");
+  const scoreEl = document.getElementById("marksScore");
+  const maxEl = document.getElementById("marksMax");
+  const dateEl = document.getElementById("marksDate");
+
+  const student = studentEl?.value;
+  const subject = subjectEl?.value.trim();
+  const topic = topicEl?.value.trim();
+  const score = parseFloat(scoreEl?.value);
+  const maxScore = parseFloat(maxEl?.value);
+  const date = dateEl?.value;
+
+  if (!student || !subject || !Number.isFinite(score) || !Number.isFinite(maxScore) || !date) {
+    NotificationSystem.notifyError("Please fill required fields: Student, Subject, Score, Max Score, Date");
+    return;
+  }
+
+  if (score > maxScore) {
+    NotificationSystem.notifyError("Score cannot be greater than maximum score");
+    return;
+  }
+
+  const percentage = (score / maxScore) * 100;
+  const grade = calculateGrade(percentage);
+
+  const markData = {
+    student,
+    subject,
+    topic: topic || "General",
+    score,
+    max: maxScore,
+    percentage,
+    grade,
+    date,
+    dateIso: fmtDateISO(date),
+    recordedAt: new Date().toISOString()
+  };
+
+  const user = auth.currentUser;
+  if (user) {
+    try {
+      await addDoc(collection(db, "users", user.uid, "marks"), markData);
+      NotificationSystem.notifySuccess("Mark added successfully");
+      resetMarksForm();
+      await renderRecentMarks();
+    } catch (err) {
+      console.error("Error adding mark:", err);
+      NotificationSystem.notifyError("Failed to add mark");
+    }
+  }
+}
+
+async function saveAttendance() {
+  const dateEl = document.getElementById("attendanceDate");
+  const subjectEl = document.getElementById("attendanceSubject");
+  const topicEl = document.getElementById("attendanceTopic");
+
+  const date = dateEl?.value;
+  const subject = subjectEl?.value.trim();
+  const topic = topicEl?.value.trim();
+
+  if (!date || !subject) {
+    NotificationSystem.notifyError("Please fill required fields: Date and Subject");
+    return;
+  }
+
+  const presentStudents = [];
+  document.querySelectorAll("#attendanceList input[type=checkbox]:checked")
+    .forEach(cb => presentStudents.push(cb.value));
+
+  if (presentStudents.length === 0) {
+    NotificationSystem.notifyError("Please select at least one student");
+    return;
+  }
+
+  const attendanceData = {
+    date,
+    dateIso: fmtDateISO(date),
+    subject,
+    topic: topic || "General",
+    present: presentStudents,
+    recordedAt: new Date().toISOString()
+  };
+
+  const user = auth.currentUser;
+  if (user) {
+    try {
+      await addDoc(collection(db, "users", user.uid, "attendance"), attendanceData);
+      NotificationSystem.notifySuccess("Attendance recorded successfully");
+      clearAttendanceForm();
+      await renderAttendanceRecent();
+    } catch (err) {
+      console.error("Error saving attendance:", err);
+      NotificationSystem.notifyError("Failed to save attendance");
+    }
+  }
+}
+
+async function recordPayment() {
+  const studentEl = document.getElementById("paymentStudent");
+  const amountEl = document.getElementById("paymentAmount");
+  const dateEl = document.getElementById("paymentDate");
+  const methodEl = document.getElementById("paymentMethod");
+
+  const student = studentEl?.value;
+  const amount = parseFloat(amountEl?.value);
+  const date = dateEl?.value;
+  const method = methodEl?.value;
+
+  if (!student || !Number.isFinite(amount) || amount <= 0 || !date || !method) {
+    NotificationSystem.notifyError("Please fill required fields: Student, Amount, Date, Method");
+    return;
+  }
+
+  const paymentData = {
+    student,
+    amount,
+    date,
+    dateIso: fmtDateISO(date),
+    method,
+    recordedAt: new Date().toISOString()
+  };
+
+  const user = auth.currentUser;
+  if (user) {
+    try {
+      await addDoc(collection(db, "users", user.uid, "payments"), paymentData);
+      NotificationSystem.notifySuccess("Payment recorded successfully");
+      resetPaymentForm();
+      await renderPaymentActivity();
+      await renderStudentBalances();
+    } catch (err) {
+      console.error("Error recording payment:", err);
+      NotificationSystem.notifyError("Failed to record payment");
+    }
   }
 }
 
