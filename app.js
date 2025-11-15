@@ -76,17 +76,22 @@ export function updateUsageStats(students, hours, earnings) {
 // ----------------------
 // Sync Toolbar Elements
 // ----------------------
-const autoSyncCheckbox      = document.getElementById("autoSyncCheckbox");
-const autoSyncText          = document.getElementById("autoSyncText");
-const syncBtn               = document.getElementById("syncBtn");
-const syncIndicator         = document.getElementById("syncIndicator");
-const syncMessage           = document.getElementById("syncMessage");
-const syncMessageLine       = document.getElementById("syncMessageLine");
-const syncSpinner           = document.getElementById("syncSpinner");
+// ----------------------
+// Sync Toolbar Elements
+// ----------------------
+const syncIndicator    = document.getElementById("syncIndicator");
+const syncSpinner      = document.getElementById("syncSpinner");
+const autoSyncCheckbox = document.getElementById("autoSyncCheckbox");
+const autoSyncText     = document.getElementById("autoSyncText");
 
-const exportCloudBtn        = document.getElementById("exportCloudBtn");
-const importCloudBtn        = document.getElementById("importCloudBtn");
-const syncStatsBtn          = document.getElementById("syncStatsBtn");
+const syncBtn          = document.getElementById("syncBtn");
+const exportCloudBtn   = document.getElementById("exportCloudBtn");
+const importCloudBtn   = document.getElementById("importCloudBtn");
+const syncStatsBtn     = document.getElementById("syncStatsBtn");
+
+const exportDataBtn    = document.getElementById("exportDataBtn");
+const importDataBtn    = document.getElementById("importDataBtn");
+const clearDataBtn     = document.getElementById("clearDataBtn");
 
 // ----------------------
 // Stats Displays
@@ -148,143 +153,6 @@ document.addEventListener("DOMContentLoaded", () => {
     floatBtn.dataset.listenerAttached = "true";
   }
 });
-
-let autosyncInterval = null;
-
-// ----------------------
-// Sync Bar Event Listeners
-// ----------------------
-document.addEventListener("DOMContentLoaded", () => {
-
-  // Toggle autosync
-  if (autoSyncCheckbox) {
-    autoSyncCheckbox.addEventListener("change", () => {
-      if (autoSyncCheckbox.checked) {
-        autoSyncText.textContent = "Auto";
-        syncIndicator.style.backgroundColor = "green";
-        startAutosync();
-      } else {
-        autoSyncText.textContent = "Manual";
-        syncIndicator.style.backgroundColor = "red";
-        stopAutosync();
-      }
-    });
-  }
-
-  // Manual sync
-  if (syncBtn) {
-    syncBtn.addEventListener("click", async () => {
-      console.log("🔄 Sync Now clicked");
-      await runSync(true);
-    });
-  }
-
-  // Export cloud
-  if (exportCloudBtn) {
-    exportCloudBtn.addEventListener("click", async () => {
-      const user = auth.currentUser;
-      if (user) {
-        await exportUserData(user.uid);
-      } else {
-        console.warn("⚠️ Not logged in, export skipped");
-        if (syncMessageLine) syncMessageLine.textContent = "Status: Not logged in";
-      }
-    });
-  }
-
-  // Import cloud
-  if (importCloudBtn) {
-    importCloudBtn.addEventListener("click", async () => {
-      const user = auth.currentUser;
-      if (!user) {
-        console.warn("⚠️ Not logged in, import skipped");
-        if (syncMessageLine) syncMessageLine.textContent = "Status: Not logged in";
-        return;
-      }
-
-      const proceed = confirm("⚠️ This will overwrite your current data with the backup. Continue?");
-      if (!proceed) {
-        console.log("ℹ️ Import cancelled by user");
-        if (syncMessageLine) syncMessageLine.textContent = "Status: Import cancelled";
-        return;
-      }
-
-      await importUserData(user.uid);
-    });
-  }
-
-  // Sync stats only
-  if (syncStatsBtn) {
-    syncStatsBtn.addEventListener("click", async () => {
-      const user = auth.currentUser;
-      if (user) {
-        await recalcSummaryStats(user.uid);
-        console.log("✅ Stats synced");
-      }
-    });
-  }
-
-  // Extra buttons
-  if (exportDataBtn) {
-    exportDataBtn.addEventListener("click", () => {
-      console.log("📤 Export Data clicked");
-      // TODO: implement exportData logic
-    });
-  }
-
-  if (importDataBtn) {
-    importDataBtn.addEventListener("click", () => {
-      console.log("📥 Import Data clicked");
-      // TODO: implement importData logic
-    });
-  }
-
-  if (clearDataBtn) {
-    clearDataBtn.addEventListener("click", () => {
-      const proceed = confirm("⚠️ This will clear ALL data. Continue?");
-      if (proceed) {
-        console.log("🗑️ Clear All clicked");
-        // TODO: implement clearData logic
-      } else {
-        console.log("ℹ️ Clear All cancelled");
-      }
-    });
-  }
-});
-
-// Autosync loop
-function startAutosync() {
-  if (autosyncInterval) clearInterval(autosyncInterval);
-  autosyncInterval = setInterval(runSync, 60 * 1000); // every 60s
-  runSync(); // run immediately
-}
-
-function stopAutosync() {
-  if (autosyncInterval) {
-    clearInterval(autosyncInterval);
-    autosyncInterval = null;
-  }
-}
-
-// Run one sync cycle
-async function runSync(manual = false) {
-  try {
-    syncSpinner.style.display = "inline-block";
-
-    const user = auth.currentUser;
-    if (user) {
-      await recalcSummaryStats(user.uid);
-      statUpdated.textContent = new Date().toLocaleString();
-      console.log(manual ? "✅ Manual sync complete" : "✅ Autosync complete");
-    } else {
-      console.warn("⚠️ Not logged in, sync skipped");
-    }
-  } catch (err) {
-    console.error("❌ Sync error:", err);
-  } finally {
-    syncSpinner.style.display = "none";
-  }
-}
 
 // ----------------------
 // Utilities
@@ -506,6 +374,144 @@ async function importUserData(uid) {
   }
 }
 
+// Autosync loop
+function startAutosync() {
+  if (autosyncInterval) clearInterval(autosyncInterval);
+  autosyncInterval = setInterval(runSync, 60 * 1000); // every 60s
+  runSync(); // run immediately
+}
+
+function stopAutosync() {
+  if (autosyncInterval) {
+    clearInterval(autosyncInterval);
+    autosyncInterval = null;
+  }
+}
+
+// Run one sync cycle
+async function runSync(manual = false) {
+  try {
+    syncSpinner.style.display = "inline-block";
+
+    const user = auth.currentUser;
+    if (user) {
+      await recalcSummaryStats(user.uid);
+      statUpdated.textContent = new Date().toLocaleString();
+      console.log(manual ? "✅ Manual sync complete" : "✅ Autosync complete");
+    } else {
+      console.warn("⚠️ Not logged in, sync skipped");
+    }
+  } catch (err) {
+    console.error("❌ Sync error:", err);
+  } finally {
+    syncSpinner.style.display = "none";
+  }
+}
+
+let autosyncInterval = null;
+
+// ----------------------
+// Sync Bar Event Listeners
+// ----------------------
+let autosyncInterval = null;
+
+document.addEventListener("DOMContentLoaded", () => {
+
+  // Toggle autosync
+  if (autoSyncCheckbox) {
+    autoSyncCheckbox.addEventListener("change", () => {
+      if (autoSyncCheckbox.checked) {
+        autoSyncText.textContent = "Auto";
+        syncIndicator.style.backgroundColor = "green";
+        startAutosync();
+      } else {
+        autoSyncText.textContent = "Manual";
+        syncIndicator.style.backgroundColor = "red";
+        stopAutosync();
+      }
+    });
+  }
+
+  // Manual sync
+  if (syncBtn) {
+    syncBtn.addEventListener("click", async () => {
+      console.log("🔄 Sync Now clicked");
+      await runSync(true);
+    });
+  }
+
+  // Export cloud
+  if (exportCloudBtn) {
+    exportCloudBtn.addEventListener("click", async () => {
+      const user = auth.currentUser;
+      if (user) {
+        await exportUserData(user.uid);
+      } else {
+        console.warn("⚠️ Not logged in, export skipped");
+        if (syncMessageLine) syncMessageLine.textContent = "Status: Not logged in";
+      }
+    });
+  }
+
+  // Import cloud
+  if (importCloudBtn) {
+    importCloudBtn.addEventListener("click", async () => {
+      const user = auth.currentUser;
+      if (!user) {
+        console.warn("⚠️ Not logged in, import skipped");
+        if (syncMessageLine) syncMessageLine.textContent = "Status: Not logged in";
+        return;
+      }
+
+      const proceed = confirm("⚠️ This will overwrite your current data with the backup. Continue?");
+      if (!proceed) {
+        console.log("ℹ️ Import cancelled by user");
+        if (syncMessageLine) syncMessageLine.textContent = "Status: Import cancelled";
+        return;
+      }
+
+      await importUserData(user.uid);
+    });
+  }
+
+  // Sync stats only
+  if (syncStatsBtn) {
+    syncStatsBtn.addEventListener("click", async () => {
+      const user = auth.currentUser;
+      if (user) {
+        await recalcSummaryStats(user.uid);
+        console.log("✅ Stats synced");
+      }
+    });
+  }
+
+  // Extra buttons
+  if (exportDataBtn) {
+    exportDataBtn.addEventListener("click", () => {
+      console.log("📤 Export Data clicked");
+      // TODO: implement exportData logic
+    });
+  }
+
+  if (importDataBtn) {
+    importDataBtn.addEventListener("click", () => {
+      console.log("📥 Import Data clicked");
+      // TODO: implement importData logic
+    });
+  }
+
+  if (clearDataBtn) {
+    clearDataBtn.addEventListener("click", () => {
+      const proceed = confirm("⚠️ This will clear ALL data. Continue?");
+      if (proceed) {
+        console.log("🗑️ Clear All clicked");
+        // TODO: implement clearData logic
+      } else {
+        console.log("ℹ️ Clear All cancelled");
+      }
+    });
+  }
+});
 
 // ----------------------
 // Students Tab
