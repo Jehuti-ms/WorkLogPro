@@ -427,36 +427,35 @@ async function loadUserStats(uid) {
   console.log('📊 Loading user stats for:', uid);
   try {
     const statsRef = doc(db, "users", uid);
-    let statsSnap;
-
-    try {
-      statsSnap = await getDoc(statsRef, { source: "cache" });
-    } catch {
-      statsSnap = await getDoc(statsRef);
-    }
+    const statsSnap = await getDoc(statsRef);
 
     console.log('📊 Stats snapshot exists:', statsSnap.exists());
     
     if (statsSnap.exists()) {
       const stats = statsSnap.data();
-      console.log('📊 Stats data:', stats);
+      console.log('📊 Stats data loaded:', stats);
       
+      // Update UI elements
       if (document.getElementById('statStudents')) {
         document.getElementById('statStudents').textContent = stats.students ?? 0;
-        console.log('📊 Set students to:', stats.students ?? 0);
       }
       if (document.getElementById('statHours')) {
         document.getElementById('statHours').textContent = stats.hours ?? 0;
-        console.log('📊 Set hours to:', stats.hours ?? 0);
       }
       if (document.getElementById('statEarnings')) {
         const earnings = stats.earnings != null ? fmtMoney(stats.earnings) : "0.00";
         document.getElementById('statEarnings').textContent = earnings;
-        console.log('📊 Set earnings to:', earnings);
       }
     } else {
       console.log('📊 No stats found, creating default stats...');
-      await setDoc(statsRef, { students: 0, hours: 0, earnings: 0 });
+      await setDoc(statsRef, { 
+        students: 0, 
+        hours: 0, 
+        earnings: 0,
+        lastSync: new Date().toLocaleString()
+      });
+      
+      // Set UI to 0
       if (document.getElementById('statStudents')) document.getElementById('statStudents').textContent = 0;
       if (document.getElementById('statHours')) document.getElementById('statHours').textContent = 0;
       if (document.getElementById('statEarnings')) document.getElementById('statEarnings').textContent = "0.00";
@@ -464,6 +463,7 @@ async function loadUserStats(uid) {
 
     refreshTimestamp();
     console.log('✅ User stats loaded successfully');
+    
   } catch (err) {
     console.error("❌ Error loading stats:", err);
     if (syncMessageLine) syncMessageLine.textContent = "Status: Offline – stats unavailable";
