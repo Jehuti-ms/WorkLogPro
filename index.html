@@ -484,11 +484,29 @@
       </div>
     </div>
 
-    <!-- Floating Action Button -->
-    <div class="fab-container">
-      <button id="floatingButton" class="fab">➕</button>
-    </div>
+   <!-- Floating Action Button -->
+<div class="fab-container">
+  <button id="floatingAddBtn" class="fab">➕</button>
+  <div id="fabMenu" class="fab-menu">
+    <button id="fabAddStudent" class="fab-item">
+      <span class="icon">👤</span>
+      Add Student
+    </button>
+    <button id="fabAddHours" class="fab-item">
+      <span class="icon">⏱️</span>
+      Log Hours
+    </button>
+    <button id="fabAddMark" class="fab-item">
+      <span class="icon">📝</span>
+      Add Mark
+    </button>
+    <button id="fabAddAttendance" class="fab-item">
+      <span class="icon">✅</span>
+      Take Attendance
+    </button>
   </div>
+  <div id="fabOverlay" class="fab-overlay"></div>
+</div>
 
   <!-- Firebase and App Scripts -->
   <script type="module" src="firebase-config.js"></script>
