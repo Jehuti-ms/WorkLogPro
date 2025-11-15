@@ -34,29 +34,11 @@
       </div>
       
       <!-- Auth Section -->
-      <div class="auth-section">
-        <button id="authButton" class="auth-button">
-          👤 <span id="userName">Loading...</span>
-        </button>
-        <div id="userMenu" class="auth-menu">
-          <div class="auth-item">
-            <strong id="userDisplayName">User</strong><br>
-            <small id="userEmail">user@example.com</small>
-          </div>
-          <hr>
-          <div class="auth-item">
-            <strong>📊 Usage Stats</strong><br>
-            <small>Students: <span id="statStudents">0</span></small><br>
-            <small>Hours Worked: <span id="statHours">0</span></small><br>
-            <small>Money Earned: $<span id="statEarnings">0.00</span></small>
-          </div>
-          <div class="auth-item">
-            <small>Last updated: <span id="statUpdated">Never</span></small>
-          </div>
-          <hr>
-          <button class="logout-button" id="logoutBtn">🚪 Logout</button>
+        <div class="auth-section">
+          <button id="profileBtn" class="btn btn-secondary">
+            👤 <span id="userName">Loading...</span>
+          </button>
         </div>
-      </div>
     </header>
 
     <!-- Cloud Sync Bar -->
@@ -528,5 +510,66 @@
       }
     });
   </script>
+     <!-- Add this modal right before closing </body> tag -->
+        <div id="profileModal" class="modal" style="display: none;">
+          <div class="modal-content profile-modal">
+            <div class="modal-header">
+              <h2>👤 User Profile</h2>
+              <span id="closeProfileModal" class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+              <!-- User Info Section -->
+              <div class="profile-section">
+                <h3>Account Information</h3>
+                <div class="info-grid">
+                  <div class="info-item">
+                    <label>Email:</label>
+                    <span id="profileUserEmail">user@example.com</span>
+                  </div>
+                  <div class="info-item">
+                    <label>Member Since:</label>
+                    <span id="profileUserSince">Loading...</span>
+                  </div>
+                  <div class="info-item">
+                    <label>Default Rate:</label>
+                    <span id="profileDefaultRate">$0.00/hour</span>
+                  </div>
+                </div>
+              </div>
+        
+              <!-- Usage Stats Section -->
+              <div class="profile-section">
+                <h3>📊 Usage Statistics</h3>
+                <div class="stats-grid">
+                  <div class="stat-card">
+                    <div class="stat-value" id="modalStatStudents">0</div>
+                    <div class="stat-label">Students</div>
+                  </div>
+                  <div class="stat-card">
+                    <div class="stat-value" id="modalStatHours">0</div>
+                    <div class="stat-label">Hours Worked</div>
+                  </div>
+                  <div class="stat-card">
+                    <div class="stat-value">$<span id="modalStatEarnings">0.00</span></div>
+                    <div class="stat-label">Money Earned</div>
+                  </div>
+                </div>
+                <div class="last-updated">
+                  Last updated: <span id="modalStatUpdated">Never</span>
+                </div>
+              </div>
+        
+              <!-- Actions Section -->
+              <div class="profile-section">
+                <h3>Actions</h3>
+                <div class="actions-grid">
+                  <button id="logoutBtn" class="btn btn-danger btn-full">
+                    🚪 Logout
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 </body>
 </html>
