@@ -1,7 +1,7 @@
 // firebase-config.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // --- Firebase Config ---
 const firebaseConfig = {
@@ -11,11 +11,24 @@ const firebaseConfig = {
   storageBucket: "worklogpro-4284e.firebasestorage.app",
   messagingSenderId: "299567233913",
   appId: "1:299567233913:web:7232a5a5a8aa9b79948da8",
-  };
-  
+};
+
 // --- Initialize once ---
 const app = initializeApp(firebaseConfig);
 console.log("✅ Firebase initialized successfully");
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// --- Enable offline persistence ---
+enableIndexedDbPersistence(db).catch(err => {
+  if (err.code === "failed-precondition") {
+    // Multiple tabs open, persistence can only be enabled in one tab at a time
+    console.warn("⚠️ Persistence failed: multiple tabs open");
+  } else if (err.code === "unimplemented") {
+    // The current browser does not support all features required to enable persistence
+    console.warn("⚠️ Persistence not supported in this browser");
+  } else {
+    console.error("❌ Persistence error:", err);
+  }
+});
