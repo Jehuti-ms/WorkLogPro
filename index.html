@@ -417,24 +417,71 @@
   </div>
 </div>
 
-   
-    <!-- Reports Tab -->
-    <div id="reports" class="tabcontent">
-      <!-- ... corrected Reports Tab markup from earlier ... -->
+   <!-- Reports Tab -->
+<div id="reports" class="tabcontent">
+  <div class="section-header">
+    <h2>📈 Reports</h2>
+    <p>Summaries of students, hours, marks, and payments.</p>
+  </div>
+
+  <div class="form-grid">
+    <div class="section-card">
+      <h3>📊 Overview</h3>
+      <ul>
+        <li>Total Students: <span id="totalStudentsReport">0</span></li>
+        <li>Total Hours: <span id="totalHoursReport">0</span></li>
+        <li>Total Earnings: <span id="totalEarningsReport">$0</span></li>
+        <li>Average Mark: <span id="avgMarkReport">0%</span></li>
+        <li>Total Payments: <span id="totalPaymentsReport">$0</span></li>
+        <li>Outstanding Balance: <span id="outstandingBalance">$0</span></li>
+      </ul>
     </div>
 
-    <!-- Sync Stats Modal -->
-    <div id="syncStatsModal" class="modal">
-      <div class="modal-content">
-        <span class="close" onclick="closeSyncStats()">&times;</span>
-        <h3>☁️ Cloud Sync Statistics</h3>
-        <div id="syncStatsContent">
-          <p>Loading...</p>
-        </div>
+    <div class="section-card">
+      <h3>📅 Breakdown</h3>
+      <div class="form-actions">
+        <button class="button small" onclick="showWeeklyBreakdown()">Weekly</button>
+        <button class="button small" onclick="showBiWeeklyBreakdown()">Bi-Weekly</button>
+        <button class="button small" onclick="showMonthlyBreakdown()">Monthly</button>
+        <button class="button small" onclick="showSubjectBreakdown()">By Subject</button>
       </div>
+      <table class="table">
+        <thead>
+          <tr><th>Period</th><th>Hours</th><th>Earnings</th><th>Subjects</th><th>Net (80%)</th></tr>
+        </thead>
+        <tbody id="weeklyBody">
+          <tr><td colspan="5" class="empty-message">No data available</td></tr>
+        </tbody>
+      </table>
+      <table class="table">
+        <thead>
+          <tr><th>Subject</th><th>Avg Mark</th><th>Hours</th><th>Earnings</th><th>Sessions</th></tr>
+        </thead>
+        <tbody id="subjectBody">
+          <tr><td colspan="5" class="empty-message">No data available</td></tr>
+        </tbody>
+      </table>
     </div>
+  </div>
+</div>
 
-    <!-- Floating Action Button -->
+<!-- Sync Stats Modal -->
+<div id="syncStatsModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeSyncStats()">&times;</span>
+    <h3>☁️ Cloud Sync Statistics</h3>
+    <div id="syncStatsContent">
+      <p>Loading...</p>
+    </div>
+  </div>
+</div>
+
+<!-- Floating Action Button -->
+<div class="fab-container">
+  <button id="floatingButton" class="fab">➕</button>
+</div>
+
+      <!-- Floating Action Button -->
     <div class="fab-container">
       <button id="floatingButton" class="fab">➕</button>
     </div>
