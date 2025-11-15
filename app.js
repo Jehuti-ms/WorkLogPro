@@ -2014,6 +2014,8 @@ async function showSubjectBreakdown() {
 // ===========================
 
 // Make sure all functions are defined before exposing them to window
+window.toggleTheme = () => UIManager.toggleTheme(); // Add this line
+
 window.addStudent = addStudent;
 window.clearStudentForm = clearStudentForm;
 window.saveDefaultRate = saveDefaultRate;
