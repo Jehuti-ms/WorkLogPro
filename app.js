@@ -523,22 +523,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-if (exportCloudBtn) {
-  exportCloudBtn.addEventListener("click", async () => {
-    const user = auth.currentUser;
-    if (!user) return;
-    await exportUserData(user.uid);
-  });
-}
-
-if (syncStatsBtn) {
-  syncStatsBtn.addEventListener("click", async () => {
-    const user = auth.currentUser;
-    if (!user) return;
-    await recalcSummaryStats(user.uid);
-  });
-}
-
 // ----------------------
 // Students Tab
 // ----------------------
