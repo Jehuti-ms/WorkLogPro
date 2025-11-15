@@ -1340,28 +1340,290 @@ const SyncBar = {
 };
 
 // ===========================
-// INTEGRATION WITH EXISTING APP
+// UI EVENT BINDINGS
 // ===========================
 
-// Remove any existing sync bar initialization code and replace with:
+function bindUiEvents() {
+  console.log('🔧 Binding UI events...');
+  
+  // Theme toggle
+  const themeToggle = document.querySelector('.theme-toggle button');
+  if (themeToggle) {
+    themeToggle.addEventListener('click', toggleTheme);
+  }
+  
+  // Form submissions prevention
+  const forms = document.querySelectorAll('form');
+  forms.forEach(form => {
+    form.addEventListener('submit', (e) => e.preventDefault());
+  });
+  
+  // Auto-calculate total in hours form
+  const hoursInput = document.getElementById('hoursWorked');
+  const rateInput = document.getElementById('baseRate');
+  const workTypeSelect = document.getElementById('workType');
+  
+  const calculateTotal = () => {
+    const hours = parseFloat(hoursInput?.value) || 0;
+    const rate = parseFloat(rateInput?.value) || 0;
+    const workType = workTypeSelect?.value || "hourly";
+    const totalEl = document.getElementById('totalPay');
+    
+    if (totalEl) {
+      const total = workType === "hourly" ? hours * rate : rate;
+      if ("value" in totalEl) {
+        totalEl.value = fmtMoney(total);
+      } else {
+        totalEl.textContent = fmtMoney(total);
+      }
+    }
+  };
+
+  if (hoursInput) hoursInput.addEventListener('input', calculateTotal);
+  if (rateInput) rateInput.addEventListener('input', calculateTotal);
+  if (workTypeSelect) workTypeSelect.addEventListener('change', calculateTotal);
+  
+  // Real-time percentage calculation for marks
+  const scoreInput = document.getElementById('marksScore');
+  const maxInput = document.getElementById('marksMax');
+  if (scoreInput) scoreInput.addEventListener('input', updateMarksPercentage);
+  if (maxInput) maxInput.addEventListener('input', updateMarksPercentage);
+  
+  console.log('✅ UI events bound');
+}
+
+function initEventListeners() {
+  console.log('🔧 Initializing event listeners...');
+  
+  // Set default dates to today
+  const dateInputs = document.querySelectorAll('input[type="date"]');
+  const today = new Date().toISOString().split('T')[0];
+  dateInputs.forEach(input => {
+    if (!input.value) {
+      input.value = today;
+    }
+  });
+  
+  // Initialize student dropdowns
+  loadStudentsForDropdowns();
+  
+  console.log('✅ Event listeners initialized');
+}
+
+// ===========================
+// THEME MANAGEMENT
+// ===========================
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('theme', newTheme);
+  console.log(`🎨 Theme changed to ${newTheme}`);
+}
+
+function initializeTheme() {
+  const savedTheme = localStorage.getItem('theme') || 'light';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  console.log(`🎨 Theme initialized to ${savedTheme}`);
+}
+
+// ===========================
+// TAB MANAGEMENT
+// ===========================
+
+function initTabs() {
+  const tabs = document.querySelectorAll('.tab');
+  const tabContents = document.querySelectorAll('.tabcontent');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.getAttribute('data-tab');
+
+      // Remove active class from all tabs
+      tabs.forEach(t => t.classList.remove('active'));
+
+      // Hide all tabcontent
+      tabContents.forEach(tc => tc.style.display = 'none');
+
+      // Activate clicked tab
+      tab.classList.add('active');
+
+      // Show the selected tab content
+      const selected = document.getElementById(target);
+      if (selected) {
+        selected.style.display = 'block';
+        console.log(`📑 Switched to ${target} tab`);
+      }
+    });
+  });
+
+  // Default: show the first tab's content
+  const firstActive = document.querySelector('.tab.active');
+  if (firstActive) {
+    const target = firstActive.getAttribute('data-tab');
+    const selected = document.getElementById(target);
+    if (selected) selected.style.display = 'block';
+  }
+  
+  console.log('✅ Tabs initialized');
+}
+
+// ===========================
+// STUDENT DROPDOWN MANAGEMENT
+// ===========================
+
+async function loadStudentsForDropdowns() {
+  const user = auth.currentUser;
+  if (!user) return [];
+
+  try {
+    const studentsSnap = await getDocs(collection(db, "users", user.uid, "students"));
+    const studentsList = [];
+    studentsSnap.forEach(doc => {
+      studentsList.push({ id: doc.id, ...doc.data() });
+    });
+    
+    updateStudentDropdowns(studentsList);
+    return studentsList;
+  } catch (error) {
+    console.error("Error loading students:", error);
+    return [];
+  }
+}
+
+function updateStudentDropdowns(students) {
+  const dropdowns = [
+    'marksStudent',
+    'paymentStudent',
+    'hoursStudent'
+  ];
+  
+  dropdowns.forEach(dropdownId => {
+    const select = document.getElementById(dropdownId);
+    if (select) {
+      // Clear existing options except the first one
+      while (select.options.length > 1) {
+        select.remove(1);
+      }
+      
+      students.forEach(student => {
+        const option = document.createElement('option');
+        option.value = student.id;
+        option.textContent = `${student.name} (${student.id})`;
+        select.appendChild(option);
+      });
+    }
+  });
+}
+
+// ===========================
+// MARKS PERCENTAGE CALCULATION
+// ===========================
+
+function updateMarksPercentage() {
+  const scoreEl = document.getElementById('marksScore');
+  const maxEl = document.getElementById('marksMax');
+  const pctEl = document.getElementById('percentage');
+  const gradeEl = document.getElementById('grade');
+
+  const score = parseFloat(scoreEl?.value);
+  const max = parseFloat(maxEl?.value);
+
+  if (Number.isFinite(score) && Number.isFinite(max) && max > 0) {
+    const percentage = (score / max) * 100;
+    if (pctEl) pctEl.value = percentage.toFixed(1);
+    if (gradeEl) gradeEl.value = calculateGrade(percentage);
+  }
+}
+
+function calculateGrade(percentage) {
+  if (percentage >= 90) return 'A';
+  if (percentage >= 80) return 'B';
+  if (percentage >= 70) return 'C';
+  if (percentage >= 60) return 'D';
+  return 'F';
+}
+
+// ===========================
+// COMPLETE APP INITIALIZATION
+// ===========================
+
 function initializeApp() {
-  // Your existing initialization code
+  console.log('🚀 Initializing WorkLog App...');
+  
+  // Initialize theme first
+  initializeTheme();
+  
+  // Initialize tabs
+  initTabs();
+  
+  // Bind UI events
   bindUiEvents();
   initEventListeners();
   
-  // Initialize sync bar (only once)
+  // Initialize sync bar
   SyncBar.init();
   
   // Set initial sync status
   if (syncMessage) syncMessage.textContent = "Cloud Sync: Ready";
-  if (syncMessageLine) syncMessageLine.textContent = "Status: Awaiting authentication";
-
-  console.log("WorkLog App Fully Initialized");
+  if (syncMessageLine) syncMessageLine.textContent = "Status: Connected";
+  
+  // Load initial data if user is authenticated
+  const user = auth.currentUser;
+  if (user) {
+    console.log('👤 User authenticated, loading data...');
+    loadInitialData(user);
+  }
+  
+  console.log('✅ WorkLog App Fully Initialized');
 }
 
-// Boot the app
+async function loadInitialData(user) {
+  try {
+    await Promise.all([
+      loadUserStats(user.uid),
+      loadStudentsForDropdowns(),
+      renderStudents(),
+      renderRecentHours(),
+      renderRecentMarks(),
+      renderAttendanceRecent(),
+      renderPaymentActivity(),
+      renderStudentBalances(),
+      renderOverviewReports()
+    ]);
+    console.log('✅ Initial data loaded');
+  } catch (error) {
+    console.error('❌ Error loading initial data:', error);
+  }
+}
+
+// ===========================
+// AUTH STATE MANAGEMENT
+// ===========================
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    console.log('✅ User authenticated:', user.email);
+    document.querySelector(".container").style.display = "block";
+    
+    // Load data if app is already initialized
+    if (typeof initializeApp === 'function') {
+      loadInitialData(user);
+    }
+  } else {
+    console.log('🚫 No user authenticated - redirecting to login');
+    window.location.href = "auth.html";
+  }
+});
+
+// ===========================
+// BOOT THE APPLICATION
+// ===========================
+
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", initializeApp);
 } else {
   initializeApp();
 }
+
