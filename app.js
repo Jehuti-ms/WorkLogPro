@@ -348,29 +348,22 @@ async function addStudent() {
 
   const user = auth.currentUser;
   if (user) {
-    const studentRef = doc(db, "users", user.uid, "students", id);
     try {
+      const studentRef = doc(db, "users", user.uid, "students", id);
       await setDoc(studentRef, student);
       console.log("✅ Student added:", student);
 
       clearStudentForm();
       await renderStudents();
 
-      // Recalculate summary stats in Firestore
+      // Recalculate stats → updateUserStats handles dropdown refresh
       await recalcSummaryStats(user.uid);
-
-      // Fetch updated stats doc and refresh dropdown
-      const statsRef = doc(db, "users", user.uid);
-      const statsSnap = await getDoc(statsRef);
-      if (statsSnap.exists()) {
-        const stats = statsSnap.data();
-        updateUsageStats(stats.students, stats.hours, stats.earnings);
-      }
     } catch (err) {
       console.error("❌ Error adding student:", err);
     }
   }
 }
+
 
 function clearStudentForm() {
   const form = document.getElementById("studentForm");
@@ -453,16 +446,8 @@ async function logHours() {
 
     console.log("✅ Hours logged");
 
-    // Recalculate summary stats in Firestore
+    // Recalculate stats → updateUserStats handles dropdown refresh
     await recalcSummaryStats(user.uid);
-
-    // Fetch updated stats doc and refresh dropdown
-    const statsRef = doc(db, "users", user.uid);
-    const statsSnap = await getDoc(statsRef);
-    if (statsSnap.exists()) {
-      const stats = statsSnap.data();
-      updateUsageStats(stats.students, stats.hours, stats.earnings);
-    }
 
     refreshTimestamp();
     await renderRecentHours();
