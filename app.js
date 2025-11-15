@@ -35,6 +35,29 @@ const subjectBody      = document.getElementById("subjectBody");
 
 let autoSyncInterval = null;
 
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("📂 DOM ready");
+
+  // Attach floating button once
+  const floatBtn = document.getElementById("floatingButton");
+  if (floatBtn) {
+    floatBtn.addEventListener("click", () => {
+      console.log("Floating button clicked!");
+      resetHoursForm(); // safe utility
+    });
+  }
+});
+
+// Auth listener (fires once)
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    console.log("✅ User authenticated:", user.email);
+    await loadUserStats(user.uid);
+  } else {
+    console.log("🔒 No user signed in");
+  }
+});
+
 // ----------------------
 // Utilities
 // ----------------------
