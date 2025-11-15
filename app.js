@@ -1671,22 +1671,6 @@ function refreshTimestamp() {
 // ===========================
 // MISSING UI INITIALIZATION FUNCTIONS
 // ===========================
-
-// Theme management
-function toggleTheme() {
-  const currentTheme = document.documentElement.getAttribute('data-theme');
-  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', newTheme);
-  localStorage.setItem('theme', newTheme);
-  console.log(`🎨 Theme changed to ${newTheme}`);
-}
-
-function initializeTheme() {
-  const savedTheme = localStorage.getItem('theme') || 'light';
-  document.documentElement.setAttribute('data-theme', savedTheme);
-  console.log(`🎨 Theme initialized to ${savedTheme}`);
-}
-
 // Tab management
 function initTabs() {
   const tabs = document.querySelectorAll('.tab');
