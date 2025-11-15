@@ -100,7 +100,7 @@ function calculateGrade(percentage) {
 }
 
 // ===========================
-// USER PROFILE & AUTHENTICATION - FIXED
+// USER PROFILE & AUTHENTICATION - MODAL VERSION
 // ===========================
 
 function setupProfileModal() {
@@ -108,42 +108,29 @@ function setupProfileModal() {
   const profileModal = document.getElementById('profileModal');
   const closeProfileModal = document.getElementById('closeProfileModal');
   const logoutBtn = document.getElementById('logoutBtn');
-  const userEmail = document.getElementById('userEmail');
-  const userSince = document.getElementById('userSince');
-  const profileDefaultRate = document.getElementById('profileDefaultRate');
 
   console.log('🔧 Setting up profile modal...');
   console.log('Profile button:', profileBtn);
   console.log('Profile modal:', profileModal);
 
+  // Open modal
   if (profileBtn && profileModal) {
-    // Remove any existing event listeners
-    const newProfileBtn = profileBtn.cloneNode(true);
-    profileBtn.parentNode.replaceChild(newProfileBtn, profileBtn);
-    
-    // Add fresh event listener
-    newProfileBtn.addEventListener('click', (e) => {
+    profileBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       console.log('👤 Profile button clicked');
       
-      if (currentUserData) {
-        userEmail.textContent = currentUserData.email || 'Not available';
-        userSince.textContent = formatDate(currentUserData.createdAt);
-        profileDefaultRate.textContent = fmtMoney(currentUserData.defaultRate || 0);
-      } else {
-        userEmail.textContent = auth.currentUser?.email || 'Not available';
-        userSince.textContent = 'Just now';
-        profileDefaultRate.textContent = '0.00';
-      }
+      // Update modal content with latest data
+      updateProfileModal();
       
-      profileModal.style.display = 'block';
+      profileModal.style.display = 'flex';
       console.log('📱 Profile modal opened');
     });
   } else {
     console.error('❌ Profile button or modal not found');
   }
 
+  // Close modal with X button
   if (closeProfileModal) {
     closeProfileModal.addEventListener('click', () => {
       profileModal.style.display = 'none';
@@ -151,6 +138,7 @@ function setupProfileModal() {
     });
   }
 
+  // Logout functionality
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async () => {
       if (confirm('Are you sure you want to logout?')) {
@@ -175,27 +163,119 @@ function setupProfileModal() {
 
   // Close modal with Escape key
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && profileModal && profileModal.style.display === 'block') {
+    if (event.key === 'Escape' && profileModal && profileModal.style.display === 'flex') {
       profileModal.style.display = 'none';
       console.log('📱 Profile modal closed (Escape key)');
     }
   });
 }
 
-// Update the updateProfileButton function to ensure it works:
+function updateProfileModal() {
+  // Update user info
+  const profileUserEmail = document.getElementById('profileUserEmail');
+  const profileUserSince = document.getElementById('profileUserSince');
+  const profileDefaultRate = document.getElementById('profileDefaultRate');
+  const userName = document.getElementById('userName');
+
+  if (currentUserData) {
+    const email = currentUserData.email || auth.currentUser?.email || 'Not available';
+    const displayName = email.split('@')[0];
+    
+    if (profileUserEmail) profileUserEmail.textContent = email;
+    if (profileUserSince) profileUserSince.textContent = formatDate(currentUserData.createdAt);
+    if (profileDefaultRate) profileDefaultRate.textContent = `$${fmtMoney(currentUserData.defaultRate || 0)}/hour`;
+    if (userName) userName.textContent = displayName;
+  } else {
+    // Fallback to current auth user
+    const user = auth.currentUser;
+    if (user) {
+      const displayName = user.email?.split('@')[0] || 'User';
+      if (profileUserEmail) profileUserEmail.textContent = user.email || 'Not available';
+      if (profileUserSince) profileUserSince.textContent = 'Just now';
+      if (profileDefaultRate) profileDefaultRate.textContent = '$0.00/hour';
+      if (userName) userName.textContent = displayName;
+    }
+  }
+
+  // Update stats in modal (copy from main stats)
+  const modalStatStudents = document.getElementById('modalStatStudents');
+  const modalStatHours = document.getElementById('modalStatHours');
+  const modalStatEarnings = document.getElementById('modalStatEarnings');
+  const modalStatUpdated = document.getElementById('modalStatUpdated');
+
+  const mainStatStudents = document.getElementById('statStudents');
+  const mainStatHours = document.getElementById('statHours');
+  const mainStatEarnings = document.getElementById('statEarnings');
+  const mainStatUpdated = document.getElementById('statUpdated');
+
+  if (modalStatStudents && mainStatStudents) modalStatStudents.textContent = mainStatStudents.textContent;
+  if (modalStatHours && mainStatHours) modalStatHours.textContent = mainStatHours.textContent;
+  if (modalStatEarnings && mainStatEarnings) modalStatEarnings.textContent = mainStatEarnings.textContent;
+  if (modalStatUpdated && mainStatUpdated) modalStatUpdated.textContent = mainStatUpdated.textContent;
+}
+
 function updateProfileButton(userData) {
-  const profileBtn = document.getElementById('profileBtn');
-  if (profileBtn) {
+  const userName = document.getElementById('userName');
+  if (userName && userData) {
     const email = userData.email || auth.currentUser?.email || 'User';
     const displayName = email.split('@')[0];
-    profileBtn.innerHTML = `👤 ${displayName}`;
-    profileBtn.title = `Logged in as ${email}`;
+    userName.textContent = displayName;
     console.log('✅ Profile button updated for:', displayName);
-  } else {
-    console.error('❌ Profile button not found for update');
   }
 }
 
+async function loadUserProfile(uid) {
+  console.log('👤 Loading user profile for:', uid);
+  try {
+    const userRef = doc(db, "users", uid);
+    const userSnap = await getDoc(userRef);
+    
+    if (userSnap.exists()) {
+      currentUserData = { uid, ...userSnap.data() };
+      console.log('✅ User profile loaded:', currentUserData);
+      
+      // Update profile button and modal
+      updateProfileButton(currentUserData);
+      
+      // Initialize default rate if it exists
+      if (currentUserData.defaultRate !== undefined) {
+        initializeDefaultRate(currentUserData.defaultRate);
+      }
+      
+      return currentUserData;
+    } else {
+      // Create new user profile with default rate
+      const defaultProfile = {
+        email: auth.currentUser?.email || '',
+        createdAt: new Date().toISOString(),
+        defaultRate: 0,
+        lastLogin: new Date().toISOString()
+      };
+      
+      await setDoc(userRef, defaultProfile);
+      currentUserData = { uid, ...defaultProfile };
+      console.log('✅ New user profile created');
+      
+      updateProfileButton(currentUserData);
+      initializeDefaultRate(0);
+      
+      return currentUserData;
+    }
+  } catch (err) {
+    console.error("❌ Error loading user profile:", err);
+    
+    // Fallback: update with basic auth info
+    const user = auth.currentUser;
+    if (user) {
+      updateProfileButton({
+        email: user.email,
+        createdAt: new Date().toISOString()
+      });
+    }
+    
+    return null;
+  }
+}
 // ===========================
 // FLOATING ADD BUTTON
 // ===========================
