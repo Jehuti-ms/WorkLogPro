@@ -149,83 +149,108 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// ----------------------
-// 2. Event Listeners
-// ----------------------
-// ----------------------
-// Sync Toolbar Button Controls
-// ----------------------
 let autosyncInterval = null;
 
-// Toggle autosync
-if (autoSyncCheckbox) {
-  autoSyncCheckbox.addEventListener("change", () => {
-    if (autoSyncCheckbox.checked) {
-      autoSyncText.textContent = "Auto";
-      syncIndicator.style.backgroundColor = "green";
-      startAutosync();
-    } else {
-      autoSyncText.textContent = "Manual";
-      syncIndicator.style.backgroundColor = "red";
-      stopAutosync();
-    }
-  });
-}
+// ----------------------
+// Sync Bar Event Listeners
+// ----------------------
+document.addEventListener("DOMContentLoaded", () => {
 
-// Manual sync
-if (syncBtn) {
-  syncBtn.addEventListener("click", async () => {
-    await runSync(true);
-  });
-}
+  // Toggle autosync
+  if (autoSyncCheckbox) {
+    autoSyncCheckbox.addEventListener("change", () => {
+      if (autoSyncCheckbox.checked) {
+        autoSyncText.textContent = "Auto";
+        syncIndicator.style.backgroundColor = "green";
+        startAutosync();
+      } else {
+        autoSyncText.textContent = "Manual";
+        syncIndicator.style.backgroundColor = "red";
+        stopAutosync();
+      }
+    });
+  }
 
-// Export cloud
-if (exportCloudBtn) {
-  exportCloudBtn.addEventListener("click", async () => {
-    const user = auth.currentUser;
-    if (user) {
-      await exportUserData(user.uid);
-    } else {
-      console.warn("⚠️ Not logged in, export skipped");
-      if (syncMessageLine) syncMessageLine.textContent = "Status: Not logged in";
-    }
-  });
-}
+  // Manual sync
+  if (syncBtn) {
+    syncBtn.addEventListener("click", async () => {
+      console.log("🔄 Sync Now clicked");
+      await runSync(true);
+    });
+  }
 
+  // Export cloud
+  if (exportCloudBtn) {
+    exportCloudBtn.addEventListener("click", async () => {
+      const user = auth.currentUser;
+      if (user) {
+        await exportUserData(user.uid);
+      } else {
+        console.warn("⚠️ Not logged in, export skipped");
+        if (syncMessageLine) syncMessageLine.textContent = "Status: Not logged in";
+      }
+    });
+  }
 
-// Import cloud
-if (importCloudBtn) {
-  importCloudBtn.addEventListener("click", async () => {
-    const user = auth.currentUser;
-    if (!user) {
-      console.warn("⚠️ Not logged in, import skipped");
-      if (syncMessageLine) syncMessageLine.textContent = "Status: Not logged in";
-      return;
-    }
+  // Import cloud
+  if (importCloudBtn) {
+    importCloudBtn.addEventListener("click", async () => {
+      const user = auth.currentUser;
+      if (!user) {
+        console.warn("⚠️ Not logged in, import skipped");
+        if (syncMessageLine) syncMessageLine.textContent = "Status: Not logged in";
+        return;
+      }
 
-    // Confirmation safeguard
-    const proceed = confirm("⚠️ This will overwrite your current data with the backup. Continue?");
-    if (!proceed) {
-      console.log("ℹ️ Import cancelled by user");
-      if (syncMessageLine) syncMessageLine.textContent = "Status: Import cancelled";
-      return;
-    }
+      const proceed = confirm("⚠️ This will overwrite your current data with the backup. Continue?");
+      if (!proceed) {
+        console.log("ℹ️ Import cancelled by user");
+        if (syncMessageLine) syncMessageLine.textContent = "Status: Import cancelled";
+        return;
+      }
 
-    await importUserData(user.uid);
-  });
-}
+      await importUserData(user.uid);
+    });
+  }
 
+  // Sync stats only
+  if (syncStatsBtn) {
+    syncStatsBtn.addEventListener("click", async () => {
+      const user = auth.currentUser;
+      if (user) {
+        await recalcSummaryStats(user.uid);
+        console.log("✅ Stats synced");
+      }
+    });
+  }
 
-// Sync stats only
-if (syncStatsBtn) {
-  syncStatsBtn.addEventListener("click", async () => {
-    const user = auth.currentUser;
-    if (user) {
-      await recalcSummaryStats(user.uid);
-      console.log("✅ Stats synced");
-    }
-  });
-}
+  // Extra buttons
+  if (exportDataBtn) {
+    exportDataBtn.addEventListener("click", () => {
+      console.log("📤 Export Data clicked");
+      // TODO: implement exportData logic
+    });
+  }
+
+  if (importDataBtn) {
+    importDataBtn.addEventListener("click", () => {
+      console.log("📥 Import Data clicked");
+      // TODO: implement importData logic
+    });
+  }
+
+  if (clearDataBtn) {
+    clearDataBtn.addEventListener("click", () => {
+      const proceed = confirm("⚠️ This will clear ALL data. Continue?");
+      if (proceed) {
+        console.log("🗑️ Clear All clicked");
+        // TODO: implement clearData logic
+      } else {
+        console.log("ℹ️ Clear All cancelled");
+      }
+    });
+  }
+});
 
 // Autosync loop
 function startAutosync() {
