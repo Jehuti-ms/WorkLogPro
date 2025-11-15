@@ -1,4 +1,4 @@
-// app.js — WorkLog main application logic
+  // app.js — WorkLog main application logic
 // Existing imports at the top of app.js
 import { auth, db } from "./firebase-config.js";
 import {
@@ -291,11 +291,9 @@ async function exportUserData(uid) {
     const userRef = doc(db, "users", uid);
     const backupRef = doc(db, "backups", uid);
 
-    // Get the main stats doc
     const statsSnap = await getDoc(userRef);
     const statsData = statsSnap.exists() ? statsSnap.data() : {};
 
-    // Get subcollections (students, hours, payments, etc.)
     const studentsSnap = await getDocs(collection(db, "users", uid, "students"));
     const hoursSnap    = await getDocs(collection(db, "users", uid, "hours"));
     const paymentsSnap = await getDocs(collection(db, "users", uid, "payments"));
@@ -304,7 +302,6 @@ async function exportUserData(uid) {
     const hours    = hoursSnap.docs.map(d => d.data());
     const payments = paymentsSnap.docs.map(d => d.data());
 
-    // Save everything into a backup doc
     await setDoc(backupRef, {
       stats: statsData,
       students,
@@ -314,14 +311,11 @@ async function exportUserData(uid) {
     });
 
     console.log("✅ Export complete");
-    if (syncMessageLine) syncMessageLine.textContent = "Status: Exported to cloud";
   } catch (err) {
     console.error("❌ Export failed:", err);
-    if (syncMessageLine) syncMessageLine.textContent = "Status: Export failed";
   }
 }
 
-// Import user data from cloud backup into live collections
 async function importUserData(uid) {
   try {
     const backupRef = doc(db, "backups", uid);
@@ -329,18 +323,15 @@ async function importUserData(uid) {
 
     if (!backupSnap.exists()) {
       console.warn("⚠️ No backup found for user:", uid);
-      if (syncMessageLine) syncMessageLine.textContent = "Status: No backup found";
       return;
     }
 
     const backupData = backupSnap.data();
 
-    // Restore stats doc
     if (backupData.stats) {
       await setDoc(doc(db, "users", uid), backupData.stats, { merge: true });
     }
 
-    // Restore students
     if (backupData.students) {
       for (const student of backupData.students) {
         const studentRef = doc(db, "users", uid, "students", student.id);
@@ -348,14 +339,12 @@ async function importUserData(uid) {
       }
     }
 
-    // Restore hours
     if (backupData.hours) {
       for (const entry of backupData.hours) {
         await addDoc(collection(db, "users", uid, "hours"), entry);
       }
     }
 
-    // Restore payments
     if (backupData.payments) {
       for (const payment of backupData.payments) {
         await addDoc(collection(db, "users", uid, "payments"), payment);
@@ -363,13 +352,19 @@ async function importUserData(uid) {
     }
 
     console.log("✅ Import complete");
-    if (syncMessageLine) syncMessageLine.textContent = "Status: Import complete";
-
-    // Recalculate stats after import
     await recalcSummaryStats(uid);
   } catch (err) {
     console.error("❌ Import failed:", err);
-    if (syncMessageLine) syncMessageLine.textContent = "Status: Import failed";
+  }
+}
+
+async function recalcSummaryStats(uid) {
+  try {
+    console.log("📊 RecalcSummaryStats called for", uid);
+    // TODO: implement actual stats recalculation
+    console.log("✅ Stats recalculated");
+  } catch (err) {
+    console.error("❌ Stats sync failed:", err);
   }
 }
 
@@ -537,60 +532,6 @@ async function clearData() {
   console.log("🗑️ ClearData triggered");
   // Example: simulate clear
   // TODO: wipe Firestore collections or local state
-}
-
-async function exportUserData(uid) {
-  try {
-    console.log("☁️ ExportUserData called for", uid);
-    const collections = ["students", "hours", "marks", "attendance", "payments"];
-    const data = {};
-
-    for (const col of collections) {
-      const snapshot = await getDocs(collection(db, "users", uid, col));
-      data[col] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    }
-
-    console.log("✅ Cloud export complete:", data);
-  } catch (err) {
-    console.error("❌ Cloud export failed:", err);
-  }
-}
-
-async function importUserData(uid) {
-  try {
-    console.log("☁️ ImportUserData called for", uid);
-    // TODO: load from backup or file
-    // For now, simulate with dummy data
-    const dummy = {
-      students: [{ id: "s1", name: "Test Student", rate: 0 }],
-      hours: [],
-      marks: [],
-      attendance: [],
-      payments: []
-    };
-
-    for (const [col, entries] of Object.entries(dummy)) {
-      const colRef = collection(db, "users", uid, col);
-      for (const entry of entries) {
-        const { id, ...rest } = entry;
-        await setDoc(doc(colRef, id), rest);
-      }
-    }
-
-    console.log("✅ Cloud import complete");
-  } catch (err) {
-    console.error("❌ Cloud import failed:", err);
-  }
-}
-
-async function recalcSummaryStats(uid) {
-  try {
-    console.log("📊 RecalcSummaryStats called for", uid);
-    // TODO: scan hours, attendance, payments and compute totals
-    console.log("✅ Stats recalculated");
-  } catch (err) {
-    console.error("❌ Stats sync failed:", err);
-  }
 }
 
 // ----------------------
