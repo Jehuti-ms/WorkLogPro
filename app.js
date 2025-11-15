@@ -1671,33 +1671,6 @@ function refreshTimestamp() {
 // ===========================
 // MISSING UI INITIALIZATION FUNCTIONS
 // ===========================
-// Tab management
-function initTabs() {
-  const tabs = document.querySelectorAll('.tab');
-  const tabContents = document.querySelectorAll('.tabcontent');
-
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const target = tab.getAttribute('data-tab');
-
-      // Remove active class from all tabs
-      tabs.forEach(t => t.classList.remove('active'));
-
-      // Hide all tabcontent
-      tabContents.forEach(tc => tc.style.display = 'none');
-
-      // Activate clicked tab
-      tab.classList.add('active');
-
-      // Show the selected tab content
-      const selected = document.getElementById(target);
-      if (selected) {
-        selected.style.display = 'block';
-        console.log(`📑 Switched to ${target} tab`);
-      }
-    });
-  });
-
   // Default: show the first tab's content
   const firstActive = document.querySelector('.tab.active');
   if (firstActive) {
