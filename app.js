@@ -1485,6 +1485,10 @@ const SyncBar = {
 // UI MANAGEMENT MODULE
 // ===========================
 
+// ===========================
+// UI MANAGEMENT MODULE
+// ===========================
+
 const UIManager = {
   init() {
     this.initializeTheme();
@@ -1506,6 +1510,35 @@ const UIManager = {
     document.documentElement.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
     console.log(`🎨 Theme changed to ${newTheme}`);
+  },
+
+  bindUiEvents() {
+    console.log('🔧 Binding UI events...');
+    
+    // Remove any existing event listeners first
+    const themeToggle = document.querySelector('.theme-toggle button');
+    if (themeToggle) {
+      // Clone and replace to remove existing listeners
+      const newThemeToggle = themeToggle.cloneNode(true);
+      themeToggle.parentNode.replaceChild(newThemeToggle, themeToggle);
+      
+      // Add fresh event listener
+      newThemeToggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.toggleTheme();
+      });
+    }
+    
+    const forms = document.querySelectorAll('form');
+    forms.forEach(form => {
+      form.addEventListener('submit', (e) => e.preventDefault());
+    });
+    
+    this.setupHoursFormCalculations();
+    this.setupMarksFormCalculations();
+    
+    console.log('✅ UI events bound');
   },
 
   initTabs() {
@@ -2319,9 +2352,6 @@ async function showSubjectBreakdown() {
 // ===========================
 // GLOBAL FUNCTION EXPORTS
 // ===========================
-
-// Make sure all functions are defined before exposing them to window
-window.toggleTheme = () => UIManager.toggleTheme();
 
 window.addStudent = addStudent;
 window.clearStudentForm = clearStudentForm;
