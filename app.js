@@ -309,14 +309,24 @@ if (exportCloudBtn) {
 if (importCloudBtn) {
   importCloudBtn.addEventListener("click", async () => {
     const user = auth.currentUser;
-    if (user) {
-      await importUserData(user.uid);
-    } else {
+    if (!user) {
       console.warn("⚠️ Not logged in, import skipped");
       if (syncMessageLine) syncMessageLine.textContent = "Status: Not logged in";
+      return;
     }
+
+    // Confirmation safeguard
+    const proceed = confirm("⚠️ This will overwrite your current data with the backup. Continue?");
+    if (!proceed) {
+      console.log("ℹ️ Import cancelled by user");
+      if (syncMessageLine) syncMessageLine.textContent = "Status: Import cancelled";
+      return;
+    }
+
+    await importUserData(user.uid);
   });
 }
+
 
 // Sync stats only
 if (syncStatsBtn) {
