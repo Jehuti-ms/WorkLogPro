@@ -408,47 +408,6 @@ async function runSync(manual = false) {
 }
 
 // ----------------------
-// Local Data Helpers
-// ----------------------
-async function exportData() {
-  try {
-    // Example: grab your local state and stringify
-    const data = {
-      students: [], // TODO: replace with actual data
-      hours: [],
-      marks: [],
-      attendance: [],
-      payments: []
-    };
-
-    // For now just log it
-    console.log("📤 Export Data:", JSON.stringify(data, null, 2));
-
-    // Later: trigger download or save to file
-  } catch (err) {
-    console.error("❌ Export Data failed:", err);
-  }
-}
-
-async function importData() {
-  try {
-    // Example: prompt for file input
-    console.log("📥 Import Data triggered");
-    // TODO: implement file picker + JSON parse
-  } catch (err) {
-    console.error("❌ Import Data failed:", err);
-  }
-}
-
-async function clearData() {
-  try {
-    console.log("🗑️ Clear Data triggered");
-    // TODO: wipe local collections or reset state
-  } catch (err) {
-    console.error("❌ Clear Data failed:", err);
-  }
-}
-// ----------------------
 // Sync Bar Event Listeners
 // ----------------------
 let autosyncInterval = null;
@@ -524,6 +483,48 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
+// ----------------------
+// Local Data Helpers
+// ----------------------
+async function exportData() {
+  try {
+    // Example: grab your local state and stringify
+    const data = {
+      students: [], // TODO: replace with actual data
+      hours: [],
+      marks: [],
+      attendance: [],
+      payments: []
+    };
+
+    // For now just log it
+    console.log("📤 Export Data:", JSON.stringify(data, null, 2));
+
+    // Later: trigger download or save to file
+  } catch (err) {
+    console.error("❌ Export Data failed:", err);
+  }
+}
+
+async function importData() {
+  try {
+    // Example: prompt for file input
+    console.log("📥 Import Data triggered");
+    // TODO: implement file picker + JSON parse
+  } catch (err) {
+    console.error("❌ Import Data failed:", err);
+  }
+}
+
+async function clearData() {
+  try {
+    console.log("🗑️ Clear Data triggered");
+    // TODO: wipe local collections or reset state
+  } catch (err) {
+    console.error("❌ Clear Data failed:", err);
+  }
+}
 
 // ----------------------
 // Students Tab
