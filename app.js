@@ -73,51 +73,67 @@ export function updateUsageStats(students, hours, earnings) {
 // ----------------------
 // DOM Elements (defensive)
 // ----------------------
-const autoSyncCheckbox = document.getElementById("autoSyncCheckbox");
-const autoSyncText     = document.getElementById("autoSyncText");
-const syncBtn          = document.getElementById("syncBtn");
-const syncIndicator    = document.getElementById("syncIndicator");
-const syncMessage      = document.getElementById("syncMessage");
-const syncMessageLine  = document.getElementById("syncMessageLine");
-const syncSpinner      = document.getElementById("syncSpinner");
+// ----------------------
+// Sync Toolbar Elements
+// ----------------------
+const autoSyncCheckbox      = document.getElementById("autoSyncCheckbox");
+const autoSyncText          = document.getElementById("autoSyncText");
+const syncBtn               = document.getElementById("syncBtn");
+const syncIndicator         = document.getElementById("syncIndicator");
+const syncMessage           = document.getElementById("syncMessage");
+const syncMessageLine       = document.getElementById("syncMessageLine");
+const syncSpinner           = document.getElementById("syncSpinner");
 
-const statStudents     = document.getElementById("statStudents");
-const statHours        = document.getElementById("statHours");
-const statEarnings     = document.getElementById("statEarnings");
-const statUpdated      = document.getElementById("statUpdated");
+const exportCloudBtn        = document.getElementById("exportCloudBtn");
+const importCloudBtn        = document.getElementById("importCloudBtn");
+const syncStatsBtn          = document.getElementById("syncStatsBtn");
 
-// Reports and other UI
-const weeklyBody       = document.getElementById("weeklyBody");
-const subjectBody      = document.getElementById("subjectBody");
+// ----------------------
+// Stats Displays
+// ----------------------
+const statStudents          = document.getElementById("statStudents");
+const statHours             = document.getElementById("statHours");
+const statEarnings          = document.getElementById("statEarnings");
+const statUpdated           = document.getElementById("statUpdated");
 
-// Dynamic lists
-const weeklyContainer  = document.getElementById("weeklyContainer");
-const subjectContainer = document.getElementById("subjectContainer");
+// ----------------------
+// Reports and UI Sections
+// ----------------------
+const weeklyBody            = document.getElementById("weeklyBody");
+const subjectBody           = document.getElementById("subjectBody");
 
-// Students UI lists
-const studentsContainer = document.getElementById("studentsContainer");
+const weeklyContainer       = document.getElementById("weeklyContainer");
+const subjectContainer      = document.getElementById("subjectContainer");
 
-// Hours/Marks/Attendance/Payments containers
-const hoursContainer      = document.getElementById("hoursContainer");
-const marksContainer      = document.getElementById("marksContainer");
-const attendanceContainer = document.getElementById("attendanceContainer");
-const paymentActivityLog  = document.getElementById("paymentActivityLog");
+const studentsContainer     = document.getElementById("studentsContainer");
+
+// ----------------------
+// Activity Containers
+// ----------------------
+const hoursContainer        = document.getElementById("hoursContainer");
+const marksContainer        = document.getElementById("marksContainer");
+const attendanceContainer   = document.getElementById("attendanceContainer");
+const paymentActivityLog    = document.getElementById("paymentActivityLog");
 const studentBalancesContainer = document.getElementById("studentBalancesContainer");
 
-// Overview report widgets
-const totalStudentsReport = document.getElementById("totalStudentsReport");
-const totalHoursReport    = document.getElementById("totalHoursReport");
-const totalEarningsReport = document.getElementById("totalEarningsReport");
-const avgMarkReport       = document.getElementById("avgMarkReport");
-const totalPaymentsReport = document.getElementById("totalPaymentsReport");
-const outstandingBalance  = document.getElementById("outstandingBalance");
+// ----------------------
+// Overview Report Widgets
+// ----------------------
+const totalStudentsReport   = document.getElementById("totalStudentsReport");
+const totalHoursReport      = document.getElementById("totalHoursReport");
+const totalEarningsReport   = document.getElementById("totalEarningsReport");
+const avgMarkReport         = document.getElementById("avgMarkReport");
+const totalPaymentsReport   = document.getElementById("totalPaymentsReport");
+const outstandingBalance    = document.getElementById("outstandingBalance");
 
-// Other small displays
-const lastSessionDateEl   = document.getElementById("lastSessionDate");
-const attendanceCountEl   = document.getElementById("attendanceCount");
-const monthlyPaymentsEl   = document.getElementById("monthlyPayments");
-const totalStudentsCountEl= document.getElementById("totalStudentsCount");
-const totalOwedEl         = document.getElementById("totalOwed");
+// ----------------------
+// Other Small Displays
+// ----------------------
+const lastSessionDateEl     = document.getElementById("lastSessionDate");
+const attendanceCountEl     = document.getElementById("attendanceCount");
+const monthlyPaymentsEl     = document.getElementById("monthlyPayments");
+const totalStudentsCountEl  = document.getElementById("totalStudentsCount");
+const totalOwedEl           = document.getElementById("totalOwed");
 
 let autoSyncInterval = null;
 
@@ -132,6 +148,118 @@ document.addEventListener("DOMContentLoaded", () => {
     floatBtn.dataset.listenerAttached = "true";
   }
 });
+
+// ----------------------
+// 2. Event Listeners
+// ----------------------
+// ----------------------
+// Sync Toolbar Button Controls
+// ----------------------
+let autosyncInterval = null;
+
+// Toggle autosync
+if (autoSyncCheckbox) {
+  autoSyncCheckbox.addEventListener("change", () => {
+    if (autoSyncCheckbox.checked) {
+      autoSyncText.textContent = "Auto";
+      syncIndicator.style.backgroundColor = "green";
+      startAutosync();
+    } else {
+      autoSyncText.textContent = "Manual";
+      syncIndicator.style.backgroundColor = "red";
+      stopAutosync();
+    }
+  });
+}
+
+// Manual sync
+if (syncBtn) {
+  syncBtn.addEventListener("click", async () => {
+    await runSync(true);
+  });
+}
+
+// Export cloud
+if (exportCloudBtn) {
+  exportCloudBtn.addEventListener("click", async () => {
+    const user = auth.currentUser;
+    if (user) {
+      await exportUserData(user.uid);
+    } else {
+      console.warn("⚠️ Not logged in, export skipped");
+      if (syncMessageLine) syncMessageLine.textContent = "Status: Not logged in";
+    }
+  });
+}
+
+
+// Import cloud
+if (importCloudBtn) {
+  importCloudBtn.addEventListener("click", async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      console.warn("⚠️ Not logged in, import skipped");
+      if (syncMessageLine) syncMessageLine.textContent = "Status: Not logged in";
+      return;
+    }
+
+    // Confirmation safeguard
+    const proceed = confirm("⚠️ This will overwrite your current data with the backup. Continue?");
+    if (!proceed) {
+      console.log("ℹ️ Import cancelled by user");
+      if (syncMessageLine) syncMessageLine.textContent = "Status: Import cancelled";
+      return;
+    }
+
+    await importUserData(user.uid);
+  });
+}
+
+
+// Sync stats only
+if (syncStatsBtn) {
+  syncStatsBtn.addEventListener("click", async () => {
+    const user = auth.currentUser;
+    if (user) {
+      await recalcSummaryStats(user.uid);
+      console.log("✅ Stats synced");
+    }
+  });
+}
+
+// Autosync loop
+function startAutosync() {
+  if (autosyncInterval) clearInterval(autosyncInterval);
+  autosyncInterval = setInterval(runSync, 60 * 1000); // every 60s
+  runSync(); // run immediately
+}
+
+function stopAutosync() {
+  if (autosyncInterval) {
+    clearInterval(autosyncInterval);
+    autosyncInterval = null;
+  }
+}
+
+// Run one sync cycle
+async function runSync(manual = false) {
+  try {
+    syncSpinner.style.display = "inline-block";
+
+    const user = auth.currentUser;
+    if (user) {
+      await recalcSummaryStats(user.uid);
+      statUpdated.textContent = new Date().toLocaleString();
+      console.log(manual ? "✅ Manual sync complete" : "✅ Autosync complete");
+    } else {
+      console.warn("⚠️ Not logged in, sync skipped");
+    }
+  } catch (err) {
+    console.error("❌ Sync error:", err);
+  } finally {
+    syncSpinner.style.display = "none";
+  }
+}
 
 // ----------------------
 // Utilities
@@ -252,124 +380,6 @@ async function recalcSummaryStats(uid) {
   } catch (err) {
     console.error("❌ Error recalculating stats:", err);
     if (syncMessageLine) syncMessageLine.textContent = "Status: Failed to recalc stats";
-  }
-}
-
-// ----------------------
-// Sync Toolbar Controls
-// ----------------------
-const syncIndicator   = document.getElementById("syncIndicator");
-const syncSpinner     = document.getElementById("syncSpinner");
-const autoSyncCheckbox = document.getElementById("autoSyncCheckbox");
-const autoSyncText    = document.getElementById("autoSyncText");
-const syncBtn         = document.getElementById("syncBtn");
-const exportCloudBtn  = document.getElementById("exportCloudBtn");
-const importCloudBtn  = document.getElementById("importCloudBtn");
-const syncStatsBtn    = document.getElementById("syncStatsBtn");
-
-let autosyncInterval = null;
-
-// Toggle autosync
-if (autoSyncCheckbox) {
-  autoSyncCheckbox.addEventListener("change", () => {
-    if (autoSyncCheckbox.checked) {
-      autoSyncText.textContent = "Auto";
-      syncIndicator.style.backgroundColor = "green";
-      startAutosync();
-    } else {
-      autoSyncText.textContent = "Manual";
-      syncIndicator.style.backgroundColor = "red";
-      stopAutosync();
-    }
-  });
-}
-
-// Manual sync
-if (syncBtn) {
-  syncBtn.addEventListener("click", async () => {
-    await runSync(true);
-  });
-}
-
-// Export cloud
-if (exportCloudBtn) {
-  exportCloudBtn.addEventListener("click", async () => {
-    const user = auth.currentUser;
-    if (user) {
-      await exportUserData(user.uid);
-    } else {
-      console.warn("⚠️ Not logged in, export skipped");
-      if (syncMessageLine) syncMessageLine.textContent = "Status: Not logged in";
-    }
-  });
-}
-
-
-// Import cloud
-if (importCloudBtn) {
-  importCloudBtn.addEventListener("click", async () => {
-    const user = auth.currentUser;
-    if (!user) {
-      console.warn("⚠️ Not logged in, import skipped");
-      if (syncMessageLine) syncMessageLine.textContent = "Status: Not logged in";
-      return;
-    }
-
-    // Confirmation safeguard
-    const proceed = confirm("⚠️ This will overwrite your current data with the backup. Continue?");
-    if (!proceed) {
-      console.log("ℹ️ Import cancelled by user");
-      if (syncMessageLine) syncMessageLine.textContent = "Status: Import cancelled";
-      return;
-    }
-
-    await importUserData(user.uid);
-  });
-}
-
-
-// Sync stats only
-if (syncStatsBtn) {
-  syncStatsBtn.addEventListener("click", async () => {
-    const user = auth.currentUser;
-    if (user) {
-      await recalcSummaryStats(user.uid);
-      console.log("✅ Stats synced");
-    }
-  });
-}
-
-// Autosync loop
-function startAutosync() {
-  if (autosyncInterval) clearInterval(autosyncInterval);
-  autosyncInterval = setInterval(runSync, 60 * 1000); // every 60s
-  runSync(); // run immediately
-}
-
-function stopAutosync() {
-  if (autosyncInterval) {
-    clearInterval(autosyncInterval);
-    autosyncInterval = null;
-  }
-}
-
-// Run one sync cycle
-async function runSync(manual = false) {
-  try {
-    syncSpinner.style.display = "inline-block";
-
-    const user = auth.currentUser;
-    if (user) {
-      await recalcSummaryStats(user.uid);
-      statUpdated.textContent = new Date().toLocaleString();
-      console.log(manual ? "✅ Manual sync complete" : "✅ Autosync complete");
-    } else {
-      console.warn("⚠️ Not logged in, sync skipped");
-    }
-  } catch (err) {
-    console.error("❌ Sync error:", err);
-  } finally {
-    syncSpinner.style.display = "none";
   }
 }
 
