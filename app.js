@@ -2008,11 +2008,12 @@ async function showSubjectBreakdown() {
     subjectBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#666;padding:20px;">Error loading data</td></tr>`;
   }
 }
+
 // ===========================
 // GLOBAL FUNCTION EXPORTS
 // ===========================
 
-// Expose functions to window for inline onclick handlers
+// Make sure all functions are defined before exposing them to window
 window.addStudent = addStudent;
 window.clearStudentForm = clearStudentForm;
 window.saveDefaultRate = saveDefaultRate;
@@ -2041,9 +2042,12 @@ window.showMonthlyBreakdown = showMonthlyBreakdown;
 window.showSubjectBreakdown = showSubjectBreakdown;
 window.renderOverviewReports = renderOverviewReports;
 
-// SyncBar notification methods for global access
+// Expose NotificationSystem for global access
 window.NotificationSystem = NotificationSystem;
 
 // Student actions
 window.editStudent = editStudent;
 window.deleteStudent = deleteStudent;
+
+// Sync bar functions for global access
+window.performSync = (mode = 'manual') => SyncBar.performSync(mode);
