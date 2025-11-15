@@ -563,45 +563,6 @@ function setupClearAllButton() {
 }
 
 // ===========================
-// INITIALIZE SYNC BAR
-// ===========================
-
-function initializeSyncBar() {
-  initializeNotificationStyles();
-  setupAutoSyncToggle();
-  setupSyncNowButton();
-  setupExportCloudButton();
-  setupImportCloudButton();
-  setupSyncStatsButton();
-  setupExportDataButton();
-  setupImportDataButton();
-  setupClearAllButton();
-  
-  console.log('✅ Sync bar initialized with new notification system');
-}
-
-// Add to your boot function
-function enhancedBoot() {
-  // Your existing boot code...
-  bindUiEvents();
-  initEventListeners();
-  
-  // Initialize sync bar with new notification system
-  initializeSyncBar();
-  
-  if (syncMessage) syncMessage.textContent = "Cloud Sync: Ready";
-  if (syncMessageLine) syncMessageLine.textContent = "Status: Awaiting authentication";
-
-  console.log("WorkLog App Initialized with Enhanced Sync & Notifications");
-}
-
-// Replace your existing boot call
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", enhancedBoot);
-} else {
-  enhancedBoot();
-}
-// ===========================
 // BACKUP & RESTORE UTILITIES
 // ===========================
 
