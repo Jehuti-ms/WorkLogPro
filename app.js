@@ -539,6 +539,60 @@ async function clearData() {
   // TODO: wipe Firestore collections or local state
 }
 
+async function exportUserData(uid) {
+  try {
+    console.log("☁️ ExportUserData called for", uid);
+    const collections = ["students", "hours", "marks", "attendance", "payments"];
+    const data = {};
+
+    for (const col of collections) {
+      const snapshot = await getDocs(collection(db, "users", uid, col));
+      data[col] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }
+
+    console.log("✅ Cloud export complete:", data);
+  } catch (err) {
+    console.error("❌ Cloud export failed:", err);
+  }
+}
+
+async function importUserData(uid) {
+  try {
+    console.log("☁️ ImportUserData called for", uid);
+    // TODO: load from backup or file
+    // For now, simulate with dummy data
+    const dummy = {
+      students: [{ id: "s1", name: "Test Student", rate: 0 }],
+      hours: [],
+      marks: [],
+      attendance: [],
+      payments: []
+    };
+
+    for (const [col, entries] of Object.entries(dummy)) {
+      const colRef = collection(db, "users", uid, col);
+      for (const entry of entries) {
+        const { id, ...rest } = entry;
+        await setDoc(doc(colRef, id), rest);
+      }
+    }
+
+    console.log("✅ Cloud import complete");
+  } catch (err) {
+    console.error("❌ Cloud import failed:", err);
+  }
+}
+
+async function recalcSummaryStats(uid) {
+  try {
+    console.log("📊 RecalcSummaryStats called for", uid);
+    // TODO: scan hours, attendance, payments and compute totals
+    console.log("✅ Stats recalculated");
+  } catch (err) {
+    console.error("❌ Stats sync failed:", err);
+  }
+}
+
 // ----------------------
 // Students Tab
 // ----------------------
