@@ -339,63 +339,116 @@ function setupFloatingAddButton() {
   const fabMenu = document.getElementById('fabMenu');
   const fabOverlay = document.getElementById('fabOverlay');
 
-  if (!fab) return;
+  console.log('🔧 Setting up FAB...');
+  console.log('FAB element:', fab);
+  console.log('FAB menu:', fabMenu);
+  console.log('FAB overlay:', fabOverlay);
 
+  if (!fab) {
+    console.error('❌ FAB not found!');
+    return;
+  }
+
+  // Initialize state
+  fab.setAttribute('data-expanded', 'false');
+
+  // Click handler for main FAB button
   fab.addEventListener('click', (e) => {
     e.stopPropagation();
     const isExpanded = fab.getAttribute('data-expanded') === 'true';
+    console.log('🎯 FAB clicked, current state:', isExpanded);
     
     if (isExpanded) {
       // Close menu
       fab.setAttribute('data-expanded', 'false');
-      if (fabMenu) fabMenu.classList.remove('show');
-      if (fabOverlay) fabOverlay.style.display = 'none';
+      if (fabMenu) {
+        fabMenu.classList.remove('show');
+        console.log('📱 FAB menu closed');
+      }
+      if (fabOverlay) {
+        fabOverlay.style.display = 'none';
+      }
     } else {
       // Open menu
       fab.setAttribute('data-expanded', 'true');
-      if (fabMenu) fabMenu.classList.add('show');
-      if (fabOverlay) fabOverlay.style.display = 'block';
+      if (fabMenu) {
+        fabMenu.classList.add('show');
+        console.log('📱 FAB menu opened');
+      }
+      if (fabOverlay) {
+        fabOverlay.style.display = 'block';
+      }
     }
   });
 
   // Close menu when clicking on overlay
   if (fabOverlay) {
-    fabOverlay.addEventListener('click', () => {
+    fabOverlay.addEventListener('click', (e) => {
+      e.stopPropagation();
       fab.setAttribute('data-expanded', 'false');
       if (fabMenu) fabMenu.classList.remove('show');
       fabOverlay.style.display = 'none';
+      console.log('📱 FAB closed via overlay');
     });
   }
 
   // Setup quick action buttons
   const quickActions = {
     'fabAddStudent': () => {
-      document.querySelector('[data-tab="students"]').click();
-      setTimeout(() => {
-        const form = document.getElementById('studentForm');
-        if (form) form.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
+      console.log('🎯 FAB: Add Student clicked');
+      const studentTab = document.querySelector('[data-tab="students"]');
+      if (studentTab) {
+        studentTab.click();
+        setTimeout(() => {
+          const form = document.getElementById('studentForm');
+          if (form) {
+            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            console.log('📱 Scrolled to student form');
+          }
+        }, 300);
+      }
     },
     'fabAddHours': () => {
-      document.querySelector('[data-tab="hours"]').click();
-      setTimeout(() => {
-        const form = document.getElementById('hoursForm');
-        if (form) form.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
+      console.log('🎯 FAB: Add Hours clicked');
+      const hoursTab = document.querySelector('[data-tab="hours"]');
+      if (hoursTab) {
+        hoursTab.click();
+        setTimeout(() => {
+          const form = document.getElementById('hoursForm');
+          if (form) {
+            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            console.log('📱 Scrolled to hours form');
+          }
+        }, 300);
+      }
     },
     'fabAddMark': () => {
-      document.querySelector('[data-tab="marks"]').click();
-      setTimeout(() => {
-        const form = document.getElementById('marksForm');
-        if (form) form.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
+      console.log('🎯 FAB: Add Mark clicked');
+      const marksTab = document.querySelector('[data-tab="marks"]');
+      if (marksTab) {
+        marksTab.click();
+        setTimeout(() => {
+          const form = document.getElementById('marksForm');
+          if (form) {
+            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            console.log('📱 Scrolled to marks form');
+          }
+        }, 300);
+      }
     },
     'fabAddAttendance': () => {
-      document.querySelector('[data-tab="attendance"]').click();
-      setTimeout(() => {
-        const form = document.getElementById('attendanceForm');
-        if (form) form.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
+      console.log('🎯 FAB: Add Attendance clicked');
+      const attendanceTab = document.querySelector('[data-tab="attendance"]');
+      if (attendanceTab) {
+        attendanceTab.click();
+        setTimeout(() => {
+          const form = document.getElementById('attendanceForm');
+          if (form) {
+            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            console.log('📱 Scrolled to attendance form');
+          }
+        }, 300);
+      }
     }
   };
 
@@ -403,8 +456,11 @@ function setupFloatingAddButton() {
   Object.keys(quickActions).forEach(btnId => {
     const btn = document.getElementById(btnId);
     if (btn) {
+      console.log(`✅ Found FAB action button: ${btnId}`);
       btn.addEventListener('click', (e) => {
+        e.preventDefault();
         e.stopPropagation();
+        console.log(`🎯 FAB action triggered: ${btnId}`);
         quickActions[btnId]();
         
         // Close FAB menu
@@ -412,15 +468,24 @@ function setupFloatingAddButton() {
         if (fabMenu) fabMenu.classList.remove('show');
         if (fabOverlay) fabOverlay.style.display = 'none';
       });
+    } else {
+      console.error(`❌ FAB action button not found: ${btnId}`);
     }
   });
 
   // Close menu when clicking outside
-  document.addEventListener('click', () => {
-    fab.setAttribute('data-expanded', 'false');
-    if (fabMenu) fabMenu.classList.remove('show');
-    if (fabOverlay) fabOverlay.style.display = 'none';
+  document.addEventListener('click', (e) => {
+    if (fab.getAttribute('data-expanded') === 'true') {
+      if (!fab.contains(e.target) && (!fabMenu || !fabMenu.contains(e.target))) {
+        fab.setAttribute('data-expanded', 'false');
+        if (fabMenu) fabMenu.classList.remove('show');
+        if (fabOverlay) fabOverlay.style.display = 'none';
+        console.log('📱 FAB closed via outside click');
+      }
+    }
   });
+
+  console.log('✅ FAB setup completed');
 }
 
 // ===========================
