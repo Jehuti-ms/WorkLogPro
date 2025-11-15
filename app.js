@@ -72,6 +72,82 @@ document.documentElement.setAttribute('data-theme', savedTheme);
 let autoSyncInterval = null;
 let isAutoSyncEnabled = false;
 
+// ===========================
+// NOTIFICATION SYSTEM (Move to top to avoid duplicates)
+// ===========================
+
+function showNotification(message, type = 'info') {
+  // Remove any existing notifications
+  const existingNotifications = document.querySelectorAll('.notification');
+  existingNotifications.forEach(notification => {
+    if (notification.parentNode) {
+      notification.parentNode.removeChild(notification);
+    }
+  });
+
+  const notification = document.createElement('div');
+  notification.className = `notification ${type}`;
+  notification.textContent = message;
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : type === 'warning' ? '#f59e0b' : '#3b82f6'};
+    color: white;
+    border-radius: 12px;
+    z-index: 10000;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    font-weight: 500;
+    max-width: 400px;
+    animation: slideInRight 0.3s ease;
+  `;
+
+  document.body.appendChild(notification);
+
+  // Auto remove after 5 seconds
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.style.animation = 'slideOutRight 0.3s ease';
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 300);
+    }
+  }, 5000);
+}
+
+// Add CSS for notification animations (only once)
+if (!document.querySelector('#notification-styles')) {
+  const style = document.createElement('style');
+  style.id = 'notification-styles';
+  style.textContent = `
+    @keyframes slideInRight {
+      from {
+        opacity: 0;
+        transform: translateX(100%);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+    
+    @keyframes slideOutRight {
+      from {
+        opacity: 1;
+        transform: translateX(0);
+      }
+      to {
+        opacity: 0;
+        transform: translateX(100%);
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 // 1. Manual to Auto-Sync Toggle
 function setupAutoSyncToggle() {
   const autoSyncCheckbox = document.getElementById('autoSyncCheckbox');
@@ -102,7 +178,9 @@ function setupAutoSyncToggle() {
     // Initialize state
     autoSyncCheckbox.checked = false;
     autoSyncText.textContent = 'Manual';
-    syncIndicator.style.backgroundColor = '#ef4444';
+    if (syncIndicator) {
+      syncIndicator.style.backgroundColor = '#ef4444';
+    }
   }
 }
 
@@ -441,6 +519,177 @@ function setupClearAllButton() {
       }
     });
   }
+}
+
+// ===========================
+// BACKUP & RESTORE UTILITIES
+// ===========================
+
+async function createBackupData(uid) {
+  // Get all user data
+  const [statsSnap, studentsSnap, hoursSnap, paymentsSnap, marksSnap, attendanceSnap] = await Promise.all([
+    getDoc(doc(db, "users", uid)),
+    getDocs(collection(db, "users", uid, "students")),
+    getDocs(collection(db, "users", uid, "hours")),
+    getDocs(collection(db, "users", uid, "payments")),
+    getDocs(collection(db, "users", uid, "marks")),
+    getDocs(collection(db, "users", uid, "attendance"))
+  ]);
+
+  return {
+    metadata: {
+      exportedAt: new Date().toISOString(),
+      version: '1.0',
+      user: uid,
+      recordCounts: {
+        students: studentsSnap.size,
+        hours: hoursSnap.size,
+        payments: paymentsSnap.size,
+        marks: marksSnap.size,
+        attendance: attendanceSnap.size
+      }
+    },
+    stats: statsSnap.exists() ? statsSnap.data() : {},
+    students: studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+    hours: hoursSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+    payments: paymentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+    marks: marksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+    attendance: attendanceSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+  };
+}
+
+async function restoreBackupData(uid, backupData) {
+  const batch = writeBatch(db);
+  
+  // Clear existing data first
+  await clearAllUserData(uid);
+  
+  // Restore stats
+  if (backupData.stats) {
+    const statsRef = doc(db, "users", uid);
+    batch.set(statsRef, backupData.stats);
+  }
+  
+  // Restore students
+  if (backupData.students && Array.isArray(backupData.students)) {
+    backupData.students.forEach(student => {
+      const studentRef = doc(db, "users", uid, "students", student.id);
+      batch.set(studentRef, student);
+    });
+  }
+  
+  // Restore hours
+  if (backupData.hours && Array.isArray(backupData.hours)) {
+    backupData.hours.forEach(hour => {
+      const hourRef = doc(collection(db, "users", uid, "hours"));
+      batch.set(hourRef, hour);
+    });
+  }
+  
+  // Restore payments
+  if (backupData.payments && Array.isArray(backupData.payments)) {
+    backupData.payments.forEach(payment => {
+      const paymentRef = doc(collection(db, "users", uid, "payments"));
+      batch.set(paymentRef, payment);
+    });
+  }
+  
+  // Restore marks
+  if (backupData.marks && Array.isArray(backupData.marks)) {
+    backupData.marks.forEach(mark => {
+      const markRef = doc(collection(db, "users", uid, "marks"));
+      batch.set(markRef, mark);
+    });
+  }
+  
+  // Restore attendance
+  if (backupData.attendance && Array.isArray(backupData.attendance)) {
+    backupData.attendance.forEach(attendance => {
+      const attendanceRef = doc(collection(db, "users", uid, "attendance"));
+      batch.set(attendanceRef, attendance);
+    });
+  }
+  
+  await batch.commit();
+  console.log('✅ Backup data restored');
+}
+
+async function clearAllUserData(uid) {
+  try {
+    // Collections to clear
+    const collections = ['students', 'hours', 'payments', 'marks', 'attendance'];
+    
+    for (const collectionName of collections) {
+      const colRef = collection(db, "users", uid, collectionName);
+      const snapshot = await getDocs(colRef);
+      
+      // Use batches to delete in chunks
+      const batch = writeBatch(db);
+      snapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      
+      if (snapshot.docs.length > 0) {
+        await batch.commit();
+      }
+    }
+    
+    // Reset stats
+    const statsRef = doc(db, "users", uid);
+    await setDoc(statsRef, {
+      students: 0,
+      hours: 0,
+      earnings: 0,
+      lastSync: new Date().toLocaleString()
+    });
+    
+    console.log('✅ All user data cleared');
+  } catch (error) {
+    console.error('❌ Error clearing user data:', error);
+    throw error;
+  }
+}
+
+// ===========================
+// INITIALIZE SYNC BAR
+// ===========================
+
+function initializeSyncBar() {
+  setupAutoSyncToggle();
+  setupSyncNowButton();
+  setupExportCloudButton();
+  setupImportCloudButton();
+  setupSyncStatsButton();
+  setupExportDataButton();
+  setupImportDataButton();
+  setupClearAllButton();
+  
+  console.log('✅ Sync bar initialized');
+}
+
+// Remove any duplicate showNotification declarations from other parts of your app.js
+// Make sure showNotification is only declared once in the entire file
+
+// Add this to your existing boot function
+function enhancedBoot() {
+  // Your existing boot code...
+  bindUiEvents();
+  initEventListeners();
+  
+  // Initialize sync bar
+  initializeSyncBar();
+  
+  if (syncMessage) syncMessage.textContent = "Cloud Sync: Ready";
+  if (syncMessageLine) syncMessageLine.textContent = "Status: Awaiting authentication";
+
+  console.log("WorkLog App Initialized with Enhanced Sync");
+}
+
+// Replace your existing boot call with enhancedBoot
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", enhancedBoot);
+} else {
+  enhancedBoot();
 }
 
 // ===========================
