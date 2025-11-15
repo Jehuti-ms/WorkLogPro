@@ -113,7 +113,7 @@ async function loadUserProfile(uid) {
       currentUserData = { uid, ...userSnap.data() };
       console.log('✅ User profile loaded:', currentUserData);
       
-      // Update profile button with user info
+      // Update profile button with user info - FIXED
       updateProfileButton(currentUserData);
       
       // Initialize default rate if it exists
@@ -142,6 +142,16 @@ async function loadUserProfile(uid) {
     }
   } catch (err) {
     console.error("❌ Error loading user profile:", err);
+    
+    // Fallback: use auth data directly
+    const user = auth.currentUser;
+    if (user) {
+      updateProfileButton({
+        email: user.email,
+        createdAt: new Date().toISOString()
+      });
+    }
+    
     return null;
   }
 }
@@ -498,6 +508,8 @@ async function updateUserStats(uid, newStats) {
 
 async function recalcSummaryStats(uid) {
   try {
+    console.log('🔄 Recalculating summary stats for:', uid);
+    
     const studentsSnap = await getDocs(collection(db, "users", uid, "students"));
     const hoursSnap = await getDocs(collection(db, "users", uid, "hours"));
 
@@ -511,17 +523,57 @@ async function recalcSummaryStats(uid) {
       totalEarnings += safeNumber(d.total);
     });
 
+    console.log('📊 Calculated stats:', {
+      students: studentsCount,
+      hours: totalHours,
+      earnings: totalEarnings
+    });
+
     await updateUserStats(uid, {
       students: studentsCount,
       hours: totalHours,
       earnings: totalEarnings,
       lastSync: new Date().toLocaleString()
     });
+
+    console.log('✅ Summary stats recalculated successfully');
   } catch (err) {
     console.error("❌ Error recalculating stats:", err);
     if (syncMessageLine) syncMessageLine.textContent = "Status: Failed to recalc stats";
   }
 }
+
+// Add this debug function
+async function debugDataLoad() {
+  const user = auth.currentUser;
+  if (!user) return;
+  
+  console.log('🔍 DEBUG: Checking data load...');
+  
+  // Check if students exist
+  const studentsSnap = await getDocs(collection(db, "users", user.uid, "students"));
+  console.log('🔍 DEBUG: Students count:', studentsSnap.size);
+  studentsSnap.forEach(doc => {
+    console.log('🔍 DEBUG: Student:', doc.id, doc.data());
+  });
+  
+  // Check user stats
+  const statsRef = doc(db, "users", user.uid);
+  const statsSnap = await getDoc(statsRef);
+  console.log('🔍 DEBUG: Stats exist:', statsSnap.exists());
+  if (statsSnap.exists()) {
+    console.log('🔍 DEBUG: Stats data:', statsSnap.data());
+  }
+  
+  // Check user profile
+  const userRef = doc(db, "users", user.uid);
+  const userSnap = await getDoc(userRef);
+  console.log('🔍 DEBUG: User profile exist:', userSnap.exists());
+  if (userSnap.exists()) {
+    console.log('🔍 DEBUG: User data:', userSnap.data());
+  }
+}
+// Call this in initializeApp after loadInitialData
 
 // ===========================
 // DATA RENDERING FUNCTIONS
@@ -2138,26 +2190,6 @@ async function deleteStudent(studentId) {
 // APP INITIALIZATION
 // ===========================
 
-function initializeApp() {
-  console.log('🚀 Initializing WorkLog App...');
-  
-  UIManager.init();
-  SyncBar.init();
-  setupProfileModal();
-  setupFloatingAddButton();
-  
-  if (syncMessage) syncMessage.textContent = "Cloud Sync: Ready";
-  if (syncMessageLine) syncMessageLine.textContent = "Status: Connected";
-  
-  const user = auth.currentUser;
-  if (user) {
-    console.log('👤 User authenticated, loading data...');
-    loadInitialData(user);
-  }
-  
-  console.log('✅ WorkLog App Fully Initialized');
-}
-
 async function loadInitialData(user) {
   try {
     console.log('📥 Loading initial data for user:', user.uid);
@@ -2165,9 +2197,12 @@ async function loadInitialData(user) {
     // Load user profile first
     await loadUserProfile(user.uid);
     
-    // Then load all other data
+    // Recalculate stats FIRST to ensure they're current
+    await recalcSummaryStats(user.uid);
+    
+    // Then load all other data with fresh stats
     await Promise.all([
-      loadUserStats(user.uid),
+      loadUserStats(user.uid), // This will now show updated stats
       loadStudentsForDropdowns(),
       renderStudents(),
       renderRecentHours(),
@@ -2179,9 +2214,6 @@ async function loadInitialData(user) {
     ]);
     
     console.log('✅ Initial data loaded successfully');
-    
-    // Force refresh stats to ensure they're current
-    await recalcSummaryStats(user.uid);
     
   } catch (error) {
     console.error('❌ Error loading initial data:', error);
