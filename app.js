@@ -432,7 +432,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // Manual sync
   if (syncBtn) {
     syncBtn.addEventListener("click", async () => {
-      console.log("🔄 Sync Now clicked");
       await runSync(true);
     });
   }
@@ -441,12 +440,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (exportCloudBtn) {
     exportCloudBtn.addEventListener("click", async () => {
       const user = auth.currentUser;
-      if (user) {
-        await exportUserData(user.uid);
-      } else {
-        console.warn("⚠️ Not logged in, export skipped");
-        if (syncMessageLine) syncMessageLine.textContent = "Status: Not logged in";
-      }
+      if (user) await exportUserData(user.uid);
     });
   }
 
@@ -454,20 +448,10 @@ document.addEventListener("DOMContentLoaded", () => {
   if (importCloudBtn) {
     importCloudBtn.addEventListener("click", async () => {
       const user = auth.currentUser;
-      if (!user) {
-        console.warn("⚠️ Not logged in, import skipped");
-        if (syncMessageLine) syncMessageLine.textContent = "Status: Not logged in";
-        return;
-      }
+      if (!user) return;
 
       const proceed = confirm("⚠️ This will overwrite your current data with the backup. Continue?");
-      if (!proceed) {
-        console.log("ℹ️ Import cancelled by user");
-        if (syncMessageLine) syncMessageLine.textContent = "Status: Import cancelled";
-        return;
-      }
-
-      await importUserData(user.uid);
+      if (proceed) await importUserData(user.uid);
     });
   }
 
@@ -475,37 +459,27 @@ document.addEventListener("DOMContentLoaded", () => {
   if (syncStatsBtn) {
     syncStatsBtn.addEventListener("click", async () => {
       const user = auth.currentUser;
-      if (user) {
-        await recalcSummaryStats(user.uid);
-        console.log("✅ Stats synced");
-      }
+      if (user) await recalcSummaryStats(user.uid);
     });
   }
 
   // Extra buttons
   if (exportDataBtn) {
-    exportDataBtn.addEventListener("click", () => {
-      console.log("📤 Export Data clicked");
-      // TODO: implement exportData logic
+    exportDataBtn.addEventListener("click", async () => {
+      await exportData();
     });
   }
 
   if (importDataBtn) {
-    importDataBtn.addEventListener("click", () => {
-      console.log("📥 Import Data clicked");
-      // TODO: implement importData logic
+    importDataBtn.addEventListener("click", async () => {
+      await importData();
     });
   }
 
   if (clearDataBtn) {
-    clearDataBtn.addEventListener("click", () => {
+    clearDataBtn.addEventListener("click", async () => {
       const proceed = confirm("⚠️ This will clear ALL data. Continue?");
-      if (proceed) {
-        console.log("🗑️ Clear All clicked");
-        // TODO: implement clearData logic
-      } else {
-        console.log("ℹ️ Clear All cancelled");
-      }
+      if (proceed) await clearData();
     });
   }
 });
