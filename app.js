@@ -1,78 +1,4 @@
 // ===========================
-// MISSING IMPORTS & INITIALIZATION
-// ===========================
-
-import { 
-  writeBatch,
-  query, 
-  orderBy,
-  where,
-  updateDoc,
-  deleteDoc
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-// Initialize global state
-let currentUser = null;
-let studentsList = [];
-
-// ===========================
-// ENHANCED UTILITY FUNCTIONS
-// ===========================
-
-function showNotification(message, type = 'info') {
-  const notification = document.createElement('div');
-  notification.className = `notification ${type}`;
-  notification.textContent = message;
-  notification.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 12px 20px;
-    background: ${type === 'error' ? '#f44336' : type === 'success' ? '#4CAF50' : '#2196F3'};
-    color: white;
-    border-radius: 4px;
-    z-index: 1000;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-  `;
-  document.body.appendChild(notification);
-  
-  setTimeout(() => {
-    notification.remove();
-  }, 3000);
-}
-
-function formatDate(dateString) {
-  if (!dateString) return 'Never';
-  try {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  } catch {
-    return dateString;
-  }
-}
-
-function toggleTheme() {
-  const currentTheme = document.documentElement.getAttribute('data-theme');
-  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', newTheme);
-  localStorage.setItem('theme', newTheme);
-}
-
-// Initialize theme from localStorage
-const savedTheme = localStorage.getItem('theme') || 'light';
-document.documentElement.setAttribute('data-theme', savedTheme);
-
-// ===========================
-// SYNC BAR FUNCTIONALITY
-// ===========================
-
-let autoSyncInterval = null;
-let isAutoSyncEnabled = false;
-
-// ===========================
 // NOTIFICATION SYSTEM (Move to top to avoid duplicates)
 // ===========================
 
@@ -520,6 +446,80 @@ function setupClearAllButton() {
     });
   }
 }
+
+// ===========================
+// MISSING IMPORTS & INITIALIZATION
+// ===========================
+
+import { 
+  writeBatch,
+  query, 
+  orderBy,
+  where,
+  updateDoc,
+  deleteDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// Initialize global state
+let currentUser = null;
+let studentsList = [];
+
+// ===========================
+// ENHANCED UTILITY FUNCTIONS
+// ===========================
+
+function showNotification(message, type = 'info') {
+  const notification = document.createElement('div');
+  notification.className = `notification ${type}`;
+  notification.textContent = message;
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    background: ${type === 'error' ? '#f44336' : type === 'success' ? '#4CAF50' : '#2196F3'};
+    color: white;
+    border-radius: 4px;
+    z-index: 1000;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+  `;
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.remove();
+  }, 3000);
+}
+
+function formatDate(dateString) {
+  if (!dateString) return 'Never';
+  try {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch {
+    return dateString;
+  }
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('theme', newTheme);
+}
+
+// Initialize theme from localStorage
+const savedTheme = localStorage.getItem('theme') || 'light';
+document.documentElement.setAttribute('data-theme', savedTheme);
+
+// ===========================
+// SYNC BAR FUNCTIONALITY
+// ===========================
+
+let autoSyncInterval = null;
+let isAutoSyncEnabled = false;
 
 // ===========================
 // BACKUP & RESTORE UTILITIES
