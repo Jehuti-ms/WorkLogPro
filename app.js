@@ -1408,7 +1408,7 @@ window.useDefaultRateInHours = useDefaultRateInHours;
 window.addMark = addMark;
 window.resetMarksForm = resetMarksForm;
 
-window.saveAttendance = saveAttendance;
+window.saveAttendance = addAttendance;
 window.clearAttendanceForm = clearAttendanceForm;
 window.selectAllStudents = selectAllStudents;
 window.deselectAllStudents = deselectAllStudents;
