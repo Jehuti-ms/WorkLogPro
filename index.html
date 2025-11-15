@@ -511,66 +511,66 @@
       }
     });
   </script>
-     <!-- Add this modal right before closing </body> tag -->
-        <div id="profileModal" class="modal" style="display: none;">
-          <div class="modal-content profile-modal">
-            <div class="modal-header">
-              <h2>👤 User Profile</h2>
-              <span id="closeProfileModal" class="close">&times;</span>
-            </div>
-            <div class="modal-body">
-              <!-- User Info Section -->
-              <div class="profile-section">
-                <h3>Account Information</h3>
-                <div class="info-grid">
-                  <div class="info-item">
-                    <label>Email:</label>
-                    <span id="profileUserEmail">user@example.com</span>
-                  </div>
-                  <div class="info-item">
-                    <label>Member Since:</label>
-                    <span id="profileUserSince">Loading...</span>
-                  </div>
-                  <div class="info-item">
-                    <label>Default Rate:</label>
-                    <span id="profileDefaultRate">$0.00/hour</span>
-                  </div>
-                </div>
-              </div>
-        
-              <!-- Usage Stats Section -->
-              <div class="profile-section">
-                <h3>📊 Usage Statistics</h3>
-                <div class="stats-grid">
-                  <div class="stat-card">
-                    <div class="stat-value" id="modalStatStudents">0</div>
-                    <div class="stat-label">Students</div>
-                  </div>
-                  <div class="stat-card">
-                    <div class="stat-value" id="modalStatHours">0</div>
-                    <div class="stat-label">Hours Worked</div>
-                  </div>
-                  <div class="stat-card">
-                    <div class="stat-value">$<span id="modalStatEarnings">0.00</span></div>
-                    <div class="stat-label">Money Earned</div>
-                  </div>
-                </div>
-                <div class="last-updated">
-                  Last updated: <span id="modalStatUpdated">Never</span>
-                </div>
-              </div>
-        
-              <!-- Actions Section -->
-              <div class="profile-section">
-                <h3>Actions</h3>
-                <div class="actions-grid">
-                  <button id="logoutBtn" class="btn btn-danger btn-full">
-                    🚪 Logout
-                  </button>
-                </div>
-              </div>
-            </div>
+        <!-- Place this modal RIGHT BEFORE the closing </body> tag -->
+<div id="profileModal" class="modal" style="display: none;">
+  <div class="modal-content profile-modal">
+    <div class="modal-header">
+      <h2>👤 User Profile</h2>
+      <button id="closeProfileModal" class="close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <!-- User Info Section -->
+      <div class="profile-section">
+        <h3>Account Information</h3>
+        <div class="info-grid">
+          <div class="info-item">
+            <label>Email:</label>
+            <span id="profileUserEmail">user@example.com</span>
+          </div>
+          <div class="info-item">
+            <label>Member Since:</label>
+            <span id="profileUserSince">Loading...</span>
+          </div>
+          <div class="info-item">
+            <label>Default Rate:</label>
+            <span id="profileDefaultRate">$0.00/hour</span>
           </div>
         </div>
+      </div>
+
+      <!-- Usage Stats Section -->
+      <div class="profile-section">
+        <h3>📊 Usage Statistics</h3>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="modalStatStudents">0</div>
+            <div class="stat-label">Students</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="modalStatHours">0</div>
+            <div class="stat-label">Hours Worked</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">$<span id="modalStatEarnings">0.00</span></div>
+            <div class="stat-label">Money Earned</div>
+          </div>
+        </div>
+        <div class="last-updated">
+          Last updated: <span id="modalStatUpdated">Never</span>
+        </div>
+      </div>
+
+      <!-- Actions Section -->
+      <div class="profile-section">
+        <h3>Actions</h3>
+        <div class="actions-grid">
+          <button id="logoutBtn" class="btn btn-danger btn-full">
+            🚪 Logout
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
