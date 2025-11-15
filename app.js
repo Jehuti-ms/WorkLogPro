@@ -69,6 +69,12 @@ function fmtDateISO(yyyyMmDd) {
 // ----------------------
 async function loadUserStats(uid) {
   try {
+    if (!navigator.onLine) {
+      console.warn("⚠️ Offline mode: skipping stats load");
+      if (syncMessageLine) syncMessageLine.textContent = "Status: Offline - stats unavailable";
+      return;
+    }
+
     const statsRef = doc(db, "users", uid);
     const statsSnap = await getDoc(statsRef);
 
@@ -140,6 +146,15 @@ async function recalcSummaryStats(uid) {
     earnings: totalEarnings
   });
 }
+
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    console.log("✅ User authenticated:", user.email);
+    await loadUserStats(user.uid);
+  } else {
+    console.warn("No user signed in, skipping stats load");
+  }
+});
 
 // ----------------------
 // Sync (manual/auto)
@@ -483,6 +498,19 @@ async function renderRecentHours(limit = 10) {
     container.appendChild(entry);
   });
 }
+
+// Reset Hours
+function resetHoursForm() {
+  const form = document.getElementById("hoursForm");
+  if (form) {
+    form.reset();
+    console.log("✅ Hours form reset");
+  } else {
+    console.warn("resetHoursForm: hoursForm element not found");
+  }
+}
+
+
 
 // ----------------------
 // Marks Tab
