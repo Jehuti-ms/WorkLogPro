@@ -113,44 +113,38 @@ async function loadUserProfile(uid) {
       currentUserData = { uid, ...userSnap.data() };
       console.log('✅ User profile loaded:', currentUserData);
       
-      // Update profile button with user info - FIXED
+      // Update profile button with user info
       updateProfileButton(currentUserData);
       
-      // Initialize default rate if it exists
-      if (currentUserData.defaultRate !== undefined) {
-        initializeDefaultRate(currentUserData.defaultRate);
-      }
+      // Initialize default rate from user profile (this takes priority)
+      initializeDefaultRate(currentUserData.defaultRate);
       
       return currentUserData;
     } else {
-      // Create new user profile with default rate
+      // Create new user profile - try to use localStorage rate if available
+      const savedRate = parseFloat(localStorage.getItem('userDefaultRate')) || 0;
       const defaultProfile = {
         email: auth.currentUser?.email || '',
         createdAt: new Date().toISOString(),
-        defaultRate: 0,
+        defaultRate: savedRate,
         lastLogin: new Date().toISOString()
       };
       
       await setDoc(userRef, defaultProfile);
       currentUserData = { uid, ...defaultProfile };
-      console.log('✅ New user profile created');
+      console.log('✅ New user profile created with rate:', savedRate);
       
       updateProfileButton(currentUserData);
-      initializeDefaultRate(0);
+      initializeDefaultRate(savedRate);
       
       return currentUserData;
     }
   } catch (err) {
     console.error("❌ Error loading user profile:", err);
     
-    // Fallback: use auth data directly
-    const user = auth.currentUser;
-    if (user) {
-      updateProfileButton({
-        email: user.email,
-        createdAt: new Date().toISOString()
-      });
-    }
+    // Fallback: use localStorage rate
+    const fallbackRate = parseFloat(localStorage.getItem('userDefaultRate')) || 0;
+    initializeDefaultRate(fallbackRate);
     
     return null;
   }
@@ -1190,118 +1184,58 @@ const SyncBar = {
   },
 
   setupAutoSyncToggle() {
-    if (autoSyncCheckbox) {
-      autoSyncCheckbox.addEventListener('change', (e) => {
-        isAutoSyncEnabled = e.target.checked;
-        
-        if (isAutoSyncEnabled) {
-          autoSyncText.textContent = 'Auto';
-          if (syncIndicator) {
-            syncIndicator.style.backgroundColor = '#10b981';
-            syncIndicator.classList.add('sync-connected');
-          }
-          this.startAutoSync();
-          NotificationSystem.notifySuccess('Auto-sync enabled - syncing every 60 seconds');
-        } else {
-          autoSyncText.textContent = 'Manual';
-          if (syncIndicator) {
-            syncIndicator.style.backgroundColor = '#ef4444';
-            syncIndicator.classList.remove('sync-connected');
-          }
-          this.stopAutoSync();
-          NotificationSystem.notifyInfo('Auto-sync disabled');
-        }
-      });
-
-      autoSyncCheckbox.checked = false;
+  if (autoSyncCheckbox) {
+    // Load saved autoSync preference from localStorage
+    const savedAutoSync = localStorage.getItem('autoSyncEnabled') === 'true';
+    isAutoSyncEnabled = savedAutoSync;
+    
+    // Set the checkbox state based on saved preference
+    autoSyncCheckbox.checked = savedAutoSync;
+    
+    if (savedAutoSync) {
+      autoSyncText.textContent = 'Auto';
+      if (syncIndicator) {
+        syncIndicator.style.backgroundColor = '#10b981';
+        syncIndicator.classList.add('sync-connected');
+      }
+      this.startAutoSync();
+      console.log('✅ Auto-sync restored from previous session');
+    } else {
       autoSyncText.textContent = 'Manual';
       if (syncIndicator) {
         syncIndicator.style.backgroundColor = '#ef4444';
+        syncIndicator.classList.remove('sync-connected');
       }
-    }
-  },
-
-  startAutoSync() {
-    this.stopAutoSync();
-    this.performSync('auto');
-    autoSyncInterval = setInterval(() => this.performSync('auto'), 60000);
-  },
-
-  stopAutoSync() {
-    if (autoSyncInterval) {
-      clearInterval(autoSyncInterval);
-      autoSyncInterval = null;
-    }
-  },
-
-  setupSyncNowButton() {
-    if (syncBtn) {
-      syncBtn.addEventListener('click', async () => {
-        await this.performSync('manual');
-      });
-    }
-  },
-
-  async performSync(mode = 'manual') {
-    const user = auth.currentUser;
-    if (!user) {
-      NotificationSystem.notifyError('Please log in to sync');
-      return;
+      console.log('✅ Manual sync mode restored');
     }
 
-    try {
-      if (syncSpinner) syncSpinner.style.display = 'inline-block';
-      if (syncIndicator) {
-        syncIndicator.classList.remove('sync-connected', 'sync-error');
-        syncIndicator.classList.add('sync-active');
-      }
-      if (syncMessageLine) {
-        syncMessageLine.textContent = `Status: ${mode === 'auto' ? 'Auto-syncing' : 'Manual syncing'}...`;
-      }
-
-      await Promise.all([
-        recalcSummaryStats(user.uid),
-        loadUserStats(user.uid),
-        renderStudents(),
-        renderRecentHours(),
-        renderRecentMarks(),
-        renderAttendanceRecent(),
-        renderPaymentActivity(),
-        renderStudentBalances(),
-        renderOverviewReports()
-      ]);
-
-      const now = new Date().toLocaleString();
-      if (syncMessageLine) syncMessageLine.textContent = `Status: Last synced at ${now}`;
-      if (document.getElementById('statUpdated')) {
-        document.getElementById('statUpdated').textContent = now;
-      }
-
-      if (syncIndicator) {
-        syncIndicator.classList.remove('sync-active');
-        if (isAutoSyncEnabled) {
+    autoSyncCheckbox.addEventListener('change', (e) => {
+      isAutoSyncEnabled = e.target.checked;
+      
+      // Save preference to localStorage
+      localStorage.setItem('autoSyncEnabled', isAutoSyncEnabled.toString());
+      console.log('💾 Auto-sync preference saved:', isAutoSyncEnabled);
+      
+      if (isAutoSyncEnabled) {
+        autoSyncText.textContent = 'Auto';
+        if (syncIndicator) {
+          syncIndicator.style.backgroundColor = '#10b981';
           syncIndicator.classList.add('sync-connected');
         }
+        this.startAutoSync();
+        NotificationSystem.notifySuccess('Auto-sync enabled - syncing every 60 seconds');
+      } else {
+        autoSyncText.textContent = 'Manual';
+        if (syncIndicator) {
+          syncIndicator.style.backgroundColor = '#ef4444';
+          syncIndicator.classList.remove('sync-connected');
+        }
+        this.stopAutoSync();
+        NotificationSystem.notifyInfo('Auto-sync disabled');
       }
-
-      NotificationSystem.notifySuccess(`${mode === 'auto' ? 'Auto-' : ''}Sync completed successfully`);
-
-    } catch (error) {
-      console.error(`❌ ${mode} sync failed:`, error);
-      
-      if (syncIndicator) {
-        syncIndicator.classList.remove('sync-active', 'sync-connected');
-        syncIndicator.classList.add('sync-error');
-      }
-      if (syncMessageLine) {
-        syncMessageLine.textContent = `Status: Sync failed - ${error.message}`;
-      }
-      
-      NotificationSystem.notifyError(`Sync failed: ${error.message}`);
-    } finally {
-      if (syncSpinner) syncSpinner.style.display = 'none';
-    }
-  },
+    });
+  }
+},
 
   setupExportCloudButton() {
     if (exportCloudBtn) {
@@ -1875,10 +1809,31 @@ async function saveDefaultRate() {
     if (currentDisplay) currentDisplay.textContent = fmtMoney(val);
     if (hoursDisplay) hoursDisplay.textContent = fmtMoney(val);
     
+    // Save to localStorage as backup and for immediate access
+    localStorage.setItem('userDefaultRate', val.toString());
+    console.log('💾 Default rate saved to localStorage:', val);
+    
     NotificationSystem.notifySuccess("Default rate saved and synced to cloud");
   } else {
     NotificationSystem.notifyError("Failed to save default rate");
   }
+}
+
+function initializeDefaultRate(rate) {
+  const defaultRateInput = document.getElementById("defaultBaseRate");
+  const currentRateDisplay = document.getElementById("currentDefaultRate");
+  const hoursRateDisplay = document.getElementById("currentDefaultRateDisplay");
+  
+  // Priority: 1. Provided rate, 2. localStorage, 3. Default to 0
+  const finalRate = rate !== undefined ? rate : 
+                   parseFloat(localStorage.getItem('userDefaultRate')) || 0;
+  
+  if (defaultRateInput) defaultRateInput.value = finalRate;
+  if (currentRateDisplay) currentRateDisplay.textContent = fmtMoney(finalRate);
+  if (hoursRateDisplay) hoursRateDisplay.textContent = fmtMoney(finalRate);
+  
+  console.log('💰 Default rate initialized:', finalRate, 'from source:', 
+              rate !== undefined ? 'user profile' : 'localStorage');
 }
 
 async function applyDefaultRateToAll() {
