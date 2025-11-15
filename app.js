@@ -324,7 +324,7 @@ async function renderStudents() {
   await recalcSummaryStats(user.uid);
 }
 
-function addStudent() {
+async function addStudent() {
   const nameEl   = document.getElementById("studentName");
   const idEl     = document.getElementById("studentId");
   const genderEl = document.getElementById("studentGender");
@@ -349,12 +349,26 @@ function addStudent() {
   const user = auth.currentUser;
   if (user) {
     const studentRef = doc(db, "users", user.uid, "students", id);
-    setDoc(studentRef, student).then(async () => {
+    try {
+      await setDoc(studentRef, student);
       console.log("✅ Student added:", student);
+
       clearStudentForm();
       await renderStudents();
+
+      // Recalculate summary stats in Firestore
       await recalcSummaryStats(user.uid);
-    }).catch(err => console.error("❌ Error adding student:", err));
+
+      // Fetch updated stats doc and refresh dropdown
+      const statsRef = doc(db, "users", user.uid);
+      const statsSnap = await getDoc(statsRef);
+      if (statsSnap.exists()) {
+        const stats = statsSnap.data();
+        updateUsageStats(stats.students, stats.hours, stats.earnings);
+      }
+    } catch (err) {
+      console.error("❌ Error adding student:", err);
+    }
   }
 }
 
@@ -425,21 +439,38 @@ async function logHours() {
 
   const user = auth.currentUser;
   if (!user) return;
-  await addDoc(collection(db, "users", user.uid, "hours"), {
-    organization,
-    workType,
-    date: workDate,
-    dateIso: fmtDateISO(workDate),
-    hours,
-    rate,
-    total
-  });
 
-  console.log("✅ Hours logged");
-  await recalcSummaryStats(user.uid);
-  refreshTimestamp();
-  await renderRecentHours();
-  resetHoursForm();
+  try {
+    await addDoc(collection(db, "users", user.uid, "hours"), {
+      organization,
+      workType,
+      date: workDate,
+      dateIso: fmtDateISO(workDate),
+      hours,
+      rate,
+      total
+    });
+
+    console.log("✅ Hours logged");
+
+    // Recalculate summary stats in Firestore
+    await recalcSummaryStats(user.uid);
+
+    // Fetch updated stats doc and refresh dropdown
+    const statsRef = doc(db, "users", user.uid);
+    const statsSnap = await getDoc(statsRef);
+    if (statsSnap.exists()) {
+      const stats = statsSnap.data();
+      updateUsageStats(stats.students, stats.hours, stats.earnings);
+    }
+
+    refreshTimestamp();
+    await renderRecentHours();
+    resetHoursForm();
+  } catch (err) {
+    console.error("❌ Error logging hours:", err);
+    if (syncMessageLine) syncMessageLine.textContent = "Status: Failed to log hours";
+  }
 }
 
 async function renderRecentHours(limit = 10) {
