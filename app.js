@@ -19,80 +19,213 @@ let autoSyncInterval = null;
 let isAutoSyncEnabled = false;
 
 // ===========================
-// NOTIFICATION SYSTEM (Move to top to avoid duplicates)
+// NOTIFICATION SYSTEM
 // ===========================
 
-function showNotification(message, type = 'info') {
-  // Remove any existing notifications
-  const existingNotifications = document.querySelectorAll('.notification');
-  existingNotifications.forEach(notification => {
-    if (notification.parentNode) {
-      notification.parentNode.removeChild(notification);
+const NotificationSystem = {
+  // Create notification element
+  createNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = `
+      <div class="notification-content">
+        <span class="notification-icon">${this.getIcon(type)}</span>
+        <span class="notification-message">${message}</span>
+        <button class="notification-close" onclick="NotificationSystem.close(this.parentElement.parentElement)">×</button>
+      </div>
+    `;
+    
+    return notification;
+  },
+
+  // Get icon for notification type
+  getIcon(type) {
+    const icons = {
+      success: '✅',
+      error: '❌',
+      warning: '⚠️',
+      info: 'ℹ️'
+    };
+    return icons[type] || icons.info;
+  },
+
+  // Show notification
+  show(message, type = 'info', duration = 5000) {
+    // Remove existing notifications
+    this.clearAll();
+    
+    const notification = this.createNotification(message, type);
+    document.body.appendChild(notification);
+    
+    // Add show class for animation
+    setTimeout(() => {
+      notification.classList.add('notification-show');
+    }, 10);
+    
+    // Auto remove after duration
+    if (duration > 0) {
+      setTimeout(() => {
+        this.close(notification);
+      }, duration);
     }
-  });
+    
+    return notification;
+  },
 
-  const notification = document.createElement('div');
-  notification.className = `notification ${type}`;
-  notification.textContent = message;
-  notification.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 12px 20px;
-    background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : type === 'warning' ? '#f59e0b' : '#3b82f6'};
-    color: white;
-    border-radius: 12px;
-    z-index: 10000;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    font-weight: 500;
-    max-width: 400px;
-    animation: slideInRight 0.3s ease;
-  `;
-
-  document.body.appendChild(notification);
-
-  // Auto remove after 5 seconds
-  setTimeout(() => {
-    if (notification.parentNode) {
-      notification.style.animation = 'slideOutRight 0.3s ease';
+  // Close specific notification
+  close(notification) {
+    if (notification && notification.parentNode) {
+      notification.classList.remove('notification-show');
+      notification.classList.add('notification-hide');
+      
       setTimeout(() => {
         if (notification.parentNode) {
           notification.parentNode.removeChild(notification);
         }
       }, 300);
     }
-  }, 5000);
+  },
+
+  // Clear all notifications
+  clearAll() {
+    const notifications = document.querySelectorAll('.notification');
+    notifications.forEach(notification => {
+      this.close(notification);
+    });
+  },
+
+  // Quick methods for common types
+  success(message, duration = 5000) {
+    return this.show(message, 'success', duration);
+  },
+
+  error(message, duration = 5000) {
+    return this.show(message, 'error', duration);
+  },
+
+  warning(message, duration = 5000) {
+    return this.show(message, 'warning', duration);
+  },
+
+  info(message, duration = 5000) {
+    return this.show(message, 'info', duration);
+  }
+};
+
+// Initialize notification styles
+function initializeNotificationStyles() {
+  if (!document.querySelector('#notification-styles')) {
+    const style = document.createElement('style');
+    style.id = 'notification-styles';
+    style.textContent = `
+      .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        min-width: 300px;
+        max-width: 500px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        z-index: 10000;
+        transform: translateX(400px);
+        opacity: 0;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .notification-show {
+        transform: translateX(0);
+        opacity: 1;
+      }
+
+      .notification-hide {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+
+      .notification-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+      }
+
+      .notification-icon {
+        font-size: 1.2em;
+        flex-shrink: 0;
+      }
+
+      .notification-message {
+        flex: 1;
+        font-weight: 500;
+        line-height: 1.4;
+        color: var(--text);
+      }
+
+      .notification-close {
+        background: none;
+        border: none;
+        font-size: 1.5em;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        color: var(--muted);
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+      }
+
+      .notification-close:hover {
+        background: var(--border-light);
+        color: var(--text);
+      }
+
+      /* Notification type styles */
+      .notification-success {
+        border-left: 4px solid var(--success);
+      }
+
+      .notification-error {
+        border-left: 4px solid var(--error);
+      }
+
+      .notification-warning {
+        border-left: 4px solid var(--warning);
+      }
+
+      .notification-info {
+        border-left: 4px solid var(--info);
+      }
+
+      /* Mobile responsiveness */
+      @media (max-width: 768px) {
+        .notification {
+          left: 20px;
+          right: 20px;
+          min-width: auto;
+          max-width: none;
+          transform: translateY(-100px);
+        }
+
+        .notification-show {
+          transform: translateY(0);
+        }
+
+        .notification-hide {
+          transform: translateY(-100px);
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
 }
 
-// Add CSS for notification animations (only once)
-if (!document.querySelector('#notification-styles')) {
-  const style = document.createElement('style');
-  style.id = 'notification-styles';
-  style.textContent = `
-    @keyframes slideInRight {
-      from {
-        opacity: 0;
-        transform: translateX(100%);
-      }
-      to {
-        opacity: 1;
-        transform: translateX(0);
-      }
-    }
-    
-    @keyframes slideOutRight {
-      from {
-        opacity: 1;
-        transform: translateX(0);
-      }
-      to {
-        opacity: 0;
-        transform: translateX(100%);
-      }
-    }
-  `;
-  document.head.appendChild(style);
-}
+// ===========================
+// SYNC BAR FUNCTIONALITY (Updated to use new notification system)
+// ===========================
+
+let autoSyncInterval = null;
+let isAutoSyncEnabled = false;
 
 // 1. Manual to Auto-Sync Toggle
 function setupAutoSyncToggle() {
@@ -105,19 +238,21 @@ function setupAutoSyncToggle() {
       isAutoSyncEnabled = this.checked;
       
       if (isAutoSyncEnabled) {
-        // Enable auto-sync
         autoSyncText.textContent = 'Auto';
-        syncIndicator.style.backgroundColor = '#10b981'; // Green
-        syncIndicator.classList.add('sync-connected');
+        if (syncIndicator) {
+          syncIndicator.style.backgroundColor = '#10b981';
+          syncIndicator.classList.add('sync-connected');
+        }
         startAutoSync();
-        showNotification('Auto-sync enabled - syncing every 60 seconds', 'success');
+        NotificationSystem.success('Auto-sync enabled - syncing every 60 seconds');
       } else {
-        // Disable auto-sync
         autoSyncText.textContent = 'Manual';
-        syncIndicator.style.backgroundColor = '#ef4444'; // Red
-        syncIndicator.classList.remove('sync-connected');
+        if (syncIndicator) {
+          syncIndicator.style.backgroundColor = '#ef4444';
+          syncIndicator.classList.remove('sync-connected');
+        }
         stopAutoSync();
-        showNotification('Auto-sync disabled', 'info');
+        NotificationSystem.info('Auto-sync disabled');
       }
     });
 
@@ -131,16 +266,9 @@ function setupAutoSyncToggle() {
 }
 
 function startAutoSync() {
-  // Clear any existing interval
   stopAutoSync();
-  
-  // Run sync immediately
   performSync('auto');
-  
-  // Set up interval for every 60 seconds
-  autoSyncInterval = setInterval(() => {
-    performSync('auto');
-  }, 60000); // 60 seconds
+  autoSyncInterval = setInterval(() => performSync('auto'), 60000);
 }
 
 function stopAutoSync() {
@@ -153,7 +281,6 @@ function stopAutoSync() {
 // 2. Sync Now Button
 function setupSyncNowButton() {
   const syncBtn = document.getElementById('syncBtn');
-  
   if (syncBtn) {
     syncBtn.addEventListener('click', async () => {
       await performSync('manual');
@@ -165,7 +292,7 @@ function setupSyncNowButton() {
 async function performSync(mode = 'manual') {
   const user = auth.currentUser;
   if (!user) {
-    showNotification('Please log in to sync', 'error');
+    NotificationSystem.error('Please log in to sync');
     return;
   }
 
@@ -184,9 +311,7 @@ async function performSync(mode = 'manual') {
       syncMessageLine.textContent = `Status: ${mode === 'auto' ? 'Auto-syncing' : 'Manual syncing'}...`;
     }
 
-    console.log(`🔄 Starting ${mode} sync...`);
-
-    // Perform the actual sync operations
+    // Perform sync operations
     await Promise.all([
       recalcSummaryStats(user.uid),
       loadUserStats(user.uid),
@@ -214,20 +339,20 @@ async function performSync(mode = 'manual') {
       }
     }
 
-    showNotification(`${mode === 'auto' ? 'Auto-' : ''}Sync completed successfully`, 'success');
-    console.log(`✅ ${mode} sync completed`);
+    NotificationSystem.success(`${mode === 'auto' ? 'Auto-' : ''}Sync completed successfully`);
 
   } catch (error) {
     console.error(`❌ ${mode} sync failed:`, error);
     
-    // Show error state
     if (syncIndicator) {
       syncIndicator.classList.remove('sync-active', 'sync-connected');
       syncIndicator.classList.add('sync-error');
     }
-    if (syncMessageLine) syncMessageLine.textContent = `Status: Sync failed - ${error.message}`;
+    if (syncMessageLine) {
+      syncMessageLine.textContent = `Status: Sync failed - ${error.message}`;
+    }
     
-    showNotification(`Sync failed: ${error.message}`, 'error');
+    NotificationSystem.error(`Sync failed: ${error.message}`);
   } finally {
     if (syncSpinner) syncSpinner.style.display = 'none';
   }
@@ -236,19 +361,16 @@ async function performSync(mode = 'manual') {
 // 3. Export Cloud Button
 function setupExportCloudButton() {
   const exportCloudBtn = document.getElementById('exportCloudBtn');
-  
   if (exportCloudBtn) {
     exportCloudBtn.addEventListener('click', async () => {
       const user = auth.currentUser;
       if (!user) {
-        showNotification('Please log in to export data', 'error');
+        NotificationSystem.error('Please log in to export data');
         return;
       }
 
       try {
-        showNotification('Starting cloud export...', 'info');
-        
-        // Create backup in Firestore
+        NotificationSystem.info('Starting cloud export...');
         const backupRef = doc(db, "backups", user.uid);
         const backupData = await createBackupData(user.uid);
         
@@ -259,11 +381,10 @@ function setupExportCloudButton() {
           user: user.uid
         });
 
-        showNotification('Cloud export completed successfully', 'success');
-        console.log('✅ Cloud export complete');
+        NotificationSystem.success('Cloud export completed successfully');
       } catch (error) {
         console.error('❌ Cloud export failed:', error);
-        showNotification(`Export failed: ${error.message}`, 'error');
+        NotificationSystem.error(`Export failed: ${error.message}`);
       }
     });
   }
@@ -272,12 +393,11 @@ function setupExportCloudButton() {
 // 4. Import Cloud Button
 function setupImportCloudButton() {
   const importCloudBtn = document.getElementById('importCloudBtn');
-  
   if (importCloudBtn) {
     importCloudBtn.addEventListener('click', async () => {
       const user = auth.currentUser;
       if (!user) {
-        showNotification('Please log in to import data', 'error');
+        NotificationSystem.error('Please log in to import data');
         return;
       }
 
@@ -285,27 +405,23 @@ function setupImportCloudButton() {
       if (!proceed) return;
 
       try {
-        showNotification('Starting cloud import...', 'info');
-        
+        NotificationSystem.info('Starting cloud import...');
         const backupRef = doc(db, "backups", user.uid);
         const backupSnap = await getDoc(backupRef);
 
         if (!backupSnap.exists()) {
-          showNotification('No cloud backup found for your account', 'warning');
+          NotificationSystem.warning('No cloud backup found for your account');
           return;
         }
 
         const backupData = backupSnap.data();
         await restoreBackupData(user.uid, backupData);
-
-        showNotification('Cloud import completed successfully', 'success');
-        
-        // Refresh all data
+        NotificationSystem.success('Cloud import completed successfully');
         await performSync('manual');
         
       } catch (error) {
         console.error('❌ Cloud import failed:', error);
-        showNotification(`Import failed: ${error.message}`, 'error');
+        NotificationSystem.error(`Import failed: ${error.message}`);
       }
     });
   }
@@ -314,23 +430,22 @@ function setupImportCloudButton() {
 // 5. Sync Stats Button
 function setupSyncStatsButton() {
   const syncStatsBtn = document.getElementById('syncStatsBtn');
-  
   if (syncStatsBtn) {
     syncStatsBtn.addEventListener('click', async () => {
       const user = auth.currentUser;
       if (!user) {
-        showNotification('Please log in to sync stats', 'error');
+        NotificationSystem.error('Please log in to sync stats');
         return;
       }
 
       try {
-        showNotification('Syncing statistics...', 'info');
+        NotificationSystem.info('Syncing statistics...');
         await recalcSummaryStats(user.uid);
         await loadUserStats(user.uid);
-        showNotification('Statistics synced successfully', 'success');
+        NotificationSystem.success('Statistics synced successfully');
       } catch (error) {
         console.error('❌ Stats sync failed:', error);
-        showNotification(`Stats sync failed: ${error.message}`, 'error');
+        NotificationSystem.error(`Stats sync failed: ${error.message}`);
       }
     });
   }
@@ -339,21 +454,18 @@ function setupSyncStatsButton() {
 // 6. Export Data Button (Local JSON)
 function setupExportDataButton() {
   const exportDataBtn = document.getElementById('exportDataBtn');
-  
   if (exportDataBtn) {
     exportDataBtn.addEventListener('click', async () => {
       const user = auth.currentUser;
       if (!user) {
-        showNotification('Please log in to export data', 'error');
+        NotificationSystem.error('Please log in to export data');
         return;
       }
 
       try {
-        showNotification('Preparing data export...', 'info');
-        
+        NotificationSystem.info('Preparing data export...');
         const exportData = await createBackupData(user.uid);
         
-        // Create and download JSON file
         const dataStr = JSON.stringify(exportData, null, 2);
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
         
@@ -366,11 +478,10 @@ function setupExportDataButton() {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
 
-        showNotification('Data exported successfully', 'success');
-        console.log('✅ Local export complete');
+        NotificationSystem.success('Data exported successfully');
       } catch (error) {
         console.error('❌ Local export failed:', error);
-        showNotification(`Export failed: ${error.message}`, 'error');
+        NotificationSystem.error(`Export failed: ${error.message}`);
       }
     });
   }
@@ -379,12 +490,11 @@ function setupExportDataButton() {
 // 7. Import Data Button (Local JSON)
 function setupImportDataButton() {
   const importDataBtn = document.getElementById('importDataBtn');
-  
   if (importDataBtn) {
     importDataBtn.addEventListener('click', () => {
       const user = auth.currentUser;
       if (!user) {
-        showNotification('Please log in to import data', 'error');
+        NotificationSystem.error('Please log in to import data');
         return;
       }
 
@@ -401,26 +511,21 @@ function setupImportDataButton() {
         if (!proceed) return;
 
         try {
-          showNotification('Importing data...', 'info');
-          
+          NotificationSystem.info('Importing data...');
           const fileText = await file.text();
           const importData = JSON.parse(fileText);
           
-          // Validate import data structure
           if (!importData.metadata || !importData.students || !importData.hours) {
             throw new Error('Invalid backup file format');
           }
 
           await restoreBackupData(user.uid, importData);
-          
-          showNotification('Data imported successfully', 'success');
-          
-          // Refresh all data
+          NotificationSystem.success('Data imported successfully');
           await performSync('manual');
           
         } catch (error) {
           console.error('❌ Local import failed:', error);
-          showNotification(`Import failed: ${error.message}`, 'error');
+          NotificationSystem.error(`Import failed: ${error.message}`);
         }
       };
       
@@ -434,12 +539,11 @@ function setupImportDataButton() {
 // 8. Clear All Button
 function setupClearAllButton() {
   const clearDataBtn = document.getElementById('clearDataBtn');
-  
   if (clearDataBtn) {
     clearDataBtn.addEventListener('click', async () => {
       const user = auth.currentUser;
       if (!user) {
-        showNotification('Please log in to clear data', 'error');
+        NotificationSystem.error('Please log in to clear data');
         return;
       }
 
@@ -447,26 +551,60 @@ function setupClearAllButton() {
       
       if (proceed && prompt('Type "DELETE ALL" to confirm:') === 'DELETE ALL') {
         try {
-          showNotification('Clearing all data...', 'warning');
-          
+          NotificationSystem.warning('Clearing all data...');
           await clearAllUserData(user.uid);
-          
-          showNotification('All data cleared successfully', 'success');
-          
-          // Refresh UI
+          NotificationSystem.success('All data cleared successfully');
           await performSync('manual');
-          
         } catch (error) {
           console.error('❌ Clear data failed:', error);
-          showNotification(`Clear failed: ${error.message}`, 'error');
+          NotificationSystem.error(`Clear failed: ${error.message}`);
         }
       } else {
-        showNotification('Data clearance cancelled', 'info');
+        NotificationSystem.info('Data clearance cancelled');
       }
     });
   }
 }
 
+// ===========================
+// INITIALIZE SYNC BAR
+// ===========================
+
+function initializeSyncBar() {
+  initializeNotificationStyles();
+  setupAutoSyncToggle();
+  setupSyncNowButton();
+  setupExportCloudButton();
+  setupImportCloudButton();
+  setupSyncStatsButton();
+  setupExportDataButton();
+  setupImportDataButton();
+  setupClearAllButton();
+  
+  console.log('✅ Sync bar initialized with new notification system');
+}
+
+// Add to your boot function
+function enhancedBoot() {
+  // Your existing boot code...
+  bindUiEvents();
+  initEventListeners();
+  
+  // Initialize sync bar with new notification system
+  initializeSyncBar();
+  
+  if (syncMessage) syncMessage.textContent = "Cloud Sync: Ready";
+  if (syncMessageLine) syncMessageLine.textContent = "Status: Awaiting authentication";
+
+  console.log("WorkLog App Initialized with Enhanced Sync & Notifications");
+}
+
+// Replace your existing boot call
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", enhancedBoot);
+} else {
+  enhancedBoot();
+}
 // ===========================
 // BACKUP & RESTORE UTILITIES
 // ===========================
