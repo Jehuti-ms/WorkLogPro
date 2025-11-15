@@ -414,37 +414,25 @@ async function clearData() {
     const user = auth.currentUser;
     if (!user) return;
 
-    // Confirm destructive action
     const proceed = confirm("⚠️ This will permanently delete Students, Hours, Payments. Continue?");
     if (!proceed) return;
 
     const collections = ["students", "hours", "payments"];
 
-    // Delete in batches per collection to avoid partial state
     for (const col of collections) {
       const colRef = collection(db, "users", user.uid, col);
       const snap = await getDocs(colRef);
+      const refs = snap.docs.map(d => d.ref);
 
-      if (snap.empty) continue;
-
-      let batch = writeBatch(db);
-      let ops = 0;
-
-      snap.forEach(docSnap => {
-        batch.delete(docSnap.ref);
-        ops++;
-        // Commit every ~400 ops to stay well under Firestore batch limit
-        if (ops >= 400) {
-          // finalize current batch and start a new one
-          // (await inside forEach would be tricky, so we track and commit after loop via chunking)
-        }
-      });
-
-      // Commit final batch for this collection
-      await batch.commit();
+      // Chunk refs into groups of 400
+      for (let i = 0; i < refs.length; i += 400) {
+        const chunk = refs.slice(i, i + 400);
+        const batch = writeBatch(db);
+        chunk.forEach(ref => batch.delete(ref));
+        await batch.commit();
+      }
     }
 
-    // Reset summary stats after clearing
     await updateUserStats(user.uid, {
       students: 0,
       hours: 0,
