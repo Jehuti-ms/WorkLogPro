@@ -259,6 +259,7 @@ async function recalcSummaryStats(uid) {
 // Sync Bar Controls
 // ----------------------
 const syncToggleBtn   = document.getElementById("syncToggleBtn");
+const syncNowBtn      = document.getElementById("syncNowBtn");   // NEW manual button
 const syncSpinner     = document.getElementById("syncSpinner");
 const syncMessageLine = document.getElementById("syncMessageLine");
 const statUpdated     = document.getElementById("statUpdated");
@@ -283,6 +284,13 @@ if (syncToggleBtn) {
   });
 }
 
+// Manual sync button
+if (syncNowBtn) {
+  syncNowBtn.addEventListener("click", async () => {
+    await runSync(true); // force immediate sync
+  });
+}
+
 // Start autosync loop
 function startAutosync() {
   if (autosyncInterval) clearInterval(autosyncInterval);
@@ -302,22 +310,22 @@ function stopAutosync() {
 }
 
 // Run one sync cycle
-async function runSync() {
+async function runSync(manual = false) {
   try {
     if (syncSpinner) syncSpinner.style.display = "inline-block";
-    if (syncMessageLine) syncMessageLine.textContent = "Status: Syncing…";
+    syncMessageLine.textContent = manual ? "Status: Manual sync…" : "Status: Syncing…";
 
     const user = auth.currentUser;
     if (user) {
       await recalcSummaryStats(user.uid);
       if (statUpdated) statUpdated.textContent = new Date().toLocaleString();
-      if (syncMessageLine) syncMessageLine.textContent = "Status: Sync complete";
+      syncMessageLine.textContent = manual ? "Status: Manual sync complete" : "Status: Sync complete";
     } else {
-      if (syncMessageLine) syncMessageLine.textContent = "Status: Not logged in";
+      syncMessageLine.textContent = "Status: Not logged in";
     }
   } catch (err) {
     console.error("❌ Sync error:", err);
-    if (syncMessageLine) syncMessageLine.textContent = "Status: Sync failed";
+    syncMessageLine.textContent = "Status: Sync failed";
   } finally {
     if (syncSpinner) syncSpinner.style.display = "none";
   }
