@@ -149,10 +149,20 @@ async function loadUserProfile(uid) {
 function updateProfileButton(userData) {
   const profileBtn = document.getElementById('profileBtn');
   if (profileBtn) {
-    const email = userData.email || 'User';
+    const email = userData?.email || auth.currentUser?.email || 'User';
     const displayName = email.split('@')[0];
+    
+    // Update both the button text and the userName span
     profileBtn.innerHTML = `👤 ${displayName}`;
+    
+    // Also update the userName span if it exists separately
+    const userNameSpan = document.getElementById('userName');
+    if (userNameSpan) {
+      userNameSpan.textContent = displayName;
+    }
+    
     profileBtn.title = `Logged in as ${email}`;
+    console.log('✅ Profile button updated for:', displayName);
   }
 }
 
