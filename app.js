@@ -1413,7 +1413,6 @@ function initEventListeners() {
 // ===========================
 // THEME MANAGEMENT
 // ===========================
-
 function toggleTheme() {
   const currentTheme = document.documentElement.getAttribute('data-theme');
   const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
@@ -1431,7 +1430,6 @@ function initializeTheme() {
 // ===========================
 // TAB MANAGEMENT
 // ===========================
-
 function initTabs() {
   const tabs = document.querySelectorAll('.tab');
   const tabContents = document.querySelectorAll('.tabcontent');
@@ -1468,7 +1466,6 @@ function initTabs() {
   
   console.log('✅ Tabs initialized');
 }
-
 // ===========================
 // STUDENT DROPDOWN MANAGEMENT
 // ===========================
