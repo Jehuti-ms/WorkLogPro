@@ -76,9 +76,6 @@ export function updateUsageStats(students, hours, earnings) {
 // ----------------------
 // Sync Toolbar Elements
 // ----------------------
-// ----------------------
-// Sync Toolbar Elements
-// ----------------------
 const syncIndicator    = document.getElementById("syncIndicator");
 const syncSpinner      = document.getElementById("syncSpinner");
 const autoSyncCheckbox = document.getElementById("autoSyncCheckbox");
@@ -407,8 +404,6 @@ async function runSync(manual = false) {
     syncSpinner.style.display = "none";
   }
 }
-
-let autosyncInterval = null;
 
 // ----------------------
 // Sync Bar Event Listeners
