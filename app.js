@@ -1,6 +1,5 @@
 // app.js — WorkLog main application logic
-// Loaded via <script type="module" src="app.js"></script> in index.html
-
+// Existing imports at the top of app.js
 import { auth, db } from "./firebase-config.js";
 import {
   doc,
@@ -10,7 +9,66 @@ import {
   addDoc,
   getDocs
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  onAuthStateChanged,
+  signOut
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+// ===========================
+// AUTH SECTION WIRING
+// ===========================
+
+// Toggle user menu
+const authButton = document.getElementById("authButton");
+const userMenu = document.getElementById("userMenu");
+
+if (authButton && userMenu) {
+  authButton.addEventListener("click", () => {
+    userMenu.classList.toggle("open");
+    authButton.parentElement.classList.toggle("open");
+  });
+}
+
+document.addEventListener("click", (e) => {
+  if (!authButton.contains(e.target) && !userMenu.contains(e.target)) {
+    userMenu.classList.remove("open");
+    authButton.parentElement.classList.remove("open");
+  }
+});
+
+// Handle auth state
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    document.getElementById("userName").textContent = user.displayName || user.email;
+    document.getElementById("userDisplayName").textContent = user.displayName || "User";
+    document.getElementById("userEmail").textContent = user.email || "";
+
+    document.querySelector(".container").style.display = "block";
+  } else {
+    window.location.href = "auth.html";
+  }
+});
+
+// Logout
+const logoutBtn = document.getElementById("logoutBtn");
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", async () => {
+    try {
+      await signOut(auth);
+      window.location.href = "auth.html";
+    } catch (err) {
+      console.error("Logout failed:", err);
+    }
+  });
+}
+
+// Usage stats updater
+export function updateUsageStats(students, hours, earnings) {
+  document.getElementById("statStudents").textContent = students;
+  document.getElementById("statHours").textContent = hours;
+  document.getElementById("statEarnings").textContent = earnings.toFixed(2);
+  document.getElementById("statUpdated").textContent = new Date().toLocaleString();
+}
 
 // ----------------------
 // DOM Elements (defensive)
