@@ -631,7 +631,6 @@ async function addStudent() {
   }
 }
 
-
 function clearStudentForm() {
   const form = document.getElementById("studentForm");
   if (form) form.reset();
@@ -793,7 +792,6 @@ async function addMark(uid, markData) {
   }
 }
 
-
 async function renderRecentMarks(limit = 10) {
   const user = auth.currentUser;
   if (!user) return;
@@ -861,7 +859,6 @@ async function addAttendance(uid, attendanceData) {
     if (syncMessageLine) syncMessageLine.textContent = "Status: Failed to add attendance";
   }
 }
-
 
 function clearAttendanceForm() {
   const dateEl    = document.getElementById("attendanceDate");
