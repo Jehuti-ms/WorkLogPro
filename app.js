@@ -255,6 +255,73 @@ async function recalcSummaryStats(uid) {
   }
 }
 
+// ----------------------
+// Sync Bar Controls
+// ----------------------
+const syncToggleBtn   = document.getElementById("syncToggleBtn");
+const syncSpinner     = document.getElementById("syncSpinner");
+const syncMessageLine = document.getElementById("syncMessageLine");
+const statUpdated     = document.getElementById("statUpdated");
+
+let autosyncEnabled = false;
+let autosyncInterval = null;
+
+// Toggle autosync on/off
+if (syncToggleBtn) {
+  syncToggleBtn.addEventListener("click", () => {
+    autosyncEnabled = !autosyncEnabled;
+
+    if (autosyncEnabled) {
+      syncToggleBtn.textContent = "⏸ Pause Sync";
+      syncMessageLine.textContent = "Status: Autosync enabled";
+      startAutosync();
+    } else {
+      syncToggleBtn.textContent = "▶ Resume Sync";
+      syncMessageLine.textContent = "Status: Autosync paused";
+      stopAutosync();
+    }
+  });
+}
+
+// Start autosync loop
+function startAutosync() {
+  if (autosyncInterval) clearInterval(autosyncInterval);
+
+  autosyncInterval = setInterval(async () => {
+    await runSync();
+  }, 60 * 1000); // every 60 seconds
+  runSync(); // run immediately
+}
+
+// Stop autosync loop
+function stopAutosync() {
+  if (autosyncInterval) {
+    clearInterval(autosyncInterval);
+    autosyncInterval = null;
+  }
+}
+
+// Run one sync cycle
+async function runSync() {
+  try {
+    if (syncSpinner) syncSpinner.style.display = "inline-block";
+    if (syncMessageLine) syncMessageLine.textContent = "Status: Syncing…";
+
+    const user = auth.currentUser;
+    if (user) {
+      await recalcSummaryStats(user.uid);
+      if (statUpdated) statUpdated.textContent = new Date().toLocaleString();
+      if (syncMessageLine) syncMessageLine.textContent = "Status: Sync complete";
+    } else {
+      if (syncMessageLine) syncMessageLine.textContent = "Status: Not logged in";
+    }
+  } catch (err) {
+    console.error("❌ Sync error:", err);
+    if (syncMessageLine) syncMessageLine.textContent = "Status: Sync failed";
+  } finally {
+    if (syncSpinner) syncSpinner.style.display = "none";
+  }
+}
 
 // ----------------------
 // Students Tab
