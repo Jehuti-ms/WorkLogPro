@@ -512,48 +512,20 @@ function useDefaultRateInHours() {
 // ----------------------
 // Marks Tab
 // ----------------------
-async function addMark() {
-  const studentEl = document.getElementById("marksStudent");
-  const subjectEl = document.getElementById("markSubject");
-  const topicEl   = document.getElementById("markTopic");
-  const dateEl    = document.getElementById("markDate");
-  const scoreEl   = document.getElementById("score");
-  const maxEl     = document.getElementById("maxScore");
-  const pctEl     = document.getElementById("percentage");
-  const gradeEl   = document.getElementById("grade");
+async function addMark(uid, markData) {
+  try {
+    const marksRef = collection(db, "users", uid, "marks");
+    await addDoc(marksRef, markData);
+    console.log("✅ Mark added:", markData);
 
-  const student = studentEl?.value;
-  const subject = subjectEl?.value.trim();
-  const topic   = topicEl?.value.trim();
-  const date    = dateEl?.value;
-  const score   = parseFloat(scoreEl?.value);
-  const max     = parseFloat(maxEl?.value);
-
-  if (!student || !subject || !topic || !date || !Number.isFinite(score) || !Number.isFinite(max) || max <= 0) {
-    alert("Please fill all required fields and ensure score/max are valid");
-    return;
+    // Recalculate stats → updateUserStats handles dropdown refresh
+    await recalcSummaryStats(uid);
+  } catch (err) {
+    console.error("❌ Error adding mark:", err);
+    if (syncMessageLine) syncMessageLine.textContent = "Status: Failed to add mark";
   }
-
-  const pctVal = (score / max) * 100;
-  const percentage = pctVal.toFixed(2);
-  const grade = pctVal >= 90 ? "A" :
-                pctVal >= 80 ? "B" :
-                pctVal >= 70 ? "C" :
-                pctVal >= 60 ? "D" : "F";
-
-  if (pctEl)   pctEl.value   = `${percentage}%`;
-  if (gradeEl) gradeEl.value = grade;
-
-  const user = auth.currentUser;
-  if (!user) return;
-  await addDoc(collection(db, "users", user.uid, "marks"), {
-    student, subject, topic, date, percentage: pctVal, score, max
-  });
-
-  console.log("✅ Mark saved");
-  refreshTimestamp();
-  await renderRecentMarks();
 }
+
 
 async function renderRecentMarks(limit = 10) {
   const user = auth.currentUser;
@@ -609,34 +581,20 @@ function resetMarksForm() {
 // ----------------------
 // Attendance Tab
 // ----------------------
-async function saveAttendance() {
-  const dateEl    = document.getElementById("attendanceDate");
-  const subjectEl = document.getElementById("attendanceSubject");
-  const topicEl   = document.getElementById("attendanceTopic");
+async function addAttendance(uid, attendanceData) {
+  try {
+    const attendanceRef = collection(db, "users", uid, "attendance");
+    await addDoc(attendanceRef, attendanceData);
+    console.log("✅ Attendance recorded:", attendanceData);
 
-  const date    = dateEl?.value;
-  const subject = subjectEl?.value?.trim() || "";
-  const topic   = topicEl?.value?.trim() || "";
-
-  if (!date || !subject) {
-    alert("Please fill required fields: Date, Subject");
-    return;
+    // Recalculate stats → updateUserStats handles dropdown refresh
+    await recalcSummaryStats(uid);
+  } catch (err) {
+    console.error("❌ Error adding attendance:", err);
+    if (syncMessageLine) syncMessageLine.textContent = "Status: Failed to add attendance";
   }
-
-  const presentStudents = [];
-  document.querySelectorAll("#attendanceList input[type=checkbox]:checked")
-    .forEach(cb => presentStudents.push(cb.value));
-
-  const record = { date, subject, topic, present: presentStudents };
-
-  const user = auth.currentUser;
-  if (!user) return;
-
-  await addDoc(collection(db, "users", user.uid, "attendance"), record);
-  console.log("✅ Attendance saved");
-  refreshTimestamp();
-  await renderAttendanceRecent();
 }
+
 
 function clearAttendanceForm() {
   const dateEl    = document.getElementById("attendanceDate");
@@ -697,36 +655,20 @@ async function renderAttendanceRecent(limit = 10) {
 // ----------------------
 // Payments Tab
 // ----------------------
-async function recordPayment() {
-  const studentEl = document.getElementById("paymentStudent");
-  const amountEl  = document.getElementById("paymentAmount");
-  const dateEl    = document.getElementById("paymentDate");
-  const methodEl  = document.getElementById("paymentMethod");
-  const notesEl   = document.getElementById("paymentNotes");
+async function recordPayment(uid, paymentData) {
+  try {
+    const paymentsRef = collection(db, "users", uid, "payments");
+    await addDoc(paymentsRef, paymentData);
+    console.log("✅ Payment recorded:", paymentData);
 
-  const student = studentEl?.value;
-  const amount  = parseFloat(amountEl?.value);
-  const date    = dateEl?.value;
-  const method  = methodEl?.value;
-  const notes   = notesEl?.value?.trim() || "";
-
-  if (!student || !Number.isFinite(amount) || amount <= 0 || !date) {
-    alert("Please fill required fields: Student, Amount (>0), Date");
-    return;
+    // Recalculate stats → updateUserStats handles dropdown refresh
+    await recalcSummaryStats(uid);
+  } catch (err) {
+    console.error("❌ Error recording payment:", err);
+    if (syncMessageLine) syncMessageLine.textContent = "Status: Failed to record payment";
   }
-
-  const payment = { student, amount, date, method, notes };
-
-  const user = auth.currentUser;
-  if (!user) return;
-  await addDoc(collection(db, "users", user.uid, "payments"), payment);
-
-  console.log("✅ Payment recorded");
-  refreshTimestamp();
-  await renderPaymentActivity();
-  await renderStudentBalances();
-  resetPaymentForm();
 }
+
 
 function resetPaymentForm() {
   const studentEl = document.getElementById("paymentStudent");
