@@ -781,7 +781,7 @@ textarea::placeholder {
 /* ===========================
    Theme Toggle & Responsive
    =========================== */
-/* Theme Toggle Button - Complete Responsive Version */
+/* Theme Toggle Button - Icon Only (Responsive) */
 .theme-toggle {
   display: flex;
   align-items: center;
@@ -791,14 +791,14 @@ textarea::placeholder {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 50%;
-  width: clamp(35px, 10vw, 50px);
-  height: clamp(35px, 10vw, 50px);
+  width: clamp(36px, 8vw, 44px);
+  height: clamp(36px, 8vw, 44px);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: clamp(14px, 4vw, 18px);
-  transition: all 0.2s ease;
+  font-size: clamp(16px, 4vw, 20px);
+  transition: all 0.3s ease;
   padding: 0;
   margin: 0;
 }
@@ -806,62 +806,56 @@ textarea::placeholder {
 .theme-toggle button:hover {
   background: var(--border-light);
   transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .theme-toggle button:active {
   transform: scale(0.95);
 }
 
+/* Remove any text */
+.theme-toggle button * {
+  display: none !important;
+}
+
+/* Ensure proper emoji display */
 .theme-toggle button::before {
   content: "🌓";
   display: block;
   line-height: 1;
 }
 
-[data-theme="dark"] .theme-toggle button::before {
-  content: "☀️";
-}
-
-[data-theme="light"] .theme-toggle button::before {
-  content: "🌙";
-}
-
-.theme-toggle button span {
-  display: none !important;
-}
-
-/* Responsive breakpoints */
-@media (max-width: 768px) {
+/* High-resolution screens */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
   .theme-toggle button {
-    width: 40px;
-    height: 40px;
-    font-size: 16px;
+    border-width: 1.5px;
   }
 }
 
-@media (max-width: 480px) {
-  .theme-toggle button {
-    width: 36px;
-    height: 36px;
-    font-size: 14px;
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  .theme-toggle button:hover {
+    transform: none;
+    background: var(--surface);
+  }
+  
+  .theme-toggle button:active {
+    background: var(--border-light);
+    transform: scale(0.95);
   }
 }
 
-@media (max-width: 360px) {
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
   .theme-toggle button {
-    width: 32px;
-    height: 32px;
-    font-size: 12px;
+    transition: none;
+  }
+  
+  .theme-toggle button:hover {
+    transform: none;
   }
 }
 
-@media (min-width: 1200px) {
-  .theme-toggle button {
-    width: 44px;
-    height: 44px;
-    font-size: 20px;
-  }
-}
 /* Header layout to ensure proper spacing */
 .header-content {
   display: flex;
