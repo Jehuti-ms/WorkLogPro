@@ -2352,7 +2352,7 @@ async function showSubjectBreakdown() {
 // ===========================
 // GLOBAL FUNCTION EXPORTS
 // ===========================
-window.toggleTheme = () => UIManager.toggleTheme();
+
 window.addStudent = addStudent;
 window.clearStudentForm = clearStudentForm;
 window.saveDefaultRate = saveDefaultRate;
