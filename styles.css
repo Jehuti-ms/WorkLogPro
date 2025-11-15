@@ -1,826 +1,268 @@
-/* ============================================================================
-   Root Theme Variables
-============================================================================ */
-:root {
-  --primary: #667eea;
-  --primary-dark: #5a67d8;
-  --secondary: #edf2f7;
-  --accent: #38b2ac;
-  --danger: #e53e3e;
-  --warning: #dd6b20;
-  --success: #48bb78;
-  --text: #2d3748;
-  --muted: #718096;
-  --bg: #f7fafc;
-  --card-bg: #ffffff;
-  --border: #e2e8f0;
-  --radius: 8px;
-  --shadow: 0 2px 8px rgba(0,0,0,0.08);
-}
-
-/* Dark mode */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --primary: #7f9cf5;
-    --primary-dark: #667eea;
-    --secondary: #2d3748;
-    --accent: #4fd1c5;
-    --danger: #fc8181;
-    --warning: #f6ad55;
-    --success: #68d391;
-    --text: #edf2f7;
-    --muted: #a0aec0;
-    --bg: #1a202c;
-    --card-bg: #2d3748;
-    --border: #4a5568;
-    --shadow: 0 2px 8px rgba(0,0,0,0.4);
-  }
-}
-
-/* ============================================================================
-   Base
-============================================================================ */
-* {
-  box-sizing: border-box;
-}
+/* ===========================
+   Base Reset & Typography
+   =========================== */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+button, input, select, textarea { font: inherit; }
 
 body {
-  margin: 0;
-  font-family: "Inter", "Segoe UI", Roboto, sans-serif;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.5;
   background: var(--bg);
   color: var(--text);
-  line-height: 1.5;
 }
 
-h1, h2, h3, h4 {
-  margin: 0.5em 0;
-  font-weight: 600;
+/* ===========================
+   Theme Variables
+   =========================== */
+:root {
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --muted: #6b7280;
+  --text: #111827;
+  --primary: #2563eb;
+  --primary-contrast: #ffffff;
+  --success: #16a34a;
+  --warning: #f59e0b;
+  --error: #dc2626;
+  --info: #0ea5e9;
+
+  --border: #e5e7eb;
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
 }
 
-p {
-  margin: 0.5em 0;
+body.theme-dark {
+  --bg: #0b0e12;
+  --surface: #11161c;
+  --muted: #9aa4b2;
+  --text: #e5e7eb;
+  --primary: #60a5fa;
+  --primary-contrast: #0b0e12;
+  --border: #1f2937;
+  --card-shadow: 0 1px 2px rgba(0,0,0,0.35);
 }
 
+/* ===========================
+   Layout Containers
+   =========================== */
 .container {
-  max-width: 1200px;
+  max-width: 1100px;
   margin: 0 auto;
-  padding: 1rem;
+  padding: 16px;
 }
 
-/* ============================================================================
-   Header
-============================================================================ */
 .header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  padding: 1rem;
-  background: var(--card-bg);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-}
-
-.subtitle {
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-.storage-status {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.85rem;
-}
-
-/* ============================================================================
-   Tabs
-============================================================================ */
-.tabs-container {
-  margin-top: 1rem;
-}
-
-.tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.tab {
-  flex: 1;
-  padding: 0.75rem;
-  border: none;
-  border-radius: var(--radius);
-  background: var(--secondary);
-  color: var(--text);
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.tab.active {
-  background: var(--primary);
-  color: #fff;
-}
-
-.tab:hover {
-  background: var(--primary-dark);
-  color: #fff;
-}
-
-/* ============================================================================
-   Content & Cards
-============================================================================ */
-.content {
-  margin-top: 1rem;
-}
-
-.tab-content {
-  display: none;
-  padding: 1rem;
-  background: var(--card-bg);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-}
-
-.tab-content.active {
-  display: block;
-}
-
-.section-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1rem;
-  margin-bottom: 1rem;
-  box-shadow: var(--shadow);
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-/* ============================================================================
-   Buttons
-============================================================================ */
-.btn {
-  display: inline-block;
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--radius);
-  border: none;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: background 0.2s, transform 0.1s;
-}
-
-.btn:hover {
-  transform: translateY(-1px);
-}
-
-.btn-primary {
-  background: var(--primary);
-  color: #fff;
-}
-
-.btn-secondary {
-  background: var(--accent);
-  color: #fff;
-}
-
-.btn-success {
-  background: var(--success);
-  color: #fff;
-}
-
-.btn-warning {
-  background: var(--warning);
-  color: #fff;
-}
-
-.btn-danger {
-  background: var(--danger);
-  color: #fff;
-}
-
-.btn-sm {
-  font-size: 0.8rem;
-  padding: 0.35rem 0.6rem;
-}
-
-/* ============================================================================
-   Forms
-============================================================================ */
-.form-group {
-  margin-bottom: 1rem;
-}
-
-.form-group label {
-  display: block;
-  font-weight: 500;
-  margin-bottom: 0.25rem;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--secondary);
-  color: var(--text);
-}
-
-.form-actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit,minmax(250px,1fr));
-  gap: 1rem;
-}
-
-/* ============================================================================
-   Lists & Cards
-============================================================================ */
-.students-container,
-.attendance-history,
-.mobile-entries {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.student-card,
-.hours-entry,
-.mark-entry,
-.attendance-entry,
-.activity-item {
-  background: var(--secondary);
-  border-radius: var(--radius);
-  padding: 0.75rem;
-  box-shadow: var(--shadow);
-}
-
-.student-card-header {
-  font-weight: 600;
-  margin-bottom: 0.25rem;
-}
-
-.muted {
-  color: var(--muted);
-  font-size: 0.85rem;
-}
-
-/* ============================================================================
-   Cloud Sync Bar
-============================================================================ */
-.cloud-sync-bar {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 1rem;
-  padding: 0.75rem;
-  background: var(--card-bg);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-}
-
-.sync-status {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.85rem;
-}
-
-.sync-indicator {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.sync-connected {
-  background: var(--success);
-}
-
-.sync-disconnected {
-  background: var(--danger);
-}
-
-.sync-controls {
-  display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-/* ============================================================================
-   User Menu
-============================================================================ */
-.user-menu {
-  display: none;
-  position: absolute;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.5rem;
-  min-width: 150px;
-  box-shadow: var(--shadow);
-  z-index: 1000;
-}
-
-.user-menu-item {
-  width: 100%;
-  padding: 0.5rem;
-  border: none;
-  background: none;
-  text-align: left;
-  cursor: pointer;
-  border-radius: var(--radius);
-}
-
-.user-menu-item:hover {
-  background: var(--secondary);
-}
-
-/* ============================================================================
-   Responsive
-============================================================================ */
-@media (max-width: 768px) {
-  .header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
-  .tabs {
-    flex-direction: column;
-  }
-  .sync-controls {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-}
-
-/* ============================================================================
-  Stats Modal
-============================================================================ */
-/* Modal */
-.modal {
-  display: none;
-  position: fixed;
-  z-index: 2000;
-  left: 0; top: 0;
-  width: 100%; height: 100%;
-  background: rgba(0,0,0,0.5);
-}
-
-.modal-content {
-  background: var(--card-bg);
-  margin: 10% auto;
-  padding: 1rem;
-  border-radius: var(--radius);
-  max-width: 500px;
-  box-shadow: var(--shadow);
-}
-
-.modal .close {
-  float: right;
-  font-size: 1.5rem;
-  cursor: pointer;
-}
-
-/* ============================================================================
-  Floating Action Button
-============================================================================ */
-/* Floating Action Button */
-.fab-container {
-  position: fixed;
-  bottom: 1.5rem;
-  right: 1.5rem;
-  z-index: 1500;
-}
-
-.fab {
-  background: var(--primary);
-  color: #fff;
-  border: none;
-  border-radius: 50%;
-  width: 56px;
-  height: 56px;
-  font-size: 1.5rem;
-  box-shadow: var(--shadow);
-  cursor: pointer;
-  transition: background 0.2s, transform 0.1s;
-}
-
-.fab:hover {
-  background: var(--primary-dark);
-  transform: scale(1.05);
-}
-
-.user-menu {
-  background: #fff;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  padding: 10px;
-  position: absolute;
-  right: 10px;
-  top: 60px;
-  display: none;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-.user-info {
-  margin-bottom: 10px;
-  font-size: 0.9em;
-}
-
-.sync-message-line {
-  font-size: 0.85em;
-  color: #555;
-  margin-top: 6px;
-}
-
-.auto-sync-dot {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  margin-left: 8px;
-  border-radius: 50%;
-  background-color: green;
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0% { transform: scale(0.9); opacity: 0.7; }
-  50% { transform: scale(1.2); opacity: 1; }
-  100% { transform: scale(0.9); opacity: 0.7; }
-}
-
-.sync-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 12px; /* keeps everything in one horizontal line */
-}
-
-
-/* Default: stacked grid for small screens */
-.sync-toolbar {
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-}
-
-/* Horizontal row for larger screens */
-@media (min-width: 768px) {
-  .sync-toolbar {
-    grid-template-columns: repeat(11, auto);
-  }
-}
-
-.auto-sync-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.9em;
-}
-
-.sync-message-line {
-  font-size: 0.85em;
-  color: #555;
-  white-space: nowrap;
-}
-
-.auto-sync-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background-color: green;
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0% { transform: scale(0.9); opacity: 0.7; }
-  50% { transform: scale(1.2); opacity: 1; }
-  100% { transform: scale(0.9); opacity: 0.7; }
-}
-
-
-
-@media (min-width: 768px) {
-  .sync-toolbar {
-    grid-template-columns: repeat(13, auto); /* includes auth section */
-  }
-}
-
-.auto-sync-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.9em;
-}
-
-.sync-message-line {
-  font-size: 0.85em;
-  color: #555;
-  white-space: nowrap;
-}
-
-.auto-sync-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background-color: green;
-  animation: pulse 1.5s infinite;
-}
-
-.auth-section {
-  position: relative;
-}
-
-.user-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  background: #fff;
-  border: 1px solid #ccc;
-  padding: 8px;
-  z-index: 10;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-}
-
-.user-menu-item {
-  display: block;
-  width: 100%;
-  margin-top: 4px;
-  font-size: 0.9em;
-  background: none;
-  border: none;
-  text-align: left;
-  padding: 4px 0;
-  cursor: pointer;
-}
-
-.user-info {
-  font-size: 0.85em;
-  margin-bottom: 6px;
-  color: #333;
-}
-
-/* Auth section sits inline in the grid */
-.auth-section {
-  display: flex;
-  align-items: center;
-  position: relative; /* keep dropdown anchored */
-}
-
-/* Dropdown menu styled but not floating over stats */
-.user-menu {
-  position: absolute;
-  top: 100%;   /* directly below the button */
-  right: 0;
-  background: #fff;
-  border: 1px solid #ccc;
-  padding: 8px;
-  z-index: 100; /* just above toolbar, not whole header */
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-  min-width: 180px;
-}
-
-.auth-gate {
-  text-align: center;
-  padding: 60px 20px;
-}
-
-/* Add these styles if missing */
-.dropdown-menu {
-  display: none;
-  position: absolute;
-  top: 100%;
-  right: 0;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  min-width: 220px;
-  box-shadow: var(--shadow);
-  padding: 8px;
-  z-index: 1000;
-}
-
-.dropdown-menu.show {
-  display: block;
-}
-
-.dropdown-item-text {
-  padding: 6px 12px;
-  font-size: 0.85em;
-}
-
-.dropdown-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 6px 0;
-}
-
-.auth-gate {
-  text-align: center;
-  padding: 60px 20px;
-  background: var(--card-bg);
-  border-radius: var(--radius);
-  margin: 20px;
-}
-.sync-indicator {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  margin-right: 6px;
-  border-radius: 50%;
-  background-color: gray; /* idle */
-}
-
-.sync-indicator.sync-connected {
-  background-color: green;
-}
-
-.sync-indicator.sync-active {
-  background-color: green;
-  animation: pulse 1.5s infinite;
-}
-
-.sync-indicator.sync-error {
-  background-color: red;
-}
-
-@keyframes pulse {
-  0% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.4); opacity: 0.6; }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-.sync-spinner {
-  display: none;
-  margin-left: 8px;
-  border: 2px solid #ccc;
-  border-top: 2px solid #333;
-  border-radius: 50%;
-  width: 14px;
-  height: 14px;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.sync-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 12px; /* space between buttons/controls */
-}
-
-.auto-sync-label {
-  display: inline-flex; /* keep text + hidden checkbox inline */
-  align-items: center;
-  padding: 6px 14px;
-  border-radius: 4px;
-  background-color: #444;
-  color: #fff;
-  cursor: pointer;
-  user-select: none;
-  transition: background-color 0.3s, transform 0.1s;
-}
-
-.auto-sync-label:hover {
-  background-color: #555;
-  transform: scale(1.05);
-}
-
-.auto-sync-label input[type="checkbox"] {
-  display: none; /* hide raw checkbox */
-}
-
-.auto-sync-label input[type="checkbox"]:checked + span {
-  font-weight: bold;
-  color: #fff;
-}
-
-.auto-sync-label.checked {
-  background-color: #2a7; /* green when active */
-}
-
-.sync-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 12px; /* keeps everything in one horizontal line */
-}
-
-.auto-sync-label input[type="checkbox"] {
-  display: none; /* hide raw checkbox */
-}
-
-.auto-sync-label {
-  display: inline-block;
-  padding: 6px 14px;
-  border-radius: 4px;
-  background-color: #444; /* inactive */
-  color: #fff;
-  cursor: pointer;
-  user-select: none;
-  transition: background-color 0.3s, transform 0.1s;
-}
-
-.auto-sync-label:hover {
-  background-color: #555;
-  transform: scale(1.05);
-}
-
-.auto-sync-label.checked {
-  background-color: #2a7; /* green when active */
-}
-
-/* Keep everything inline in the sync bar */
-.sync-toolbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--card-shadow);
+  padding: 12px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.logo-title {
   display: flex;
   align-items: center;
   gap: 12px;
 }
+.logo { height: 80px; width: 80px; }
+.subtitle { color: var(--muted); margin-top: 4px; }
 
-/* Manual sync button */
-#syncButton {
-  padding: 6px 14px;
-  border: none;
-  border-radius: 4px;
-  background-color: #444;
-  color: #fff;
+/* ===========================
+   Auth Section
+   =========================== */
+.auth-section { position: relative; margin-top: 12px; }
+.auth-button {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
   cursor: pointer;
 }
-
-/* Auto-sync styled checkbox */
-.auto-sync-label input[type="checkbox"] {
-  display: none; /* hide raw checkbox */
-}
-
-.auto-sync-label {
-  display: inline-block;
-  padding: 6px 14px;
-  border-radius: 4px;
-  background-color: #444;
-  color: #fff;
-  cursor: pointer;
-  user-select: none;
-  transition: background-color 0.3s, transform 0.1s;
-}
-
-.auto-sync-label:hover {
-  background-color: #555;
-  transform: scale(1.05);
-}
-
-.auto-sync-label.checked {
-  background-color: #2a7; /* green when active */
-}
-
-/* Spinner */
-.sync-spinner {
+.auth-menu {
   display: none;
-  margin-left: 8px;
-  border: 2px solid #ccc;
-  border-top: 2px solid #333;
+  position: absolute;
+  right: 0; top: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: var(--card-shadow);
+  padding: 10px;
+  min-width: 200px;
+}
+.auth-section.open .auth-menu { display: block; }
+.auth-item { margin-bottom: 8px; }
+.logout-button {
+  background: var(--error);
+  color: var(--primary-contrast);
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+/* ===========================
+   Sync Toolbar
+   =========================== */
+.sync-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px;
+}
+
+#syncIndicator {
+  width: 10px; height: 10px;
   border-radius: 50%;
-  width: 14px;
-  height: 14px;
-  animation: spin 1s linear infinite;
+  border: 1px solid var(--border);
+  background: var(--primary);
 }
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* Indicator dot */
-.sync-indicator {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background-color: gray;
-}
-
-.sync-indicator.sync-active {
-  background-color: green;
-  animation: pulse 1.5s infinite;
-}
-
-.sync-indicator.sync-error {
-  background-color: red;
-}
+#syncIndicator.sync-connected { background: var(--success); }
+#syncIndicator.sync-active { background: var(--primary); animation: pulse 1.2s infinite; }
+#syncIndicator.sync-error { background: var(--error); }
 
 @keyframes pulse {
   0% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.4); opacity: 0.6; }
+  50% { transform: scale(1.2); opacity: 0.8; }
   100% { transform: scale(1); opacity: 1; }
 }
+
+#syncSpinner {
+  display: none;
+  width: 16px; height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===========================
+   Tabs
+   =========================== */
+.tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  margin-top: 12px;
+}
+.tab {
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  cursor: pointer;
+  color: var(--muted);
+}
+.tab.active {
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-bottom: 1px solid var(--surface);
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+}
+.tabcontent {
+  display: none;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: none;
+  box-shadow: var(--card-shadow);
+}
+.tabcontent.active { display: block; }
+
+/* ===========================
+   Cards & Sections
+   =========================== */
+.section-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 12px 0;
+  box-shadow: var(--card-shadow);
+}
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.student-stats { display: flex; align-items: center; gap: 6px; }
+.stat-badge {
+  background: var(--primary);
+  color: var(--primary-contrast);
+  border-radius: 50%;
+  padding: 4px 8px;
+  font-weight: 600;
+}
+.stat-divider { color: var(--muted); }
+.stat-text { color: var(--muted); }
+
+/* ===========================
+   Forms
+   =========================== */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+input[type="text"],
+input[type="number"],
+input[type="date"],
+input[type="email"],
+input[type="tel"],
+select,
+textarea {
+  width: 100%;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+textarea { min-height: 80px; }
+input::placeholder, textarea::placeholder { color: var(--muted); }
+
+/* ===========================
+   Buttons
+   =========================== */
+.button {
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.button.primary { background: var(--primary); color: var(--primary-contrast); }
+.button.success { background: var(--success); color: var(--primary-contrast); }
+.button.warning { background: var(--warning); color: var(--primary-contrast); }
+.button.secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.button.info { background: var(--info); color: var(--primary-contrast); }
+.button.light { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+.button.danger { background: var(--error); color: var(--primary-contrast); }
+.button.small { font-size: 0.85rem; padding: 4px 8px; }
+
+/* ===========================
+   Lists & Entries
+   =========================== */
+.student-card, .hours-entry, .mark-entry, .attendance-entry, .activity-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 8px 0;
+  box-shadow: var(--card-shadow);
+}
+.student-card-header { font-weight: 600; margin-bottom: 6px; }
+.muted { color: var(--muted); font-size: 0.9rem; }
+.empty-message {
+  color: var(--muted);
+  text-align: center;
