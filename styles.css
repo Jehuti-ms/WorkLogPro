@@ -472,7 +472,7 @@ body {
 /* ===========================
    Tabs - Modern
    =========================== */
-/*.tabs-container {
+.tabs-container {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   position: sticky;
@@ -480,7 +480,7 @@ body {
   z-index: 80;
 }
 
-.tabs {
+/*.tabs {
   display: flex;
   gap: 0;
   background: var(--surface);
