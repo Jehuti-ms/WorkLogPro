@@ -1983,6 +1983,30 @@ const UIManager = {
 };
 
 // ===========================
+// STUDENT FORM EVENT LISTENERS
+// ===========================
+
+function setupStudentFormListeners() {
+  const submitBtn = document.getElementById('studentSubmitBtn');
+  const clearBtn = document.getElementById('clearStudentFormBtn');
+  const cancelBtn = document.getElementById('studentCancelBtn');
+
+  if (submitBtn) {
+    submitBtn.addEventListener('click', addStudent);
+  }
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', clearStudentForm);
+  }
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', cancelEdit);
+  }
+
+  console.log('✅ Student form event listeners setup');
+}
+
+// ===========================
 // STUDENT MANAGEMENT MODULE
 // ===========================
 
