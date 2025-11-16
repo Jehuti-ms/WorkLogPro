@@ -1981,7 +1981,7 @@ setupHoursFormCalculations() {
     const maxInput = document.getElementById('marksMax');
     if (scoreInput) scoreInput.addEventListener('input', updateMarksPercentage);
     if (maxInput) maxInput.addEventListener('input', updateMarksPercentage);
-  }
+  },
 
   initEventListeners() {
     console.log('🔧 Initializing event listeners...');
