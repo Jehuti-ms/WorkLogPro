@@ -383,11 +383,7 @@ function updateProfileModal() {
 }
 
 // ===========================
-// FLOATING ADD BUTTON
-// ===========================
-
-// ===========================
-// FLOATING ADD BUTTON - FIXED
+// FLOATING ADD BUTTON - FIXED VERSION
 // ===========================
 
 function setupFloatingAddButton() {
@@ -396,6 +392,7 @@ function setupFloatingAddButton() {
   const fabOverlay = document.getElementById('fabOverlay');
 
   console.log('🔧 Setting up FAB...');
+  console.log('FAB elements:', { fab, fabMenu, fabOverlay });
 
   if (!fab) {
     console.error('❌ FAB button not found!');
@@ -405,38 +402,56 @@ function setupFloatingAddButton() {
   let isExpanded = false;
 
   function openFabMenu() {
+    console.log('🟢 Opening FAB menu');
     isExpanded = true;
-    fab.setAttribute('data-expanded', 'true');
-    fab.innerHTML = '✕'; // Change to X when open
     
+    // Update FAB button
+    fab.innerHTML = '✕';
+    fab.style.transform = 'rotate(45deg)';
+    
+    // Show menu
     if (fabMenu) {
       fabMenu.classList.add('show');
-      console.log('📱 FAB menu opened');
     }
     
+    // Show overlay
     if (fabOverlay) {
       fabOverlay.style.display = 'block';
+      // Add a small delay for overlay to appear before adding click listener
+      setTimeout(() => {
+        fabOverlay.style.pointerEvents = 'auto';
+      }, 10);
     }
+    
+    console.log('✅ FAB menu opened');
   }
 
   function closeFabMenu() {
+    console.log('🔴 Closing FAB menu');
     isExpanded = false;
-    fab.setAttribute('data-expanded', 'false');
-    fab.innerHTML = '+'; // Change back to plus when closed
     
+    // Update FAB button
+    fab.innerHTML = '+';
+    fab.style.transform = 'rotate(0deg)';
+    
+    // Hide menu
     if (fabMenu) {
       fabMenu.classList.remove('show');
-      console.log('📱 FAB menu closed');
     }
     
+    // Hide overlay
     if (fabOverlay) {
       fabOverlay.style.display = 'none';
+      fabOverlay.style.pointerEvents = 'none';
     }
+    
+    console.log('✅ FAB menu closed');
   }
 
   // Click handler for main FAB button
   fab.addEventListener('click', (e) => {
     e.stopPropagation();
+    e.preventDefault();
     console.log('🎯 FAB clicked, current state:', isExpanded);
     
     if (isExpanded) {
@@ -449,17 +464,22 @@ function setupFloatingAddButton() {
   // Close menu when clicking on overlay
   if (fabOverlay) {
     fabOverlay.addEventListener('click', (e) => {
+      console.log('🎯 Overlay clicked');
       e.stopPropagation();
+      e.preventDefault();
       closeFabMenu();
     });
   }
 
-  // Close menu when clicking outside (but not on FAB itself)
+  // Close menu when clicking anywhere outside
   document.addEventListener('click', (e) => {
-    if (isExpanded && !fab.contains(e.target)) {
-      // Check if click is outside both FAB and menu
-      const clickedOnMenu = fabMenu && fabMenu.contains(e.target);
-      if (!clickedOnMenu) {
+    if (isExpanded) {
+      // Check if click is outside FAB and menu
+      const isClickOnFab = fab.contains(e.target);
+      const isClickOnMenu = fabMenu && fabMenu.contains(e.target);
+      
+      if (!isClickOnFab && !isClickOnMenu) {
+        console.log('🎯 Click outside FAB, closing menu');
         closeFabMenu();
       }
     }
@@ -468,6 +488,7 @@ function setupFloatingAddButton() {
   // Close with Escape key
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && isExpanded) {
+      console.log('🎯 Escape key pressed, closing FAB');
       closeFabMenu();
     }
   });
@@ -483,22 +504,34 @@ function setupFabActions(closeFabMenu) {
     'fabAddStudent': () => {
       console.log('🎯 FAB: Add Student clicked');
       const studentTab = document.querySelector('[data-tab="students"]');
-      if (studentTab) studentTab.click();
+      if (studentTab) {
+        studentTab.click();
+        console.log('✅ Switched to Students tab');
+      }
     },
     'fabAddHours': () => {
       console.log('🎯 FAB: Add Hours clicked');
       const hoursTab = document.querySelector('[data-tab="hours"]');
-      if (hoursTab) hoursTab.click();
+      if (hoursTab) {
+        hoursTab.click();
+        console.log('✅ Switched to Hours tab');
+      }
     },
     'fabAddMark': () => {
       console.log('🎯 FAB: Add Mark clicked');
       const marksTab = document.querySelector('[data-tab="marks"]');
-      if (marksTab) marksTab.click();
+      if (marksTab) {
+        marksTab.click();
+        console.log('✅ Switched to Marks tab');
+      }
     },
     'fabAddAttendance': () => {
       console.log('🎯 FAB: Add Attendance clicked');
       const attendanceTab = document.querySelector('[data-tab="attendance"]');
-      if (attendanceTab) attendanceTab.click();
+      if (attendanceTab) {
+        attendanceTab.click();
+        console.log('✅ Switched to Attendance tab');
+      }
     }
   };
 
@@ -515,7 +548,7 @@ function setupFabActions(closeFabMenu) {
         closeFabMenu();
       });
     } else {
-      console.error(`❌ FAB action button not found: ${btnId}`);
+      console.warn(`⚠️ FAB action button not found: ${btnId}`);
     }
   });
 }
