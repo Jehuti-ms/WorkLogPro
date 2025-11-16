@@ -664,54 +664,6 @@ function updateHeaderStats() {
   console.log('✅ [updateHeaderStats] Header stats structure verified');
 }
 
-// Enhanced updateUserStats
-async function updateUserStats(uid, newStats) {
-  try {
-    console.log('🔄 [updateUserStats] Starting with:', newStats);
-    
-    const statsRef = doc(db, "users", uid);
-    await setDoc(statsRef, newStats, { merge: true });
-
-    // Update DOM elements with null checks
-    if (newStats.students !== undefined) {
-      const statStudents = document.getElementById('statStudents');
-      if (statStudents) {
-        statStudents.textContent = newStats.students;
-        console.log('✅ [updateUserStats] Updated statStudents to:', newStats.students);
-      } else {
-        console.log('❌ [updateUserStats] statStudents element not found');
-      }
-    }
-    
-    if (newStats.hours !== undefined) {
-      const statHours = document.getElementById('statHours');
-      if (statHours) {
-        statHours.textContent = newStats.hours;
-        console.log('✅ [updateUserStats] Updated statHours to:', newStats.hours);
-      } else {
-        console.log('❌ [updateUserStats] statHours element not found');
-      }
-    }
-    
-    if (newStats.earnings !== undefined) {
-      const statEarnings = document.getElementById('statEarnings');
-      if (statEarnings) {
-        statEarnings.textContent = fmtMoney(newStats.earnings);
-        console.log('✅ [updateUserStats] Updated statEarnings to:', fmtMoney(newStats.earnings));
-      } else {
-        console.log('❌ [updateUserStats] statEarnings element not found');
-      }
-    }
-
-    // Update header stats after DOM updates
-    updateHeaderStats();
-    console.log('✅ [updateUserStats] Completed');
-    
-  } catch (err) {
-    console.error("❌ [updateUserStats] Error:", err);
-  }
-}
-
 // ===========================
 // FIRESTORE DATA FUNCTIONS
 // ===========================
