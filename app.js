@@ -2061,48 +2061,44 @@ function updateStudentDropdowns(students) {
 function clearStudentForm() {
   console.log('🧹 Clearing student form...');
   
-  const form = document.getElementById("studentForm");
-  if (form) {
-    form.reset();
-    
-    // Manually clear each field to be sure
-    const fields = {
-      "studentName": "",
-      "studentId": "", 
-      "studentEmail": "",
-      "studentPhone": "", 
-      "studentBaseRate": ""
-    };
-    
-    Object.keys(fields).forEach(fieldId => {
-      const field = document.getElementById(fieldId);
-      if (field) field.value = fields[fieldId];
-    });
-    
-    // Reset dropdown
-    const genderSelect = document.getElementById("studentGender");
-    if (genderSelect) genderSelect.selectedIndex = 0;
-    
-    // Reset to add mode
-    const submitBtn = document.getElementById('studentSubmitBtn');
-    const cancelBtn = document.getElementById('studentCancelBtn');
-    
-    if (submitBtn) {
-      submitBtn.textContent = '➕ Add Student';
-      submitBtn.onclick = addStudent;
-      submitBtn.disabled = false;
+  // Clear each field individually
+  const fields = [
+    'studentName', 'studentId', 'studentEmail', 'studentPhone', 'studentBaseRate'
+  ];
+  
+  fields.forEach(fieldId => {
+    const field = document.getElementById(fieldId);
+    if (field) {
+      field.value = '';
+      console.log(`✅ Cleared ${fieldId}`);
     }
-    
-    if (cancelBtn) {
-      cancelBtn.style.display = 'none';
-    }
-    
-    currentEditStudentId = null;
-    
-    console.log("✅ Student form cleared and reset to add mode");
-  } else {
-    console.log("❌ Student form not found");
+  });
+  
+  // Reset dropdown
+  const genderSelect = document.getElementById('studentGender');
+  if (genderSelect) {
+    genderSelect.selectedIndex = 0;
+    console.log('✅ Reset gender dropdown');
   }
+  
+  // Reset buttons
+  const submitBtn = document.getElementById('studentSubmitBtn');
+  const cancelBtn = document.getElementById('studentCancelBtn');
+  
+  if (submitBtn) {
+    submitBtn.textContent = '➕ Add Student';
+    submitBtn.disabled = false;
+    submitBtn.onclick = addStudent;
+    console.log('✅ Reset submit button');
+  }
+  
+  if (cancelBtn) {
+    cancelBtn.style.display = 'none';
+    console.log('✅ Hid cancel button');
+  }
+  
+  currentEditStudentId = null;
+  console.log('✅ Form completely reset');
 }
 
 function resetHoursForm() {
