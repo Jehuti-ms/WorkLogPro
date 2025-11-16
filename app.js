@@ -601,10 +601,15 @@ function updateThemeIcon(theme) {
 }
 
 function initializeTheme() {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    updateThemeIcon(savedTheme); // This will fix the error
+  const savedTheme = localStorage.getItem('theme') || 'light';
+  console.log('🚀 Initializing theme:', savedTheme);
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  updateThemeIcon(savedTheme);
 }
+
+// Make sure these are called when the app loads
+initializeTheme();
+setupThemeToggle();
 
 // ===========================
 // HEADER STATS
