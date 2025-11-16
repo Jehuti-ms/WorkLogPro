@@ -1852,6 +1852,69 @@ const UIManager = {
 };
 
 // ===========================
+// Stats Update for Auth Modal
+// ===========================
+// Add this function to update header stats
+function updateHeaderStats() {
+  const localStatus = document.getElementById('localStatus');
+  const syncStatus = document.getElementById('syncStatus');
+  const dataStatus = document.getElementById('dataStatus');
+  
+  if (localStatus) {
+    localStatus.textContent = '💾 Local Storage: Active';
+  }
+  
+  if (syncStatus) {
+    const isAutoSync = localStorage.getItem('autoSyncEnabled') === 'true';
+    syncStatus.textContent = isAutoSync ? '☁️ Cloud Sync: Auto' : '☁️ Cloud Sync: Manual';
+  }
+  
+  if (dataStatus) {
+    const statStudents = document.getElementById('statStudents');
+    const statHours = document.getElementById('statHours');
+    const students = statStudents ? statStudents.textContent : '0';
+    const hours = statHours ? statHours.textContent : '0';
+    dataStatus.textContent = `📊 Data: ${students} Students, ${hours} Sessions`;
+  }
+}
+
+// Update recalcSummaryStats to call header stats update
+async function recalcSummaryStats(uid) {
+  try {
+    console.log('🔄 Recalculating summary stats for:', uid);
+    
+    const [studentsSnap, hoursSnap] = await Promise.all([
+      getDocs(collection(db, "users", uid, "students")),
+      getDocs(collection(db, "users", uid, "hours"))
+    ]);
+
+    const studentsCount = studentsSnap.size;
+    let totalHours = 0;
+    let totalEarnings = 0;
+
+    hoursSnap.forEach(h => {
+      const d = h.data();
+      totalHours += safeNumber(d.hours);
+      totalEarnings += safeNumber(d.total);
+    });
+
+    await updateUserStats(uid, {
+      students: studentsCount,
+      hours: totalHours,
+      earnings: totalEarnings,
+      lastSync: new Date().toLocaleString()
+    });
+
+    // Update header stats
+    updateHeaderStats();
+    
+    console.log('✅ Summary stats recalculated');
+  } catch (err) {
+    console.error("❌ Error recalculating stats:", err);
+  }
+}
+
+// ===========================
 // STUDENT MANAGEMENT MODULE
 // ===========================
 
