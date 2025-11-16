@@ -1843,6 +1843,26 @@ const SyncBar = {
 };
 
 // ===========================
+// MARKS CALCULATION FUNCTION
+// ===========================
+
+function updateMarksPercentage() {
+  const scoreEl = document.getElementById('marksScore');
+  const maxEl = document.getElementById('marksMax');
+  const pctEl = document.getElementById('percentage');
+  const gradeEl = document.getElementById('grade');
+
+  const score = parseFloat(scoreEl?.value);
+  const max = parseFloat(maxEl?.value);
+
+  if (Number.isFinite(score) && Number.isFinite(max) && max > 0) {
+    const percentage = (score / max) * 100;
+    if (pctEl) pctEl.value = percentage.toFixed(1);
+    if (gradeEl) gradeEl.value = calculateGrade(percentage);
+  }
+}
+
+// ===========================
 // UI MANAGEMENT MODULE
 // ===========================
 
@@ -2071,21 +2091,6 @@ function updateStudentDropdowns(students) {
   });
 }
 
-function updateMarksPercentage() {
-  const scoreEl = document.getElementById('marksScore');
-  const maxEl = document.getElementById('marksMax');
-  const pctEl = document.getElementById('percentage');
-  const gradeEl = document.getElementById('grade');
-
-  const score = parseFloat(scoreEl?.value);
-  const max = parseFloat(maxEl?.value);
-
-  if (Number.isFinite(score) && Number.isFinite(max) && max > 0) {
-    const percentage = (score / max) * 100;
-    if (pctEl) pctEl.value = percentage.toFixed(1);
-    if (gradeEl) gradeEl.value = calculateGrade(percentage);
-  }
-}
 
 // ===========================
 // FORM MANAGEMENT FUNCTIONS
