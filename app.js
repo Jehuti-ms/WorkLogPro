@@ -50,6 +50,7 @@ import {
 let autoSyncInterval = null;
 let isAutoSyncEnabled = false;
 let currentUserData = null;
+let currentEditStudentId = null;
 
 // DOM Elements
 const syncIndicator = document.getElementById("syncIndicator");
