@@ -1865,3 +1865,59 @@ body.modal-open {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* =========================== */
+/* FIXED HEADER & SYNC BAR */
+/* =========================== */
+
+/* Make both header and sync bar fixed at top */
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.sync-toolbar {
+  position: fixed;
+  top: 120px; /* Adjust based on your header height */
+  left: 0;
+  right: 0;
+  z-index: 999;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-height: 50px;
+}
+
+/* Dark theme support */
+[data-theme="dark"] .sync-toolbar {
+  background: rgba(30, 30, 30, 0.95);
+}
+
+/* Add padding to body to account for BOTH fixed elements */
+body {
+  padding-top: 180px; /* header height + sync bar height + some spacing */
+}
+
+/* Tabs container starts below both fixed elements */
+.tabs-container {
+  position: relative;
+  z-index: 1;
+  margin-top: 0;
+}
+
+/* Content areas */
+.tabcontent {
+  position: relative;
+  z-index: 1;
+}
