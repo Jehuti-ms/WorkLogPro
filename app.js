@@ -1710,7 +1710,7 @@ const UIManager = {
     console.log(`🎨 Theme changed to ${newTheme}`);
   },
 
-  initTabs() {
+ initTabs() {
   const tabs = document.querySelectorAll('.tab');
   const tabContents = document.querySelectorAll('.tabcontent');
 
@@ -1740,6 +1740,14 @@ const UIManager = {
     });
   });
 
+  // Activate first tab by default - FIXED SYNTAX
+  const firstActive = document.querySelector('.tab.active') || document.querySelector('.tab');
+  if (firstActive) {
+    firstActive.click();
+  }
+  
+  console.log('✅ Tabs initialized');
+},
   // Activate first tab by default
   const firstTab = document.querySelector('.tab.active') || document.querySelector('.tab');
   if (firstTab) {
