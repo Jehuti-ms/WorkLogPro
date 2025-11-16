@@ -1691,3 +1691,15 @@ body {
 [data-theme="dark"] .sync-toolbar.scrolled {
   background: rgba(30, 41, 59, 0.9);
 }
+
+/* Add to your CSS */
+.button.warning {
+  background: var(--warning);
+  color: white;
+  border-color: var(--warning);
+}
+
+.button.warning:hover {
+  background: #eab308;
+  border-color: #eab308;
+}
