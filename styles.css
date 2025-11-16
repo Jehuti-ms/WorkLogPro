@@ -1620,3 +1620,74 @@ body {
     flex-shrink: 0; /* Prevent buttons from shrinking too much */
   }
 }
+
+/* =========================== */
+/* HEADER GLASS EFFECT */
+/* =========================== */
+.header {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.8); /* Semi-transparent background */
+  border-bottom: 1px solid var(--border);
+  padding: 16px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(20px); /* Glass blur effect */
+  -webkit-backdrop-filter: blur(20px); /* Safari support */
+  align-items: center;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+/* Dark theme support for glass effect */
+[data-theme="dark"] .header {
+  background: rgba(30, 41, 59, 0.8); /* Dark semi-transparent background */
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* Optional: Enhance the glass effect on scroll */
+/*.header.scrolled {
+  background: rgba(255, 255, 255, 0.9); /* More opaque when scrolled */
+/*  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+} */
+
+[data-theme="dark"] .header.scrolled {
+  background: rgba(30, 41, 59, 0.9);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Sync toolbar glass effect to match */
+.sync-toolbar {
+  background: rgba(255, 255, 255, 0.8);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 120px; /* Adjust based on your header height */
+  z-index: 99;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+[data-theme="dark"] .sync-toolbar {
+  background: rgba(30, 41, 59, 0.8);
+}
+
+.sync-toolbar.scrolled {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+}
+
+[data-theme="dark"] .sync-toolbar.scrolled {
+  background: rgba(30, 41, 59, 0.9);
+}
