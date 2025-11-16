@@ -1,13 +1,3 @@
-// TEMPORARY FIX - Add this at the top of your app.js
-(async function() {
-  // Clear any stuck auth state
-  try {
-    await auth.signOut();
-    console.log('🔄 Auth state cleared');
-  } catch (error) {
-    console.log('✅ No user to sign out');
-  }
-})();
 // ===========================
 // CACHE SYSTEM FOR PERFORMANCE
 // ===========================
