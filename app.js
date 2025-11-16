@@ -2638,31 +2638,6 @@ function updateStudentCache(newStudent) {
   }
 }
 
-// Fast student count increment
-async function incrementStudentCount(uid) {
-  try {
-    const statsRef = doc(db, "users", uid);
-    const statsSnap = await getDoc(statsRef);
-    
-    if (statsSnap.exists()) {
-      const currentStats = statsSnap.data();
-      const newStudents = (currentStats.students || 0) + 1;
-      
-      await updateDoc(statsRef, {
-        students: newStudents
-      });
-      
-      // Update DOM immediately
-      const statStudents = document.getElementById('statStudents');
-      if (statStudents) statStudents.textContent = newStudents;
-      
-      updateHeaderStats();
-    }
-  } catch (error) {
-    console.log("Background count update failed, will fix on next sync:", error);
-  }
-}
-
 // ===========================
 // STUDENT EDITING FUNCTIONS
 // ===========================
