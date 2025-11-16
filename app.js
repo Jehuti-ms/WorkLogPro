@@ -809,12 +809,8 @@ async function renderStudents(forceRefresh = false) {
     return;
   }
 
-  // Show cached content immediately while loading
-  if (cache.students) {
-    container.innerHTML = cache.students;
-  } else {
-    container.innerHTML = '<div class="loading">Loading students...</div>';
-  }
+  console.log('🔄 Loading students from Firestore...');
+  container.innerHTML = '<div class="loading">Loading students...</div>';
 
   try {
     const studentsSnap = await getDocs(collection(db, "users", user.uid, "students"));
@@ -860,7 +856,7 @@ async function renderStudents(forceRefresh = false) {
     cache.students = studentsHTML;
     cache.lastSync = Date.now();
     
-    console.log('✅ Students loaded from Firestore');
+    console.log(`✅ Loaded ${studentsSnap.size} students from Firestore`);
 
   } catch (error) {
     console.error("Error rendering students:", error);
@@ -2063,15 +2059,24 @@ function updateStudentDropdowns(students) {
 // ===========================
 
 function clearStudentForm() {
+  console.log('🧹 Clearing student form...');
+  
   const form = document.getElementById("studentForm");
   if (form) {
     form.reset();
     
-    // Reset specific fields
-    const fields = ["studentName", "studentId", "studentEmail", "studentPhone", "studentBaseRate"];
-    fields.forEach(fieldId => {
+    // Manually clear each field to be sure
+    const fields = {
+      "studentName": "",
+      "studentId": "", 
+      "studentEmail": "",
+      "studentPhone": "", 
+      "studentBaseRate": ""
+    };
+    
+    Object.keys(fields).forEach(fieldId => {
       const field = document.getElementById(fieldId);
-      if (field) field.value = "";
+      if (field) field.value = fields[fieldId];
     });
     
     // Reset dropdown
@@ -2079,13 +2084,24 @@ function clearStudentForm() {
     if (genderSelect) genderSelect.selectedIndex = 0;
     
     // Reset to add mode
-    const submitBtn = document.querySelector('#studentForm button[type="button"]');
+    const submitBtn = document.getElementById('studentSubmitBtn');
+    const cancelBtn = document.getElementById('studentCancelBtn');
+    
     if (submitBtn) {
       submitBtn.textContent = '➕ Add Student';
       submitBtn.onclick = addStudent;
+      submitBtn.disabled = false;
     }
     
-    console.log("✅ Student form reset to add mode");
+    if (cancelBtn) {
+      cancelBtn.style.display = 'none';
+    }
+    
+    currentEditStudentId = null;
+    
+    console.log("✅ Student form cleared and reset to add mode");
+  } else {
+    console.log("❌ Student form not found");
   }
 }
 
@@ -2277,29 +2293,27 @@ async function addStudent() {
       createdAt: new Date().toISOString()
     };
 
-    console.log('🚀 Quick-saving student:', id);
+    console.log('🚀 Saving student:', id);
     
-    // 1. Save to Firestore (only this blocks the UI)
+    // 1. Save to Firestore
     const studentRef = doc(db, "users", user.uid, "students", id);
     await setDoc(studentRef, student);
     
-    // 2. Clear form IMMEDIATELY (don't wait for anything else)
+    // 2. Clear form IMMEDIATELY
     clearStudentForm();
     
-    // 3. Show success immediately
+    // 3. Show success message
     NotificationSystem.notifySuccess("Student added successfully!");
     
-    // 4. Background updates (don't wait for these)
-    Promise.all([
-      // Update cache without full re-render
-      updateStudentCache(student),
-      // Increment student count without full recalc
-      incrementStudentCount(user.uid),
-      // Refresh dropdowns
-      loadStudentsForDropdowns()
-    ]).catch(error => {
-      console.log("Background updates completed with minor issues:", error);
-    });
+    // 4. Force refresh the student list (reliable but slower)
+    cache.students = null; // Clear cache to force fresh load
+    await renderStudents(true); // Force refresh
+    
+    // 5. Update dropdowns in background
+    loadStudentsForDropdowns().catch(console.error);
+    
+    // 6. Update stats in background  
+    recalcSummaryStats(user.uid).catch(console.error);
 
   } catch (err) {
     console.error("Error adding student:", err);
@@ -3069,35 +3083,36 @@ window.deleteStudent = deleteStudent;
 // Sync bar functions for global access
 window.performSync = (mode = 'manual') => SyncBar.performSync(mode);
 
-function debugStats() {
-  console.log('🔍 Stats Debug:');
-  console.log('statStudents:', document.getElementById('statStudents')?.textContent);
-  console.log('statHours:', document.getElementById('statHours')?.textContent);
-  console.log('statEarnings:', document.getElementById('statEarnings')?.textContent);
-  console.log('dataStatus:', document.getElementById('dataStatus')?.textContent);
-  
+/*=========================
+  DEBUG 
+=========================*/
+// Add this temporary debug function
+function debugStudentList() {
   const user = auth.currentUser;
-  if (user) {
-    console.log('User UID:', user.uid);
-  } else {
-    console.log('No user authenticated');
+  if (!user) {
+    console.log('❌ No user logged in');
+    return;
   }
-}
-
-// Call this in console: debugStats()
-
-function checkHeaderElements() {
-  console.log('🔍 Checking header elements:');
   
-  const elements = [
-    'localStatus', 'syncStatus', 'dataStatus',
-    'statStudents', 'statHours', 'statEarnings'
-  ];
+  console.log('🔍 Debugging student list...');
   
-  elements.forEach(id => {
-    const el = document.getElementById(id);
-    console.log(`- ${id}:`, el ? `FOUND (text: "${el.textContent}")` : 'NOT FOUND');
+  // Check Firestore directly
+  getDocs(collection(db, "users", user.uid, "students"))
+    .then(snapshot => {
+      console.log(`📊 Firestore has ${snapshot.size} students:`);
+      snapshot.forEach(doc => {
+        console.log(`- ${doc.id}: ${doc.data().name}`);
+      });
+    })
+    .catch(error => {
+      console.error('❌ Error checking Firestore:', error);
+    });
+  
+  // Check cache
+  console.log('💾 Cache state:', {
+    hasCache: !!cache.students,
+    isValid: isCacheValid('students')
   });
 }
 
-// Run this in console: checkHeaderElements()
+// Run this in console after adding a student: debugStudentList()
