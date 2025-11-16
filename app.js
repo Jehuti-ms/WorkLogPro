@@ -1879,42 +1879,6 @@ function updateHeaderStats() {
   }
 }
 
-// Update recalcSummaryStats to call header stats update
-async function recalcSummaryStats(uid) {
-  try {
-    console.log('🔄 Recalculating summary stats for:', uid);
-    
-    const [studentsSnap, hoursSnap] = await Promise.all([
-      getDocs(collection(db, "users", uid, "students")),
-      getDocs(collection(db, "users", uid, "hours"))
-    ]);
-
-    const studentsCount = studentsSnap.size;
-    let totalHours = 0;
-    let totalEarnings = 0;
-
-    hoursSnap.forEach(h => {
-      const d = h.data();
-      totalHours += safeNumber(d.hours);
-      totalEarnings += safeNumber(d.total);
-    });
-
-    await updateUserStats(uid, {
-      students: studentsCount,
-      hours: totalHours,
-      earnings: totalEarnings,
-      lastSync: new Date().toLocaleString()
-    });
-
-    // Update header stats
-    updateHeaderStats();
-    
-    console.log('✅ Summary stats recalculated');
-  } catch (err) {
-    console.error("❌ Error recalculating stats:", err);
-  }
-}
-
 // ===========================
 // STUDENT MANAGEMENT MODULE
 // ===========================
