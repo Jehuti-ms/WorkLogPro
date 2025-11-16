@@ -16,21 +16,25 @@
 <body>
   <!-- Header -->
 <header class="header">
-  <div class="logo-title">
-    <img src="icons/worklog_cogs.svg" alt="WorkLog Logo" class="logo">
-    <h1>WorkLog</h1>
+  <!-- Logo and Title - Centered -->
+  <div class="header-top">
+    <div class="logo-title">
+      <img src="icons/worklog_cogs.svg" alt="WorkLog Logo" class="logo">
+      <h1>WorkLog</h1>
+    </div>
+    <p class="subtitle">Student Tracker & Hours Management System</p>
   </div>
-  <p class="subtitle">Student Tracker & Hours Management System</p>
 
-  <div class="header-controls">
-    <!-- Stats Section -->
+  <!-- Stats and Controls Row -->
+  <div class="header-bottom">
+    <!-- Storage Status (Stats) -->
     <div class="storage-status">
       <span id="localStatus">💾 Local Storage: Active</span>
       <span id="syncStatus">☁️ Cloud Sync: Ready</span>
       <span id="dataStatus">📊 Data: <span id="statStudents">0</span> Students, <span id="statHours">0</span> Sessions</span>   
     </div>
 
-    <!-- Actions Section -->
+    <!-- Theme and Auth Buttons -->
     <div class="header-actions">
       <div class="theme-toggle">
         <button>🌓</button>
