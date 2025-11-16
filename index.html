@@ -577,24 +577,32 @@
   <script type="module" src="app.js"></script>
 
   <!-- Auth Check -->
-  <script type="module">
-    import { auth } from "./firebase-config.js";
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  <!-- Auth Check -->
+<script type="module">
+  import { auth } from "./firebase-config.js";
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-    console.log("🔐 Starting auth check on index.html...");
+  console.log("🔐 Starting auth check on index.html...");
 
-    onAuthStateChanged(auth, user => {
-      if (user) {
-        console.log("✅ User authenticated:", user.email);
-        document.querySelector(".container").style.display = "block";
+  onAuthStateChanged(auth, user => {
+    if (user) {
+      console.log("✅ User authenticated:", user.email);
+      
+      // Safe container access with null check
+      const container = document.querySelector(".container");
+      if (container) {
+        container.style.display = "block";
       } else {
-        console.log("🚫 No user authenticated - redirecting to login");
-        window.location.href = "auth.html";
+        console.warn("⚠️ Container element not found");
       }
-    });
-  </script>
+    } else {
+      console.log("🚫 No user authenticated - redirecting to login");
+      window.location.href = "auth.html";
+    }
+  });
+</script>
         <!-- Place this modal RIGHT BEFORE the closing </body> tag -->
-<div id="profileModal" class="modal" style="display: none;">
+<!--<div id="profileModal" class="modal" style="display: none;">
   <div class="modal-content profile-modal">
     <div class="modal-header">
       <h2>👤 User Profile</h2>
@@ -602,7 +610,7 @@
     </div>
     <div class="modal-body">
       <!-- User Info Section -->
-      <div class="profile-section">
+     <!-- <div class="profile-section">
         <h3>Account Information</h3>
         <div class="info-grid">
           <div class="info-item">
@@ -621,7 +629,7 @@
       </div>
 
       <!-- Usage Stats Section -->
-      <div class="profile-section">
+     <!-- <div class="profile-section">
         <h3>📊 Usage Statistics</h3>
         <div class="stats-grid">
           <div class="stat-card">
@@ -643,7 +651,7 @@
       </div>
 
       <!-- Actions Section -->
-      <div class="profile-section">
+    <!--  <div class="profile-section">
         <h3>Actions</h3>
         <div class="actions-grid">
           <button id="logoutBtn" class="btn btn-danger btn-full">
@@ -653,6 +661,6 @@
       </div>
     </div>
   </div>
-</div>
+</div> -->
 </body>
 </html>
