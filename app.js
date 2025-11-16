@@ -3054,3 +3054,19 @@ function debugStats() {
 }
 
 // Call this in console: debugStats()
+
+function checkHeaderElements() {
+  console.log('🔍 Checking header elements:');
+  
+  const elements = [
+    'localStatus', 'syncStatus', 'dataStatus',
+    'statStudents', 'statHours', 'statEarnings'
+  ];
+  
+  elements.forEach(id => {
+    const el = document.getElementById(id);
+    console.log(`- ${id}:`, el ? `FOUND (text: "${el.textContent}")` : 'NOT FOUND');
+  });
+}
+
+// Run this in console: checkHeaderElements()
