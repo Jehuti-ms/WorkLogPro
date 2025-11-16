@@ -2178,23 +2178,6 @@ async function updateStudent(studentId) {
   }
 }
 
-// Update clearStudentForm to reset to add mode
-function clearStudentForm() {
-  const form = document.getElementById("studentForm");
-  if (form) {
-    form.reset();
-    
-    // Reset to add mode
-    const submitBtn = document.querySelector('#studentForm button[type="button"]');
-    if (submitBtn) {
-      submitBtn.textContent = '➕ Add Student';
-      submitBtn.onclick = addStudent;
-    }
-    
-    console.log("✅ Student form reset to add mode");
-  }
-}
-
 // ===========================
 // RATE MANAGEMENT FUNCTIONS
 // ===========================
