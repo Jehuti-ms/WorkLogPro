@@ -1120,6 +1120,11 @@ body {
   visibility: hidden;
   transform: translateY(10px);
   transition: all 0.2s ease;
+  z-index: 1001; /* Higher than overlay */
+}
+
+.fab-overlay {
+  z-index: 999; /* Lower than menu */
 }
 
 .fab-menu.show {
@@ -1161,10 +1166,10 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.3); /* Semi-transparent dark overlay */
   z-index: 999;
   display: none;
-  backdrop-filter: blur(2px);
+  /* Remove backdrop-filter completely */
 }
 
 /* =========================== */
