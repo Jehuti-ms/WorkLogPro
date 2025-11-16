@@ -795,21 +795,26 @@ async function recalcSummaryStats(uid) {
 // DATA RENDERING FUNCTIONS
 // ===========================
 
-async function renderStudents() {
+async function renderStudents(forceRefresh = false) {
   const user = auth.currentUser;
   if (!user) return;
 
   const container = document.getElementById('studentsContainer');
   if (!container) return;
 
-  // Show cached data immediately if available
-  if (isCacheValid('students') && cache.students) {
+  // Use cache unless forced refresh
+  if (!forceRefresh && isCacheValid('students') && cache.students) {
     container.innerHTML = cache.students;
     console.log('✅ Students loaded from cache');
     return;
   }
 
-  container.innerHTML = '<div class="loading">Loading students...</div>';
+  // Show cached content immediately while loading
+  if (cache.students) {
+    container.innerHTML = cache.students;
+  } else {
+    container.innerHTML = '<div class="loading">Loading students...</div>';
+  }
 
   try {
     const studentsSnap = await getDocs(collection(db, "users", user.uid, "students"));
@@ -2255,9 +2260,8 @@ async function addStudent() {
   }
 
   try {
-    // Show loading state
-    const submitBtn = document.querySelector('#studentForm button[type="button"]');
-    const originalText = submitBtn?.textContent;
+    // Show loading state immediately
+    const submitBtn = document.getElementById('studentSubmitBtn');
     if (submitBtn) {
       submitBtn.textContent = 'Saving...';
       submitBtn.disabled = true;
@@ -2273,29 +2277,28 @@ async function addStudent() {
       createdAt: new Date().toISOString()
     };
 
+    console.log('🚀 Quick-saving student:', id);
+    
+    // 1. Save to Firestore (only this blocks the UI)
     const studentRef = doc(db, "users", user.uid, "students", id);
     await setDoc(studentRef, student);
     
-    // Clear cache to force fresh data on next load
-    cache.students = null;
-    cache.lastSync = null;
-    console.log('🗑️ Cache cleared for students');
-    
-    // Clear form IMMEDIATELY after successful save
+    // 2. Clear form IMMEDIATELY (don't wait for anything else)
     clearStudentForm();
     
-    NotificationSystem.notifySuccess("Student added successfully");
+    // 3. Show success immediately
+    NotificationSystem.notifySuccess("Student added successfully!");
     
-    // Refresh data in background (don't wait for it)
+    // 4. Background updates (don't wait for these)
     Promise.all([
-      renderStudents(), // This will now fetch fresh data due to cache clear
-      loadStudentsForDropdowns(),
-      recalcSummaryStats(user.uid)
-    ]).then(() => {
-      console.log('✅ Background refresh completed with fresh data');
-    }).catch(error => {
-      console.error("Background refresh failed:", error);
-      // Don't show error to user for background tasks
+      // Update cache without full re-render
+      updateStudentCache(student),
+      // Increment student count without full recalc
+      incrementStudentCount(user.uid),
+      // Refresh dropdowns
+      loadStudentsForDropdowns()
+    ]).catch(error => {
+      console.log("Background updates completed with minor issues:", error);
     });
 
   } catch (err) {
@@ -2308,7 +2311,7 @@ async function addStudent() {
     }
     
     // Re-enable button on error
-    const submitBtn = document.querySelector('#studentForm button[type="button"]');
+    const submitBtn = document.getElementById('studentSubmitBtn');
     if (submitBtn) {
       submitBtn.textContent = '➕ Add Student';
       submitBtn.disabled = false;
@@ -2509,8 +2512,72 @@ async function recordPayment() {
 }
 
 // ===========================
-// STUDENT ACTIONS
+// STUDENT HELPER FILES
 // ===========================
+// Fast cache update without full re-render
+function updateStudentCache(newStudent) {
+  if (cache.students && cache.students !== '<div class="loading">Loading students...</div>') {
+    // Add new student to existing cache instead of clearing it
+    const studentCard = `
+      <div class="student-card">
+        <div class="student-card-header">
+          <div>
+            <strong>${newStudent.name}</strong>
+            <span class="student-id">${newStudent.id}</span>
+          </div>
+          <div class="student-actions">
+            <button class="btn-icon" onclick="editStudent('${newStudent.id}')" title="Edit">✏️</button>
+            <button class="btn-icon" onclick="deleteStudent('${newStudent.id}')" title="Delete">🗑️</button>
+          </div>
+        </div>
+        <div class="student-details">
+          <div class="muted">${newStudent.gender} • ${newStudent.email || 'No email'} • ${newStudent.phone || 'No phone'}</div>
+          <div class="student-rate">Rate: $${fmtMoney(newStudent.rate)}/session</div>
+          <div class="student-meta">Added: Just now</div>
+        </div>
+      </div>
+    `;
+    
+    const container = document.getElementById('studentsContainer');
+    if (container) {
+      // Remove empty state if it exists
+      const emptyState = container.querySelector('.empty-state, .empty-message');
+      if (emptyState) {
+        emptyState.remove();
+      }
+      // Prepend new student (shows at top)
+      container.insertAdjacentHTML('afterbegin', studentCard);
+    }
+  } else {
+    // If no cache, just clear it so next render is fresh
+    cache.students = null;
+  }
+}
+
+// Fast student count increment
+async function incrementStudentCount(uid) {
+  try {
+    const statsRef = doc(db, "users", uid);
+    const statsSnap = await getDoc(statsRef);
+    
+    if (statsSnap.exists()) {
+      const currentStats = statsSnap.data();
+      const newStudents = (currentStats.students || 0) + 1;
+      
+      await updateDoc(statsRef, {
+        students: newStudents
+      });
+      
+      // Update DOM immediately
+      const statStudents = document.getElementById('statStudents');
+      if (statStudents) statStudents.textContent = newStudents;
+      
+      updateHeaderStats();
+    }
+  } catch (error) {
+    console.log("Background count update failed, will fix on next sync:", error);
+  }
+}
 
 // ===========================
 // STUDENT EDITING FUNCTIONS
