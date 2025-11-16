@@ -2383,30 +2383,21 @@ async function loadInitialData(user) {
   try {
     console.log('📥 Loading initial data for user:', user.uid);
     
-    // Load user profile first
-    await loadUserProfile(user.uid);
-    
-    // Recalculate stats FIRST to ensure they're current
-    await recalcSummaryStats(user.uid);
-    
-    // Then load all other data with fresh stats
-    await Promise.all([
-      loadUserStats(user.uid), // This will now show updated stats
+    // Load critical data first without waiting for profile
+    await Promise.allSettled([
+      loadUserProfile(user.uid), // This will show immediate fallback
       loadStudentsForDropdowns(),
-      renderStudents(),
-      renderRecentHours(),
-      renderRecentMarks(),
-      renderAttendanceRecent(),
-      renderPaymentActivity(),
-      renderStudentBalances(),
-      renderOverviewReports()
+      recalcSummaryStats(user.uid)
     ]);
+    
+    // Load visible content
+    await renderStudents();
     
     console.log('✅ Initial data loaded successfully');
     
   } catch (error) {
     console.error('❌ Error loading initial data:', error);
-    NotificationSystem.notifyError('Error loading data');
+    // Don't show error for background data issues
   }
 }
 
