@@ -14,35 +14,31 @@
 </head>
 
 <body>
-  <!-- Header -->
-<header class="header">
-  <!-- Logo and Title - Centered -->
-  <div class="header-top">
-    <div class="logo-title">
-      <img src="icons/worklog_cogs.svg" alt="WorkLog Logo" class="logo">
-      <h1>WorkLog</h1>
-    </div>
-    <p class="subtitle">Student Tracker & Hours Management System</p>
+ <header class="header">
+  <div class="logo-title">
+    <img src="icons/worklog_cogs.svg" alt="WorkLog Logo" class="logo">
+    <h1>WorkLog</h1>
   </div>
-
-  <!-- Stats and Controls Row -->
-  <div class="header-bottom">
-    <!-- Storage Status (Stats) -->
-    <div class="storage-status">
-      <span id="localStatus">💾 Local Storage: Active</span>
-      <span id="syncStatus">☁️ Cloud Sync: Ready</span>
-      <span id="dataStatus">📊 Data: <span id="statStudents">0</span> Students, <span id="statHours">0</span> Sessions</span>   
-    </div>
-
-    <!-- Theme and Auth Buttons -->
-    <div class="header-actions">
-      <div class="theme-toggle">
-        <button>🌓</button>
+  
+  <div class="header-main">
+    <p class="subtitle">Student Tracker & Hours Management System</p>
+    
+    <div class="stats-row">
+      <div class="storage-status">
+        <span id="localStatus">💾 Local Storage: Active</span>
+        <span id="syncStatus">☁️ Cloud Sync: Ready</span>
+        <span id="dataStatus">📊 Data: 0 Students, 0 Sessions</span>   
       </div>
-      <div class="auth-section">
-        <button id="profileBtn" class="btn btn-secondary">
-          👤 <span id="userName">Loading...</span>
-        </button>
+      
+      <div class="header-controls">
+        <div class="theme-toggle">
+          <button>🌓</button>
+        </div>
+        <div class="auth-section">
+          <button id="profileBtn" class="btn btn-secondary">
+            👤 <span id="userName">Loading...</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
