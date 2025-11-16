@@ -1251,10 +1251,6 @@ const NotificationSystem = {
 };
 
 // ===========================
-// SYNC BAR MODULE
-// ===========================
-
-// ===========================
 // SYNC BAR MODULE - FIXED VERSION
 // ===========================
 
@@ -2441,18 +2437,41 @@ async function loadInitialData(user) {
 // AUTH STATE MANAGEMENT
 // ===========================
 
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    console.log('✅ User authenticated:', user.email);
-    document.querySelector(".container").style.display = "block";
-    
-    if (typeof initializeApp === 'function') {
-      loadInitialData(user);
+// ===========================
+// AUTH STATE MANAGEMENT - FIXED
+// ===========================
+
+// Wait for DOM to be ready first, then set up auth listener
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('✅ DOM fully loaded, setting up auth listener');
+  
+  onAuthStateChanged(auth, user => {
+    if (user) {
+      console.log("✅ User authenticated:", user.email);
+      
+      // Safe container access with null check
+      const container = document.querySelector(".container");
+      if (container && container.style) {
+        container.style.display = "block";
+        console.log('✅ Container displayed');
+      } else {
+        console.warn('⚠️ Container element not found or inaccessible');
+        // Don't throw error, just log warning
+      }
+      
+      // Safely initialize app
+      if (typeof initializeApp === 'function') {
+        try {
+          initializeApp();
+        } catch (error) {
+          console.error('❌ Error initializing app:', error);
+        }
+      }
+    } else {
+      console.log("🚫 No user authenticated - redirecting to login");
+      window.location.href = "auth.html";
     }
-  } else {
-    console.log('🚫 No user authenticated - redirecting to login');
-    window.location.href = "auth.html";
-  }
+  });
 });
 
 // ===========================
