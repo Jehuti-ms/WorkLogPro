@@ -1867,7 +1867,39 @@ function updateMarksPercentage() {
 
 function clearStudentForm() {
   const form = document.getElementById("studentForm");
-  if (form) form.reset();
+  if (form) {
+    // Reset the form
+    form.reset();
+    
+    // Manually clear any stubborn fields
+    const fieldsToClear = [
+      "studentName", "studentId", "studentEmail", "studentPhone", "studentBaseRate"
+    ];
+    
+    fieldsToClear.forEach(fieldId => {
+      const field = document.getElementById(fieldId);
+      if (field) {
+        field.value = "";
+        // Trigger any change events
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+    
+    // Reset gender dropdown to first option
+    const genderSelect = document.getElementById("studentGender");
+    if (genderSelect && genderSelect.options.length > 0) {
+      genderSelect.selectedIndex = 0;
+    }
+    
+    console.log("✅ Student form cleared");
+  }
+  
+  // Re-enable submit button immediately
+  const submitBtn = document.querySelector('#studentForm button[type="submit"]');
+  if (submitBtn) {
+    submitBtn.textContent = 'Add Student';
+    submitBtn.disabled = false;
+  }
 }
 
 function resetHoursForm() {
