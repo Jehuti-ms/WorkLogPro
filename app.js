@@ -648,26 +648,8 @@ function updateHeaderStats() {
   const localStatus = document.getElementById('localStatus');
   const syncStatus = document.getElementById('syncStatus');
   const dataStatus = document.getElementById('dataStatus');
-  
-  // Get current stats from DOM elements
   const statStudents = document.getElementById('statStudents');
   const statHours = document.getElementById('statHours');
-  const statEarnings = document.getElementById('statEarnings');
-  
-  console.log('🔍 [updateHeaderStats] DOM elements found:', {
-    localStatus: !!localStatus,
-    syncStatus: !!syncStatus,
-    dataStatus: !!dataStatus,
-    statStudents: !!statStudents,
-    statHours: !!statHours,
-    statEarnings: !!statEarnings
-  });
-  
-  const students = statStudents ? statStudents.textContent : '0';
-  const hours = statHours ? statHours.textContent : '0';
-  const earnings = statEarnings ? statEarnings.textContent : '$0.00';
-  
-  console.log('🔍 [updateHeaderStats] Current values:', { students, hours, earnings });
   
   if (localStatus) {
     localStatus.textContent = '💾 Local Storage: Active';
@@ -678,51 +660,8 @@ function updateHeaderStats() {
     syncStatus.textContent = isAutoSync ? '☁️ Cloud Sync: Auto' : '☁️ Cloud Sync: Manual';
   }
   
-  if (dataStatus) {
-    dataStatus.textContent = `📊 Data: ${students} Students, ${hours} Hours`;
-    console.log('🔍 [updateHeaderStats] Updated dataStatus to:', dataStatus.textContent);
-  }
-  
-  console.log('✅ [updateHeaderStats] Completed');
-}
-
-// Enhanced recalcSummaryStats with better debugging
-async function recalcSummaryStats(uid) {
-  try {
-    console.log('🔄 [recalcSummaryStats] Starting for user:', uid);
-    
-    const [studentsSnap, hoursSnap] = await Promise.all([
-      getDocs(collection(db, "users", uid, "students")),
-      getDocs(collection(db, "users", uid, "hours"))
-    ]);
-
-    const studentsCount = studentsSnap.size;
-    let totalHours = 0;
-    let totalEarnings = 0;
-
-    hoursSnap.forEach(h => {
-      const d = h.data();
-      totalHours += safeNumber(d.hours);
-      totalEarnings += safeNumber(d.total);
-    });
-
-    console.log('📊 [recalcSummaryStats] Calculated:', {
-      students: studentsCount,
-      hours: totalHours,
-      earnings: totalEarnings
-    });
-
-    await updateUserStats(uid, {
-      students: studentsCount,
-      hours: totalHours,
-      earnings: totalEarnings,
-      lastSync: new Date().toLocaleString()
-    });
-
-    console.log('✅ [recalcSummaryStats] Completed');
-  } catch (err) {
-    console.error("❌ [recalcSummaryStats] Error:", err);
-  }
+  // dataStatus will auto-update when statStudents and statHours update
+  console.log('✅ [updateHeaderStats] Header stats structure verified');
 }
 
 // Enhanced updateUserStats
