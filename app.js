@@ -2724,3 +2724,26 @@ window.deleteStudent = deleteStudent;
 
 // Sync bar functions for global access
 window.performSync = (mode = 'manual') => SyncBar.performSync(mode);
+
+// Add this to debug the layout
+function debugLayout() {
+  const header = document.querySelector('.header');
+  const sync = document.querySelector('.sync-toolbar');
+  const tabs = document.querySelector('.tabs-container');
+  const content = document.querySelector('.tabcontent');
+
+  console.log('🎯 Layout Debug:');
+  console.log('Header height:', header?.offsetHeight);
+  console.log('Sync height:', sync?.offsetHeight);
+  console.log('Tabs height:', tabs?.offsetHeight);
+  console.log('Content margin-top:', content?.style.marginTop);
+  
+  // Visual debug - add colored borders
+  if (header) header.style.border = '2px solid red';
+  if (sync) sync.style.border = '2px solid green';
+  if (tabs) tabs.style.border = '2px solid blue';
+  if (content) content.style.border = '2px solid orange';
+}
+
+// Call this temporarily to see the layout
+setTimeout(debugLayout, 1000);
