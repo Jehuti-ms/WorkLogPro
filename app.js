@@ -1710,58 +1710,40 @@ const UIManager = {
     console.log(`🎨 Theme changed to ${newTheme}`);
   },
 
- initTabs() {
-  const tabs = document.querySelectorAll('.tab');
-  const tabContents = document.querySelectorAll('.tabcontent');
+  initTabs() {
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tabcontent');
 
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const target = tab.getAttribute('data-tab');
-      console.log('📑 Switching to tab:', target);
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.getAttribute('data-tab');
+        console.log('📑 Switching to tab:', target);
 
-      // Remove active class from all tabs and contents
-      tabs.forEach(t => t.classList.remove('active'));
-      tabContents.forEach(tc => {
-        tc.classList.remove('active');
-        tc.style.display = 'none';
+        // Remove active class from all tabs and contents
+        tabs.forEach(t => t.classList.remove('active'));
+        tabContents.forEach(tc => {
+          tc.classList.remove('active');
+          tc.style.display = 'none';
+        });
+
+        // Add active class to clicked tab and target content
+        tab.classList.add('active');
+        
+        const selected = document.getElementById(target);
+        if (selected) {
+          selected.classList.add('active');
+          selected.style.display = 'block';
+          console.log('✅ Tab displayed:', target);
+        } else {
+          console.error('❌ Tab content not found:', target);
+        }
       });
-
-      // Add active class to clicked tab and target content
-      tab.classList.add('active');
-      
-      const selected = document.getElementById(target);
-      if (selected) {
-        selected.classList.add('active');
-        selected.style.display = 'block';
-        console.log('✅ Tab displayed:', target);
-      } else {
-        console.error('❌ Tab content not found:', target);
-      }
     });
-  });
 
-  // Activate first tab by default - FIXED SYNTAX
-  const firstActive = document.querySelector('.tab.active') || document.querySelector('.tab');
-  if (firstActive) {
-    firstActive.click();
-  }
-  
-  console.log('✅ Tabs initialized');
-},
-  // Activate first tab by default
-  const firstTab = document.querySelector('.tab.active') || document.querySelector('.tab');
-  if (firstTab) {
-    firstTab.click();
-  }
-  
-  console.log('✅ Tabs initialized');
-},
-
-    const firstActive = document.querySelector('.tab.active');
-    if (firstActive) {
-      const target = firstActive.getAttribute('data-tab');
-      const selected = document.getElementById(target);
-      if (selected) selected.style.display = 'block';
+    // Activate first tab by default
+    const firstTab = document.querySelector('.tab.active') || document.querySelector('.tab');
+    if (firstTab) {
+      firstTab.click();
     }
     
     console.log('✅ Tabs initialized');
