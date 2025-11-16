@@ -1222,6 +1222,10 @@ const NotificationSystem = {
 // SYNC BAR MODULE
 // ===========================
 
+// ===========================
+// SYNC BAR MODULE - FIXED VERSION
+// ===========================
+
 const SyncBar = {
   init() {
     NotificationSystem.initNotificationStyles();
@@ -1236,7 +1240,7 @@ const SyncBar = {
     console.log('✅ Sync bar initialized');
   },
 
-  setupAutoSyncToggle: function() {  // Use function expression
+  setupAutoSyncToggle() {
     if (autoSyncCheckbox) {
       // Load saved autoSync preference from localStorage
       const savedAutoSync = localStorage.getItem('autoSyncEnabled') === 'true';
@@ -1251,7 +1255,7 @@ const SyncBar = {
           syncIndicator.style.backgroundColor = '#10b981';
           syncIndicator.classList.add('sync-connected');
         }
-        SyncBar.startAutoSync(); // Use SyncBar directly instead of this
+        this.startAutoSync();
         console.log('✅ Auto-sync restored from previous session');
       } else {
         autoSyncText.textContent = 'Manual';
@@ -1275,7 +1279,7 @@ const SyncBar = {
             syncIndicator.style.backgroundColor = '#10b981';
             syncIndicator.classList.add('sync-connected');
           }
-          SyncBar.startAutoSync(); // Use SyncBar directly
+          this.startAutoSync();
           NotificationSystem.notifySuccess('Auto-sync enabled - syncing every 60 seconds');
         } else {
           autoSyncText.textContent = 'Manual';
@@ -1283,28 +1287,94 @@ const SyncBar = {
             syncIndicator.style.backgroundColor = '#ef4444';
             syncIndicator.classList.remove('sync-connected');
           }
-          SyncBar.stopAutoSync(); // Use SyncBar directly
+          this.stopAutoSync();
           NotificationSystem.notifyInfo('Auto-sync disabled');
         }
       });
     }
   },
 
-  startAutoSync: function() {
-    SyncBar.stopAutoSync(); // Use SyncBar directly
-    SyncBar.performSync('auto'); // Use SyncBar directly
-    autoSyncInterval = setInterval(() => SyncBar.performSync('auto'), 60000);
+  startAutoSync() {
+    this.stopAutoSync();
+    this.performSync('auto');
+    autoSyncInterval = setInterval(() => this.performSync('auto'), 60000);
   },
 
-  stopAutoSync: function() {
+  stopAutoSync() {
     if (autoSyncInterval) {
       clearInterval(autoSyncInterval);
       autoSyncInterval = null;
     }
   },
 
-  // ... rest of your SyncBar methods
-};
+  setupSyncNowButton() {
+    if (syncBtn) {
+      syncBtn.addEventListener('click', async () => {
+        await this.performSync('manual');
+      });
+    }
+  },
+
+  async performSync(mode = 'manual') {
+    const user = auth.currentUser;
+    if (!user) {
+      NotificationSystem.notifyError('Please log in to sync');
+      return;
+    }
+
+    try {
+      if (syncSpinner) syncSpinner.style.display = 'inline-block';
+      if (syncIndicator) {
+        syncIndicator.classList.remove('sync-connected', 'sync-error');
+        syncIndicator.classList.add('sync-active');
+      }
+      if (syncMessageLine) {
+        syncMessageLine.textContent = `Status: ${mode === 'auto' ? 'Auto-syncing' : 'Manual syncing'}...`;
+      }
+
+      await Promise.all([
+        recalcSummaryStats(user.uid),
+        loadUserStats(user.uid),
+        renderStudents(),
+        renderRecentHours(),
+        renderRecentMarks(),
+        renderAttendanceRecent(),
+        renderPaymentActivity(),
+        renderStudentBalances(),
+        renderOverviewReports()
+      ]);
+
+      const now = new Date().toLocaleString();
+      if (syncMessageLine) syncMessageLine.textContent = `Status: Last synced at ${now}`;
+      if (document.getElementById('statUpdated')) {
+        document.getElementById('statUpdated').textContent = now;
+      }
+
+      if (syncIndicator) {
+        syncIndicator.classList.remove('sync-active');
+        if (isAutoSyncEnabled) {
+          syncIndicator.classList.add('sync-connected');
+        }
+      }
+
+      NotificationSystem.notifySuccess(`${mode === 'auto' ? 'Auto-' : ''}Sync completed successfully`);
+
+    } catch (error) {
+      console.error(`❌ ${mode} sync failed:`, error);
+      
+      if (syncIndicator) {
+        syncIndicator.classList.remove('sync-active', 'sync-connected');
+        syncIndicator.classList.add('sync-error');
+      }
+      if (syncMessageLine) {
+        syncMessageLine.textContent = `Status: Sync failed - ${error.message}`;
+      }
+      
+      NotificationSystem.notifyError(`Sync failed: ${error.message}`);
+    } finally {
+      if (syncSpinner) syncSpinner.style.display = 'none';
+    }
+  },
 
   setupExportCloudButton() {
     if (exportCloudBtn) {
@@ -1597,7 +1667,6 @@ const SyncBar = {
     }
   }
 };
-
 // ===========================
 // UI MANAGEMENT MODULE
 // ===========================
