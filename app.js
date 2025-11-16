@@ -2398,10 +2398,10 @@ async function deleteStudent(studentId) {
 function initializeApp() {
   console.log('🚀 Initializing WorkLog App...');
   
-  // Ensure container is visible
+  // Double-check container is visible
   const container = document.querySelector(".container");
-  if (container) {
-    container.style.display = "block";
+  if (container && container.style.display === 'none') {
+    container.style.display = 'block';
   }
   
   UIManager.init();
@@ -2447,18 +2447,40 @@ async function loadInitialData(user) {
 // AUTH STATE MANAGEMENT
 // ===========================
 
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    console.log('✅ User authenticated:', user.email);
-    
-    // Just initialize the app - let it handle container visibility
-    if (typeof initializeApp === 'function') {
-      initializeApp();
+// Wait for DOM to be ready first, then set up auth listener
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('✅ DOM fully loaded, setting up auth listener');
+  
+  onAuthStateChanged(auth, user => {
+    if (user) {
+      console.log("✅ User authenticated:", user.email);
+      
+      // Safe container access
+      const container = document.querySelector(".container");
+      if (container) {
+        container.style.display = "block";
+        console.log('✅ Container displayed');
+      } else {
+        console.error('❌ Container element not found');
+        // Try again after a short delay
+        setTimeout(() => {
+          const retryContainer = document.querySelector(".container");
+          if (retryContainer) {
+            retryContainer.style.display = "block";
+            console.log('✅ Container found on retry');
+          }
+        }, 100);
+      }
+      
+      // Initialize the app
+      if (typeof initializeApp === 'function') {
+        initializeApp();
+      }
+    } else {
+      console.log("🚫 No user authenticated - redirecting to login");
+      window.location.href = "auth.html";
     }
-  } else {
-    console.log('🚫 No user authenticated - redirecting to login');
-    window.location.href = "auth.html";
-  }
+  });
 });
 
 // ===========================
