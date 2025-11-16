@@ -2504,6 +2504,10 @@ async function recordPayment() {
 // STUDENT ACTIONS
 // ===========================
 
+// ===========================
+// STUDENT EDITING FUNCTIONS
+// ===========================
+
 async function editStudent(studentId) {
   const user = auth.currentUser;
   if (!user) {
@@ -2512,6 +2516,13 @@ async function editStudent(studentId) {
   }
 
   try {
+    console.log('✏️ Editing student:', studentId);
+    
+    // Show loading state immediately
+    const submitBtn = document.getElementById('studentSubmitBtn');
+    const cancelBtn = document.getElementById('studentCancelBtn');
+    if (submitBtn) submitBtn.textContent = 'Loading...';
+    
     const studentDoc = await getDoc(doc(db, "users", user.uid, "students", studentId));
     
     if (!studentDoc.exists()) {
@@ -2529,25 +2540,63 @@ async function editStudent(studentId) {
     document.getElementById('studentPhone').value = student.phone || '';
     document.getElementById('studentBaseRate').value = student.rate || '';
 
-    // Change form to edit mode
-    const submitBtn = document.querySelector('#studentForm button[type="button"]');
+    // Set edit mode
+    currentEditStudentId = studentId;
+    
     if (submitBtn) {
       submitBtn.textContent = '💾 Update Student';
       submitBtn.onclick = () => updateStudent(studentId);
     }
+    
+    if (cancelBtn) {
+      cancelBtn.style.display = 'inline-flex';
+    }
 
-    // Scroll to form
-    document.getElementById('studentForm').scrollIntoView({ 
-      behavior: 'smooth', 
-      block: 'start' 
-    });
-
+    // Scroll to form immediately
+    const studentForm = document.getElementById('studentForm');
+    if (studentForm) {
+      studentForm.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start' 
+      });
+    }
+    
     NotificationSystem.notifyInfo(`Editing student: ${student.name}`);
     
   } catch (error) {
     console.error('Error loading student for edit:', error);
     NotificationSystem.notifyError('Failed to load student data');
+    
+    // Reset button on error
+    const submitBtn = document.getElementById('studentSubmitBtn');
+    if (submitBtn) {
+      submitBtn.textContent = '➕ Add Student';
+      submitBtn.onclick = addStudent;
+    }
   }
+}
+
+function cancelEdit() {
+  console.log('❌ Canceling edit...');
+  
+  currentEditStudentId = null;
+  
+  const submitBtn = document.getElementById('studentSubmitBtn');
+  const cancelBtn = document.getElementById('studentCancelBtn');
+  
+  if (submitBtn) {
+    submitBtn.textContent = '➕ Add Student';
+    submitBtn.onclick = addStudent;
+  }
+  
+  if (cancelBtn) {
+    cancelBtn.style.display = 'none';
+  }
+  
+  // Clear the form
+  clearStudentForm();
+  
+  NotificationSystem.notifyInfo('Edit canceled');
 }
 
 async function updateStudent(studentId) {
@@ -2577,6 +2626,13 @@ async function updateStudent(studentId) {
   }
 
   try {
+    // Show loading state
+    const submitBtn = document.getElementById('studentSubmitBtn');
+    if (submitBtn) {
+      submitBtn.textContent = 'Updating...';
+      submitBtn.disabled = true;
+    }
+
     const studentData = { 
       name, 
       id, 
@@ -2609,6 +2665,13 @@ async function updateStudent(studentId) {
   } catch (err) {
     console.error("Error updating student:", err);
     NotificationSystem.notifyError("Failed to update student");
+    
+    // Re-enable button on error
+    const submitBtn = document.getElementById('studentSubmitBtn');
+    if (submitBtn) {
+      submitBtn.textContent = '💾 Update Student';
+      submitBtn.disabled = false;
+    }
   }
 }
 
