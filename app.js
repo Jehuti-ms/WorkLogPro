@@ -557,59 +557,51 @@ function setupFabActions(closeFabMenu) {
 // THEME MANAGEMENT - SIMPLE VERSION
 // ===========================
 
-function setupThemeToggle() {
-  const themeToggle = document.querySelector('.theme-toggle button');
-  console.log('🔍 Theme toggle button found:', themeToggle);
-  
-  if (themeToggle) {
-    themeToggle.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      console.log('🎯 Theme button clicked');
-      toggleTheme();
-    });
-  }
+function updateThemeIcon(theme) {
+    const themeButton = document.querySelector('.theme-toggle button');
+    if (!themeButton) return;
+    
+    // Keep the same "🌓" icon but update the tooltip
+    if (theme === 'dark') {
+        themeButton.setAttribute('title', 'Switch to light mode');
+    } else {
+        themeButton.setAttribute('title', 'Switch to dark mode');
+    }
 }
 
 function toggleTheme() {
-  const currentTheme = document.documentElement.getAttribute('data-theme');
-  console.log('🔄 Current theme:', currentTheme);
-  
-  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-  console.log('🎨 Switching to theme:', newTheme);
-  
-  document.documentElement.setAttribute('data-theme', newTheme);
-  localStorage.setItem('theme', newTheme);
-  updateThemeIcon(newTheme);
-  
-  console.log('✅ Theme changed to', newTheme);
-  console.log('📝 data-theme attribute:', document.documentElement.getAttribute('data-theme'));
-  console.log('💾 localStorage theme:', localStorage.getItem('theme'));
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    updateThemeIcon(newTheme);
+    
+    console.log(`🎨 Theme changed to ${newTheme}`);
 }
 
-function updateThemeIcon(theme) {
-  const themeButton = document.querySelector('.theme-toggle button');
-  console.log('🎨 Updating theme icon for:', theme);
-  
-  if (!themeButton) return;
-  
-  if (theme === 'dark') {
-    themeButton.setAttribute('title', 'Switch to light mode');
-  } else {
-    themeButton.setAttribute('title', 'Switch to dark mode');
-  }
+function setupThemeToggle() {
+    const themeToggle = document.querySelector('.theme-toggle button');
+    if (themeToggle) {
+        themeToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleTheme();
+        });
+    }
 }
 
 function initializeTheme() {
-  const savedTheme = localStorage.getItem('theme') || 'light';
-  console.log('🚀 Initializing theme:', savedTheme);
-  document.documentElement.setAttribute('data-theme', savedTheme);
-  updateThemeIcon(savedTheme);
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    updateThemeIcon(savedTheme);
 }
 
-// Make sure these are called when the app loads
-initializeTheme();
-setupThemeToggle();
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    initializeTheme();
+    setupThemeToggle();
+});
 
 // ===========================
 // HEADER STATS
