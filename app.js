@@ -2134,6 +2134,11 @@ async function addStudent() {
     const studentRef = doc(db, "users", user.uid, "students", id);
     await setDoc(studentRef, student);
     
+    // Clear cache to force fresh data on next load
+    cache.students = null;
+    cache.lastSync = null;
+    console.log('🗑️ Cache cleared for students');
+    
     // Clear form IMMEDIATELY after successful save
     clearStudentForm();
     
@@ -2141,10 +2146,12 @@ async function addStudent() {
     
     // Refresh data in background (don't wait for it)
     Promise.all([
-      renderStudents(),
+      renderStudents(), // This will now fetch fresh data due to cache clear
       loadStudentsForDropdowns(),
       recalcSummaryStats(user.uid)
-    ]).catch(error => {
+    ]).then(() => {
+      console.log('✅ Background refresh completed with fresh data');
+    }).catch(error => {
       console.error("Background refresh failed:", error);
       // Don't show error to user for background tasks
     });
