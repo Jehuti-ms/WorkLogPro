@@ -1976,12 +1976,12 @@ setupHoursFormCalculations() {
   if (workTypeSelect) workTypeSelect.addEventListener('change', calculateTotal);
 }
 
-  setupMarksFormCalculations() {
+ function setupMarksFormCalculations() {
     const scoreInput = document.getElementById('marksScore');
     const maxInput = document.getElementById('marksMax');
     if (scoreInput) scoreInput.addEventListener('input', updateMarksPercentage);
     if (maxInput) maxInput.addEventListener('input', updateMarksPercentage);
-  },
+  }
 
   initEventListeners() {
     console.log('🔧 Initializing event listeners...');
