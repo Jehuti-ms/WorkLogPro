@@ -1999,6 +1999,7 @@ function deselectAllStudents() {
 // RATE MANAGEMENT FUNCTIONS
 // ===========================
 
+// Update saveDefaultRate function
 async function saveDefaultRate() {
   const input = document.getElementById("defaultBaseRate");
   const user = auth.currentUser;
@@ -2019,9 +2020,8 @@ async function saveDefaultRate() {
     if (currentDisplay) currentDisplay.textContent = fmtMoney(val);
     if (hoursDisplay) hoursDisplay.textContent = fmtMoney(val);
     
-    // Save to localStorage as backup and for immediate access
+    // Also save to localStorage as backup
     localStorage.setItem('userDefaultRate', val.toString());
-    console.log('💾 Default rate saved to localStorage:', val);
     
     NotificationSystem.notifySuccess("Default rate saved and synced to cloud");
   } else {
@@ -2029,21 +2029,68 @@ async function saveDefaultRate() {
   }
 }
 
+// Update initializeDefaultRate to check multiple sources
 function initializeDefaultRate(rate) {
   const defaultRateInput = document.getElementById("defaultBaseRate");
   const currentRateDisplay = document.getElementById("currentDefaultRate");
   const hoursRateDisplay = document.getElementById("currentDefaultRateDisplay");
   
-  // Priority: 1. Provided rate, 2. localStorage, 3. Default to 0
-  const finalRate = rate !== undefined ? rate : 
-                   parseFloat(localStorage.getItem('userDefaultRate')) || 0;
+  // Use the provided rate, or try localStorage, or default to 0
+  const finalRate = rate || parseFloat(localStorage.getItem('userDefaultRate')) || 0;
   
   if (defaultRateInput) defaultRateInput.value = finalRate;
   if (currentRateDisplay) currentRateDisplay.textContent = fmtMoney(finalRate);
   if (hoursRateDisplay) hoursRateDisplay.textContent = fmtMoney(finalRate);
   
-  console.log('💰 Default rate initialized:', finalRate, 'from source:', 
-              rate !== undefined ? 'user profile' : 'localStorage');
+  console.log('💰 Default rate initialized:', finalRate);
+}
+
+// Update loadUserProfile to initialize the rate
+async function loadUserProfile(uid) {
+  console.log('👤 Loading user profile for:', uid);
+  try {
+    const userRef = doc(db, "users", uid);
+    const userSnap = await getDoc(userRef);
+    
+    if (userSnap.exists()) {
+      currentUserData = { uid, ...userSnap.data() };
+      console.log('✅ User profile loaded:', currentUserData);
+      
+      // Update profile button with user info
+      updateProfileButton(currentUserData);
+      
+      // Initialize default rate from user profile
+      initializeDefaultRate(currentUserData.defaultRate);
+      
+      return currentUserData;
+    } else {
+      // Create new user profile with default rate
+      const defaultRate = parseFloat(localStorage.getItem('userDefaultRate')) || 0;
+      const defaultProfile = {
+        email: auth.currentUser?.email || '',
+        createdAt: new Date().toISOString(),
+        defaultRate: defaultRate,
+        lastLogin: new Date().toISOString()
+      };
+      
+      await setDoc(userRef, defaultProfile);
+      currentUserData = { uid, ...defaultProfile };
+      console.log('✅ New user profile created');
+      
+      updateProfileButton(currentUserData);
+      initializeDefaultRate(defaultRate);
+      
+      return currentUserData;
+    }
+  } catch (err) {
+    console.error("❌ Error loading user profile:", err);
+    
+    // Fallback to localStorage rate
+    const fallbackRate = parseFloat(localStorage.getItem('userDefaultRate')) || 0;
+    initializeDefaultRate(fallbackRate);
+    
+    return null;
+  }
 }
 
 async function applyDefaultRateToAll() {
