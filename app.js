@@ -802,14 +802,16 @@ async function renderStudents(forceRefresh = false) {
   const container = document.getElementById('studentsContainer');
   if (!container) return;
 
-  // Use cache unless forced refresh
+  console.log(`🔄 renderStudents called - forceRefresh: ${forceRefresh}, cacheValid: ${isCacheValid('students')}`);
+
+  // Use cache unless forced refresh OR cache is invalid
   if (!forceRefresh && isCacheValid('students') && cache.students) {
     container.innerHTML = cache.students;
     console.log('✅ Students loaded from cache');
     return;
   }
 
-  console.log('🔄 Loading students from Firestore...');
+  console.log('🔄 Loading students from Firestore (cache invalid or forced)...');
   container.innerHTML = '<div class="loading">Loading students...</div>';
 
   try {
@@ -2255,8 +2257,6 @@ async function addStudent() {
   const phone = document.getElementById("studentPhone")?.value.trim();
   const rate = parseFloat(document.getElementById("studentBaseRate")?.value) || 0;
 
-  console.log('📝 Form data:', { name, id, gender, email, phone, rate });
-
   if (!name || !id || !gender) {
     NotificationSystem.notifyError("Please fill required fields: Name, ID, Gender");
     return;
@@ -2293,6 +2293,11 @@ async function addStudent() {
     await setDoc(studentRef, student);
     console.log('✅ Saved to Firestore');
     
+    // PROPERLY clear cache and force refresh
+    console.log('🗑️ Invalidating cache...');
+    cache.students = null;
+    cache.lastSync = null; // This is key - make cache invalid
+    
     // Clear form IMMEDIATELY
     console.log('🧹 Clearing form...');
     clearStudentForm();
@@ -2301,11 +2306,9 @@ async function addStudent() {
     NotificationSystem.notifySuccess("Student added successfully!");
     console.log('✅ Showed success message');
     
-    // Force refresh student list
+    // Force refresh student list with TRUE force refresh
     console.log('🔄 Refreshing student list...');
-    cache.students = null;
-    await renderStudents(true);
-    console.log('✅ Student list refreshed');
+    await renderStudents(true); // Force true refresh
     
     // Update stats
     console.log('📊 Updating stats...');
