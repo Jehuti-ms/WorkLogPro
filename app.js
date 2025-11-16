@@ -499,6 +499,7 @@ function setupFloatingAddButton() {
   console.log('✅ FAB setup completed');
 }
 
+// Enhanced FAB actions to open forms directly
 function setupFabActions(closeFabMenu) {
   const quickActions = {
     'fabAddStudent': () => {
@@ -506,7 +507,16 @@ function setupFabActions(closeFabMenu) {
       const studentTab = document.querySelector('[data-tab="students"]');
       if (studentTab) {
         studentTab.click();
-        console.log('✅ Switched to Students tab');
+        // Scroll to student form
+        setTimeout(() => {
+          const studentForm = document.getElementById('studentForm');
+          if (studentForm) {
+            studentForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Focus on first input
+            const firstInput = studentForm.querySelector('input');
+            if (firstInput) firstInput.focus();
+          }
+        }, 300);
       }
     },
     'fabAddHours': () => {
@@ -514,7 +524,15 @@ function setupFabActions(closeFabMenu) {
       const hoursTab = document.querySelector('[data-tab="hours"]');
       if (hoursTab) {
         hoursTab.click();
-        console.log('✅ Switched to Hours tab');
+        // Scroll to hours form
+        setTimeout(() => {
+          const hoursForm = document.querySelector('#hours .section-card:first-child');
+          if (hoursForm) {
+            hoursForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const firstInput = hoursForm.querySelector('input');
+            if (firstInput) firstInput.focus();
+          }
+        }, 300);
       }
     },
     'fabAddMark': () => {
@@ -522,7 +540,15 @@ function setupFabActions(closeFabMenu) {
       const marksTab = document.querySelector('[data-tab="marks"]');
       if (marksTab) {
         marksTab.click();
-        console.log('✅ Switched to Marks tab');
+        // Scroll to marks form
+        setTimeout(() => {
+          const marksForm = document.getElementById('marksForm');
+          if (marksForm) {
+            marksForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const firstInput = marksForm.querySelector('input, select');
+            if (firstInput) firstInput.focus();
+          }
+        }, 300);
       }
     },
     'fabAddAttendance': () => {
@@ -530,7 +556,15 @@ function setupFabActions(closeFabMenu) {
       const attendanceTab = document.querySelector('[data-tab="attendance"]');
       if (attendanceTab) {
         attendanceTab.click();
-        console.log('✅ Switched to Attendance tab');
+        // Scroll to attendance form
+        setTimeout(() => {
+          const attendanceForm = document.querySelector('#attendance .section-card:first-child');
+          if (attendanceForm) {
+            attendanceForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const firstInput = attendanceForm.querySelector('input');
+            if (firstInput) firstInput.focus();
+          }
+        }, 300);
       }
     }
   };
