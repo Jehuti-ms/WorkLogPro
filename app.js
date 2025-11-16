@@ -120,49 +120,35 @@ async function loadUserProfile(uid) {
   
   try {
     const userRef = doc(db, "users", uid);
-    
-    // Use Promise.race for timeout protection
-    const userSnap = await Promise.race([
-      getDoc(userRef),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Profile load timeout')), 5000)
-      )
-    ]);
+    const userSnap = await getDoc(userRef);
     
     if (userSnap.exists()) {
       currentUserData = { uid, ...userSnap.data() };
       console.log('✅ User profile loaded from Firestore');
       
-      // Update with full profile data (this will override the fallback)
+      // Update with full profile data
       updateProfileButton(currentUserData);
       
       if (currentUserData.defaultRate !== undefined) {
         initializeDefaultRate(currentUserData.defaultRate);
-        // Update localStorage with the latest rate
         localStorage.setItem('userDefaultRate', currentUserData.defaultRate.toString());
       }
       
       return currentUserData;
     } else {
-      // Create profile in background without blocking
+      // Create profile in background
       const profileToCreate = {
         ...fallbackProfile,
         lastLogin: new Date().toISOString()
       };
       
-      setDoc(userRef, profileToCreate).then(() => {
-        console.log('✅ User profile created in background');
-      }).catch(err => {
-        console.error('❌ Background profile creation failed:', err);
-      });
+      setDoc(userRef, profileToCreate).catch(console.error);
       
       currentUserData = { uid, ...profileToCreate };
       return currentUserData;
     }
   } catch (err) {
     console.error("❌ Error loading user profile:", err);
-    
-    // Use cached data and continue without blocking
     console.log('🔄 Using cached profile data');
     return fallbackProfile;
   }
@@ -334,6 +320,7 @@ function updateProfileModal() {
   if (modalStatEarnings && mainStatEarnings) modalStatEarnings.textContent = mainStatEarnings.textContent;
   if (modalStatUpdated && mainStatUpdated) modalStatUpdated.textContent = mainStatUpdated.textContent;
 }
+
 // ===========================
 // FLOATING ADD BUTTON
 // ===========================
