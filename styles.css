@@ -1584,3 +1584,39 @@ body {
   }
 }
 
+/* =========================== */
+/* SYNC TOOLBAR CENTERING */
+/* =========================== */
+.sync-toolbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 120px;
+  z-index: 99;
+  backdrop-filter: blur(10px);
+  justify-content: center; /* Center all toolbar content */
+}
+
+/* Optional: If you want the items to be evenly spaced within the centered container */
+.sync-toolbar {
+  justify-content: center;
+  gap: 16px; /* Slightly larger gap for better spacing when centered */
+}
+
+@media (max-width: 768px) {
+  .sync-toolbar {
+    padding: 8px 16px;
+    gap: 12px;
+    justify-content: center; /* Keep centered on mobile too */
+  }
+  
+  /* Ensure buttons wrap nicely when centered */
+  .sync-toolbar .button {
+    flex-shrink: 0; /* Prevent buttons from shrinking too much */
+  }
+}
