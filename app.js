@@ -2398,6 +2398,12 @@ async function deleteStudent(studentId) {
 function initializeApp() {
   console.log('🚀 Initializing WorkLog App...');
   
+  // Ensure container is visible
+  const container = document.querySelector(".container");
+  if (container) {
+    container.style.display = "block";
+  }
+  
   UIManager.init();
   SyncBar.init();
   setupProfileModal();
@@ -2444,10 +2450,10 @@ async function loadInitialData(user) {
 onAuthStateChanged(auth, (user) => {
   if (user) {
     console.log('✅ User authenticated:', user.email);
-    document.querySelector(".container").style.display = "block";
     
+    // Just initialize the app - let it handle container visibility
     if (typeof initializeApp === 'function') {
-      loadInitialData(user);
+      initializeApp();
     }
   } else {
     console.log('🚫 No user authenticated - redirecting to login');
