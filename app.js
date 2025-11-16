@@ -1236,59 +1236,75 @@ const SyncBar = {
     console.log('✅ Sync bar initialized');
   },
 
-  setupAutoSyncToggle() {
-  if (autoSyncCheckbox) {
-    // Load saved autoSync preference from localStorage
-    const savedAutoSync = localStorage.getItem('autoSyncEnabled') === 'true';
-    isAutoSyncEnabled = savedAutoSync;
-    
-    // Set the checkbox state based on saved preference
-    autoSyncCheckbox.checked = savedAutoSync;
-    
-    if (savedAutoSync) {
-      autoSyncText.textContent = 'Auto';
-      if (syncIndicator) {
-        syncIndicator.style.backgroundColor = '#10b981';
-        syncIndicator.classList.add('sync-connected');
-      }
-      this.startAutoSync();
-      console.log('✅ Auto-sync restored from previous session');
-    } else {
-      autoSyncText.textContent = 'Manual';
-      if (syncIndicator) {
-        syncIndicator.style.backgroundColor = '#ef4444';
-        syncIndicator.classList.remove('sync-connected');
-      }
-      console.log('✅ Manual sync mode restored');
-    }
-
-    autoSyncCheckbox.addEventListener('change', (e) => {
-      isAutoSyncEnabled = e.target.checked;
+  setupAutoSyncToggle: function() {  // Use function expression
+    if (autoSyncCheckbox) {
+      // Load saved autoSync preference from localStorage
+      const savedAutoSync = localStorage.getItem('autoSyncEnabled') === 'true';
+      isAutoSyncEnabled = savedAutoSync;
       
-      // Save preference to localStorage
-      localStorage.setItem('autoSyncEnabled', isAutoSyncEnabled.toString());
-      console.log('💾 Auto-sync preference saved:', isAutoSyncEnabled);
+      // Set the checkbox state based on saved preference
+      autoSyncCheckbox.checked = savedAutoSync;
       
-      if (isAutoSyncEnabled) {
+      if (savedAutoSync) {
         autoSyncText.textContent = 'Auto';
         if (syncIndicator) {
           syncIndicator.style.backgroundColor = '#10b981';
           syncIndicator.classList.add('sync-connected');
         }
-        this.startAutoSync();
-        NotificationSystem.notifySuccess('Auto-sync enabled - syncing every 60 seconds');
+        SyncBar.startAutoSync(); // Use SyncBar directly instead of this
+        console.log('✅ Auto-sync restored from previous session');
       } else {
         autoSyncText.textContent = 'Manual';
         if (syncIndicator) {
           syncIndicator.style.backgroundColor = '#ef4444';
           syncIndicator.classList.remove('sync-connected');
         }
-        this.stopAutoSync();
-        NotificationSystem.notifyInfo('Auto-sync disabled');
+        console.log('✅ Manual sync mode restored');
       }
-    });
-  }
-},
+
+      autoSyncCheckbox.addEventListener('change', (e) => {
+        isAutoSyncEnabled = e.target.checked;
+        
+        // Save preference to localStorage
+        localStorage.setItem('autoSyncEnabled', isAutoSyncEnabled.toString());
+        console.log('💾 Auto-sync preference saved:', isAutoSyncEnabled);
+        
+        if (isAutoSyncEnabled) {
+          autoSyncText.textContent = 'Auto';
+          if (syncIndicator) {
+            syncIndicator.style.backgroundColor = '#10b981';
+            syncIndicator.classList.add('sync-connected');
+          }
+          SyncBar.startAutoSync(); // Use SyncBar directly
+          NotificationSystem.notifySuccess('Auto-sync enabled - syncing every 60 seconds');
+        } else {
+          autoSyncText.textContent = 'Manual';
+          if (syncIndicator) {
+            syncIndicator.style.backgroundColor = '#ef4444';
+            syncIndicator.classList.remove('sync-connected');
+          }
+          SyncBar.stopAutoSync(); // Use SyncBar directly
+          NotificationSystem.notifyInfo('Auto-sync disabled');
+        }
+      });
+    }
+  },
+
+  startAutoSync: function() {
+    SyncBar.stopAutoSync(); // Use SyncBar directly
+    SyncBar.performSync('auto'); // Use SyncBar directly
+    autoSyncInterval = setInterval(() => SyncBar.performSync('auto'), 60000);
+  },
+
+  stopAutoSync: function() {
+    if (autoSyncInterval) {
+      clearInterval(autoSyncInterval);
+      autoSyncInterval = null;
+    }
+  },
+
+  // ... rest of your SyncBar methods
+};
 
   setupExportCloudButton() {
     if (exportCloudBtn) {
