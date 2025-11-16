@@ -1867,72 +1867,81 @@ body.modal-open {
 }
 
 /* =========================== */
-/* FIXED HEADER & SYNC BAR STACKING */
+/* ENHANCED FROSTED GLASS */
 /* =========================== */
 
-/* Fixed header */
+body {
+  padding-top: 0 !important;
+  margin: 0;
+  background: var(--background);
+}
+
+/* Header with strong frosted glass */
 .header {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   z-index: 1002;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-  height: 80px; /* Set explicit height */
-  box-shadow: 0 2px 30px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(25px) saturate(200%);
+  -webkit-backdrop-filter: blur(25px) saturate(200%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+  height: 120px;
+  box-shadow: 0 1px 20px rgba(0, 0, 0, 0.05);
 }
 
-/* Fixed sync bar positioned BELOW header */
+/* Sync bar with frosted glass */
 .sync-toolbar {
   position: fixed;
-  top: 80px; /* Same as header height */
+  top: 120px;
   left: 0;
   right: 0;
   z-index: 1001;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
   padding: 10px 16px;
   min-height: 50px;
-  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 15px rgba(0, 0, 0, 0.04);
 }
 
-/* Tabs container positioned BELOW sync bar */
+/* Tabs with frosted glass */
 .tabs-container {
   position: fixed;
-  top: 130px; /* header (80px) + sync bar (50px) */
+  top: 170px;
   left: 0;
   right: 0;
   z-index: 1000;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(15px) saturate(160%);
+  -webkit-backdrop-filter: blur(15px) saturate(160%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 1px 10px rgba(0, 0, 0, 0.03);
 }
 
-/* Main content starts BELOW all fixed elements */
+/* CONTENT SCROLLS BEHIND */
 .tabcontent {
-  margin-top: 180px; /* header (80px) + sync bar (50px) + tabs (50px) */
-  padding: 20px;
+  padding: 25px 20px;
+  margin-top: 220px; /* header(120) + sync(50) + tabs(50) = 220px */
   position: relative;
   z-index: 1;
 }
 
-/* Body no longer needs padding-top since we're using margin on content */
-body {
-  padding-top: 0;
-}
-
-/* Dark theme */
+/* Dark theme enhanced */
 [data-theme="dark"] .header {
-  background: rgba(20, 20, 30, 0.95);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 15, 25, 0.75);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 [data-theme="dark"] .sync-toolbar {
-  background: rgba(25, 25, 35, 0.9);
+  background: rgba(20, 20, 30, 0.65);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .tabs-container {
+  background: rgba(25, 25, 35, 0.55);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
