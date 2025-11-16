@@ -2451,36 +2451,25 @@ async function loadInitialData(user) {
 document.addEventListener('DOMContentLoaded', function() {
   console.log('✅ DOM fully loaded, setting up auth listener');
   
-  onAuthStateChanged(auth, user => {
-    if (user) {
-      console.log("✅ User authenticated:", user.email);
-      
-      // Safe container access
+ onAuthStateChanged(auth, user => {
+  if (user) {
+    console.log("✅ User authenticated:", user.email);
+    
+    // Simple, safe container access
+    setTimeout(() => {
       const container = document.querySelector(".container");
       if (container) {
         container.style.display = "block";
-        console.log('✅ Container displayed');
-      } else {
-        console.error('❌ Container element not found');
-        // Try again after a short delay
-        setTimeout(() => {
-          const retryContainer = document.querySelector(".container");
-          if (retryContainer) {
-            retryContainer.style.display = "block";
-            console.log('✅ Container found on retry');
-          }
-        }, 100);
       }
-      
-      // Initialize the app
-      if (typeof initializeApp === 'function') {
-        initializeApp();
-      }
-    } else {
-      console.log("🚫 No user authenticated - redirecting to login");
-      window.location.href = "auth.html";
+    }, 100);
+    
+    if (typeof initializeApp === 'function') {
+      initializeApp();
     }
-  });
+  } else {
+    console.log("🚫 No user authenticated - redirecting to login");
+    window.location.href = "auth.html";
+  }
 });
 
 // ===========================
