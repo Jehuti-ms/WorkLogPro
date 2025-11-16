@@ -1,4 +1,24 @@
 // ===========================
+// CACHE SYSTEM FOR PERFORMANCE
+// ===========================
+
+const cache = {
+  students: null,
+  hours: null,
+  marks: null,
+  attendance: null,
+  payments: null,
+  lastSync: null
+};
+
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+function isCacheValid(key) {
+  if (!cache[key] || !cache.lastSync) return false;
+  return (Date.now() - cache.lastSync) < CACHE_DURATION;
+}
+
+// ===========================
 // IMPORTS
 // ===========================
 
@@ -635,52 +655,61 @@ async function renderStudents() {
 
   const container = document.getElementById('studentsContainer');
   if (!container) return;
-  
+
+  // Show cached data immediately if available
+  if (isCacheValid('students') && cache.students) {
+    container.innerHTML = cache.students;
+    console.log('✅ Students loaded from cache');
+    return;
+  }
+
   container.innerHTML = '<div class="loading">Loading students...</div>';
 
   try {
     const studentsSnap = await getDocs(collection(db, "users", user.uid, "students"));
     
     if (studentsSnap.size === 0) {
-      container.innerHTML = `
+      const emptyHTML = `
         <div class="empty-state">
           <h3>No Students Yet</h3>
           <p>Add your first student to get started</p>
         </div>
       `;
+      container.innerHTML = emptyHTML;
+      cache.students = emptyHTML;
+      cache.lastSync = Date.now();
       return;
     }
 
-    container.innerHTML = '';
-    
+    let studentsHTML = '';
     studentsSnap.forEach(docSnap => {
       const student = { id: docSnap.id, ...docSnap.data() };
-      
-      const card = document.createElement("div");
-      card.className = "student-card";
-      card.innerHTML = `
-        <div class="student-card-header">
-          <div>
-            <strong>${student.name}</strong>
-            <span class="student-id">${student.id}</span>
+      studentsHTML += `
+        <div class="student-card">
+          <div class="student-card-header">
+            <div>
+              <strong>${student.name}</strong>
+              <span class="student-id">${student.id}</span>
+            </div>
+            <div class="student-actions">
+              <button class="btn-icon" onclick="editStudent('${student.id}')" title="Edit">✏️</button>
+              <button class="btn-icon" onclick="deleteStudent('${student.id}')" title="Delete">🗑️</button>
+            </div>
           </div>
-          <div class="student-actions">
-            <button class="btn-icon" onclick="editStudent('${student.id}')" title="Edit">
-              ✏️
-            </button>
-            <button class="btn-icon" onclick="deleteStudent('${student.id}')" title="Delete">
-              🗑️
-            </button>
+          <div class="student-details">
+            <div class="muted">${student.gender} • ${student.email || 'No email'} • ${student.phone || 'No phone'}</div>
+            <div class="student-rate">Rate: $${fmtMoney(student.rate)}/session</div>
+            <div class="student-meta">Added: ${formatDate(student.createdAt)}</div>
           </div>
-        </div>
-        <div class="student-details">
-          <div class="muted">${student.gender} • ${student.email || 'No email'} • ${student.phone || 'No phone'}</div>
-          <div class="student-rate">Rate: $${fmtMoney(student.rate)}/session</div>
-          <div class="student-meta">Added: ${formatDate(student.createdAt)}</div>
         </div>
       `;
-      container.appendChild(card);
     });
+
+    container.innerHTML = studentsHTML;
+    cache.students = studentsHTML;
+    cache.lastSync = Date.now();
+    
+    console.log('✅ Students loaded from Firestore');
 
   } catch (error) {
     console.error("Error rendering students:", error);
