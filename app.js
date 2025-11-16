@@ -351,68 +351,18 @@ function setupFloatingAddButton() {
   const fabOverlay = document.getElementById('fabOverlay');
 
   console.log('🔧 Setting up FAB...');
-  console.log('FAB element:', fab);
-  console.log('FAB menu:', fabMenu);
-  console.log('FAB overlay:', fabOverlay);
 
-  // Check if all FAB elements exist
   if (!fab) {
     console.error('❌ FAB button not found!');
     return;
   }
 
-  if (!fabMenu) {
-    console.error('❌ FAB menu not found!');
-    return;
-  }
-
-  // Initialize state
   let isExpanded = false;
-
-  // Click handler for main FAB button
-  fab.addEventListener('click', (e) => {
-    e.stopPropagation();
-    console.log('🎯 FAB clicked, current state:', isExpanded);
-    
-    if (isExpanded) {
-      // Close menu
-      closeFabMenu();
-    } else {
-      // Open menu
-      openFabMenu();
-    }
-  });
-
-  // Close menu when clicking on overlay
-  if (fabOverlay) {
-    fabOverlay.addEventListener('click', (e) => {
-      e.stopPropagation();
-      closeFabMenu();
-      console.log('📱 FAB closed via overlay');
-    });
-  }
-
-  // Close menu when clicking outside
-  document.addEventListener('click', (e) => {
-    if (isExpanded) {
-      if (!fab.contains(e.target) && (!fabMenu || !fabMenu.contains(e.target))) {
-        closeFabMenu();
-        console.log('📱 FAB closed via outside click');
-      }
-    }
-  });
-
-  // Close with Escape key
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && isExpanded) {
-      closeFabMenu();
-      console.log('📱 FAB closed via Escape key');
-    }
-  });
 
   function openFabMenu() {
     isExpanded = true;
     fab.setAttribute('data-expanded', 'true');
+    fab.innerHTML = '✕'; // Change to X when open
     
     if (fabMenu) {
       fabMenu.classList.add('show');
@@ -427,6 +377,7 @@ function setupFloatingAddButton() {
   function closeFabMenu() {
     isExpanded = false;
     fab.setAttribute('data-expanded', 'false');
+    fab.innerHTML = '+'; // Change back to plus when closed
     
     if (fabMenu) {
       fabMenu.classList.remove('show');
@@ -438,69 +389,69 @@ function setupFloatingAddButton() {
     }
   }
 
-  // Setup quick action buttons with safe access
-  setupFabActions(fab, closeFabMenu);
+  // Click handler for main FAB button
+  fab.addEventListener('click', (e) => {
+    e.stopPropagation();
+    console.log('🎯 FAB clicked, current state:', isExpanded);
+    
+    if (isExpanded) {
+      closeFabMenu();
+    } else {
+      openFabMenu();
+    }
+  });
+
+  // Close menu when clicking on overlay
+  if (fabOverlay) {
+    fabOverlay.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeFabMenu();
+    });
+  }
+
+  // Close menu when clicking outside
+  document.addEventListener('click', (e) => {
+    if (isExpanded) {
+      if (!fab.contains(e.target) && (!fabMenu || !fabMenu.contains(e.target))) {
+        closeFabMenu();
+      }
+    }
+  });
+
+  // Close with Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isExpanded) {
+      closeFabMenu();
+    }
+  });
+
+  // Setup quick action buttons - FIXED: Remove fab parameter
+  setupFabActions(closeFabMenu);
   
   console.log('✅ FAB setup completed');
 }
 
-function setupFabActions(fab, closeFabMenu) {
+function setupFabActions(closeFabMenu) { // FIXED: Remove unused fab parameter
   const quickActions = {
     'fabAddStudent': () => {
       console.log('🎯 FAB: Add Student clicked');
       const studentTab = document.querySelector('[data-tab="students"]');
-      if (studentTab) {
-        studentTab.click();
-        setTimeout(() => {
-          const form = document.getElementById('studentForm');
-          if (form) {
-            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            console.log('📱 Scrolled to student form');
-          }
-        }, 300);
-      }
+      if (studentTab) studentTab.click();
     },
     'fabAddHours': () => {
       console.log('🎯 FAB: Add Hours clicked');
       const hoursTab = document.querySelector('[data-tab="hours"]');
-      if (hoursTab) {
-        hoursTab.click();
-        setTimeout(() => {
-          const form = document.getElementById('hoursForm');
-          if (form) {
-            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            console.log('📱 Scrolled to hours form');
-          }
-        }, 300);
-      }
+      if (hoursTab) hoursTab.click();
     },
     'fabAddMark': () => {
       console.log('🎯 FAB: Add Mark clicked');
       const marksTab = document.querySelector('[data-tab="marks"]');
-      if (marksTab) {
-        marksTab.click();
-        setTimeout(() => {
-          const form = document.getElementById('marksForm');
-          if (form) {
-            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            console.log('📱 Scrolled to marks form');
-          }
-        }, 300);
-      }
+      if (marksTab) marksTab.click();
     },
     'fabAddAttendance': () => {
       console.log('🎯 FAB: Add Attendance clicked');
       const attendanceTab = document.querySelector('[data-tab="attendance"]');
-      if (attendanceTab) {
-        attendanceTab.click();
-        setTimeout(() => {
-          const form = document.getElementById('attendanceForm');
-          if (form) {
-            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            console.log('📱 Scrolled to attendance form');
-          }
-        }, 300);
-      }
+      if (attendanceTab) attendanceTab.click();
     }
   };
 
