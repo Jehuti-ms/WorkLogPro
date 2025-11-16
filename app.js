@@ -1625,7 +1625,7 @@ const SyncBar = {
         }
 
         try {
-          NotificationSystem.notifyInfo('Syncing statistics...');
+          NotificationSystem.notifyInfo('Fixing statistics... recalculating from your raw data');
           await recalcSummaryStats(user.uid);
           await loadUserStats(user.uid);
           NotificationSystem.notifySuccess('Statistics synced successfully');
