@@ -2937,3 +2937,20 @@ window.deleteStudent = deleteStudent;
 
 // Sync bar functions for global access
 window.performSync = (mode = 'manual') => SyncBar.performSync(mode);
+
+function debugStats() {
+  console.log('🔍 Stats Debug:');
+  console.log('statStudents:', document.getElementById('statStudents')?.textContent);
+  console.log('statHours:', document.getElementById('statHours')?.textContent);
+  console.log('statEarnings:', document.getElementById('statEarnings')?.textContent);
+  console.log('dataStatus:', document.getElementById('dataStatus')?.textContent);
+  
+  const user = auth.currentUser;
+  if (user) {
+    console.log('User UID:', user.uid);
+  } else {
+    console.log('No user authenticated');
+  }
+}
+
+// Call this in console: debugStats()
