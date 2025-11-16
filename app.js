@@ -2034,30 +2034,63 @@ async function addStudent() {
     return;
   }
 
-  const student = { 
-    name, 
-    id, 
-    gender, 
-    email, 
-    phone, 
-    rate,
-    createdAt: new Date().toISOString()
-  };
-
   const user = auth.currentUser;
-  if (user) {
-    try {
-      const studentRef = doc(db, "users", user.uid, "students", id);
-      await setDoc(studentRef, student);
-      
-      NotificationSystem.notifySuccess("Student added successfully");
-      clearStudentForm();
-      await renderStudents();
-      await loadStudentsForDropdowns();
+  if (!user) {
+    NotificationSystem.notifyError("Please log in to add students");
+    return;
+  }
 
-    } catch (err) {
-      console.error("Error adding student:", err);
+  try {
+    // Show loading state
+    const submitBtn = document.querySelector('#studentForm button[type="submit"]');
+    const originalText = submitBtn?.textContent;
+    if (submitBtn) {
+      submitBtn.textContent = 'Saving...';
+      submitBtn.disabled = true;
+    }
+
+    const student = { 
+      name, 
+      id, 
+      gender, 
+      email, 
+      phone, 
+      rate,
+      createdAt: new Date().toISOString()
+    };
+
+    const studentRef = doc(db, "users", user.uid, "students", id);
+    await setDoc(studentRef, student);
+    
+    // Clear form IMMEDIATELY after successful save
+    clearStudentForm();
+    
+    NotificationSystem.notifySuccess("Student added successfully");
+    
+    // Refresh data in background (don't wait for it)
+    Promise.all([
+      renderStudents(),
+      loadStudentsForDropdowns(),
+      recalcSummaryStats(user.uid)
+    ]).catch(error => {
+      console.error("Background refresh failed:", error);
+      // Don't show error to user for background tasks
+    });
+
+  } catch (err) {
+    console.error("Error adding student:", err);
+    
+    if (err.code === 'already-exists' || err.message.includes('already exists')) {
+      NotificationSystem.notifyError("A student with this ID already exists");
+    } else {
       NotificationSystem.notifyError("Failed to add student");
+    }
+    
+    // Re-enable button on error
+    const submitBtn = document.querySelector('#studentForm button[type="submit"]');
+    if (submitBtn) {
+      submitBtn.textContent = 'Add Student';
+      submitBtn.disabled = false;
     }
   }
 }
