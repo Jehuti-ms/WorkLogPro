@@ -574,6 +574,42 @@ body {
   }
 }
 
+/* Tab Content Visibility */
+.tabcontent {
+  display: none;
+  animation: fadeIn 0.3s ease;
+}
+
+.tabcontent.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Ensure no other CSS is overriding display properties */
+#overview,
+#students, 
+#hours,
+#marks,
+#attendance,
+#payments,
+#reports {
+  display: none !important;
+}
+
+#overview.active,
+#students.active,
+#hours.active,
+#marks.active, 
+#attendance.active,
+#payments.active,
+#reports.active {
+  display: block !important;
+}
+
 /* ===========================
    Cards & Sections - Modern
    =========================== */
