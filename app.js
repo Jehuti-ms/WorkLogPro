@@ -2398,12 +2398,6 @@ async function deleteStudent(studentId) {
 function initializeApp() {
   console.log('🚀 Initializing WorkLog App...');
   
-  // Double-check container is visible
-  const container = document.querySelector(".container");
-  if (container && container.style.display === 'none') {
-    container.style.display = 'block';
-  }
-  
   UIManager.init();
   SyncBar.init();
   setupProfileModal();
@@ -2447,27 +2441,16 @@ async function loadInitialData(user) {
 // AUTH STATE MANAGEMENT
 // ===========================
 
-// Wait for DOM to be ready first, then set up auth listener
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('✅ DOM fully loaded, setting up auth listener');
-  
- onAuthStateChanged(auth, user => {
+onAuthStateChanged(auth, (user) => {
   if (user) {
-    console.log("✅ User authenticated:", user.email);
-    
-    // Simple, safe container access
-    setTimeout(() => {
-      const container = document.querySelector(".container");
-      if (container) {
-        container.style.display = "block";
-      }
-    }, 100);
+    console.log('✅ User authenticated:', user.email);
+    document.querySelector(".container").style.display = "block";
     
     if (typeof initializeApp === 'function') {
-      initializeApp();
+      loadInitialData(user);
     }
   } else {
-    console.log("🚫 No user authenticated - redirecting to login");
+    console.log('🚫 No user authenticated - redirecting to login');
     window.location.href = "auth.html";
   }
 });
