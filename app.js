@@ -119,6 +119,35 @@ function calculateGrade(percentage) {
   return 'F';
 }
 
+// Timezone utility functions
+function getLocalISODate() {
+  const now = new Date();
+  const tzOffset = -now.getTimezoneOffset();
+  const diff = tzOffset >= 0 ? '+' : '-';
+  const pad = n => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
+  return now.getFullYear() +
+    '-' + pad(now.getMonth() + 1) +
+    '-' + pad(now.getDate()) +
+    'T' + pad(now.getHours()) +
+    ':' + pad(now.getMinutes()) +
+    ':' + pad(now.getSeconds()) +
+    diff + pad(tzOffset / 60) +
+    ':' + pad(tzOffset % 60);
+}
+
+function formatDateForInput(dateString) {
+  if (!dateString) return new Date().toISOString().split('T')[0];
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      return new Date().toISOString().split('T')[0];
+    }
+    return date.toISOString().split('T')[0];
+  } catch {
+    return new Date().toISOString().split('T')[0];
+  }
+}
+
 // ===========================
 // USER PROFILE & AUTHENTICATION
 // ===========================
@@ -196,7 +225,6 @@ function updateProfileButton(userData) {
   }
 }
 
-// Keep the rest of your functions the same, they're fine
 async function updateUserDefaultRate(uid, newRate) {
   try {
     const userRef = doc(db, "users", uid);
@@ -252,6 +280,12 @@ function setupProfileModal() {
   const logoutBtn = document.getElementById('logoutBtn');
 
   console.log('🔧 Setting up profile modal...');
+
+  // Check if modal elements exist
+  if (!profileModal) {
+    console.error('❌ Profile modal not found in DOM');
+    return;
+  }
 
   // Open modal
   if (profileBtn && profileModal) {
@@ -325,20 +359,27 @@ function updateProfileModal() {
   if (currentUserData) {
     const email = currentUserData.email || auth.currentUser?.email || 'Not available';
     if (profileUserEmail) profileUserEmail.textContent = email;
-    if (profileUserSince) profileUserSince.textContent = formatDate(currentUserData.createdAt);
-    if (profileDefaultRate) profileDefaultRate.textContent = `$${fmtMoney(currentUserData.defaultRate || 0)}/hour`;
+    
+    const createdAt = currentUserData.createdAt || currentUserData.lastLogin || new Date().toISOString();
+    if (profileUserSince) profileUserSince.textContent = formatDate(createdAt);
+    
+    if (profileDefaultRate) {
+      profileDefaultRate.textContent = `$${fmtMoney(currentUserData.defaultRate || 0)}/hour`;
+    }
   }
 
-  // Update stats in modal
-  const mainStatStudents = document.getElementById('statStudents');
-  const mainStatHours = document.getElementById('statHours');
-  const mainStatEarnings = document.getElementById('statEarnings');
-  const mainStatUpdated = document.getElementById('statUpdated');
+  // Get fresh stats from DOM or calculate
+  const statStudents = document.getElementById('statStudents');
+  const statHours = document.getElementById('statHours');
+  const statEarnings = document.getElementById('statEarnings');
+  const statUpdated = document.getElementById('statUpdated');
 
-  if (modalStatStudents && mainStatStudents) modalStatStudents.textContent = mainStatStudents.textContent;
-  if (modalStatHours && mainStatHours) modalStatHours.textContent = mainStatHours.textContent;
-  if (modalStatEarnings && mainStatEarnings) modalStatEarnings.textContent = mainStatEarnings.textContent;
-  if (modalStatUpdated && mainStatUpdated) modalStatUpdated.textContent = mainStatUpdated.textContent;
+  if (modalStatStudents && statStudents) modalStatStudents.textContent = statStudents.textContent || '0';
+  if (modalStatHours && statHours) modalStatHours.textContent = statHours.textContent || '0';
+  if (modalStatEarnings && statEarnings) modalStatEarnings.textContent = statEarnings.textContent || '$0.00';
+  if (modalStatUpdated && statUpdated) modalStatUpdated.textContent = statUpdated.textContent || 'Never';
+
+  console.log('✅ Profile modal stats updated');
 }
 
 // ===========================
@@ -362,7 +403,7 @@ function setupFloatingAddButton() {
   function openFabMenu() {
     isExpanded = true;
     fab.setAttribute('data-expanded', 'true');
-    fab.innerHTML = '✕'; // Change to X when open
+    fab.innerHTML = '✕';
     
     if (fabMenu) {
       fabMenu.classList.add('show');
@@ -377,7 +418,7 @@ function setupFloatingAddButton() {
   function closeFabMenu() {
     isExpanded = false;
     fab.setAttribute('data-expanded', 'false');
-    fab.innerHTML = '+'; // Change back to plus when closed
+    fab.innerHTML = '+';
     
     if (fabMenu) {
       fabMenu.classList.remove('show');
@@ -425,13 +466,13 @@ function setupFloatingAddButton() {
     }
   });
 
-  // Setup quick action buttons - FIXED: Remove fab parameter
+  // Setup quick action buttons
   setupFabActions(closeFabMenu);
   
   console.log('✅ FAB setup completed');
 }
 
-function setupFabActions(closeFabMenu) { // FIXED: Remove unused fab parameter
+function setupFabActions(closeFabMenu) {
   const quickActions = {
     'fabAddStudent': () => {
       console.log('🎯 FAB: Add Student clicked');
@@ -471,6 +512,72 @@ function setupFabActions(closeFabMenu) { // FIXED: Remove unused fab parameter
       console.error(`❌ FAB action button not found: ${btnId}`);
     }
   });
+}
+
+// ===========================
+// THEME MANAGEMENT
+// ===========================
+
+function setupThemeToggle() {
+  const themeToggle = document.querySelector('.theme-toggle button');
+  if (themeToggle) {
+    // Set initial icon based on current theme
+    updateThemeIcon();
+    
+    themeToggle.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleTheme();
+    });
+  }
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('theme', newTheme);
+  
+  updateThemeIcon();
+  console.log(`🎨 Theme changed to ${newTheme}`);
+}
+
+function updateThemeIcon() {
+  const themeToggle = document.querySelector('.theme-toggle button');
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  
+  if (themeToggle) {
+    themeToggle.textContent = currentTheme === 'dark' ? '☀️' : '🌙';
+    themeToggle.title = `Switch to ${currentTheme === 'dark' ? 'light' : 'dark'} theme`;
+  }
+}
+
+// ===========================
+// HEADER STATS
+// ===========================
+
+function updateHeaderStats() {
+  const localStatus = document.getElementById('localStatus');
+  const syncStatus = document.getElementById('syncStatus');
+  const dataStatus = document.getElementById('dataStatus');
+  
+  if (localStatus) {
+    localStatus.textContent = '💾 Local Storage: Active';
+  }
+  
+  if (syncStatus) {
+    const isAutoSync = localStorage.getItem('autoSyncEnabled') === 'true';
+    syncStatus.textContent = isAutoSync ? '☁️ Cloud Sync: Auto' : '☁️ Cloud Sync: Manual';
+  }
+  
+  if (dataStatus) {
+    const statStudents = document.getElementById('statStudents');
+    const statHours = document.getElementById('statHours');
+    const students = statStudents ? statStudents.textContent : '0';
+    const hours = statHours ? statHours.textContent : '0';
+    dataStatus.textContent = `📊 Data: ${students} Students, ${hours} Sessions`;
+  }
 }
 
 // ===========================
@@ -554,8 +661,10 @@ async function recalcSummaryStats(uid) {
   try {
     console.log('🔄 Recalculating summary stats for:', uid);
     
-    const studentsSnap = await getDocs(collection(db, "users", uid, "students"));
-    const hoursSnap = await getDocs(collection(db, "users", uid, "hours"));
+    const [studentsSnap, hoursSnap] = await Promise.all([
+      getDocs(collection(db, "users", uid, "students")),
+      getDocs(collection(db, "users", uid, "hours"))
+    ]);
 
     const studentsCount = studentsSnap.size;
     let totalHours = 0;
@@ -580,44 +689,15 @@ async function recalcSummaryStats(uid) {
       lastSync: new Date().toLocaleString()
     });
 
+    // Update header stats
+    updateHeaderStats();
+    
     console.log('✅ Summary stats recalculated successfully');
   } catch (err) {
     console.error("❌ Error recalculating stats:", err);
     if (syncMessageLine) syncMessageLine.textContent = "Status: Failed to recalc stats";
   }
 }
-
-// Add this debug function
-async function debugDataLoad() {
-  const user = auth.currentUser;
-  if (!user) return;
-  
-  console.log('🔍 DEBUG: Checking data load...');
-  
-  // Check if students exist
-  const studentsSnap = await getDocs(collection(db, "users", user.uid, "students"));
-  console.log('🔍 DEBUG: Students count:', studentsSnap.size);
-  studentsSnap.forEach(doc => {
-    console.log('🔍 DEBUG: Student:', doc.id, doc.data());
-  });
-  
-  // Check user stats
-  const statsRef = doc(db, "users", user.uid);
-  const statsSnap = await getDoc(statsRef);
-  console.log('🔍 DEBUG: Stats exist:', statsSnap.exists());
-  if (statsSnap.exists()) {
-    console.log('🔍 DEBUG: Stats data:', statsSnap.data());
-  }
-  
-  // Check user profile
-  const userRef = doc(db, "users", user.uid);
-  const userSnap = await getDoc(userRef);
-  console.log('🔍 DEBUG: User profile exist:', userSnap.exists());
-  if (userSnap.exists()) {
-    console.log('🔍 DEBUG: User data:', userSnap.data());
-  }
-}
-// Call this in initializeApp after loadInitialData
 
 // ===========================
 // DATA RENDERING FUNCTIONS
@@ -936,7 +1016,7 @@ async function renderStudentBalances() {
     paymentsSnap.forEach(d => {
       const row = d.data();
       const sid = row.student || "__unknown__";
-      paymentsByStudent[sid] = (paymentsByStudent[sid] || 0) + safeNumber(row.amount); // FIXED: paymentsByStudent not payningsByStudent
+      paymentsByStudent[sid] = (paymentsByStudent[sid] || 0) + safeNumber(row.amount);
     });
 
     if (studentsSnap.size === 0) {
@@ -1035,8 +1115,7 @@ async function renderOverviewReports() {
     if (outstandingBalance) outstandingBalance.textContent = `$${fmtMoney(outstanding)}`;
 
   } catch (error) {
-    console.error("Error rendering balances:", error);
-    container.innerHTML = '<div class="error">Error loading balances</div>';
+    console.error("Error rendering overview:", error);
   }
 }
 
@@ -1226,7 +1305,7 @@ const NotificationSystem = {
 };
 
 // ===========================
-// SYNC BAR MODULE - FIXED VERSION
+// SYNC BAR MODULE
 // ===========================
 
 const SyncBar = {
@@ -1670,65 +1749,24 @@ const SyncBar = {
     }
   }
 };
+
 // ===========================
 // UI MANAGEMENT MODULE
 // ===========================
 
-function setupThemeToggle() {
-  const themeToggle = document.querySelector('.theme-toggle button');
-  if (themeToggle) {
-    // Set initial icon based on current theme
-    updateThemeIcon();
-    
-    themeToggle.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      toggleTheme();
-    });
-  }
-}
-
-function toggleTheme() {
-  const currentTheme = document.documentElement.getAttribute('data-theme');
-  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-  
-  document.documentElement.setAttribute('data-theme', newTheme);
-  localStorage.setItem('theme', newTheme);
-  
-  updateThemeIcon();
-  console.log(`🎨 Theme changed to ${newTheme}`);
-}
-
-function updateThemeIcon() {
-  const themeToggle = document.querySelector('.theme-toggle button');
-  const currentTheme = document.documentElement.getAttribute('data-theme');
-  
-  if (themeToggle) {
-    themeToggle.textContent = currentTheme === 'dark' ? '☀️' : '🌙';
-    themeToggle.title = `Switch to ${currentTheme === 'dark' ? 'light' : 'dark'} theme`;
-  }
-}
-
-// Update UIManager initialization
 const UIManager = {
   init() {
     this.initializeTheme();
     this.initTabs();
     this.bindUiEvents();
-    setupThemeToggle(); // Add this line
+    setupThemeToggle();
     console.log('✅ UI Manager initialized');
   },
 
   initializeTheme() {
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
-    updateThemeIcon(); // Update icon on init
-    console.log(`🎨 Theme initialized to ${savedTheme}`);
-  },
-
-  initializeTheme() {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    document.documentElement.setAttribute('data-theme', savedTheme);
+    updateThemeIcon();
     console.log(`🎨 Theme initialized to ${savedTheme}`);
   },
 
@@ -1853,33 +1891,6 @@ const UIManager = {
 };
 
 // ===========================
-// Stats Update for Auth Modal
-// ===========================
-// Add this function to update header stats
-function updateHeaderStats() {
-  const localStatus = document.getElementById('localStatus');
-  const syncStatus = document.getElementById('syncStatus');
-  const dataStatus = document.getElementById('dataStatus');
-  
-  if (localStatus) {
-    localStatus.textContent = '💾 Local Storage: Active';
-  }
-  
-  if (syncStatus) {
-    const isAutoSync = localStorage.getItem('autoSyncEnabled') === 'true';
-    syncStatus.textContent = isAutoSync ? '☁️ Cloud Sync: Auto' : '☁️ Cloud Sync: Manual';
-  }
-  
-  if (dataStatus) {
-    const statStudents = document.getElementById('statStudents');
-    const statHours = document.getElementById('statHours');
-    const students = statStudents ? statStudents.textContent : '0';
-    const hours = statHours ? statHours.textContent : '0';
-    dataStatus.textContent = `📊 Data: ${students} Students, ${hours} Sessions`;
-  }
-}
-
-// ===========================
 // STUDENT MANAGEMENT MODULE
 // ===========================
 
@@ -1949,37 +1960,27 @@ function updateMarksPercentage() {
 function clearStudentForm() {
   const form = document.getElementById("studentForm");
   if (form) {
-    // Reset the form
     form.reset();
     
-    // Manually clear any stubborn fields
-    const fieldsToClear = [
-      "studentName", "studentId", "studentEmail", "studentPhone", "studentBaseRate"
-    ];
-    
-    fieldsToClear.forEach(fieldId => {
+    // Reset specific fields
+    const fields = ["studentName", "studentId", "studentEmail", "studentPhone", "studentBaseRate"];
+    fields.forEach(fieldId => {
       const field = document.getElementById(fieldId);
-      if (field) {
-        field.value = "";
-        // Trigger any change events
-        field.dispatchEvent(new Event('input', { bubbles: true }));
-      }
+      if (field) field.value = "";
     });
     
-    // Reset gender dropdown to first option
+    // Reset dropdown
     const genderSelect = document.getElementById("studentGender");
-    if (genderSelect && genderSelect.options.length > 0) {
-      genderSelect.selectedIndex = 0;
+    if (genderSelect) genderSelect.selectedIndex = 0;
+    
+    // Reset to add mode
+    const submitBtn = document.querySelector('#studentForm button[type="button"]');
+    if (submitBtn) {
+      submitBtn.textContent = '➕ Add Student';
+      submitBtn.onclick = addStudent;
     }
     
-    console.log("✅ Student form cleared");
-  }
-  
-  // Re-enable submit button immediately
-  const submitBtn = document.querySelector('#studentForm button[type="submit"]');
-  if (submitBtn) {
-    submitBtn.textContent = 'Add Student';
-    submitBtn.disabled = false;
+    console.log("✅ Student form reset to add mode");
   }
 }
 
@@ -2034,148 +2035,6 @@ function selectAllStudents() {
 
 function deselectAllStudents() {
   document.querySelectorAll("#attendanceList input[type=checkbox]").forEach(cb => cb.checked = false);
-}
-
-// ===========================
-// Edit Students Functionality
-// ==========================
-// Timezone utility functions
-function getLocalISODate() {
-  const now = new Date();
-  const tzOffset = -now.getTimezoneOffset();
-  const diff = tzOffset >= 0 ? '+' : '-';
-  const pad = n => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
-  return now.getFullYear() +
-    '-' + pad(now.getMonth() + 1) +
-    '-' + pad(now.getDate()) +
-    'T' + pad(now.getHours()) +
-    ':' + pad(now.getMinutes()) +
-    ':' + pad(now.getSeconds()) +
-    diff + pad(tzOffset / 60) +
-    ':' + pad(tzOffset % 60);
-}
-
-function formatDateForInput(dateString) {
-  if (!dateString) return new Date().toISOString().split('T')[0];
-  
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) {
-      return new Date().toISOString().split('T')[0];
-    }
-    return date.toISOString().split('T')[0];
-  } catch {
-    return new Date().toISOString().split('T')[0];
-  }
-}
-
-// Replace the placeholder editStudent function
-async function editStudent(studentId) {
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError('Please log in to edit students');
-    return;
-  }
-
-  try {
-    const studentDoc = await getDoc(doc(db, "users", user.uid, "students", studentId));
-    
-    if (!studentDoc.exists()) {
-      NotificationSystem.notifyError('Student not found');
-      return;
-    }
-
-    const student = studentDoc.data();
-    
-    // Fill the form with student data
-    document.getElementById('studentName').value = student.name || '';
-    document.getElementById('studentId').value = student.id || '';
-    document.getElementById('studentGender').value = student.gender || '';
-    document.getElementById('studentEmail').value = student.email || '';
-    document.getElementById('studentPhone').value = student.phone || '';
-    document.getElementById('studentBaseRate').value = student.rate || '';
-
-    // Change form to edit mode
-    const submitBtn = document.querySelector('#studentForm button[type="button"]');
-    if (submitBtn) {
-      submitBtn.textContent = '💾 Update Student';
-      submitBtn.onclick = () => updateStudent(studentId);
-    }
-
-    // Scroll to form
-    document.getElementById('studentForm').scrollIntoView({ 
-      behavior: 'smooth', 
-      block: 'start' 
-    });
-
-    NotificationSystem.notifyInfo(`Editing student: ${student.name}`);
-    
-  } catch (error) {
-    console.error('Error loading student for edit:', error);
-    NotificationSystem.notifyError('Failed to load student data');
-  }
-}
-
-async function updateStudent(studentId) {
-  const nameEl = document.getElementById("studentName");
-  const idEl = document.getElementById("studentId");
-  const genderEl = document.getElementById("studentGender");
-  const emailEl = document.getElementById("studentEmail");
-  const phoneEl = document.getElementById("studentPhone");
-  const rateEl = document.getElementById("studentBaseRate");
-
-  const name = nameEl?.value.trim();
-  const id = idEl?.value.trim();
-  const gender = genderEl?.value;
-  const email = emailEl?.value.trim();
-  const phone = phoneEl?.value.trim();
-  const rate = parseFloat(rateEl?.value) || 0;
-
-  if (!name || !id || !gender) {
-    NotificationSystem.notifyError("Please fill required fields: Name, ID, Gender");
-    return;
-  }
-
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError("Please log in to update students");
-    return;
-  }
-
-  try {
-    const studentData = { 
-      name, 
-      id, 
-      gender, 
-      email, 
-      phone, 
-      rate,
-      updatedAt: getLocalISODate() // Use timezone-aware date
-    };
-
-    const studentRef = doc(db, "users", user.uid, "students", studentId);
-    await updateDoc(studentRef, studentData);
-    
-    // Clear cache
-    cache.students = null;
-    cache.lastSync = null;
-    
-    // Reset form to add mode
-    clearStudentForm();
-    
-    NotificationSystem.notifySuccess("Student updated successfully");
-    
-    // Refresh data
-    await Promise.all([
-      renderStudents(),
-      loadStudentsForDropdowns(),
-      recalcSummaryStats(user.uid)
-    ]);
-
-  } catch (err) {
-    console.error("Error updating student:", err);
-    NotificationSystem.notifyError("Failed to update student");
-  }
 }
 
 // ===========================
@@ -2297,7 +2156,7 @@ async function addStudent() {
 
   try {
     // Show loading state
-    const submitBtn = document.querySelector('#studentForm button[type="submit"]');
+    const submitBtn = document.querySelector('#studentForm button[type="button"]');
     const originalText = submitBtn?.textContent;
     if (submitBtn) {
       submitBtn.textContent = 'Saving...';
@@ -2349,9 +2208,9 @@ async function addStudent() {
     }
     
     // Re-enable button on error
-    const submitBtn = document.querySelector('#studentForm button[type="submit"]');
+    const submitBtn = document.querySelector('#studentForm button[type="button"]');
     if (submitBtn) {
-      submitBtn.textContent = 'Add Student';
+      submitBtn.textContent = '➕ Add Student';
       submitBtn.disabled = false;
     }
   }
@@ -2554,7 +2413,111 @@ async function recordPayment() {
 // ===========================
 
 async function editStudent(studentId) {
-  NotificationSystem.notifyInfo("Edit student feature coming soon");
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to edit students');
+    return;
+  }
+
+  try {
+    const studentDoc = await getDoc(doc(db, "users", user.uid, "students", studentId));
+    
+    if (!studentDoc.exists()) {
+      NotificationSystem.notifyError('Student not found');
+      return;
+    }
+
+    const student = studentDoc.data();
+    
+    // Fill the form with student data
+    document.getElementById('studentName').value = student.name || '';
+    document.getElementById('studentId').value = student.id || '';
+    document.getElementById('studentGender').value = student.gender || '';
+    document.getElementById('studentEmail').value = student.email || '';
+    document.getElementById('studentPhone').value = student.phone || '';
+    document.getElementById('studentBaseRate').value = student.rate || '';
+
+    // Change form to edit mode
+    const submitBtn = document.querySelector('#studentForm button[type="button"]');
+    if (submitBtn) {
+      submitBtn.textContent = '💾 Update Student';
+      submitBtn.onclick = () => updateStudent(studentId);
+    }
+
+    // Scroll to form
+    document.getElementById('studentForm').scrollIntoView({ 
+      behavior: 'smooth', 
+      block: 'start' 
+    });
+
+    NotificationSystem.notifyInfo(`Editing student: ${student.name}`);
+    
+  } catch (error) {
+    console.error('Error loading student for edit:', error);
+    NotificationSystem.notifyError('Failed to load student data');
+  }
+}
+
+async function updateStudent(studentId) {
+  const nameEl = document.getElementById("studentName");
+  const idEl = document.getElementById("studentId");
+  const genderEl = document.getElementById("studentGender");
+  const emailEl = document.getElementById("studentEmail");
+  const phoneEl = document.getElementById("studentPhone");
+  const rateEl = document.getElementById("studentBaseRate");
+
+  const name = nameEl?.value.trim();
+  const id = idEl?.value.trim();
+  const gender = genderEl?.value;
+  const email = emailEl?.value.trim();
+  const phone = phoneEl?.value.trim();
+  const rate = parseFloat(rateEl?.value) || 0;
+
+  if (!name || !id || !gender) {
+    NotificationSystem.notifyError("Please fill required fields: Name, ID, Gender");
+    return;
+  }
+
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError("Please log in to update students");
+    return;
+  }
+
+  try {
+    const studentData = { 
+      name, 
+      id, 
+      gender, 
+      email, 
+      phone, 
+      rate,
+      updatedAt: getLocalISODate()
+    };
+
+    const studentRef = doc(db, "users", user.uid, "students", studentId);
+    await updateDoc(studentRef, studentData);
+    
+    // Clear cache
+    cache.students = null;
+    cache.lastSync = null;
+    
+    // Reset form to add mode
+    clearStudentForm();
+    
+    NotificationSystem.notifySuccess("Student updated successfully");
+    
+    // Refresh data
+    await Promise.all([
+      renderStudents(),
+      loadStudentsForDropdowns(),
+      recalcSummaryStats(user.uid)
+    ]);
+
+  } catch (err) {
+    console.error("Error updating student:", err);
+    NotificationSystem.notifyError("Failed to update student");
+  }
 }
 
 async function deleteStudent(studentId) {
@@ -2585,7 +2548,7 @@ function initializeApp() {
   SyncBar.init();
   setupProfileModal();
   setupFloatingAddButton();
-  updateHeaderStats(); // Add this
+  updateHeaderStats();
   
   if (syncMessage) syncMessage.textContent = "Cloud Sync: Ready";
   if (syncMessageLine) syncMessageLine.textContent = "Status: Connected";
@@ -2605,7 +2568,7 @@ async function loadInitialData(user) {
     
     // Load critical data first without waiting for profile
     await Promise.allSettled([
-      loadUserProfile(user.uid), // This will show immediate fallback
+      loadUserProfile(user.uid),
       loadStudentsForDropdowns(),
       recalcSummaryStats(user.uid)
     ]);
@@ -2617,7 +2580,6 @@ async function loadInitialData(user) {
     
   } catch (error) {
     console.error('❌ Error loading initial data:', error);
-    // Don't show error for background data issues
   }
 }
 
@@ -2625,11 +2587,6 @@ async function loadInitialData(user) {
 // AUTH STATE MANAGEMENT
 // ===========================
 
-// ===========================
-// AUTH STATE MANAGEMENT - FIXED
-// ===========================
-
-// Wait for DOM to be ready first, then set up auth listener
 document.addEventListener('DOMContentLoaded', function() {
   console.log('✅ DOM fully loaded, setting up auth listener');
   
@@ -2644,7 +2601,6 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('✅ Container displayed');
       } else {
         console.warn('⚠️ Container element not found or inaccessible');
-        // Don't throw error, just log warning
       }
       
       // Safely initialize app
@@ -2661,16 +2617,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 });
-
-// ===========================
-// BOOT THE APPLICATION
-// ===========================
-
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", initializeApp);
-} else {
-  initializeApp();
-}
 
 // ===========================
 // REPORT FUNCTIONS
@@ -2738,7 +2684,6 @@ async function showWeeklyBreakdown() {
 }
 
 async function showBiWeeklyBreakdown() {
-  // Simple approach: reuse weekly
   await showWeeklyBreakdown();
 }
 
