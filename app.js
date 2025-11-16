@@ -3212,4 +3212,105 @@ window.performSync = (mode = 'manual') => SyncBar.performSync(mode);
 /*=========================
   DEBUG 
 =========================*/
+// ===========================
+// DIAGNOSTIC & EMERGENCY FIX
+// ===========================
 
+console.log('🔧 Running diagnostics...');
+
+// Check if key functions exist
+const diagnostics = {
+  UIManager: typeof UIManager,
+  UIManager_init: typeof UIManager?.init,
+  UIManager_initTabs: typeof UIManager?.initTabs,
+  setupThemeToggle: typeof setupThemeToggle,
+  tabsFound: document.querySelectorAll('.tab').length,
+  tabContentsFound: document.querySelectorAll('.tabcontent').length
+};
+
+console.log('📊 Diagnostics:', diagnostics);
+
+// Emergency tab initialization
+function emergencyTabInit() {
+  console.log('🚨 Starting emergency tab init...');
+  
+  const tabs = document.querySelectorAll('.tab');
+  const tabContents = document.querySelectorAll('.tabcontent');
+  
+  if (tabs.length === 0) {
+    console.log('❌ No tabs found in DOM');
+    return;
+  }
+  
+  console.log(`🎯 Found ${tabs.length} tabs and ${tabContents.length} tab contents`);
+  
+  tabs.forEach(tab => {
+    // Remove any existing listeners by cloning
+    const newTab = tab.cloneNode(true);
+    tab.parentNode.replaceChild(newTab, tab);
+    
+    newTab.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const target = this.getAttribute('data-tab');
+      console.log('📍 Tab clicked:', target);
+      
+      // Remove active from all tabs
+      tabs.forEach(t => t.classList.remove('active'));
+      // Hide all contents
+      tabContents.forEach(tc => {
+        tc.style.display = 'none';
+        tc.classList.remove('active');
+      });
+      
+      // Activate clicked tab and show content
+      this.classList.add('active');
+      const content = document.getElementById(target);
+      if (content) {
+        content.style.display = 'block';
+        content.classList.add('active');
+        console.log('✅ Switched to tab:', target);
+      } else {
+        console.log('❌ Tab content not found:', target);
+      }
+    });
+  });
+  
+  // Activate first tab if none active
+  if (!document.querySelector('.tab.active') && tabs[0]) {
+    tabs[0].click();
+  }
+  
+  console.log('✅ Emergency tabs initialized');
+}
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('🏠 DOM Content Loaded');
+  
+  // Try normal initialization first
+  if (typeof UIManager?.init === 'function') {
+    console.log('🎯 Attempting UIManager.init()...');
+    try {
+      UIManager.init();
+      console.log('✅ UIManager.init() completed');
+    } catch (error) {
+      console.error('❌ UIManager.init() failed:', error);
+    }
+  } else {
+    console.log('❌ UIManager.init not available');
+  }
+  
+  // Always run emergency init as backup
+  setTimeout(emergencyTabInit, 100);
+});
+
+// Also try on window load as backup
+window.addEventListener('load', function() {
+  console.log('🔄 Window Loaded - checking tabs...');
+  if (!document.querySelector('.tab.active')) {
+    console.log('⚠️ No active tab found, running emergency init...');
+    emergencyTabInit();
+  }
+});
