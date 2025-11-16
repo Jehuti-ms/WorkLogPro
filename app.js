@@ -641,21 +641,33 @@ document.addEventListener('DOMContentLoaded', function() {
 // HEADER STATS
 // ===========================
 
+// Enhanced debug version of updateHeaderStats
 function updateHeaderStats() {
-  console.log('📊 Updating header stats...');
+  console.log('🔍 [updateHeaderStats] Starting...');
   
   const localStatus = document.getElementById('localStatus');
   const syncStatus = document.getElementById('syncStatus');
   const dataStatus = document.getElementById('dataStatus');
   
-  // Get current stats from DOM or calculate
+  // Get current stats from DOM elements
   const statStudents = document.getElementById('statStudents');
   const statHours = document.getElementById('statHours');
   const statEarnings = document.getElementById('statEarnings');
   
+  console.log('🔍 [updateHeaderStats] DOM elements found:', {
+    localStatus: !!localStatus,
+    syncStatus: !!syncStatus,
+    dataStatus: !!dataStatus,
+    statStudents: !!statStudents,
+    statHours: !!statHours,
+    statEarnings: !!statEarnings
+  });
+  
   const students = statStudents ? statStudents.textContent : '0';
   const hours = statHours ? statHours.textContent : '0';
   const earnings = statEarnings ? statEarnings.textContent : '$0.00';
+  
+  console.log('🔍 [updateHeaderStats] Current values:', { students, hours, earnings });
   
   if (localStatus) {
     localStatus.textContent = '💾 Local Storage: Active';
@@ -668,9 +680,97 @@ function updateHeaderStats() {
   
   if (dataStatus) {
     dataStatus.textContent = `📊 Data: ${students} Students, ${hours} Hours`;
+    console.log('🔍 [updateHeaderStats] Updated dataStatus to:', dataStatus.textContent);
   }
   
-  console.log('✅ Header stats updated:', { students, hours, earnings });
+  console.log('✅ [updateHeaderStats] Completed');
+}
+
+// Enhanced recalcSummaryStats with better debugging
+async function recalcSummaryStats(uid) {
+  try {
+    console.log('🔄 [recalcSummaryStats] Starting for user:', uid);
+    
+    const [studentsSnap, hoursSnap] = await Promise.all([
+      getDocs(collection(db, "users", uid, "students")),
+      getDocs(collection(db, "users", uid, "hours"))
+    ]);
+
+    const studentsCount = studentsSnap.size;
+    let totalHours = 0;
+    let totalEarnings = 0;
+
+    hoursSnap.forEach(h => {
+      const d = h.data();
+      totalHours += safeNumber(d.hours);
+      totalEarnings += safeNumber(d.total);
+    });
+
+    console.log('📊 [recalcSummaryStats] Calculated:', {
+      students: studentsCount,
+      hours: totalHours,
+      earnings: totalEarnings
+    });
+
+    await updateUserStats(uid, {
+      students: studentsCount,
+      hours: totalHours,
+      earnings: totalEarnings,
+      lastSync: new Date().toLocaleString()
+    });
+
+    console.log('✅ [recalcSummaryStats] Completed');
+  } catch (err) {
+    console.error("❌ [recalcSummaryStats] Error:", err);
+  }
+}
+
+// Enhanced updateUserStats
+async function updateUserStats(uid, newStats) {
+  try {
+    console.log('🔄 [updateUserStats] Starting with:', newStats);
+    
+    const statsRef = doc(db, "users", uid);
+    await setDoc(statsRef, newStats, { merge: true });
+
+    // Update DOM elements with null checks
+    if (newStats.students !== undefined) {
+      const statStudents = document.getElementById('statStudents');
+      if (statStudents) {
+        statStudents.textContent = newStats.students;
+        console.log('✅ [updateUserStats] Updated statStudents to:', newStats.students);
+      } else {
+        console.log('❌ [updateUserStats] statStudents element not found');
+      }
+    }
+    
+    if (newStats.hours !== undefined) {
+      const statHours = document.getElementById('statHours');
+      if (statHours) {
+        statHours.textContent = newStats.hours;
+        console.log('✅ [updateUserStats] Updated statHours to:', newStats.hours);
+      } else {
+        console.log('❌ [updateUserStats] statHours element not found');
+      }
+    }
+    
+    if (newStats.earnings !== undefined) {
+      const statEarnings = document.getElementById('statEarnings');
+      if (statEarnings) {
+        statEarnings.textContent = fmtMoney(newStats.earnings);
+        console.log('✅ [updateUserStats] Updated statEarnings to:', fmtMoney(newStats.earnings));
+      } else {
+        console.log('❌ [updateUserStats] statEarnings element not found');
+      }
+    }
+
+    // Update header stats after DOM updates
+    updateHeaderStats();
+    console.log('✅ [updateUserStats] Completed');
+    
+  } catch (err) {
+    console.error("❌ [updateUserStats] Error:", err);
+  }
 }
 
 // ===========================
