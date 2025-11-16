@@ -936,7 +936,7 @@ async function renderStudentBalances() {
     paymentsSnap.forEach(d => {
       const row = d.data();
       const sid = row.student || "__unknown__";
-      paymentsByStudent[sid] = (payningsByStudent[sid] || 0) + safeNumber(row.amount);
+      paymentsByStudent[sid] = (paymentsByStudent[sid] || 0) + safeNumber(row.amount); // FIXED: paymentsByStudent not payningsByStudent
     });
 
     if (studentsSnap.size === 0) {
@@ -1035,7 +1035,8 @@ async function renderOverviewReports() {
     if (outstandingBalance) outstandingBalance.textContent = `$${fmtMoney(outstanding)}`;
 
   } catch (error) {
-    console.error("Error rendering overview:", error);
+    console.error("Error rendering balances:", error);
+    container.innerHTML = '<div class="error">Error loading balances</div>';
   }
 }
 
