@@ -569,13 +569,32 @@ function setupThemeToggle() {
 }
 
 function toggleTheme() {
-  const currentTheme = document.documentElement.getAttribute('data-theme');
-  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-  
-  document.documentElement.setAttribute('data-theme', newTheme);
-  localStorage.setItem('theme', newTheme);
-  
-  console.log(`🎨 Theme changed to ${newTheme}`);
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    updateThemeIcon(newTheme); // Add this line
+    
+    console.log(`🎨 Theme changed to ${newTheme}`);
+}
+
+function updateThemeIcon(theme) {
+    // Simple implementation that just updates the tooltip
+    const themeButton = document.querySelector('.theme-toggle button');
+    if (!themeButton) return;
+    
+    if (theme === 'dark') {
+        themeButton.setAttribute('title', 'Switch to light mode');
+    } else {
+        themeButton.setAttribute('title', 'Switch to dark mode');
+    }
+}
+
+function initializeTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    updateThemeIcon(savedTheme); // This will fix the error
 }
 
 // ===========================
