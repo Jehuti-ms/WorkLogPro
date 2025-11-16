@@ -136,29 +136,26 @@ body {
 }
 */
 
-/* Header Layout */
+/* =========================== */
+/* ORIGINAL HEADER STYLING */
+/* =========================== */
+
 .header {
   display: flex;
   flex-direction: column;
-  gap: 15px;
-  padding: 20px 0;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-}
-
-/* Top Section - Logo and Title Centered */
-.header-top {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 10px;
+  padding: 15px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .logo-title {
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-bottom: 10px;
 }
 
 .logo {
@@ -166,53 +163,89 @@ body {
   height: 32px;
 }
 
-.header-top h1 {
+.header h1 {
   margin: 0;
-  font-size: 2.5rem;
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-size: 1.5rem;
+  color: var(--text);
 }
 
 .subtitle {
-  text-align: center;
+  margin: 0 0 15px 0;
   color: var(--muted);
-  font-size: 1.1rem;
-  margin: 0;
-  line-height: 1.4;
+  font-size: 0.9rem;
 }
 
-/* Bottom Section - Stats and Controls in one line */
-.header-bottom {
+.stats-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 20px;
   flex-wrap: wrap;
+  gap: 15px;
 }
 
-/* Storage Status (Stats) */
 .storage-status {
   display: flex;
-  gap: 20px;
-  align-items: center;
+  gap: 15px;
   flex-wrap: wrap;
-  flex: 1;
+  font-size: 0.85rem;
+  color: var(--muted);
 }
 
-.storage-status span {
-  font-size: 0.9rem;
-  color: var(--text);
-  white-space: nowrap;
-}
-
-/* Header Actions - Theme and Auth Buttons */
-.header-actions {
+.header-controls {
   display: flex;
   align-items: center;
-  gap: 15px;
-  flex-shrink: 0;
+  gap: 10px;
+}
+
+.theme-toggle button {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.auth-section .btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--secondary);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+/* Sync toolbar - separate from header */
+.sync-toolbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 120px; /* Below header */
+  z-index: 99;
+}
+
+/* Tabs - normal flow */
+.tabs-container {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 170px; /* Below header + sync */
+  z-index: 98;
+}
+
+/* Content - normal scrolling */
+.tabcontent {
+  padding: 20px;
 }
 
 /* Theme Toggle */
