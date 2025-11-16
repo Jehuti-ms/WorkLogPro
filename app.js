@@ -1932,31 +1932,49 @@ const UIManager = {
     console.log('✅ UI events bound');
   },
 
-  setupHoursFormCalculations() {
-    const hoursInput = document.getElementById('hoursWorked');
-    const rateInput = document.getElementById('baseRate');
-    const workTypeSelect = document.getElementById('workType');
+setupHoursFormCalculations() {
+  const hoursInput = document.getElementById('hoursWorked');
+  const rateInput = document.getElementById('baseRate');
+  const workTypeSelect = document.getElementById('workType');
+  
+  const calculateTotal = () => {
+    const hours = parseFloat(hoursInput?.value) || 0;
+    const rate = parseFloat(rateInput?.value) || 0;
+    const workType = workTypeSelect?.value || "hourly";
+    const totalEl = document.getElementById('totalPay');
     
-    const calculateTotal = () => {
-      const hours = parseFloat(hoursInput?.value) || 0;
-      const rate = parseFloat(rateInput?.value) || 0;
-      const workType = workTypeSelect?.value || "hourly";
-      const totalEl = document.getElementById('totalPay');
+    if (totalEl) {
+      let total = 0;
       
-      if (totalEl) {
-        const total = workType === "hourly" ? hours * rate : rate;
-        if ("value" in totalEl) {
-          totalEl.value = fmtMoney(total);
-        } else {
-          totalEl.textContent = fmtMoney(total);
-        }
+      switch(workType) {
+        case "hourly":
+          total = hours * rate;
+          break;
+        case "session":
+        case "consultation":
+          total = rate; // Flat rate per session/consultation
+          break;
+        case "contract":
+        case "project":
+        case "other":
+          total = rate; // Flat rate for contract/project/one-off jobs
+          break;
+        default:
+          total = hours * rate;
       }
-    };
+      
+      if ("value" in totalEl) {
+        totalEl.value = fmtMoney(total);
+      } else {
+        totalEl.textContent = fmtMoney(total);
+      }
+    }
+  };
 
-    if (hoursInput) hoursInput.addEventListener('input', calculateTotal);
-    if (rateInput) rateInput.addEventListener('input', calculateTotal);
-    if (workTypeSelect) workTypeSelect.addEventListener('change', calculateTotal);
-  },
+  if (hoursInput) hoursInput.addEventListener('input', calculateTotal);
+  if (rateInput) rateInput.addEventListener('input', calculateTotal);
+  if (workTypeSelect) workTypeSelect.addEventListener('change', calculateTotal);
+}
 
   setupMarksFormCalculations() {
     const scoreInput = document.getElementById('marksScore');
@@ -2358,17 +2376,17 @@ async function logHours() {
   if (!user) return;
 
   try {
-    const hoursData = {
-      student: studentId || null,
-      organization,
-      workType,
-      date: workDate,
-      dateIso: fmtDateISO(workDate),
-      hours,
-      rate,
-      total,
-      loggedAt: new Date().toISOString()
-    };
+   const hoursData = {
+  student: studentId || null,
+  organization,
+  workType, // This now has more options
+  date: workDate,
+  dateIso: fmtDateISO(workDate),
+  hours: workType === "hourly" ? hours : 0, // Only store hours for hourly work
+  rate,
+  total,
+  loggedAt: new Date().toISOString()
+};
 
     await addDoc(collection(db, "users", user.uid, "hours"), hoursData);
     
