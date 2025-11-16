@@ -170,18 +170,6 @@ function updateProfileButton(userData) {
   }
 }
 
-function initializeDefaultRate(rate) {
-  const defaultRateInput = document.getElementById("defaultBaseRate");
-  const currentRateDisplay = document.getElementById("currentDefaultRate");
-  const hoursRateDisplay = document.getElementById("currentDefaultRateDisplay");
-  
-  if (defaultRateInput) defaultRateInput.value = rate;
-  if (currentRateDisplay) currentRateDisplay.textContent = fmtMoney(rate);
-  if (hoursRateDisplay) hoursRateDisplay.textContent = fmtMoney(rate);
-  
-  console.log('💰 Default rate initialized:', rate);
-}
-
 async function updateUserDefaultRate(uid, newRate) {
   try {
     const userRef = doc(db, "users", uid);
