@@ -3082,33 +3082,35 @@ window.performSync = (mode = 'manual') => SyncBar.performSync(mode);
 /*=========================
   DEBUG 
 =========================*/
-// Add this temporary debug function
-function debugStudentList() {
+// Add this function to your app.js file (anywhere)
+window.debugStudentList = async function() {
   const user = auth.currentUser;
   if (!user) {
     console.log('❌ No user logged in');
     return;
   }
   
-  console.log('🔍 Debugging student list...');
+  console.log('🔍 DEBUG: Checking student data...');
   
-  // Check Firestore directly
-  getDocs(collection(db, "users", user.uid, "students"))
-    .then(snapshot => {
-      console.log(`📊 Firestore has ${snapshot.size} students:`);
-      snapshot.forEach(doc => {
-        console.log(`- ${doc.id}: ${doc.data().name}`);
-      });
-    })
-    .catch(error => {
-      console.error('❌ Error checking Firestore:', error);
+  try {
+    // Check Firestore
+    const snapshot = await getDocs(collection(db, "users", user.uid, "students"));
+    console.log(`📊 Firestore has ${snapshot.size} students:`);
+    snapshot.forEach(doc => {
+      console.log(`- ${doc.id}: ${doc.data().name}`);
     });
-  
-  // Check cache
-  console.log('💾 Cache state:', {
-    hasCache: !!cache.students,
-    isValid: isCacheValid('students')
-  });
-}
-
-// Run this in console after adding a student: debugStudentList()
+    
+    // Check cache
+    console.log('💾 Cache:', {
+      hasCache: !!cache.students,
+      isValid: isCacheValid('students')
+    });
+    
+    // Check DOM
+    const container = document.getElementById('studentsContainer');
+    console.log('🏠 DOM Container:', container ? 'Found' : 'Not found');
+    
+  } catch (error) {
+    console.error('❌ Debug error:', error);
+  }
+};
