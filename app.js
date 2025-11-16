@@ -2246,19 +2246,16 @@ function useDefaultRateInHours() {
 // ===========================
 
 async function addStudent() {
-  const nameEl = document.getElementById("studentName");
-  const idEl = document.getElementById("studentId");
-  const genderEl = document.getElementById("studentGender");
-  const emailEl = document.getElementById("studentEmail");
-  const phoneEl = document.getElementById("studentPhone");
-  const rateEl = document.getElementById("studentBaseRate");
+  console.log('🎯 Starting addStudent...');
+  
+  const name = document.getElementById("studentName")?.value.trim();
+  const id = document.getElementById("studentId")?.value.trim();
+  const gender = document.getElementById("studentGender")?.value;
+  const email = document.getElementById("studentEmail")?.value.trim();
+  const phone = document.getElementById("studentPhone")?.value.trim();
+  const rate = parseFloat(document.getElementById("studentBaseRate")?.value) || 0;
 
-  const name = nameEl?.value.trim();
-  const id = idEl?.value.trim();
-  const gender = genderEl?.value;
-  const email = emailEl?.value.trim();
-  const phone = phoneEl?.value.trim();
-  const rate = parseFloat(rateEl?.value) || 0;
+  console.log('📝 Form data:', { name, id, gender, email, phone, rate });
 
   if (!name || !id || !gender) {
     NotificationSystem.notifyError("Please fill required fields: Name, ID, Gender");
@@ -2272,7 +2269,7 @@ async function addStudent() {
   }
 
   try {
-    // Show loading state immediately
+    // Show loading state
     const submitBtn = document.getElementById('studentSubmitBtn');
     if (submitBtn) {
       submitBtn.textContent = 'Saving...';
@@ -2289,38 +2286,41 @@ async function addStudent() {
       createdAt: new Date().toISOString()
     };
 
-    console.log('🚀 Saving student:', id);
+    console.log('💾 Saving to Firestore...');
     
-    // 1. Save to Firestore
+    // Save to Firestore
     const studentRef = doc(db, "users", user.uid, "students", id);
     await setDoc(studentRef, student);
+    console.log('✅ Saved to Firestore');
     
-    // 2. Clear form IMMEDIATELY
+    // Clear form IMMEDIATELY
+    console.log('🧹 Clearing form...');
     clearStudentForm();
     
-    // 3. Show success message
+    // Show success
     NotificationSystem.notifySuccess("Student added successfully!");
+    console.log('✅ Showed success message');
     
-    // 4. Force refresh the student list (reliable but slower)
-    cache.students = null; // Clear cache to force fresh load
-    await renderStudents(true); // Force refresh
+    // Force refresh student list
+    console.log('🔄 Refreshing student list...');
+    cache.students = null;
+    await renderStudents(true);
+    console.log('✅ Student list refreshed');
     
-    // 5. Update dropdowns in background
-    loadStudentsForDropdowns().catch(console.error);
-    
-    // 6. Update stats in background  
+    // Update stats
+    console.log('📊 Updating stats...');
     recalcSummaryStats(user.uid).catch(console.error);
 
   } catch (err) {
-    console.error("Error adding student:", err);
+    console.error("❌ Error adding student:", err);
     
-    if (err.code === 'already-exists' || err.message.includes('already exists')) {
+    if (err.code === 'already-exists') {
       NotificationSystem.notifyError("A student with this ID already exists");
     } else {
-      NotificationSystem.notifyError("Failed to add student");
+      NotificationSystem.notifyError("Failed to add student: " + err.message);
     }
     
-    // Re-enable button on error
+    // Re-enable button
     const submitBtn = document.getElementById('studentSubmitBtn');
     if (submitBtn) {
       submitBtn.textContent = '➕ Add Student';
