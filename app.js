@@ -2457,16 +2457,20 @@ async function loadInitialData(user) {
 // AUTH STATE MANAGEMENT
 // ===========================
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, user => {
   if (user) {
-    console.log('✅ User authenticated:', user.email);
+    console.log("✅ User authenticated:", user.email);
     
-    // Just initialize the app - let it handle container visibility
-    if (typeof initializeApp === 'function') {
-      initializeApp();
+    // Wait for DOM to be ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        document.querySelector(".container").style.display = "block";
+      });
+    } else {
+      document.querySelector(".container").style.display = "block";
     }
   } else {
-    console.log('🚫 No user authenticated - redirecting to login');
+    console.log("🚫 No user authenticated - redirecting to login");
     window.location.href = "auth.html";
   }
 });
