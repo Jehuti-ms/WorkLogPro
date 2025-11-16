@@ -2072,6 +2072,165 @@ function deselectAllStudents() {
 }
 
 // ===========================
+// Edit Students Functionality
+// ==========================
+// Timezone utility functions
+function getLocalISODate() {
+  const now = new Date();
+  const tzOffset = -now.getTimezoneOffset();
+  const diff = tzOffset >= 0 ? '+' : '-';
+  const pad = n => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
+  return now.getFullYear() +
+    '-' + pad(now.getMonth() + 1) +
+    '-' + pad(now.getDate()) +
+    'T' + pad(now.getHours()) +
+    ':' + pad(now.getMinutes()) +
+    ':' + pad(now.getSeconds()) +
+    diff + pad(tzOffset / 60) +
+    ':' + pad(tzOffset % 60);
+}
+
+function formatDateForInput(dateString) {
+  if (!dateString) return new Date().toISOString().split('T')[0];
+  
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      return new Date().toISOString().split('T')[0];
+    }
+    return date.toISOString().split('T')[0];
+  } catch {
+    return new Date().toISOString().split('T')[0];
+  }
+}
+
+// Replace the placeholder editStudent function
+async function editStudent(studentId) {
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to edit students');
+    return;
+  }
+
+  try {
+    const studentDoc = await getDoc(doc(db, "users", user.uid, "students", studentId));
+    
+    if (!studentDoc.exists()) {
+      NotificationSystem.notifyError('Student not found');
+      return;
+    }
+
+    const student = studentDoc.data();
+    
+    // Fill the form with student data
+    document.getElementById('studentName').value = student.name || '';
+    document.getElementById('studentId').value = student.id || '';
+    document.getElementById('studentGender').value = student.gender || '';
+    document.getElementById('studentEmail').value = student.email || '';
+    document.getElementById('studentPhone').value = student.phone || '';
+    document.getElementById('studentBaseRate').value = student.rate || '';
+
+    // Change form to edit mode
+    const submitBtn = document.querySelector('#studentForm button[type="button"]');
+    if (submitBtn) {
+      submitBtn.textContent = '💾 Update Student';
+      submitBtn.onclick = () => updateStudent(studentId);
+    }
+
+    // Scroll to form
+    document.getElementById('studentForm').scrollIntoView({ 
+      behavior: 'smooth', 
+      block: 'start' 
+    });
+
+    NotificationSystem.notifyInfo(`Editing student: ${student.name}`);
+    
+  } catch (error) {
+    console.error('Error loading student for edit:', error);
+    NotificationSystem.notifyError('Failed to load student data');
+  }
+}
+
+async function updateStudent(studentId) {
+  const nameEl = document.getElementById("studentName");
+  const idEl = document.getElementById("studentId");
+  const genderEl = document.getElementById("studentGender");
+  const emailEl = document.getElementById("studentEmail");
+  const phoneEl = document.getElementById("studentPhone");
+  const rateEl = document.getElementById("studentBaseRate");
+
+  const name = nameEl?.value.trim();
+  const id = idEl?.value.trim();
+  const gender = genderEl?.value;
+  const email = emailEl?.value.trim();
+  const phone = phoneEl?.value.trim();
+  const rate = parseFloat(rateEl?.value) || 0;
+
+  if (!name || !id || !gender) {
+    NotificationSystem.notifyError("Please fill required fields: Name, ID, Gender");
+    return;
+  }
+
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError("Please log in to update students");
+    return;
+  }
+
+  try {
+    const studentData = { 
+      name, 
+      id, 
+      gender, 
+      email, 
+      phone, 
+      rate,
+      updatedAt: getLocalISODate() // Use timezone-aware date
+    };
+
+    const studentRef = doc(db, "users", user.uid, "students", studentId);
+    await updateDoc(studentRef, studentData);
+    
+    // Clear cache
+    cache.students = null;
+    cache.lastSync = null;
+    
+    // Reset form to add mode
+    clearStudentForm();
+    
+    NotificationSystem.notifySuccess("Student updated successfully");
+    
+    // Refresh data
+    await Promise.all([
+      renderStudents(),
+      loadStudentsForDropdowns(),
+      recalcSummaryStats(user.uid)
+    ]);
+
+  } catch (err) {
+    console.error("Error updating student:", err);
+    NotificationSystem.notifyError("Failed to update student");
+  }
+}
+
+// Update clearStudentForm to reset to add mode
+function clearStudentForm() {
+  const form = document.getElementById("studentForm");
+  if (form) {
+    form.reset();
+    
+    // Reset to add mode
+    const submitBtn = document.querySelector('#studentForm button[type="button"]');
+    if (submitBtn) {
+      submitBtn.textContent = '➕ Add Student';
+      submitBtn.onclick = addStudent;
+    }
+    
+    console.log("✅ Student form reset to add mode");
+  }
+}
+
+// ===========================
 // RATE MANAGEMENT FUNCTIONS
 // ===========================
 
@@ -2478,6 +2637,7 @@ function initializeApp() {
   SyncBar.init();
   setupProfileModal();
   setupFloatingAddButton();
+  updateHeaderStats(); // Add this
   
   if (syncMessage) syncMessage.textContent = "Cloud Sync: Ready";
   if (syncMessageLine) syncMessageLine.textContent = "Status: Connected";
