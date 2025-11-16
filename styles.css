@@ -136,24 +136,29 @@ body {
 }
 */
 
-/* Header Styles - Clean Layout */
+/* Header Layout */
 .header {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 15px;
   padding: 20px 0;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  text-align: center;
 }
 
-/* Logo and Title - Centered */
+/* Top Section - Logo and Title Centered */
+.header-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+}
+
 .logo-title {
   display: flex;
   align-items: center;
   gap: 12px;
-  justify-content: center;
 }
 
 .logo {
@@ -161,7 +166,7 @@ body {
   height: 32px;
 }
 
-.header h1 {
+.header-top h1 {
   margin: 0;
   font-size: 2.5rem;
   background: var(--gradient-primary);
@@ -170,35 +175,30 @@ body {
   background-clip: text;
 }
 
-/* Subtitle - Centered */
 .subtitle {
   text-align: center;
   color: var(--muted);
   font-size: 1.1rem;
   margin: 0;
   line-height: 1.4;
-  max-width: 600px;
 }
 
-/* Header Controls - Stats and Actions in one row */
-.header-controls {
+/* Bottom Section - Stats and Controls in one line */
+.header-bottom {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  width: 100%;
-  max-width: 1200px;
   gap: 20px;
-  margin-top: 10px;
+  flex-wrap: wrap;
 }
 
-/* Storage Status (Stats) - Left side */
+/* Storage Status (Stats) */
 .storage-status {
   display: flex;
   gap: 20px;
   align-items: center;
   flex-wrap: wrap;
   flex: 1;
-  justify-content: flex-start;
 }
 
 .storage-status span {
@@ -207,105 +207,12 @@ body {
   white-space: nowrap;
 }
 
-/* Header Actions - Right side */
+/* Header Actions - Theme and Auth Buttons */
 .header-actions {
   display: flex;
   align-items: center;
   gap: 15px;
   flex-shrink: 0;
-}
-
-/* Theme Toggle */
-.theme-toggle button {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 18px;
-  transition: all 0.2s ease;
-}
-
-.theme-toggle button:hover {
-  background: var(--border-light);
-  transform: scale(1.1);
-}
-
-/* Auth Button */
-.auth-section .btn-secondary {
-  background: var(--primary);
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background 0.2s ease;
-  white-space: nowrap;
-}
-
-.auth-section .btn-secondary:hover {
-  background: var(--primary-dark);
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .header {
-    gap: 20px;
-    padding: 15px 20px;
-  }
-  
-  .header h1 {
-    font-size: 2rem;
-  }
-  
-  .subtitle {
-    font-size: 1rem;
-  }
-  
-  .header-controls {
-    flex-direction: column;
-    gap: 15px;
-    text-align: center;
-  }
-  
-  .storage-status {
-    justify-content: center;
-    order: 2;
-  }
-  
-  .header-actions {
-    order: 1;
-    justify-content: center;
-  }
-}
-
-@media (max-width: 480px) {
-  .storage-status {
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .logo-title {
-    gap: 8px;
-  }
-  
-  .logo {
-    width: 28px;
-    height: 28px;
-  }
-  
-  .header h1 {
-    font-size: 1.8rem;
-  }
-  
-  .storage-status span {
-    font-size: 0.85rem;
-  }
 }
 
 /* Theme Toggle */
