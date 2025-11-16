@@ -559,36 +559,45 @@ function setupFabActions(closeFabMenu) {
 
 function setupThemeToggle() {
   const themeToggle = document.querySelector('.theme-toggle button');
+  console.log('🔍 Theme toggle button found:', themeToggle);
+  
   if (themeToggle) {
     themeToggle.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      console.log('🎯 Theme button clicked');
       toggleTheme();
     });
   }
 }
 
 function toggleTheme() {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    
-    document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
-    updateThemeIcon(newTheme); // Add this line
-    
-    console.log(`🎨 Theme changed to ${newTheme}`);
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  console.log('🔄 Current theme:', currentTheme);
+  
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  console.log('🎨 Switching to theme:', newTheme);
+  
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('theme', newTheme);
+  updateThemeIcon(newTheme);
+  
+  console.log('✅ Theme changed to', newTheme);
+  console.log('📝 data-theme attribute:', document.documentElement.getAttribute('data-theme'));
+  console.log('💾 localStorage theme:', localStorage.getItem('theme'));
 }
 
 function updateThemeIcon(theme) {
-    // Simple implementation that just updates the tooltip
-    const themeButton = document.querySelector('.theme-toggle button');
-    if (!themeButton) return;
-    
-    if (theme === 'dark') {
-        themeButton.setAttribute('title', 'Switch to light mode');
-    } else {
-        themeButton.setAttribute('title', 'Switch to dark mode');
-    }
+  const themeButton = document.querySelector('.theme-toggle button');
+  console.log('🎨 Updating theme icon for:', theme);
+  
+  if (!themeButton) return;
+  
+  if (theme === 'dark') {
+    themeButton.setAttribute('title', 'Switch to light mode');
+  } else {
+    themeButton.setAttribute('title', 'Switch to dark mode');
+  }
 }
 
 function initializeTheme() {
