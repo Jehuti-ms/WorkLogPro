@@ -297,7 +297,7 @@ body {
 /* ===========================
    Tabs - Modern
    =========================== */
-.tabs-container {
+/*.tabs-container {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   position: sticky;
@@ -357,6 +357,90 @@ body {
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+*/
+
+/* Tab Bar Styles - Full Width */
+.tabs {
+  display: flex;
+  width: 100%;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0;
+  margin: 0;
+  overflow-x: auto;
+}
+
+.tab {
+  flex: 1;
+  min-width: 0; /* Allow tabs to shrink evenly */
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab:hover {
+  background: var(--border-light);
+  color: var(--text);
+}
+
+.tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  background: var(--surface);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .tab {
+    flex: none;
+    min-width: 120px;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tab {
+    min-width: 100px;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+}
+
+/* Optional: If you want the tabs to be centered instead of full width */
+.tabs.centered {
+  justify-content: center;
+}
+
+.tabs.centered .tab {
+  flex: none;
+  min-width: 120px;
+}
+
+/* Optional: If you want equal spacing without stretching */
+.tabs.space-between {
+  justify-content: space-between;
+}
+
+.tabs.space-between .tab {
+  flex: none;
 }
 
 /* ===========================
