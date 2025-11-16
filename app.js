@@ -1497,7 +1497,7 @@ const SyncBar = {
     }
 
     try {
-      if (syncSpinner) syncSpinner.style.display = 'inline-block';
+      //if (syncSpinner) syncSpinner.style.display = 'inline-block';
       if (syncIndicator) {
         syncIndicator.classList.remove('sync-connected', 'sync-error');
         syncIndicator.classList.add('sync-active');
@@ -1546,7 +1546,7 @@ const SyncBar = {
       
       NotificationSystem.notifyError(`Sync failed: ${error.message}`);
     } finally {
-      if (syncSpinner) syncSpinner.style.display = 'none';
+    //  if (syncSpinner) syncSpinner.style.display = 'none';
     }
   },
 
