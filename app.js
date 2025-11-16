@@ -386,6 +386,10 @@ function updateProfileModal() {
 // FLOATING ADD BUTTON
 // ===========================
 
+// ===========================
+// FLOATING ADD BUTTON - FIXED
+// ===========================
+
 function setupFloatingAddButton() {
   const fab = document.getElementById('floatingAddBtn');
   const fabMenu = document.getElementById('fabMenu');
@@ -403,7 +407,7 @@ function setupFloatingAddButton() {
   function openFabMenu() {
     isExpanded = true;
     fab.setAttribute('data-expanded', 'true');
-    fab.innerHTML = '✕';
+    fab.innerHTML = '✕'; // Change to X when open
     
     if (fabMenu) {
       fabMenu.classList.add('show');
@@ -418,7 +422,7 @@ function setupFloatingAddButton() {
   function closeFabMenu() {
     isExpanded = false;
     fab.setAttribute('data-expanded', 'false');
-    fab.innerHTML = '+';
+    fab.innerHTML = '+'; // Change back to plus when closed
     
     if (fabMenu) {
       fabMenu.classList.remove('show');
@@ -450,10 +454,12 @@ function setupFloatingAddButton() {
     });
   }
 
-  // Close menu when clicking outside
+  // Close menu when clicking outside (but not on FAB itself)
   document.addEventListener('click', (e) => {
-    if (isExpanded) {
-      if (!fab.contains(e.target) && (!fabMenu || !fabMenu.contains(e.target))) {
+    if (isExpanded && !fab.contains(e.target)) {
+      // Check if click is outside both FAB and menu
+      const clickedOnMenu = fabMenu && fabMenu.contains(e.target);
+      if (!clickedOnMenu) {
         closeFabMenu();
       }
     }
