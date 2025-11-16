@@ -2286,42 +2286,34 @@ async function addStudent() {
       createdAt: new Date().toISOString()
     };
 
-    console.log('💾 Saving to Firestore...');
+    console.log('💾 Adding student to cache immediately...');
     
-    // Save to Firestore
-    const studentRef = doc(db, "users", user.uid, "students", id);
-    await setDoc(studentRef, student);
-    console.log('✅ Saved to Firestore');
+    // 1. UPDATE CACHE IMMEDIATELY (UI feels instant)
+    addStudentToCache(student);
     
-    // PROPERLY clear cache and force refresh
-    console.log('🗑️ Invalidating cache...');
-    cache.students = null;
-    cache.lastSync = null; // This is key - make cache invalid
-    
-    // Clear form IMMEDIATELY
+    // 2. Clear form IMMEDIATELY
     console.log('🧹 Clearing form...');
     clearStudentForm();
     
-    // Show success
+    // 3. Show success IMMEDIATELY
     NotificationSystem.notifySuccess("Student added successfully!");
-    console.log('✅ Showed success message');
+    console.log('✅ Student added to UI instantly');
     
-    // Force refresh student list with TRUE force refresh
-    console.log('🔄 Refreshing student list...');
-    await renderStudents(true); // Force true refresh
+    // 4. Save to Firestore in BACKGROUND (non-blocking)
+    console.log('☁️ Saving to Firestore in background...');
+    saveStudentToFirestore(user.uid, student).catch(error => {
+      console.error('❌ Background Firestore save failed:', error);
+      // Optional: Show a subtle warning that sync failed
+      NotificationSystem.notifyWarning('Student saved locally but cloud sync failed', 3000);
+    });
     
-    // Update stats
-    console.log('📊 Updating stats...');
-    recalcSummaryStats(user.uid).catch(console.error);
+    // 5. Update stats in background
+    incrementStudentCount(user.uid).catch(console.error);
+    loadStudentsForDropdowns().catch(console.error);
 
   } catch (err) {
     console.error("❌ Error adding student:", err);
-    
-    if (err.code === 'already-exists') {
-      NotificationSystem.notifyError("A student with this ID already exists");
-    } else {
-      NotificationSystem.notifyError("Failed to add student: " + err.message);
-    }
+    NotificationSystem.notifyError("Failed to add student: " + err.message);
     
     // Re-enable button
     const submitBtn = document.getElementById('studentSubmitBtn');
@@ -2329,6 +2321,85 @@ async function addStudent() {
       submitBtn.textContent = '➕ Add Student';
       submitBtn.disabled = false;
     }
+  }
+}
+
+// Add student to cache immediately
+function addStudentToCache(newStudent) {
+  const container = document.getElementById('studentsContainer');
+  if (!container) return;
+
+  // Create the student card HTML
+  const studentCard = `
+    <div class="student-card">
+      <div class="student-card-header">
+        <div>
+          <strong>${newStudent.name}</strong>
+          <span class="student-id">${newStudent.id}</span>
+        </div>
+        <div class="student-actions">
+          <button class="btn-icon" onclick="editStudent('${newStudent.id}')" title="Edit">✏️</button>
+          <button class="btn-icon" onclick="deleteStudent('${newStudent.id}')" title="Delete">🗑️</button>
+        </div>
+      </div>
+      <div class="student-details">
+        <div class="muted">${newStudent.gender} • ${newStudent.email || 'No email'} • ${newStudent.phone || 'No phone'}</div>
+        <div class="student-rate">Rate: $${fmtMoney(newStudent.rate)}/session</div>
+        <div class="student-meta">Added: Just now</div>
+      </div>
+    </div>
+  `;
+
+  // Remove empty state if it exists
+  const emptyState = container.querySelector('.empty-state, .empty-message, .loading');
+  if (emptyState) {
+    emptyState.remove();
+  }
+
+  // Add new student to the top of the list
+  container.insertAdjacentHTML('afterbegin', studentCard);
+
+  // Update cache
+  if (cache.students && !cache.students.includes('Loading students...')) {
+    // Add to existing cache
+    cache.students = studentCard + cache.students;
+  } else {
+    // Force cache refresh on next load
+    cache.students = null;
+  }
+  
+  cache.lastSync = Date.now();
+}
+
+// Background Firestore save (non-blocking)
+async function saveStudentToFirestore(uid, student) {
+  const studentRef = doc(db, "users", uid, "students", student.id);
+  await setDoc(studentRef, student);
+  console.log('✅ Student saved to Firestore in background');
+}
+
+// Fast student count increment
+async function incrementStudentCount(uid) {
+  try {
+    const statsRef = doc(db, "users", uid);
+    const statsSnap = await getDoc(statsRef);
+    
+    if (statsSnap.exists()) {
+      const currentStats = statsSnap.data();
+      const newStudents = (currentStats.students || 0) + 1;
+      
+      await updateDoc(statsRef, {
+        students: newStudents
+      });
+      
+      // Update DOM immediately
+      const statStudents = document.getElementById('statStudents');
+      if (statStudents) statStudents.textContent = newStudents;
+      
+      updateHeaderStats();
+    }
+  } catch (error) {
+    console.log("Background count update failed:", error);
   }
 }
 
@@ -2768,16 +2839,40 @@ async function deleteStudent(studentId) {
     const user = auth.currentUser;
     if (user) {
       try {
-        await deleteDoc(doc(db, "users", user.uid, "students", studentId));
+        // Remove from cache immediately
+        removeStudentFromCache(studentId);
+        
+        // Delete from Firestore in background
+        deleteDoc(doc(db, "users", user.uid, "students", studentId))
+          .then(() => console.log('✅ Student deleted from Firestore'))
+          .catch(error => console.error('❌ Background delete failed:', error));
+          
         NotificationSystem.notifySuccess("Student deleted successfully");
-        await renderStudents();
-        await loadStudentsForDropdowns();
+        
+        // Update stats in background
+        recalcSummaryStats(user.uid).catch(console.error);
+        
       } catch (error) {
         console.error("Error deleting student:", error);
         NotificationSystem.notifyError("Failed to delete student");
       }
     }
   }
+}
+
+function removeStudentFromCache(studentId) {
+  const container = document.getElementById('studentsContainer');
+  if (!container) return;
+
+  // Remove from DOM
+  const studentCard = container.querySelector(`.student-id:contains('${studentId}')`)?.closest('.student-card');
+  if (studentCard) {
+    studentCard.remove();
+  }
+
+  // Update cache
+  cache.students = null;
+  cache.lastSync = Date.now();
 }
 
 // ===========================
