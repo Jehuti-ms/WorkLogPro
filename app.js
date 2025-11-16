@@ -642,9 +642,20 @@ document.addEventListener('DOMContentLoaded', function() {
 // ===========================
 
 function updateHeaderStats() {
+  console.log('📊 Updating header stats...');
+  
   const localStatus = document.getElementById('localStatus');
   const syncStatus = document.getElementById('syncStatus');
   const dataStatus = document.getElementById('dataStatus');
+  
+  // Get current stats from DOM or calculate
+  const statStudents = document.getElementById('statStudents');
+  const statHours = document.getElementById('statHours');
+  const statEarnings = document.getElementById('statEarnings');
+  
+  const students = statStudents ? statStudents.textContent : '0';
+  const hours = statHours ? statHours.textContent : '0';
+  const earnings = statEarnings ? statEarnings.textContent : '$0.00';
   
   if (localStatus) {
     localStatus.textContent = '💾 Local Storage: Active';
@@ -656,12 +667,10 @@ function updateHeaderStats() {
   }
   
   if (dataStatus) {
-    const statStudents = document.getElementById('statStudents');
-    const statHours = document.getElementById('statHours');
-    const students = statStudents ? statStudents.textContent : '0';
-    const hours = statHours ? statHours.textContent : '0';
-    dataStatus.textContent = `📊 Data: ${students} Students, ${hours} Sessions`;
+    dataStatus.textContent = `📊 Data: ${students} Students, ${hours} Hours`;
   }
+  
+  console.log('✅ Header stats updated:', { students, hours, earnings });
 }
 
 // ===========================
@@ -721,19 +730,26 @@ async function updateUserStats(uid, newStats) {
     await setDoc(statsRef, newStats, { merge: true });
     console.log("✅ Stats updated:", newStats);
 
-    if (newStats.students !== undefined && document.getElementById('statStudents')) {
-      document.getElementById('statStudents').textContent = newStats.students;
+    // Update DOM elements
+    if (newStats.students !== undefined) {
+      const statStudents = document.getElementById('statStudents');
+      if (statStudents) statStudents.textContent = newStats.students;
     }
-    if (newStats.hours !== undefined && document.getElementById('statHours')) {
-      document.getElementById('statHours').textContent = newStats.hours;
+    if (newStats.hours !== undefined) {
+      const statHours = document.getElementById('statHours');
+      if (statHours) statHours.textContent = newStats.hours;
     }
-    if (newStats.earnings !== undefined && document.getElementById('statEarnings')) {
-      document.getElementById('statEarnings').textContent = fmtMoney(newStats.earnings);
+    if (newStats.earnings !== undefined) {
+      const statEarnings = document.getElementById('statEarnings');
+      if (statEarnings) statEarnings.textContent = fmtMoney(newStats.earnings);
     }
-    if (newStats.lastSync !== undefined && document.getElementById('statUpdated')) {
-      document.getElementById('statUpdated').textContent = newStats.lastSync;
+    if (newStats.lastSync !== undefined) {
+      const statUpdated = document.getElementById('statUpdated');
+      if (statUpdated) statUpdated.textContent = newStats.lastSync;
     }
 
+    // Update header stats after DOM updates
+    updateHeaderStats();
     refreshTimestamp();
   } catch (err) {
     console.error("❌ Error updating stats:", err);
@@ -773,7 +789,7 @@ async function recalcSummaryStats(uid) {
       lastSync: new Date().toLocaleString()
     });
 
-    // Update header stats
+    // Update header stats AFTER updating user stats
     updateHeaderStats();
     
     console.log('✅ Summary stats recalculated successfully');
