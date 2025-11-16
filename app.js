@@ -355,40 +355,31 @@ function setupFloatingAddButton() {
   console.log('FAB menu:', fabMenu);
   console.log('FAB overlay:', fabOverlay);
 
+  // Check if all FAB elements exist
   if (!fab) {
-    console.error('❌ FAB not found!');
+    console.error('❌ FAB button not found!');
+    return;
+  }
+
+  if (!fabMenu) {
+    console.error('❌ FAB menu not found!');
     return;
   }
 
   // Initialize state
-  fab.setAttribute('data-expanded', 'false');
+  let isExpanded = false;
 
   // Click handler for main FAB button
   fab.addEventListener('click', (e) => {
     e.stopPropagation();
-    const isExpanded = fab.getAttribute('data-expanded') === 'true';
     console.log('🎯 FAB clicked, current state:', isExpanded);
     
     if (isExpanded) {
       // Close menu
-      fab.setAttribute('data-expanded', 'false');
-      if (fabMenu) {
-        fabMenu.classList.remove('show');
-        console.log('📱 FAB menu closed');
-      }
-      if (fabOverlay) {
-        fabOverlay.style.display = 'none';
-      }
+      closeFabMenu();
     } else {
       // Open menu
-      fab.setAttribute('data-expanded', 'true');
-      if (fabMenu) {
-        fabMenu.classList.add('show');
-        console.log('📱 FAB menu opened');
-      }
-      if (fabOverlay) {
-        fabOverlay.style.display = 'block';
-      }
+      openFabMenu();
     }
   });
 
@@ -396,14 +387,64 @@ function setupFloatingAddButton() {
   if (fabOverlay) {
     fabOverlay.addEventListener('click', (e) => {
       e.stopPropagation();
-      fab.setAttribute('data-expanded', 'false');
-      if (fabMenu) fabMenu.classList.remove('show');
-      fabOverlay.style.display = 'none';
+      closeFabMenu();
       console.log('📱 FAB closed via overlay');
     });
   }
 
-  // Setup quick action buttons
+  // Close menu when clicking outside
+  document.addEventListener('click', (e) => {
+    if (isExpanded) {
+      if (!fab.contains(e.target) && (!fabMenu || !fabMenu.contains(e.target))) {
+        closeFabMenu();
+        console.log('📱 FAB closed via outside click');
+      }
+    }
+  });
+
+  // Close with Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isExpanded) {
+      closeFabMenu();
+      console.log('📱 FAB closed via Escape key');
+    }
+  });
+
+  function openFabMenu() {
+    isExpanded = true;
+    fab.setAttribute('data-expanded', 'true');
+    
+    if (fabMenu) {
+      fabMenu.classList.add('show');
+      console.log('📱 FAB menu opened');
+    }
+    
+    if (fabOverlay) {
+      fabOverlay.style.display = 'block';
+    }
+  }
+
+  function closeFabMenu() {
+    isExpanded = false;
+    fab.setAttribute('data-expanded', 'false');
+    
+    if (fabMenu) {
+      fabMenu.classList.remove('show');
+      console.log('📱 FAB menu closed');
+    }
+    
+    if (fabOverlay) {
+      fabOverlay.style.display = 'none';
+    }
+  }
+
+  // Setup quick action buttons with safe access
+  setupFabActions(fab, closeFabMenu);
+  
+  console.log('✅ FAB setup completed');
+}
+
+function setupFabActions(fab, closeFabMenu) {
   const quickActions = {
     'fabAddStudent': () => {
       console.log('🎯 FAB: Add Student clicked');
@@ -473,30 +514,12 @@ function setupFloatingAddButton() {
         e.stopPropagation();
         console.log(`🎯 FAB action triggered: ${btnId}`);
         quickActions[btnId]();
-        
-        // Close FAB menu
-        fab.setAttribute('data-expanded', 'false');
-        if (fabMenu) fabMenu.classList.remove('show');
-        if (fabOverlay) fabOverlay.style.display = 'none';
+        closeFabMenu();
       });
     } else {
       console.error(`❌ FAB action button not found: ${btnId}`);
     }
   });
-
-  // Close menu when clicking outside
-  document.addEventListener('click', (e) => {
-    if (fab.getAttribute('data-expanded') === 'true') {
-      if (!fab.contains(e.target) && (!fabMenu || !fabMenu.contains(e.target))) {
-        fab.setAttribute('data-expanded', 'false');
-        if (fabMenu) fabMenu.classList.remove('show');
-        if (fabOverlay) fabOverlay.style.display = 'none';
-        console.log('📱 FAB closed via outside click');
-      }
-    }
-  });
-
-  console.log('✅ FAB setup completed');
 }
 
 // ===========================
