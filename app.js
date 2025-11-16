@@ -521,15 +521,12 @@ function setupFabActions(closeFabMenu) {
 }
 
 // ===========================
-// THEME MANAGEMENT
+// THEME MANAGEMENT - SIMPLE VERSION
 // ===========================
 
 function setupThemeToggle() {
   const themeToggle = document.querySelector('.theme-toggle button');
   if (themeToggle) {
-    // Set initial icon based on current theme
-    updateThemeIcon();
-    
     themeToggle.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -545,18 +542,7 @@ function toggleTheme() {
   document.documentElement.setAttribute('data-theme', newTheme);
   localStorage.setItem('theme', newTheme);
   
-  updateThemeIcon();
   console.log(`🎨 Theme changed to ${newTheme}`);
-}
-
-function updateThemeIcon() {
-  const themeToggle = document.querySelector('.theme-toggle button');
-  const currentTheme = document.documentElement.getAttribute('data-theme');
-  
-  if (themeToggle) {
-    themeToggle.textContent = currentTheme === 'dark' ? '☀️' : '🌙';
-    themeToggle.title = `Switch to ${currentTheme === 'dark' ? 'light' : 'dark'} theme`;
-  }
 }
 
 // ===========================
