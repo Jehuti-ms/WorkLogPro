@@ -3111,6 +3111,63 @@ async function showSubjectBreakdown() {
 }
 
 // ===========================
+// EMERGENCY TAB FIX
+// ===========================
+function emergencyTabFix() {
+  console.log('🚨 Initializing emergency tab fix...');
+  
+  const tabs = document.querySelectorAll('.tab');
+  const tabContents = document.querySelectorAll('.tabcontent');
+  
+  if (tabs.length === 0) {
+    console.log('❌ No tabs found');
+    return;
+  }
+
+  tabs.forEach(tab => {
+    // Remove any existing event listeners
+    const newTab = tab.cloneNode(true);
+    tab.parentNode.replaceChild(newTab, tab);
+    
+    newTab.addEventListener('click', function(e) {
+      e.preventDefault();
+      const target = this.getAttribute('data-tab');
+      console.log('🎯 Tab clicked:', target);
+      
+      // Remove active from all
+      tabs.forEach(t => t.classList.remove('active'));
+      tabContents.forEach(tc => {
+        tc.classList.remove('active');
+        tc.style.display = 'none';
+      });
+      
+      // Add active to clicked
+      this.classList.add('active');
+      const content = document.getElementById(target);
+      if (content) {
+        content.classList.add('active');
+        content.style.display = 'block';
+        console.log('✅ Switched to tab:', target);
+      }
+    });
+  });
+
+  // Activate first tab
+  const activeTab = document.querySelector('.tab.active') || document.querySelector('.tab');
+  if (activeTab) {
+    activeTab.click();
+  }
+  
+  console.log('✅ Emergency tabs initialized');
+}
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('🏠 DOM loaded - starting emergency tab init');
+  setTimeout(emergencyTabFix, 100);
+});
+
+// ===========================
 // GLOBAL FUNCTION EXPORTS
 // ===========================
 
@@ -3155,35 +3212,4 @@ window.performSync = (mode = 'manual') => SyncBar.performSync(mode);
 /*=========================
   DEBUG 
 =========================*/
-// Add this function to your app.js file (anywhere)
-window.debugStudentList = async function() {
-  const user = auth.currentUser;
-  if (!user) {
-    console.log('❌ No user logged in');
-    return;
-  }
-  
-  console.log('🔍 DEBUG: Checking student data...');
-  
-  try {
-    // Check Firestore
-    const snapshot = await getDocs(collection(db, "users", user.uid, "students"));
-    console.log(`📊 Firestore has ${snapshot.size} students:`);
-    snapshot.forEach(doc => {
-      console.log(`- ${doc.id}: ${doc.data().name}`);
-    });
-    
-    // Check cache
-    console.log('💾 Cache:', {
-      hasCache: !!cache.students,
-      isValid: isCacheValid('students')
-    });
-    
-    // Check DOM
-    const container = document.getElementById('studentsContainer');
-    console.log('🏠 DOM Container:', container ? 'Found' : 'Not found');
-    
-  } catch (error) {
-    console.error('❌ Debug error:', error);
-  }
-};
+
