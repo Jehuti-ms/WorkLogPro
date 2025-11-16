@@ -1272,60 +1272,54 @@ const SyncBar = {
     console.log('✅ Sync bar initialized');
   },
 
-  setupAutoSyncToggle() {
-    if (autoSyncCheckbox) {
-      // Load saved autoSync preference from localStorage
-      const savedAutoSync = localStorage.getItem('autoSyncEnabled') === 'true';
-      isAutoSyncEnabled = savedAutoSync;
+ // In SyncBar module - update setupAutoSyncToggle
+setupAutoSyncToggle() {
+  if (autoSyncCheckbox) {
+    // Load saved autoSync preference
+    const savedAutoSync = localStorage.getItem('autoSyncEnabled') === 'true';
+    isAutoSyncEnabled = savedAutoSync;
+    autoSyncCheckbox.checked = savedAutoSync;
+    
+    if (savedAutoSync) {
+      autoSyncText.textContent = 'Auto';
+      if (syncIndicator) {
+        syncIndicator.style.backgroundColor = '#10b981';
+        syncIndicator.classList.add('sync-connected');
+      }
+      this.startAutoSync();
+    } else {
+      autoSyncText.textContent = 'Manual';
+      if (syncIndicator) {
+        syncIndicator.style.backgroundColor = '#ef4444';
+        syncIndicator.classList.remove('sync-connected');
+      }
+    }
+
+    autoSyncCheckbox.addEventListener('change', (e) => {
+      isAutoSyncEnabled = e.target.checked;
+      localStorage.setItem('autoSyncEnabled', isAutoSyncEnabled.toString());
       
-      // Set the checkbox state based on saved preference
-      autoSyncCheckbox.checked = savedAutoSync;
-      
-      if (savedAutoSync) {
+      if (isAutoSyncEnabled) {
         autoSyncText.textContent = 'Auto';
         if (syncIndicator) {
           syncIndicator.style.backgroundColor = '#10b981';
           syncIndicator.classList.add('sync-connected');
         }
         this.startAutoSync();
-        console.log('✅ Auto-sync restored from previous session');
+        NotificationSystem.notifySuccess('Auto-sync enabled - syncing every 60 seconds');
       } else {
         autoSyncText.textContent = 'Manual';
         if (syncIndicator) {
           syncIndicator.style.backgroundColor = '#ef4444';
           syncIndicator.classList.remove('sync-connected');
         }
-        console.log('✅ Manual sync mode restored');
+        this.stopAutoSync();
+        NotificationSystem.notifyInfo('Auto-sync disabled');
       }
-
-      autoSyncCheckbox.addEventListener('change', (e) => {
-        isAutoSyncEnabled = e.target.checked;
-        
-        // Save preference to localStorage
-        localStorage.setItem('autoSyncEnabled', isAutoSyncEnabled.toString());
-        console.log('💾 Auto-sync preference saved:', isAutoSyncEnabled);
-        
-        if (isAutoSyncEnabled) {
-          autoSyncText.textContent = 'Auto';
-          if (syncIndicator) {
-            syncIndicator.style.backgroundColor = '#10b981';
-            syncIndicator.classList.add('sync-connected');
-          }
-          this.startAutoSync();
-          NotificationSystem.notifySuccess('Auto-sync enabled - syncing every 60 seconds');
-        } else {
-          autoSyncText.textContent = 'Manual';
-          if (syncIndicator) {
-            syncIndicator.style.backgroundColor = '#ef4444';
-            syncIndicator.classList.remove('sync-connected');
-          }
-          this.stopAutoSync();
-          NotificationSystem.notifyInfo('Auto-sync disabled');
-        }
-      });
-    }
-  },
-
+    });
+  }
+},
+  
   startAutoSync() {
     this.stopAutoSync();
     this.performSync('auto');
