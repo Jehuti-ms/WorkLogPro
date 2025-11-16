@@ -2666,15 +2666,18 @@ async function loadInitialData(user) {
   try {
     console.log('📥 Loading initial data for user:', user.uid);
     
-    // Load critical data first without waiting for profile
+    // Load critical data first
     await Promise.allSettled([
       loadUserProfile(user.uid),
       loadStudentsForDropdowns(),
-      recalcSummaryStats(user.uid)
+      recalcSummaryStats(user.uid) // This will update everything
     ]);
     
-    // Load visible content
+    // Then load visible content
     await renderStudents();
+    
+    // Force header stats update
+    updateHeaderStats();
     
     console.log('✅ Initial data loaded successfully');
     
