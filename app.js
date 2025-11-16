@@ -105,71 +105,92 @@ function calculateGrade(percentage) {
 
 async function loadUserProfile(uid) {
   console.log('👤 Loading user profile for:', uid);
+  
+  // Set immediate fallback profile for instant UI update
+  const user = auth.currentUser;
+  const fallbackProfile = {
+    email: user?.email || '',
+    createdAt: new Date().toISOString(),
+    defaultRate: parseFloat(localStorage.getItem('userDefaultRate')) || 0
+  };
+  
+  // Update UI IMMEDIATELY with basic info
+  updateProfileButton(fallbackProfile);
+  initializeDefaultRate(fallbackProfile.defaultRate);
+  
   try {
     const userRef = doc(db, "users", uid);
-    const userSnap = await getDoc(userRef);
+    
+    // Use Promise.race for timeout protection
+    const userSnap = await Promise.race([
+      getDoc(userRef),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile load timeout')), 5000)
+      )
+    ]);
     
     if (userSnap.exists()) {
       currentUserData = { uid, ...userSnap.data() };
-      console.log('✅ User profile loaded:', currentUserData);
+      console.log('✅ User profile loaded from Firestore');
       
-      // Update profile button with user info
+      // Update with full profile data (this will override the fallback)
       updateProfileButton(currentUserData);
       
-      // Initialize default rate from user profile (this takes priority)
-      initializeDefaultRate(currentUserData.defaultRate);
+      if (currentUserData.defaultRate !== undefined) {
+        initializeDefaultRate(currentUserData.defaultRate);
+        // Update localStorage with the latest rate
+        localStorage.setItem('userDefaultRate', currentUserData.defaultRate.toString());
+      }
       
       return currentUserData;
     } else {
-      // Create new user profile - try to use localStorage rate if available
-      const savedRate = parseFloat(localStorage.getItem('userDefaultRate')) || 0;
-      const defaultProfile = {
-        email: auth.currentUser?.email || '',
-        createdAt: new Date().toISOString(),
-        defaultRate: savedRate,
+      // Create profile in background without blocking
+      const profileToCreate = {
+        ...fallbackProfile,
         lastLogin: new Date().toISOString()
       };
       
-      await setDoc(userRef, defaultProfile);
-      currentUserData = { uid, ...defaultProfile };
-      console.log('✅ New user profile created with rate:', savedRate);
+      setDoc(userRef, profileToCreate).then(() => {
+        console.log('✅ User profile created in background');
+      }).catch(err => {
+        console.error('❌ Background profile creation failed:', err);
+      });
       
-      updateProfileButton(currentUserData);
-      initializeDefaultRate(savedRate);
-      
+      currentUserData = { uid, ...profileToCreate };
       return currentUserData;
     }
   } catch (err) {
     console.error("❌ Error loading user profile:", err);
     
-    // Fallback: use localStorage rate
-    const fallbackRate = parseFloat(localStorage.getItem('userDefaultRate')) || 0;
-    initializeDefaultRate(fallbackRate);
-    
-    return null;
+    // Use cached data and continue without blocking
+    console.log('🔄 Using cached profile data');
+    return fallbackProfile;
   }
 }
 
 function updateProfileButton(userData) {
   const profileBtn = document.getElementById('profileBtn');
-  if (profileBtn) {
+  const userName = document.getElementById('userName');
+  
+  if (profileBtn || userName) {
     const email = userData?.email || auth.currentUser?.email || 'User';
     const displayName = email.split('@')[0];
     
-    // Update both the button text and the userName span
-    profileBtn.innerHTML = `👤 ${displayName}`;
-    
-    // Also update the userName span if it exists separately
-    const userNameSpan = document.getElementById('userName');
-    if (userNameSpan) {
-      userNameSpan.textContent = displayName;
+    // Update both button and span immediately
+    if (profileBtn) {
+      profileBtn.innerHTML = `👤 ${displayName}`;
+      profileBtn.title = `Logged in as ${email}`;
     }
     
-    profileBtn.title = `Logged in as ${email}`;
-    console.log('✅ Profile button updated for:', displayName);
+    if (userName) {
+      userName.textContent = displayName;
+    }
+    
+    console.log('✅ Profile updated:', displayName);
   }
 }
 
+// Keep the rest of your functions the same, they're fine
 async function updateUserDefaultRate(uid, newRate) {
   try {
     const userRef = doc(db, "users", uid);
@@ -225,8 +246,6 @@ function setupProfileModal() {
   const logoutBtn = document.getElementById('logoutBtn');
 
   console.log('🔧 Setting up profile modal...');
-  console.log('Profile button:', profileBtn);
-  console.log('Profile modal:', profileModal);
 
   // Open modal
   if (profileBtn && profileModal) {
@@ -240,7 +259,6 @@ function setupProfileModal() {
       
       profileModal.style.display = 'flex';
       document.body.classList.add('modal-open');
-      console.log('📱 Profile modal opened');
     });
   } else {
     console.error('❌ Profile button or modal not found');
@@ -285,7 +303,6 @@ function setupProfileModal() {
   function closeModal() {
     profileModal.style.display = 'none';
     document.body.classList.remove('modal-open');
-    console.log('📱 Profile modal closed');
   }
 }
 
@@ -317,7 +334,6 @@ function updateProfileModal() {
   if (modalStatEarnings && mainStatEarnings) modalStatEarnings.textContent = mainStatEarnings.textContent;
   if (modalStatUpdated && mainStatUpdated) modalStatUpdated.textContent = mainStatUpdated.textContent;
 }
-
 // ===========================
 // FLOATING ADD BUTTON
 // ===========================
@@ -1695,25 +1711,43 @@ const UIManager = {
   },
 
   initTabs() {
-    const tabs = document.querySelectorAll('.tab');
-    const tabContents = document.querySelectorAll('.tabcontent');
+  const tabs = document.querySelectorAll('.tab');
+  const tabContents = document.querySelectorAll('.tabcontent');
 
-    tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        const target = tab.getAttribute('data-tab');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.getAttribute('data-tab');
+      console.log('📑 Switching to tab:', target);
 
-        tabs.forEach(t => t.classList.remove('active'));
-        tabContents.forEach(tc => tc.style.display = 'none');
-
-        tab.classList.add('active');
-
-        const selected = document.getElementById(target);
-        if (selected) {
-          selected.style.display = 'block';
-          console.log(`📑 Switched to ${target} tab`);
-        }
+      // Remove active class from all tabs and contents
+      tabs.forEach(t => t.classList.remove('active'));
+      tabContents.forEach(tc => {
+        tc.classList.remove('active');
+        tc.style.display = 'none';
       });
+
+      // Add active class to clicked tab and target content
+      tab.classList.add('active');
+      
+      const selected = document.getElementById(target);
+      if (selected) {
+        selected.classList.add('active');
+        selected.style.display = 'block';
+        console.log('✅ Tab displayed:', target);
+      } else {
+        console.error('❌ Tab content not found:', target);
+      }
     });
+  });
+
+  // Activate first tab by default
+  const firstTab = document.querySelector('.tab.active') || document.querySelector('.tab');
+  if (firstTab) {
+    firstTab.click();
+  }
+  
+  console.log('✅ Tabs initialized');
+},
 
     const firstActive = document.querySelector('.tab.active');
     if (firstActive) {
