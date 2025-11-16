@@ -1867,57 +1867,110 @@ body.modal-open {
 }
 
 /* =========================== */
-/* FIXED HEADER & SYNC BAR */
+/* PWA FIXED HEADER & SYNC BAR */
 /* =========================== */
 
-/* Make both header and sync bar fixed at top */
+/* Fixed header with glass effect */
 .header {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  z-index: 1000;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  z-index: 1002;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 30px rgba(0, 0, 0, 0.1);
 }
 
+/* Fixed sync bar with glass effect */
 .sync-toolbar {
   position: fixed;
-  top: 120px; /* Adjust based on your header height */
+  top: 80px; /* Adjust based on your header height */
   left: 0;
   right: 0;
-  z-index: 999;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border);
-  padding: 8px 16px;
+  z-index: 1001;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 10px 16px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
   min-height: 50px;
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
 }
 
-/* Dark theme support */
+/* Dark theme glass effects */
+[data-theme="dark"] .header {
+  background: rgba(20, 20, 30, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 [data-theme="dark"] .sync-toolbar {
-  background: rgba(30, 30, 30, 0.95);
+  background: rgba(25, 25, 35, 0.8);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Add padding to body to account for BOTH fixed elements */
+/* Body padding to account for both fixed elements */
 body {
-  padding-top: 180px; /* header height + sync bar height + some spacing */
+  padding-top: 140px; /* header (~80px) + sync bar (~50px) + spacing */
 }
 
-/* Tabs container starts below both fixed elements */
+/* Content scrolls behind the fixed headers */
 .tabs-container {
   position: relative;
   z-index: 1;
-  margin-top: 0;
 }
 
-/* Content areas */
 .tabcontent {
   position: relative;
   z-index: 1;
 }
+
+/* Ensure content starts below the fixed areas */
+.container {
+  margin-top: 0;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .header {
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    top: 0;
+  }
+  
+  .sync-toolbar {
+    top: 70px; /* Smaller header on mobile */
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 8px 12px;
+    min-height: 45px;
+  }
+  
+  body {
+    padding-top: 125px; /* Adjust for mobile heights */
+  }
+  
+  /* Stack sync buttons on very small screens */
+  @media (max-width: 480px) {
+    .sync-toolbar {
+      flex-direction: column;
+      min-height: auto;
+      gap: 6px;
+    }
+    
+    body {
+      padding-top: 140px;
+    }
+  }
+}
+
