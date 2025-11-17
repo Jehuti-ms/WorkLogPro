@@ -69,35 +69,30 @@ const importDataBtn = document.getElementById("importDataBtn");
 const clearDataBtn = document.getElementById("clearDataBtn");
 
 // ===========================
-// TIMEZONE UTILITY FUNCTIONS
+// TIMEZONE UTILITY FUNCTIONS - FIXED VERSION
 // ===========================
 
 function getLocalISODate() {
   const now = new Date();
-  const tzOffset = -now.getTimezoneOffset();
-  const diff = tzOffset >= 0 ? '+' : '-';
-  const pad = n => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
-  return now.getFullYear() +
-    '-' + pad(now.getMonth() + 1) +
-    '-' + pad(now.getDate()) +
-    'T' + pad(now.getHours()) +
-    ':' + pad(now.getMinutes()) +
-    ':' + pad(now.getSeconds()) +
-    diff + pad(tzOffset / 60) +
-    ':' + pad(tzOffset % 60);
+  // Get local date in YYYY-MM-DD format
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function formatDateForInput(dateString) {
   if (!dateString) return new Date().toISOString().split('T')[0];
+  
   try {
-    // Handle both ISO dates and local dates
     let date;
     if (dateString.includes('T')) {
-      // ISO date with timezone
+      // ISO date with timezone - parse as UTC and convert to local
       date = new Date(dateString);
     } else {
-      // Local date string (YYYY-MM-DD)
-      date = new Date(dateString + 'T00:00:00');
+      // Local date string (YYYY-MM-DD) - treat as local date
+      const [year, month, day] = dateString.split('-').map(Number);
+      date = new Date(year, month - 1, day);
     }
     
     if (isNaN(date.getTime())) {
@@ -105,12 +100,37 @@ function formatDateForInput(dateString) {
     }
     
     // Convert to local date string for input[type="date"]
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    const localYear = date.getFullYear();
+    const localMonth = String(date.getMonth() + 1).padStart(2, '0');
+    const localDay = String(date.getDate()).padStart(2, '0');
+    return `${localYear}-${localMonth}-${localDay}`;
   } catch {
     return new Date().toISOString().split('T')[0];
+  }
+}
+
+function fmtDateISO(yyyyMmDd) {
+  if (!yyyyMmDd) return new Date().toISOString();
+  try {
+    // Parse the local date string and create a date at noon local time
+    // This avoids timezone issues when converting to ISO string
+    const [year, month, day] = yyyyMmDd.split('-').map(Number);
+    const localDate = new Date(year, month - 1, day, 12, 0, 0); // Noon local time
+    
+    // Convert to ISO string - this will include timezone offset
+    const isoString = localDate.toISOString();
+    
+    console.log('🔧 Date conversion:', {
+      input: yyyyMmDd,
+      localDate: localDate.toString(),
+      isoString: isoString,
+      timezoneOffset: localDate.getTimezoneOffset()
+    });
+    
+    return isoString;
+  } catch (error) {
+    console.error('❌ Date conversion error:', error);
+    return new Date().toISOString();
   }
 }
 
@@ -120,18 +140,45 @@ function convertToLocalDate(dateString) {
   try {
     let date;
     if (dateString.includes('T')) {
+      // ISO date - parse as is
       date = new Date(dateString);
     } else {
-      date = new Date(dateString + 'T00:00:00');
+      // Local date string - create as local date
+      const [year, month, day] = dateString.split('-').map(Number);
+      date = new Date(year, month - 1, day);
     }
     
-    // Adjust for timezone offset to get true local date
-    const timezoneOffset = date.getTimezoneOffset() * 60000;
-    const localDate = new Date(date.getTime() - timezoneOffset);
-    return localDate;
+    return date;
   } catch {
     return new Date();
   }
+}
+
+function formatDate(dateString) {
+  if (!dateString) return 'Never';
+  try {
+    const date = convertToLocalDate(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch {
+    return dateString;
+  }
+}
+
+// Enhanced debug function to check timezone issues
+function debugTimezone(dateString) {
+  console.log('🕐 Timezone Debug:', {
+    input: dateString,
+    isISO: dateString?.includes('T'),
+    localFormat: formatDateForInput(dateString),
+    formatted: formatDate(dateString),
+    isoConversion: fmtDateISO(dateString?.split('T')[0] || dateString),
+    currentTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    currentOffset: new Date().getTimezoneOffset()
+  });
 }
 
 // ===========================
@@ -2384,17 +2431,32 @@ async function logHours() {
   if (!user) return;
 
   try {
+    // Show loading state
+    const submitBtn = document.getElementById('hoursSubmitBtn');
+    if (submitBtn) {
+      submitBtn.textContent = 'Saving...';
+      submitBtn.disabled = true;
+    }
+
+    // Debug timezone conversion
+    console.log('🕐 Before date conversion:', {
+      inputDate: workDate,
+      isoDate: fmtDateISO(workDate)
+    });
+
     const hoursData = {
       student: studentId || null,
       organization,
       workType,
-      date: workDate,
-      dateIso: fmtDateISO(workDate), // Timezone-aware date conversion
+      date: workDate, // Store the original local date
+      dateIso: fmtDateISO(workDate), // Store ISO with proper timezone
       hours,
       rate,
       total,
       loggedAt: new Date().toISOString()
     };
+
+    console.log('📝 Hours data to save:', hoursData);
 
     if (currentEditHoursId) {
       // Update existing hours
@@ -2414,122 +2476,12 @@ async function logHours() {
   } catch (err) {
     console.error("Error logging hours:", err);
     NotificationSystem.notifyError("Failed to log hours");
-  }
-}
-
-async function editHours(hoursId) {
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError('Please log in to edit hours');
-    return;
-  }
-
-  try {
-    console.log('✏️ Editing hours:', hoursId);
     
-    // Show loading state immediately
-    const submitBtn = document.getElementById('hoursSubmitBtn');
-    if (submitBtn) submitBtn.textContent = 'Loading...';
-    
-    const hoursDoc = await getDoc(doc(db, "users", user.uid, "hours", hoursId));
-    
-    if (!hoursDoc.exists()) {
-      NotificationSystem.notifyError('Hours entry not found');
-      return;
-    }
-
-    const hours = hoursDoc.data();
-    
-    // Fill the form with hours data (with timezone conversion)
-    document.getElementById('hoursStudent').value = hours.student || '';
-    document.getElementById('organization').value = hours.organization || '';
-    document.getElementById('workType').value = hours.workType || 'hourly';
-    document.getElementById('workDate').value = formatDateForInput(hours.dateIso || hours.date); // Timezone-aware
-    document.getElementById('hoursWorked').value = hours.hours || '';
-    document.getElementById('baseRate').value = hours.rate || '';
-
-    // Set edit mode
-    currentEditHoursId = hoursId;
-    
-    const submitBtnFinal = document.getElementById('hoursSubmitBtn');
-    const cancelBtn = document.getElementById('hoursCancelBtn');
-    
-    if (submitBtnFinal) {
-      submitBtnFinal.textContent = '💾 Update Hours';
-      submitBtnFinal.onclick = logHours;
-    }
-    
-    if (cancelBtn) {
-      cancelBtn.style.display = 'inline-flex';
-    }
-
-    // Update total display
-    const total = hours.total || 0;
-    const totalDisplay = document.getElementById('totalPay');
-    if (totalDisplay) {
-      totalDisplay.textContent = `$${fmtMoney(total)}`;
-    }
-
-    // Scroll to form immediately
-    const hoursForm = document.querySelector('#hours .section-card:first-child');
-    if (hoursForm) {
-      hoursForm.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'start' 
-      });
-    }
-    
-    NotificationSystem.notifyInfo(`Editing hours entry for ${hours.organization}`);
-    
-  } catch (error) {
-    console.error('Error loading hours for edit:', error);
-    NotificationSystem.notifyError('Failed to load hours data');
-    
-    // Reset button on error
+    // Re-enable button on error
     const submitBtn = document.getElementById('hoursSubmitBtn');
     if (submitBtn) {
-      submitBtn.textContent = '💾 Log Hours';
-      submitBtn.onclick = logHours;
-    }
-  }
-}
-
-function cancelHoursEdit() {
-  console.log('❌ Canceling hours edit...');
-  
-  currentEditHoursId = null;
-  
-  const submitBtn = document.getElementById('hoursSubmitBtn');
-  const cancelBtn = document.getElementById('hoursCancelBtn');
-  
-  if (submitBtn) {
-    submitBtn.textContent = '💾 Log Hours';
-    submitBtn.onclick = logHours;
-  }
-  
-  if (cancelBtn) {
-    cancelBtn.style.display = 'none';
-  }
-  
-  // Clear the form
-  resetHoursForm();
-  
-  NotificationSystem.notifyInfo('Hours edit canceled');
-}
-
-async function deleteHours(hoursId) {
-  if (confirm("Are you sure you want to delete this hours entry? This action cannot be undone.")) {
-    const user = auth.currentUser;
-    if (user) {
-      try {
-        await deleteDoc(doc(db, "users", user.uid, "hours", hoursId));
-        NotificationSystem.notifySuccess("Hours entry deleted successfully");
-        await renderRecentHours();
-        await recalcSummaryStats(user.uid);
-      } catch (error) {
-        console.error("Error deleting hours:", error);
-        NotificationSystem.notifyError("Failed to delete hours entry");
-      }
+      submitBtn.textContent = currentEditHoursId ? '💾 Update Hours' : '💾 Log Hours';
+      submitBtn.disabled = false;
     }
   }
 }
@@ -3262,8 +3214,12 @@ window.editStudent = editStudent;
 window.deleteStudent = deleteStudent;
 window.cancelEdit = cancelEdit;
 
+// Add this to your global exports for debugging
+window.debugTimezone = debugTimezone;
+
 // Expose NotificationSystem for global access
 window.NotificationSystem = NotificationSystem;
 
 // Sync bar functions for global access
 window.performSync = (mode = 'manual') => SyncBar.performSync(mode);
+
