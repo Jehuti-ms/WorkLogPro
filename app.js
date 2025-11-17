@@ -2674,30 +2674,43 @@ async function clearAllUserData(uid) {
 }
 
 // ===========================
-// TAB NAVIGATION
+// TAB NAVIGATION - DEBUGGING VERSION
 // ===========================
 
 function setupTabNavigation() {
   const tabButtons = document.querySelectorAll('[data-tab]');
   const tabContents = document.querySelectorAll('.tab-content');
 
+  console.log('🔍 Found tab buttons:', tabButtons.length);
+  console.log('🔍 Found tab contents:', tabContents.length);
+
   tabButtons.forEach(button => {
+    console.log('📌 Tab button:', button.getAttribute('data-tab'));
+    
     button.addEventListener('click', () => {
       const targetTab = button.getAttribute('data-tab');
+      console.log('🎯 Switching to tab:', targetTab);
       
       // Update active tab button
-      tabButtons.forEach(btn => btn.classList.remove('active'));
+      tabButtons.forEach(btn => {
+        btn.classList.remove('active');
+        console.log('➖ Removed active from:', btn.getAttribute('data-tab'));
+      });
       button.classList.add('active');
+      console.log('✅ Added active to:', targetTab);
       
       // Show target tab content
       tabContents.forEach(content => {
         content.classList.remove('active');
+        console.log('➖ Hid content:', content.id);
         if (content.id === targetTab) {
           content.classList.add('active');
+          console.log('✅ Showing content:', content.id);
         }
       });
 
       // Load data for the tab if needed
+      console.log('🔄 Loading data for tab:', targetTab);
       switch(targetTab) {
         case 'students':
           renderStudents();
@@ -2715,8 +2728,40 @@ function setupTabNavigation() {
           renderPaymentActivity();
           break;
       }
+
+      // Setup forms for the active tab
+      setTimeout(() => setupTabForms(targetTab), 100);
     });
   });
+
+  // Activate first tab by default
+  if (tabButtons.length > 0) {
+    const firstTab = tabButtons[0];
+    console.log('🚀 Activating first tab:', firstTab.getAttribute('data-tab'));
+    firstTab.click();
+  }
+}
+
+function setupTabForms(activeTab) {
+  console.log('🔧 Setting up forms for tab:', activeTab);
+  
+  switch(activeTab) {
+    case 'students':
+      setupStudentForm();
+      break;
+    case 'hours':
+      setupHoursForm();
+      break;
+    case 'marks':
+      setupMarksForm();
+      break;
+    case 'attendance':
+      setupAttendanceForm();
+      break;
+    case 'payments':
+      setupPaymentsForm();
+      break;
+  }
 }
 
 // ===========================
