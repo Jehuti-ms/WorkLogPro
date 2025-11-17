@@ -1349,7 +1349,9 @@ body {
     bottom: 16px;
     right: 16px;
   }
-  
+  /*=====================
+    FAB Styles
+  ======================*/
   .fab {
     width: 52px;
     height: 52px;
@@ -1364,6 +1366,23 @@ body {
     padding: 10px 14px;
     font-size: 13px;
   }
+}
+/* FAB Overlay */
+.fab-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  display: none;
+  pointer-events: none;
+  transition: all 0.2s ease;
+}
+
+.fab-overlay[style*="display: block"] {
+  pointer-events: auto;
 }
 
 @media (max-width: 480px) {
@@ -1705,25 +1724,4 @@ body {
 }
 
 
-/* DEBUG: Force FAB to be visible always - add this to your CSS */
-#floatingAddBtn {
-  display: flex !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  z-index: 1000 !important;
-}
 
-.fab-container {
-  display: block !important;
-  visibility: visible !important;
-}
-
-/* Remove any potential hiding */
-#floatingAddBtn.hidden,
-#floatingAddBtn.d-none,
-.fab-container.hidden,
-.fab-container.d-none {
-  display: flex !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-}
