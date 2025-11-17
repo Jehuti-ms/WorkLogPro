@@ -2219,37 +2219,6 @@ function clearStudentForm() {
   }
 }
 
-// ENHANCED HOURS FORM RESET WITH EDIT MODE SUPPORT
-function resetHoursForm() {
-  const form = document.getElementById("hoursForm");
-  if (form) {
-    form.reset();
-    
-    // Reset to add mode
-    const submitBtn = document.getElementById('hoursSubmitBtn');
-    const cancelBtn = document.getElementById('hoursCancelBtn');
-    
-    if (submitBtn) {
-      submitBtn.textContent = '💾 Log Hours';
-      submitBtn.onclick = logHours;
-    }
-    
-    if (cancelBtn) {
-      cancelBtn.style.display = 'none';
-    }
-    
-    currentEditHoursId = null;
-    
-    // Reset total display
-    const totalDisplay = document.getElementById('totalPay');
-    if (totalDisplay) {
-      totalDisplay.textContent = '$0.00';
-    }
-    
-    console.log("✅ Hours form reset to add mode");
-  }
-}
-
 function resetMarksForm() {
   const form = document.getElementById("marksForm");
   if (form) form.reset();
