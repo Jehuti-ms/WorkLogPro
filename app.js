@@ -3340,3 +3340,64 @@ window.performSync = (mode = 'manual') => SyncBar.performSync(mode);
 console.log('🔧 deleteHours available globally:', typeof window.deleteHours);
 console.log('🔧 editHours available globally:', typeof window.editHours);
 console.log('🔧 FAB functions available globally:', typeof window.setupFloatingAddButton);
+
+// Add this debug function
+function debugFABVisibility() {
+  const fab = document.getElementById('floatingAddBtn');
+  const fabContainer = document.querySelector('.fab-container');
+  
+  console.log('🔍 FAB DEBUG - Current state:');
+  
+  if (!fab) {
+    console.error('❌ FAB element not found!');
+    return;
+  }
+  
+  const computed = window.getComputedStyle(fab);
+  console.log('FAB styles:', {
+    display: computed.display,
+    visibility: computed.visibility,
+    opacity: computed.opacity,
+    position: computed.position
+  });
+  
+  console.log('FAB classes:', fab.className);
+  console.log('FAB inline styles:', fab.style.cssText);
+  
+  // Check if any parent is hidden
+  let parent = fab.parentElement;
+  let level = 0;
+  while (parent && level < 5) {
+    const parentStyle = window.getComputedStyle(parent);
+    if (parentStyle.display === 'none') {
+      console.error(`❌ Parent ${level} is hidden:`, parent);
+    }
+    parent = parent.parentElement;
+    level++;
+  }
+}
+
+// Override the FAB setup to add debugging
+const originalSetupFAB = setupFloatingAddButton;
+setupFloatingAddButton = function() {
+  console.log('🔄 Setting up FAB with debug...');
+  const result = originalSetupFAB();
+  
+  // Add debug to tab switching
+  const tabs = document.querySelectorAll('.tab');
+  tabs.forEach(tab => {
+    const originalClick = tab.onclick;
+    tab.addEventListener('click', function(e) {
+      console.log('📑 Tab clicked:', this.getAttribute('data-tab'));
+      setTimeout(() => {
+        console.log('🔍 Checking FAB after tab switch...');
+        debugFABVisibility();
+      }, 100);
+    });
+  });
+  
+  return result;
+};
+
+// Call debug on load
+setTimeout(debugFABVisibility, 1000);
