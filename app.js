@@ -2626,27 +2626,6 @@ async function deleteHours(hoursId) {
 }
 
 // ===========================
-// HOURS EDITING FUNCTIONS - ADD THESE
-// ===========================
-
-async function deleteHours(hoursId) {
-  if (confirm("Are you sure you want to delete this hours entry? This action cannot be undone.")) {
-    const user = auth.currentUser;
-    if (user) {
-      try {
-        await deleteDoc(doc(db, "users", user.uid, "hours", hoursId));
-        NotificationSystem.notifySuccess("Hours entry deleted successfully");
-        await renderRecentHours();
-        await recalcSummaryStats(user.uid);
-      } catch (error) {
-        console.error("Error deleting hours:", error);
-        NotificationSystem.notifyError("Failed to delete hours entry");
-      }
-    }
-  }
-}
-
-// ===========================
 // FORM SUBMISSION FUNCTIONS
 // ===========================
 
