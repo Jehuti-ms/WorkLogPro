@@ -1497,7 +1497,7 @@ const SyncBar = {
     }
 
     try {
-      //if (syncSpinner) syncSpinner.style.display = 'inline-block';
+      if (syncSpinner) syncSpinner.style.display = 'inline-block';
       if (syncIndicator) {
         syncIndicator.classList.remove('sync-connected', 'sync-error');
         syncIndicator.classList.add('sync-active');
@@ -1546,7 +1546,7 @@ const SyncBar = {
       
       NotificationSystem.notifyError(`Sync failed: ${error.message}`);
     } finally {
-    //  if (syncSpinner) syncSpinner.style.display = 'none';
+      if (syncSpinner) syncSpinner.style.display = 'none';
     }
   },
 
@@ -1843,24 +1843,8 @@ const SyncBar = {
 };
 
 // ===========================
-// MARKS CALCULATION FUNCTION
+// UI MANAGEMENT MODULE
 // ===========================
-
-function updateMarksPercentage() {
-  const scoreEl = document.getElementById('marksScore');
-  const maxEl = document.getElementById('marksMax');
-  const pctEl = document.getElementById('percentage');
-  const gradeEl = document.getElementById('grade');
-
-  const score = parseFloat(scoreEl?.value);
-  const max = parseFloat(maxEl?.value);
-
-  if (Number.isFinite(score) && Number.isFinite(max) && max > 0) {
-    const percentage = (score / max) * 100;
-    if (pctEl) pctEl.value = percentage.toFixed(1);
-    if (gradeEl) gradeEl.value = calculateGrade(percentage);
-  }
-}
 
 const UIManager = {
   init() {
@@ -1887,7 +1871,42 @@ const UIManager = {
   },
 
   initTabs() {
-    // ... your existing tab code ...
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tabcontent');
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.getAttribute('data-tab');
+        console.log('📑 Switching to tab:', target);
+
+        // Remove active class from all tabs and contents
+        tabs.forEach(t => t.classList.remove('active'));
+        tabContents.forEach(tc => {
+          tc.classList.remove('active');
+          tc.style.display = 'none';
+        });
+
+        // Add active class to clicked tab and target content
+        tab.classList.add('active');
+        
+        const selected = document.getElementById(target);
+        if (selected) {
+          selected.classList.add('active');
+          selected.style.display = 'block';
+          console.log('✅ Tab displayed:', target);
+        } else {
+          console.error('❌ Tab content not found:', target);
+        }
+      });
+    });
+
+    // Activate first tab by default
+    const firstTab = document.querySelector('.tab.active') || document.querySelector('.tab');
+    if (firstTab) {
+      firstTab.click();
+    }
+    
+    console.log('✅ Tabs initialized');
   },
 
   bindUiEvents() {
@@ -1925,25 +1944,7 @@ const UIManager = {
       const totalEl = document.getElementById('totalPay');
       
       if (totalEl) {
-        let total = 0;
-        
-        switch(workType) {
-          case "hourly":
-            total = hours * rate;
-            break;
-          case "session":
-          case "consultation":
-            total = rate;
-            break;
-          case "contract":
-          case "project":
-          case "other":
-            total = rate;
-            break;
-          default:
-            total = hours * rate;
-        }
-        
+        const total = workType === "hourly" ? hours * rate : rate;
         if ("value" in totalEl) {
           totalEl.value = fmtMoney(total);
         } else {
@@ -1955,14 +1956,14 @@ const UIManager = {
     if (hoursInput) hoursInput.addEventListener('input', calculateTotal);
     if (rateInput) rateInput.addEventListener('input', calculateTotal);
     if (workTypeSelect) workTypeSelect.addEventListener('change', calculateTotal);
-  }, // ← MAKE SURE THIS COMMA IS HERE
+  },
 
   setupMarksFormCalculations() {
     const scoreInput = document.getElementById('marksScore');
     const maxInput = document.getElementById('marksMax');
     if (scoreInput) scoreInput.addEventListener('input', updateMarksPercentage);
     if (maxInput) maxInput.addEventListener('input', updateMarksPercentage);
-  }, // ← AND THIS COMMA
+  },
 
   initEventListeners() {
     console.log('🔧 Initializing event listeners...');
@@ -2052,6 +2053,21 @@ function updateStudentDropdowns(students) {
   });
 }
 
+function updateMarksPercentage() {
+  const scoreEl = document.getElementById('marksScore');
+  const maxEl = document.getElementById('marksMax');
+  const pctEl = document.getElementById('percentage');
+  const gradeEl = document.getElementById('grade');
+
+  const score = parseFloat(scoreEl?.value);
+  const max = parseFloat(maxEl?.value);
+
+  if (Number.isFinite(score) && Number.isFinite(max) && max > 0) {
+    const percentage = (score / max) * 100;
+    if (pctEl) pctEl.value = percentage.toFixed(1);
+    if (gradeEl) gradeEl.value = calculateGrade(percentage);
+  }
+}
 
 // ===========================
 // FORM MANAGEMENT FUNCTIONS
@@ -2342,17 +2358,17 @@ async function logHours() {
   if (!user) return;
 
   try {
-   const hoursData = {
-  student: studentId || null,
-  organization,
-  workType, // This now has more options
-  date: workDate,
-  dateIso: fmtDateISO(workDate),
-  hours: workType === "hourly" ? hours : 0, // Only store hours for hourly work
-  rate,
-  total,
-  loggedAt: new Date().toISOString()
-};
+    const hoursData = {
+      student: studentId || null,
+      organization,
+      workType,
+      date: workDate,
+      dateIso: fmtDateISO(workDate),
+      hours,
+      rate,
+      total,
+      loggedAt: new Date().toISOString()
+    };
 
     await addDoc(collection(db, "users", user.uid, "hours"), hoursData);
     
@@ -3001,4 +3017,5 @@ window.deleteStudent = deleteStudent;
 
 // Sync bar functions for global access
 window.performSync = (mode = 'manual') => SyncBar.performSync(mode);
+
 
