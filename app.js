@@ -2169,6 +2169,84 @@ function resetHoursForm() {
   }
 }
 
+async function editHours(hoursId) {
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to edit hours');
+    return;
+  }
+
+  try {
+    const hoursDoc = await getDoc(doc(db, "users", user.uid, "hours", hoursId));
+    
+    if (!hoursDoc.exists()) {
+      NotificationSystem.notifyError('Hours entry not found');
+      return;
+    }
+
+    const hours = hoursDoc.data();
+    
+    // Fill the form with hours data
+    document.getElementById('organization').value = hours.organization || '';
+    document.getElementById('workSubject').value = hours.subject || '';
+    document.getElementById('workType').value = hours.workType || 'hourly';
+    document.getElementById('workDate').value = hours.date || '';
+    document.getElementById('hoursWorked').value = hours.hours || '';
+    document.getElementById('baseRate').value = hours.rate || '';
+    
+    // Update student dropdown if exists
+    const studentEl = document.getElementById('hoursStudent');
+    if (studentEl && hours.student) {
+      studentEl.value = hours.student;
+    }
+    
+    // Update total display
+    const totalEl = document.getElementById('totalPay');
+    if (totalEl) {
+      if ("value" in totalEl) {
+        totalEl.value = fmtMoney(hours.total);
+      } else {
+        totalEl.textContent = fmtMoney(hours.total);
+      }
+    }
+    
+    // Change button to update mode
+    const logHoursBtn = document.getElementById('logHoursBtn');
+    if (logHoursBtn) {
+      logHoursBtn.onclick = () => updateHours(hoursId);
+      logHoursBtn.innerHTML = '<span id="logHoursText">💾 Update Hours</span><span id="logHoursSpinner" style="display: none;">⏳ Updating...</span>';
+    }
+    
+    NotificationSystem.notifyInfo(`Editing hours entry from ${formatDate(hours.date)}`);
+    
+  } catch (error) {
+    console.error('Error loading hours for edit:', error);
+    NotificationSystem.notifyError('Failed to load hours data');
+  }
+}
+
+async function updateHours(hoursId) {
+  // Similar to logHours but with updateDoc instead of addDoc
+  // You can copy the logHours function and modify it for updates
+}
+
+async function deleteHours(hoursId) {
+  if (confirm("Are you sure you want to delete this hours entry?")) {
+    const user = auth.currentUser;
+    if (user) {
+      try {
+        await deleteDoc(doc(db, "users", user.uid, "hours", hoursId));
+        NotificationSystem.notifySuccess("Hours entry deleted successfully");
+        await renderRecentHours();
+        await recalcSummaryStats(user.uid);
+      } catch (error) {
+        console.error("Error deleting hours:", error);
+        NotificationSystem.notifyError("Failed to delete hours entry");
+      }
+    }
+  }
+}
+
 function resetMarksForm() {
   const form = document.getElementById("marksForm");
   if (form) form.reset();
