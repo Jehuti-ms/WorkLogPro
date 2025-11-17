@@ -3401,3 +3401,23 @@ setupFloatingAddButton = function() {
 
 // Call debug on load
 setTimeout(debugFABVisibility, 1000);
+
+// Monitor FAB for changes
+const fab = document.getElementById('floatingAddBtn');
+if (fab) {
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+        console.log('🚨 FAB style changed:', fab.style.cssText);
+      }
+      if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+        console.log('🚨 FAB classes changed:', fab.className);
+      }
+    });
+  });
+  
+  observer.observe(fab, {
+    attributes: true,
+    attributeFilter: ['style', 'class']
+  });
+}
