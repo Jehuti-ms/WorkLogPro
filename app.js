@@ -2811,28 +2811,14 @@ async function initializeApp() {
     setupThemeToggle();
     setupProfileModal();
     setupFloatingAddButton();
-    setupTabNavigation();
-    setupSyncManagement();
     
-    // Setup form handlers
-    setupStudentForm();
-    setupHoursForm();
-    setupMarksForm();
-    // setupAttendanceForm(); and setupPaymentsForm() would be similar
-    
-    // Load user data
+    // Load user data first
     await loadUserProfile(user.uid);
     updateHeaderStats();
 
-    // Load initial data with 3-layer system
-    await renderStudents();
-    await renderRecentHours();
-    await renderRecentMarks();
-    await renderAttendanceRecent();
-    await renderPaymentActivity();
-
-    // Process any pending sync items
-    setTimeout(() => StorageSystem.processPendingSync(), 2000);
+    // Setup tab navigation (this will handle form setup)
+    setupTabNavigation();
+    setupSyncManagement();
 
     console.log('✅ WorkLog App initialized successfully');
     showNotification('App loaded successfully', 'success');
