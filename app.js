@@ -200,19 +200,6 @@ function fmtMoney(n) {
   return safeNumber(n).toFixed(2);
 }
 
-function formatDate(dateString) {
-  if (!dateString) return 'Never';
-  try {
-    const date = convertToLocalDate(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  } catch {
-    return dateString;
-  }
-}
 
 function refreshTimestamp() {
   const now = new Date().toLocaleString();
