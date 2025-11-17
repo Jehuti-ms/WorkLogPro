@@ -84,8 +84,7 @@ function fmtMoney(n) {
 function fmtDateISO(yyyyMmDd) {
   if (!yyyyMmDd) return new Date().toISOString();
   try {
-    const [year, month, day] = yyyyMmDd.split('-');
-    const d = new Date(year, month - 1, day, 12, 0, 0);
+    const d = new Date(yyyyMmDd);
     return d.toISOString();
   } catch {
     return new Date().toISOString();
@@ -95,12 +94,10 @@ function fmtDateISO(yyyyMmDd) {
 function formatDate(dateString) {
   if (!dateString) return 'Never';
   try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric',
-      timeZone: 'UTC'
+      day: 'numeric'
     });
   } catch {
     return dateString;
@@ -123,6 +120,7 @@ function calculateGrade(percentage) {
   return 'F';
 }
 
+// Timezone utility functions
 function getLocalISODate() {
   const now = new Date();
   const tzOffset = -now.getTimezoneOffset();
@@ -158,6 +156,7 @@ function formatDateForInput(dateString) {
 async function loadUserProfile(uid) {
   console.log('👤 Loading user profile for:', uid);
   
+  // Set immediate fallback profile for instant UI update
   const user = auth.currentUser;
   const fallbackProfile = {
     email: user?.email || '',
@@ -165,6 +164,7 @@ async function loadUserProfile(uid) {
     defaultRate: parseFloat(localStorage.getItem('userDefaultRate')) || 0
   };
   
+  // Update UI IMMEDIATELY with basic info
   updateProfileButton(fallbackProfile);
   initializeDefaultRate(fallbackProfile.defaultRate);
   
@@ -176,6 +176,7 @@ async function loadUserProfile(uid) {
       currentUserData = { uid, ...userSnap.data() };
       console.log('✅ User profile loaded from Firestore');
       
+      // Update with full profile data
       updateProfileButton(currentUserData);
       
       if (currentUserData.defaultRate !== undefined) {
@@ -185,6 +186,7 @@ async function loadUserProfile(uid) {
       
       return currentUserData;
     } else {
+      // Create profile in background
       const profileToCreate = {
         ...fallbackProfile,
         lastLogin: new Date().toISOString()
@@ -210,6 +212,7 @@ function updateProfileButton(userData) {
     const email = userData?.email || auth.currentUser?.email || 'User';
     const displayName = email.split('@')[0];
     
+    // Update both button and span immediately
     if (profileBtn) {
       profileBtn.innerHTML = `👤 ${displayName}`;
       profileBtn.title = `Logged in as ${email}`;
@@ -258,7 +261,7 @@ async function applyDefaultRateToAllStudents(uid, newRate) {
     if (updateCount > 0) {
       await batch.commit();
       NotificationSystem.notifySuccess(`Default rate applied to ${updateCount} students`);
-      await renderStudents();
+      await renderStudents(); // Refresh the display
     } else {
       NotificationSystem.notifyInfo("No students found to update");
     }
@@ -279,17 +282,20 @@ function setupProfileModal() {
 
   console.log('🔧 Setting up profile modal...');
 
+  // Check if modal elements exist
   if (!profileModal) {
     console.error('❌ Profile modal not found in DOM');
     return;
   }
 
+  // Open modal
   if (profileBtn && profileModal) {
     profileBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       console.log('👤 Profile button clicked');
       
+      // Update modal content with latest data
       updateProfileModal();
       
       profileModal.style.display = 'flex';
@@ -299,12 +305,14 @@ function setupProfileModal() {
     console.error('❌ Profile button or modal not found');
   }
 
+  // Close modal with X button
   if (closeProfileModal) {
     closeProfileModal.addEventListener('click', () => {
       closeModal();
     });
   }
 
+  // Logout functionality
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async () => {
       if (confirm('Are you sure you want to logout?')) {
@@ -319,12 +327,14 @@ function setupProfileModal() {
     });
   }
 
+  // Close modal when clicking outside
   window.addEventListener('click', (event) => {
     if (profileModal && event.target === profileModal) {
       closeModal();
     }
   });
 
+  // Close modal with Escape key
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && profileModal && profileModal.style.display === 'flex') {
       closeModal();
@@ -346,6 +356,7 @@ function updateProfileModal() {
   const modalStatEarnings = document.getElementById('modalStatEarnings');
   const modalStatUpdated = document.getElementById('modalStatUpdated');
 
+  // Update user info
   if (currentUserData) {
     const email = currentUserData.email || auth.currentUser?.email || 'Not available';
     if (profileUserEmail) profileUserEmail.textContent = email;
@@ -358,6 +369,7 @@ function updateProfileModal() {
     }
   }
 
+  // Get fresh stats from DOM or calculate
   const statStudents = document.getElementById('statStudents');
   const statHours = document.getElementById('statHours');
   const statEarnings = document.getElementById('statEarnings');
@@ -394,15 +406,19 @@ function setupFloatingAddButton() {
     console.log('🟢 Opening FAB menu');
     isExpanded = true;
     
+    // Update FAB button
     fab.innerHTML = '✕';
     fab.style.transform = 'rotate(45deg)';
     
+    // Show menu
     if (fabMenu) {
       fabMenu.classList.add('show');
     }
     
+    // Show overlay
     if (fabOverlay) {
       fabOverlay.style.display = 'block';
+      // Add a small delay for overlay to appear before adding click listener
       setTimeout(() => {
         fabOverlay.style.pointerEvents = 'auto';
       }, 10);
@@ -415,13 +431,16 @@ function setupFloatingAddButton() {
     console.log('🔴 Closing FAB menu');
     isExpanded = false;
     
+    // Update FAB button
     fab.innerHTML = '+';
     fab.style.transform = 'rotate(0deg)';
     
+    // Hide menu
     if (fabMenu) {
       fabMenu.classList.remove('show');
     }
     
+    // Hide overlay
     if (fabOverlay) {
       fabOverlay.style.display = 'none';
       fabOverlay.style.pointerEvents = 'none';
@@ -430,6 +449,7 @@ function setupFloatingAddButton() {
     console.log('✅ FAB menu closed');
   }
 
+  // Click handler for main FAB button
   fab.addEventListener('click', (e) => {
     e.stopPropagation();
     e.preventDefault();
@@ -442,6 +462,7 @@ function setupFloatingAddButton() {
     }
   });
 
+  // Close menu when clicking on overlay
   if (fabOverlay) {
     fabOverlay.addEventListener('click', (e) => {
       console.log('🎯 Overlay clicked');
@@ -451,8 +472,10 @@ function setupFloatingAddButton() {
     });
   }
 
+  // Close menu when clicking anywhere outside
   document.addEventListener('click', (e) => {
     if (isExpanded) {
+      // Check if click is outside FAB and menu
       const isClickOnFab = fab.contains(e.target);
       const isClickOnMenu = fabMenu && fabMenu.contains(e.target);
       
@@ -463,6 +486,7 @@ function setupFloatingAddButton() {
     }
   });
 
+  // Close with Escape key
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && isExpanded) {
       console.log('🎯 Escape key pressed, closing FAB');
@@ -470,11 +494,13 @@ function setupFloatingAddButton() {
     }
   });
 
+  // Setup quick action buttons
   setupFabActions(closeFabMenu);
   
   console.log('✅ FAB setup completed');
 }
 
+// Enhanced FAB actions to open forms directly
 function setupFabActions(closeFabMenu) {
   const quickActions = {
     'fabAddStudent': () => {
@@ -482,10 +508,12 @@ function setupFabActions(closeFabMenu) {
       const studentTab = document.querySelector('[data-tab="students"]');
       if (studentTab) {
         studentTab.click();
+        // Scroll to student form
         setTimeout(() => {
           const studentForm = document.getElementById('studentForm');
           if (studentForm) {
             studentForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Focus on first input
             const firstInput = studentForm.querySelector('input');
             if (firstInput) firstInput.focus();
           }
@@ -497,6 +525,7 @@ function setupFabActions(closeFabMenu) {
       const hoursTab = document.querySelector('[data-tab="hours"]');
       if (hoursTab) {
         hoursTab.click();
+        // Scroll to hours form
         setTimeout(() => {
           const hoursForm = document.querySelector('#hours .section-card:first-child');
           if (hoursForm) {
@@ -512,6 +541,7 @@ function setupFabActions(closeFabMenu) {
       const marksTab = document.querySelector('[data-tab="marks"]');
       if (marksTab) {
         marksTab.click();
+        // Scroll to marks form
         setTimeout(() => {
           const marksForm = document.getElementById('marksForm');
           if (marksForm) {
@@ -527,6 +557,7 @@ function setupFabActions(closeFabMenu) {
       const attendanceTab = document.querySelector('[data-tab="attendance"]');
       if (attendanceTab) {
         attendanceTab.click();
+        // Scroll to attendance form
         setTimeout(() => {
           const attendanceForm = document.querySelector('#attendance .section-card:first-child');
           if (attendanceForm) {
@@ -539,6 +570,7 @@ function setupFabActions(closeFabMenu) {
     }
   };
 
+  // Attach event listeners to quick action buttons
   Object.keys(quickActions).forEach(btnId => {
     const btn = document.getElementById(btnId);
     if (btn) {
@@ -556,25 +588,15 @@ function setupFabActions(closeFabMenu) {
   });
 }
 
-// Force FAB to be visible on all tabs
-function ensureFABVisible() {
-  const fab = document.getElementById('floatingAddBtn');
-  if (fab) {
-    fab.style.display = 'flex';
-    fab.style.visibility = 'visible';
-    fab.style.opacity = '1';
-    console.log('✅ FAB visibility enforced');
-  }
-}
-
 // ===========================
-// THEME MANAGEMENT
+// THEME MANAGEMENT - SIMPLE VERSION
 // ===========================
 
 function updateThemeIcon(theme) {
     const themeButton = document.querySelector('.theme-toggle button');
     if (!themeButton) return;
     
+    // Keep the same "🌓" icon but update the tooltip
     if (theme === 'dark') {
         themeButton.setAttribute('title', 'Switch to light mode');
     } else {
@@ -610,10 +632,17 @@ function initializeTheme() {
     updateThemeIcon(savedTheme);
 }
 
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    initializeTheme();
+    setupThemeToggle();
+});
+
 // ===========================
 // HEADER STATS
 // ===========================
 
+// Enhanced debug version of updateHeaderStats
 function updateHeaderStats() {
   console.log('🔍 [updateHeaderStats] Starting...');
   
@@ -632,6 +661,7 @@ function updateHeaderStats() {
     syncStatus.textContent = isAutoSync ? '☁️ Cloud Sync: Auto' : '☁️ Cloud Sync: Manual';
   }
   
+  // dataStatus will auto-update when statStudents and statHours update
   console.log('✅ [updateHeaderStats] Header stats structure verified');
 }
 
@@ -651,6 +681,7 @@ async function loadUserStats(uid) {
       const stats = statsSnap.data();
       console.log('📊 Stats data loaded:', stats);
       
+      // Update UI elements
       if (document.getElementById('statStudents')) {
         document.getElementById('statStudents').textContent = stats.students ?? 0;
       }
@@ -670,6 +701,7 @@ async function loadUserStats(uid) {
         lastSync: new Date().toLocaleString()
       });
       
+      // Set UI to 0
       if (document.getElementById('statStudents')) document.getElementById('statStudents').textContent = 0;
       if (document.getElementById('statHours')) document.getElementById('statHours').textContent = 0;
       if (document.getElementById('statEarnings')) document.getElementById('statEarnings').textContent = "0.00";
@@ -690,6 +722,7 @@ async function updateUserStats(uid, newStats) {
     await setDoc(statsRef, newStats, { merge: true });
     console.log("✅ Stats updated:", newStats);
 
+    // Update DOM elements
     if (newStats.students !== undefined) {
       const statStudents = document.getElementById('statStudents');
       if (statStudents) statStudents.textContent = newStats.students;
@@ -707,6 +740,7 @@ async function updateUserStats(uid, newStats) {
       if (statUpdated) statUpdated.textContent = newStats.lastSync;
     }
 
+    // Update header stats after DOM updates
     updateHeaderStats();
     refreshTimestamp();
   } catch (err) {
@@ -747,6 +781,7 @@ async function recalcSummaryStats(uid) {
       lastSync: new Date().toLocaleString()
     });
 
+    // Update header stats AFTER updating user stats
     updateHeaderStats();
     
     console.log('✅ Summary stats recalculated successfully');
@@ -760,22 +795,20 @@ async function recalcSummaryStats(uid) {
 // DATA RENDERING FUNCTIONS
 // ===========================
 
-async function renderStudents(forceRefresh = false) {
+async function renderStudents() {
   const user = auth.currentUser;
   if (!user) return;
 
   const container = document.getElementById('studentsContainer');
   if (!container) return;
 
-  console.log(`🔄 renderStudents called - forceRefresh: ${forceRefresh}, cacheValid: ${isCacheValid('students')}`);
-
-  if (!forceRefresh && isCacheValid('students') && cache.students) {
+  // Show cached data immediately if available
+  if (isCacheValid('students') && cache.students) {
     container.innerHTML = cache.students;
     console.log('✅ Students loaded from cache');
     return;
   }
 
-  console.log('🔄 Loading students from Firestore (cache invalid or forced)...');
   container.innerHTML = '<div class="loading">Loading students...</div>';
 
   try {
@@ -822,7 +855,7 @@ async function renderStudents(forceRefresh = false) {
     cache.students = studentsHTML;
     cache.lastSync = Date.now();
     
-    console.log(`✅ Loaded ${studentsSnap.size} students from Firestore`);
+    console.log('✅ Students loaded from Firestore');
 
   } catch (error) {
     console.error("Error rendering students:", error);
@@ -864,22 +897,18 @@ async function renderRecentHours(limit = 10) {
       const item = document.createElement("div");
       item.className = "hours-entry";
       item.innerHTML = `
-          <div class="hours-header">
-            <strong>${entry.organization}</strong>
-            <span class="hours-type">${entry.workType}</span>
-            <div class="student-actions">
-              <button class="btn-icon" onclick="editHours('${entry.id}')" title="Edit">✏️</button>
-              <button class="btn-icon" onclick="deleteHours('${entry.id}')" title="Delete">🗑️</button>
-            </div>
-          </div>
-          <div class="muted">${formatDate(entry.date)} • ${entry.subject || 'General'}</div>
-          <div class="hours-details">
-            <span>Hours: ${safeNumber(entry.hours)}</span>
-            <span>Rate: $${fmtMoney(entry.rate)}</span>
-            <span class="hours-total">Total: $${fmtMoney(entry.total)}</span>
-          </div>
-          ${entry.student ? `<div class="muted">Student: ${entry.student}</div>` : ''}
-        `;
+        <div class="hours-header">
+          <strong>${entry.organization}</strong>
+          <span class="hours-type">${entry.workType}</span>
+        </div>
+        <div class="muted">${formatDate(entry.date)} • ${entry.subject || 'General'}</div>
+        <div class="hours-details">
+          <span>Hours: ${safeNumber(entry.hours)}</span>
+          <span>Rate: $${fmtMoney(entry.rate)}</span>
+          <span class="hours-total">Total: $${fmtMoney(entry.total)}</span>
+        </div>
+        ${entry.student ? `<div class="muted">Student: ${entry.student}</div>` : ''}
+      `;
       container.appendChild(item);
     });
 
@@ -929,6 +958,7 @@ async function renderRecentMarks(limit = 10) {
       container.appendChild(item);
     });
 
+    // Update marks summary
     const marksCountEl = document.getElementById('marksCount');
     const avgMarksEl = document.getElementById('avgMarks');
     if (marksCountEl) marksCountEl.textContent = rows.length;
@@ -983,6 +1013,7 @@ async function renderAttendanceRecent(limit = 10) {
       container.appendChild(item);
     });
 
+    // Update attendance summary
     const lastSessionDateEl = document.getElementById('lastSessionDate');
     const attendanceCountEl = document.getElementById('attendanceCount');
     if (lastSessionDateEl) lastSessionDateEl.textContent = rows[0]?.date ? formatDate(rows[0].date) : "Never";
@@ -1034,6 +1065,7 @@ async function renderPaymentActivity(limit = 10) {
       container.appendChild(item);
     });
 
+    // Update monthly payments
     const monthlyPaymentsEl = document.getElementById('monthlyPayments');
     if (monthlyPaymentsEl) {
       const now = new Date();
@@ -1109,6 +1141,7 @@ async function renderStudentBalances() {
       container.appendChild(item);
     });
 
+    // Update total owed display
     const totalStudentsCountEl = document.getElementById('totalStudentsCount');
     const totalOwedEl = document.getElementById('totalOwed');
     if (totalStudentsCountEl) totalStudentsCountEl.textContent = studentsSnap.size;
@@ -1132,6 +1165,7 @@ async function renderOverviewReports() {
       getDocs(collection(db, "users", user.uid, "payments"))
     ]);
 
+    // Calculate totals
     let hoursTotal = 0;
     let earningsTotal = 0;
     hoursSnap.forEach(d => {
@@ -1157,6 +1191,7 @@ async function renderOverviewReports() {
 
     const outstanding = Math.max(earningsTotal - paymentsTotal, 0);
 
+    // Update overview elements
     const totalStudentsReport = document.getElementById('totalStudentsReport');
     const totalHoursReport = document.getElementById('totalHoursReport');
     const totalEarningsReport = document.getElementById('totalEarningsReport');
@@ -1381,9 +1416,11 @@ const SyncBar = {
 
   setupAutoSyncToggle() {
     if (autoSyncCheckbox) {
+      // Load saved autoSync preference from localStorage
       const savedAutoSync = localStorage.getItem('autoSyncEnabled') === 'true';
       isAutoSyncEnabled = savedAutoSync;
       
+      // Set the checkbox state based on saved preference
       autoSyncCheckbox.checked = savedAutoSync;
       
       if (savedAutoSync) {
@@ -1406,6 +1443,7 @@ const SyncBar = {
       autoSyncCheckbox.addEventListener('change', (e) => {
         isAutoSyncEnabled = e.target.checked;
         
+        // Save preference to localStorage
         localStorage.setItem('autoSyncEnabled', isAutoSyncEnabled.toString());
         console.log('💾 Auto-sync preference saved:', isAutoSyncEnabled);
         
@@ -1459,6 +1497,7 @@ const SyncBar = {
     }
 
     try {
+      //if (syncSpinner) syncSpinner.style.display = 'inline-block';
       if (syncIndicator) {
         syncIndicator.classList.remove('sync-connected', 'sync-error');
         syncIndicator.classList.add('sync-active');
@@ -1506,6 +1545,8 @@ const SyncBar = {
       }
       
       NotificationSystem.notifyError(`Sync failed: ${error.message}`);
+    } finally {
+    //  if (syncSpinner) syncSpinner.style.display = 'none';
     }
   },
 
@@ -1821,58 +1862,6 @@ function updateMarksPercentage() {
   }
 }
 
-// Move these outside UIManager to be global functions
-function setupHoursFormCalculations() {
-  const hoursInput = document.getElementById('hoursWorked');
-  const rateInput = document.getElementById('baseRate');
-  const workTypeSelect = document.getElementById('workType');
-  
-  const calculateTotal = () => {
-    const hours = parseFloat(hoursInput?.value) || 0;
-    const rate = parseFloat(rateInput?.value) || 0;
-    const workType = workTypeSelect?.value || "hourly";
-    const totalEl = document.getElementById('totalPay');
-    
-    if (totalEl) {
-      let total = 0;
-      
-      switch(workType) {
-        case "hourly":
-          total = hours * rate;
-          break;
-        case "session":
-        case "consultation":
-          total = rate;
-          break;
-        case "contract":
-        case "project":
-        case "other":
-          total = rate;
-          break;
-        default:
-          total = hours * rate;
-      }
-      
-      if ("value" in totalEl) {
-        totalEl.value = fmtMoney(total);
-      } else {
-        totalEl.textContent = fmtMoney(total);
-      }
-    }
-  };
-
-  if (hoursInput) hoursInput.addEventListener('input', calculateTotal);
-  if (rateInput) rateInput.addEventListener('input', calculateTotal);
-  if (workTypeSelect) workTypeSelect.addEventListener('change', calculateTotal);
-}
-
-function setupMarksFormCalculations() {
-  const scoreInput = document.getElementById('marksScore');
-  const maxInput = document.getElementById('marksMax');
-  if (scoreInput) scoreInput.addEventListener('input', updateMarksPercentage);
-  if (maxInput) maxInput.addEventListener('input', updateMarksPercentage);
-}
-
 const UIManager = {
   init() {
     this.initializeTheme();
@@ -1898,45 +1887,7 @@ const UIManager = {
   },
 
   initTabs() {
-    const tabs = document.querySelectorAll('.tab');
-    const tabContents = document.querySelectorAll('.tabcontent');
-
-    tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        const target = tab.getAttribute('data-tab');
-        console.log('📑 Switching to tab:', target);
-
-        // Remove active class from all tabs and contents
-        tabs.forEach(t => t.classList.remove('active'));
-        tabContents.forEach(tc => {
-          tc.classList.remove('active');
-          tc.style.display = 'none';
-        });
-
-        // Add active class to clicked tab and target content
-        tab.classList.add('active');
-        
-        const selected = document.getElementById(target);
-        if (selected) {
-          selected.classList.add('active');
-          selected.style.display = 'block';
-          console.log('✅ Tab displayed:', target);
-          
-          // Ensure FAB is visible on all tabs
-          ensureFABVisible();
-        } else {
-          console.error('❌ Tab content not found:', target);
-        }
-      });
-    });
-
-    // Activate first tab by default
-    const firstTab = document.querySelector('.tab.active') || document.querySelector('.tab');
-    if (firstTab) {
-      firstTab.click();
-    }
-    
-    console.log('✅ Tabs initialized');
+    // ... your existing tab code ...
   },
 
   bindUiEvents() {
@@ -1956,12 +1907,62 @@ const UIManager = {
       form.addEventListener('submit', (e) => e.preventDefault());
     });
     
-    // Call the global functions directly
-    setupHoursFormCalculations();
-    setupMarksFormCalculations();
+    this.setupHoursFormCalculations();
+    this.setupMarksFormCalculations();
     
     console.log('✅ UI events bound');
   },
+
+  setupHoursFormCalculations() {
+    const hoursInput = document.getElementById('hoursWorked');
+    const rateInput = document.getElementById('baseRate');
+    const workTypeSelect = document.getElementById('workType');
+    
+    const calculateTotal = () => {
+      const hours = parseFloat(hoursInput?.value) || 0;
+      const rate = parseFloat(rateInput?.value) || 0;
+      const workType = workTypeSelect?.value || "hourly";
+      const totalEl = document.getElementById('totalPay');
+      
+      if (totalEl) {
+        let total = 0;
+        
+        switch(workType) {
+          case "hourly":
+            total = hours * rate;
+            break;
+          case "session":
+          case "consultation":
+            total = rate;
+            break;
+          case "contract":
+          case "project":
+          case "other":
+            total = rate;
+            break;
+          default:
+            total = hours * rate;
+        }
+        
+        if ("value" in totalEl) {
+          totalEl.value = fmtMoney(total);
+        } else {
+          totalEl.textContent = fmtMoney(total);
+        }
+      }
+    };
+
+    if (hoursInput) hoursInput.addEventListener('input', calculateTotal);
+    if (rateInput) rateInput.addEventListener('input', calculateTotal);
+    if (workTypeSelect) workTypeSelect.addEventListener('change', calculateTotal);
+  }, // ← MAKE SURE THIS COMMA IS HERE
+
+  setupMarksFormCalculations() {
+    const scoreInput = document.getElementById('marksScore');
+    const maxInput = document.getElementById('marksMax');
+    if (scoreInput) scoreInput.addEventListener('input', updateMarksPercentage);
+    if (maxInput) maxInput.addEventListener('input', updateMarksPercentage);
+  }, // ← AND THIS COMMA
 
   initEventListeners() {
     console.log('🔧 Initializing event listeners...');
@@ -1979,7 +1980,7 @@ const UIManager = {
     console.log('✅ Event listeners initialized');
   }
 };
-  
+
 // ===========================
 // STUDENT FORM EVENT LISTENERS
 // ===========================
@@ -2051,294 +2052,43 @@ function updateStudentDropdowns(students) {
   });
 }
 
+
 // ===========================
 // FORM MANAGEMENT FUNCTIONS
 // ===========================
 
 function clearStudentForm() {
-  console.log('🧹 Clearing student form...');
-  
-  const fields = [
-    'studentName', 'studentId', 'studentEmail', 'studentPhone', 'studentBaseRate'
-  ];
-  
-  fields.forEach(fieldId => {
-    const field = document.getElementById(fieldId);
-    if (field) {
-      field.value = '';
-      console.log(`✅ Cleared ${fieldId}`);
-    }
-  });
-  
-  const genderSelect = document.getElementById('studentGender');
-  if (genderSelect) {
-    genderSelect.selectedIndex = 0;
-    console.log('✅ Reset gender dropdown');
-  }
-  
-  const submitBtn = document.getElementById('studentSubmitBtn');
-  const cancelBtn = document.getElementById('studentCancelBtn');
-  
-  if (submitBtn) {
-    submitBtn.textContent = '➕ Add Student';
-    submitBtn.disabled = false;
-    submitBtn.onclick = addStudent;
-    console.log('✅ Reset submit button');
-  }
-  
-  if (cancelBtn) {
-    cancelBtn.style.display = 'none';
-    console.log('✅ Hid cancel button');
-  }
-  
-  currentEditStudentId = null;
-  console.log('✅ Form completely reset');
-}
-
-function resetHoursForm() {
-  const form = document.querySelector('#hours form');
+  const form = document.getElementById("studentForm");
   if (form) {
     form.reset();
     
-    const today = new Date().toISOString().split('T')[0];
-    const dateEl = document.getElementById("workDate");
-    if (dateEl) dateEl.value = today;
+    // Reset specific fields
+    const fields = ["studentName", "studentId", "studentEmail", "studentPhone", "studentBaseRate"];
+    fields.forEach(fieldId => {
+      const field = document.getElementById(fieldId);
+      if (field) field.value = "";
+    });
     
-    const totalEl = document.getElementById("totalPay");
-    if (totalEl) {
-      if ("value" in totalEl) {
-        totalEl.value = '$0.00';
-      } else {
-        totalEl.textContent = '$0.00';
-      }
+    // Reset dropdown
+    const genderSelect = document.getElementById("studentGender");
+    if (genderSelect) genderSelect.selectedIndex = 0;
+    
+    // Reset to add mode
+    const submitBtn = document.querySelector('#studentForm button[type="button"]');
+    if (submitBtn) {
+      submitBtn.textContent = '➕ Add Student';
+      submitBtn.onclick = addStudent;
     }
     
+    console.log("✅ Student form reset to add mode");
+  }
+}
+
+function resetHoursForm() {
+  const form = document.getElementById("hoursForm");
+  if (form) {
+    form.reset();
     console.log("✅ Hours form reset");
-  }
-}
-
-async function updateHours(hoursId) {
-  const studentEl = document.getElementById("hoursStudent");
-  const orgEl = document.getElementById("organization");
-  const subjectEl = document.getElementById("workSubject");
-  const typeEl = document.getElementById("workType");
-  const dateEl = document.getElementById("workDate");
-  const hoursEl = document.getElementById("hoursWorked");
-  const rateEl = document.getElementById("baseRate");
-
-  const studentId = studentEl?.value;
-  const organization = orgEl?.value.trim();
-  const subject = subjectEl?.value.trim();
-  const workType = typeEl?.value || "hourly";
-  const workDate = dateEl?.value;
-  const hours = parseFloat(hoursEl?.value);
-  const rate = parseFloat(rateEl?.value);
-
-  if (!organization || !workDate || !Number.isFinite(hours) || hours <= 0 || !Number.isFinite(rate) || rate <= 0) {
-    NotificationSystem.notifyError("Please fill required fields: Organization, Date, Hours, Rate");
-    return;
-  }
-
-  let total = 0;
-  if (workType === "hourly") {
-    total = hours * rate;
-  } else {
-    total = rate;
-  }
-
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError("Please log in to update hours");
-    return;
-  }
-
-  try {
-    const logHoursBtn = document.getElementById('logHoursBtn');
-    const logHoursText = document.getElementById('logHoursText');
-    const logHoursSpinner = document.getElementById('logHoursSpinner');
-    
-    if (logHoursBtn) logHoursBtn.disabled = true;
-    if (logHoursText) logHoursText.style.display = 'none';
-    if (logHoursSpinner) {
-      logHoursSpinner.textContent = '⏳ Updating...';
-      logHoursSpinner.style.display = 'inline';
-    }
-
-    const hoursData = {
-      student: studentId || null,
-      organization,
-      subject: subject || 'General',
-      workType,
-      date: workDate,
-      dateIso: fmtDateISO(workDate),
-      hours: workType === "hourly" ? hours : 0,
-      rate,
-      total,
-      updatedAt: new Date().toISOString()
-    };
-
-    console.log('✏️ Updating hours:', hoursId, hoursData);
-    
-    const hoursRef = doc(db, "users", user.uid, "hours", hoursId);
-    await updateDoc(hoursRef, hoursData);
-    
-    NotificationSystem.notifySuccess("Hours updated successfully!");
-    
-    resetHoursFormToAddMode();
-    
-    await Promise.all([
-      recalcSummaryStats(user.uid),
-      renderRecentHours()
-    ]);
-    
-  } catch (err) {
-    console.error("Error updating hours:", err);
-    NotificationSystem.notifyError("Failed to update hours: " + err.message);
-  } finally {
-    const logHoursBtn = document.getElementById('logHoursBtn');
-    const logHoursText = document.getElementById('logHoursText');
-    const logHoursSpinner = document.getElementById('logHoursSpinner');
-    
-    if (logHoursBtn) logHoursBtn.disabled = false;
-    if (logHoursText) logHoursText.style.display = 'inline';
-    if (logHoursSpinner) logHoursSpinner.style.display = 'none';
-  }
-}
-
-async function deleteHours(hoursId) {
-  console.log("deleteHours called with ID:", hoursId);
-  
-  if (confirm("Are you sure you want to delete this hours entry?")) {
-    const user = auth.currentUser;
-    if (user) {
-      try {
-        await deleteDoc(doc(db, "users", user.uid, "hours", hoursId));
-        NotificationSystem.notifySuccess("Hours entry deleted successfully");
-        await renderRecentHours();
-        await recalcSummaryStats(user.uid);
-      } catch (error) {
-        console.error("Error deleting hours:", error);
-        NotificationSystem.notifyError("Failed to delete hours entry");
-      }
-    }
-  }
-}
-
-function cancelHoursEdit() {
-  resetHoursFormToAddMode();
-  NotificationSystem.notifyInfo('Hours edit cancelled');
-  
-  const deleteHoursBtn = document.getElementById('deleteHoursBtn');
-  if (deleteHoursBtn) {
-    deleteHoursBtn.style.display = 'none';
-  }
-}
-
-function resetHoursFormToAddMode() {
-  resetHoursForm();
-  
-  const logHoursBtn = document.getElementById('logHoursBtn');
-  if (logHoursBtn) {
-    logHoursBtn.onclick = logHours;
-    logHoursBtn.innerHTML = '<span id="logHoursText">💾 Log Work</span><span id="logHoursSpinner" style="display: none;">⏳ Saving...</span>';
-  }
-  
-  const hoursCancelBtn = document.getElementById('cancelHoursEdit');
-  if (hoursCancelBtn) {
-    hoursCancelBtn.style.display = 'none';
-  }
-  
-  const deleteHoursBtn = document.getElementById('deleteHoursBtn');
-  if (deleteHoursBtn) {
-    deleteHoursBtn.style.display = 'none';
-  }
-  
-  console.log("✅ Hours form reset to add mode");
-}
-
-async function editHours(hoursId) {
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError('Please log in to edit hours');
-    return;
-  }
-
-  try {
-    const logHoursBtn = document.getElementById('logHoursBtn');
-    if (logHoursBtn) {
-      logHoursBtn.disabled = true;
-      logHoursBtn.innerHTML = '<span id="logHoursText">⏳ Loading...</span>';
-    }
-
-    const hoursDoc = await getDoc(doc(db, "users", user.uid, "hours", hoursId));
-    
-    if (!hoursDoc.exists()) {
-      NotificationSystem.notifyError('Hours entry not found');
-      return;
-    }
-
-    const hours = hoursDoc.data();
-    
-    document.getElementById('organization').value = hours.organization || '';
-    document.getElementById('workSubject').value = hours.subject || '';
-    document.getElementById('workType').value = hours.workType || 'hourly';
-    document.getElementById('workDate').value = hours.date || '';
-    document.getElementById('hoursWorked').value = hours.hours || '';
-    document.getElementById('baseRate').value = hours.rate || '';
-    
-    const studentEl = document.getElementById('hoursStudent');
-    if (studentEl && hours.student) {
-      studentEl.value = hours.student;
-    }
-    
-    const totalEl = document.getElementById('totalPay');
-    if (totalEl) {
-      if ("value" in totalEl) {
-        totalEl.value = fmtMoney(hours.total);
-      } else {
-        totalEl.textContent = fmtMoney(hours.total);
-      }
-    }
-    
-    const deleteHoursBtn = document.getElementById('deleteHoursBtn');
-    if (deleteHoursBtn) {
-      deleteHoursBtn.style.display = 'inline-flex';
-      deleteHoursBtn.onclick = () => deleteHours(hoursId);
-    }
-    
-    if (logHoursBtn) {
-      logHoursBtn.disabled = false;
-      logHoursBtn.onclick = () => updateHours(hoursId);
-      logHoursBtn.innerHTML = '<span id="logHoursText">💾 Update Hours</span><span id="logHoursSpinner" style="display: none;">⏳ Updating...</span>';
-    }
-    
-    const hoursCancelBtn = document.getElementById('cancelHoursEdit');
-    if (hoursCancelBtn) {
-      hoursCancelBtn.style.display = 'inline-flex';
-    }
-    
-    const hoursForm = document.querySelector('#hours .section-card:first-child');
-    if (hoursForm) {
-      hoursForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-    
-    NotificationSystem.notifyInfo(`Editing hours entry from ${formatDate(hours.date)}`);
-    
-  } catch (error) {
-    console.error('Error loading hours for edit:', error);
-    NotificationSystem.notifyError('Failed to load hours data');
-    
-    const logHoursBtn = document.getElementById('logHoursBtn');
-    if (logHoursBtn) {
-      logHoursBtn.disabled = false;
-      logHoursBtn.onclick = logHours;
-      logHoursBtn.innerHTML = '<span id="logHoursText">💾 Log Work</span><span id="logHoursSpinner" style="display: none;">⏳ Saving...</span>';
-    }
-    
-    const deleteHoursBtn = document.getElementById('deleteHoursBtn');
-    if (deleteHoursBtn) {
-      deleteHoursBtn.style.display = 'none';
-    }
   }
 }
 
@@ -2411,6 +2161,7 @@ async function saveDefaultRate() {
     if (currentDisplay) currentDisplay.textContent = fmtMoney(val);
     if (hoursDisplay) hoursDisplay.textContent = fmtMoney(val);
     
+    // Save to localStorage as backup and for immediate access
     localStorage.setItem('userDefaultRate', val.toString());
     console.log('💾 Default rate saved to localStorage:', val);
     
@@ -2425,6 +2176,7 @@ function initializeDefaultRate(rate) {
   const currentRateDisplay = document.getElementById("currentDefaultRate");
   const hoursRateDisplay = document.getElementById("currentDefaultRateDisplay");
   
+  // Priority: 1. Provided rate, 2. localStorage, 3. Default to 0
   const finalRate = rate !== undefined ? rate : 
                    parseFloat(localStorage.getItem('userDefaultRate')) || 0;
   
@@ -2454,6 +2206,7 @@ async function applyDefaultRateToAll() {
   
   if (confirmed) {
     const updateCount = await applyDefaultRateToAllStudents(user.uid, val);
+    // No need to show notification here - it's handled in the function
   }
 }
 
@@ -2476,14 +2229,19 @@ function useDefaultRateInHours() {
 // ===========================
 
 async function addStudent() {
-  console.log('🎯 Starting addStudent...');
-  
-  const name = document.getElementById("studentName")?.value.trim();
-  const id = document.getElementById("studentId")?.value.trim();
-  const gender = document.getElementById("studentGender")?.value;
-  const email = document.getElementById("studentEmail")?.value.trim();
-  const phone = document.getElementById("studentPhone")?.value.trim();
-  const rate = parseFloat(document.getElementById("studentBaseRate")?.value) || 0;
+  const nameEl = document.getElementById("studentName");
+  const idEl = document.getElementById("studentId");
+  const genderEl = document.getElementById("studentGender");
+  const emailEl = document.getElementById("studentEmail");
+  const phoneEl = document.getElementById("studentPhone");
+  const rateEl = document.getElementById("studentBaseRate");
+
+  const name = nameEl?.value.trim();
+  const id = idEl?.value.trim();
+  const gender = genderEl?.value;
+  const email = emailEl?.value.trim();
+  const phone = phoneEl?.value.trim();
+  const rate = parseFloat(rateEl?.value) || 0;
 
   if (!name || !id || !gender) {
     NotificationSystem.notifyError("Please fill required fields: Name, ID, Gender");
@@ -2497,7 +2255,9 @@ async function addStudent() {
   }
 
   try {
-    const submitBtn = document.getElementById('studentSubmitBtn');
+    // Show loading state
+    const submitBtn = document.querySelector('#studentForm button[type="button"]');
+    const originalText = submitBtn?.textContent;
     if (submitBtn) {
       submitBtn.textContent = 'Saving...';
       submitBtn.disabled = true;
@@ -2513,30 +2273,42 @@ async function addStudent() {
       createdAt: new Date().toISOString()
     };
 
-    console.log('💾 Adding student to cache immediately...');
+    const studentRef = doc(db, "users", user.uid, "students", id);
+    await setDoc(studentRef, student);
     
-    addStudentToCache(student);
+    // Clear cache to force fresh data on next load
+    cache.students = null;
+    cache.lastSync = null;
+    console.log('🗑️ Cache cleared for students');
     
-    console.log('🧹 Clearing form...');
+    // Clear form IMMEDIATELY after successful save
     clearStudentForm();
     
-    NotificationSystem.notifySuccess("Student added successfully!");
-    console.log('✅ Student added to UI instantly');
+    NotificationSystem.notifySuccess("Student added successfully");
     
-    console.log('☁️ Saving to Firestore in background...');
-    saveStudentToFirestore(user.uid, student).catch(error => {
-      console.error('❌ Background Firestore save failed:', error);
-      NotificationSystem.notifyWarning('Student saved locally but cloud sync failed', 3000);
+    // Refresh data in background (don't wait for it)
+    Promise.all([
+      renderStudents(), // This will now fetch fresh data due to cache clear
+      loadStudentsForDropdowns(),
+      recalcSummaryStats(user.uid)
+    ]).then(() => {
+      console.log('✅ Background refresh completed with fresh data');
+    }).catch(error => {
+      console.error("Background refresh failed:", error);
+      // Don't show error to user for background tasks
     });
-    
-    incrementStudentCount(user.uid).catch(console.error);
-    loadStudentsForDropdowns().catch(console.error);
 
   } catch (err) {
-    console.error("❌ Error adding student:", err);
-    NotificationSystem.notifyError("Failed to add student: " + err.message);
+    console.error("Error adding student:", err);
     
-    const submitBtn = document.getElementById('studentSubmitBtn');
+    if (err.code === 'already-exists' || err.message.includes('already exists')) {
+      NotificationSystem.notifyError("A student with this ID already exists");
+    } else {
+      NotificationSystem.notifyError("Failed to add student");
+    }
+    
+    // Re-enable button on error
+    const submitBtn = document.querySelector('#studentForm button[type="button"]');
     if (submitBtn) {
       submitBtn.textContent = '➕ Add Student';
       submitBtn.disabled = false;
@@ -2544,79 +2316,9 @@ async function addStudent() {
   }
 }
 
-function addStudentToCache(newStudent) {
-  const container = document.getElementById('studentsContainer');
-  if (!container) return;
-
-  const studentCard = `
-    <div class="student-card">
-      <div class="student-card-header">
-        <div>
-          <strong>${newStudent.name}</strong>
-          <span class="student-id">${newStudent.id}</span>
-        </div>
-        <div class="student-actions">
-          <button class="btn-icon" onclick="editStudent('${newStudent.id}')" title="Edit">✏️</button>
-          <button class="btn-icon" onclick="deleteStudent('${newStudent.id}')" title="Delete">🗑️</button>
-        </div>
-      </div>
-      <div class="student-details">
-        <div class="muted">${newStudent.gender} • ${newStudent.email || 'No email'} • ${newStudent.phone || 'No phone'}</div>
-        <div class="student-rate">Rate: $${fmtMoney(newStudent.rate)}/session</div>
-        <div class="student-meta">Added: Just now</div>
-      </div>
-    </div>
-  `;
-
-  const emptyState = container.querySelector('.empty-state, .empty-message, .loading');
-  if (emptyState) {
-    emptyState.remove();
-  }
-
-  container.insertAdjacentHTML('afterbegin', studentCard);
-
-  if (cache.students && !cache.students.includes('Loading students...')) {
-    cache.students = studentCard + cache.students;
-  } else {
-    cache.students = null;
-  }
-  
-  cache.lastSync = Date.now();
-}
-
-async function saveStudentToFirestore(uid, student) {
-  const studentRef = doc(db, "users", uid, "students", student.id);
-  await setDoc(studentRef, student);
-  console.log('✅ Student saved to Firestore in background');
-}
-
-async function incrementStudentCount(uid) {
-  try {
-    const statsRef = doc(db, "users", uid);
-    const statsSnap = await getDoc(statsRef);
-    
-    if (statsSnap.exists()) {
-      const currentStats = statsSnap.data();
-      const newStudents = (currentStats.students || 0) + 1;
-      
-      await updateDoc(statsRef, {
-        students: newStudents
-      });
-      
-      const statStudents = document.getElementById('statStudents');
-      if (statStudents) statStudents.textContent = newStudents;
-      
-      updateHeaderStats();
-    }
-  } catch (error) {
-    console.log("Background count update failed:", error);
-  }
-}
-
 async function logHours() {
   const studentEl = document.getElementById("hoursStudent");
   const orgEl = document.getElementById("organization");
-  const subjectEl = document.getElementById("workSubject");
   const typeEl = document.getElementById("workType");
   const dateEl = document.getElementById("workDate");
   const hoursEl = document.getElementById("hoursWorked");
@@ -2624,7 +2326,6 @@ async function logHours() {
 
   const studentId = studentEl?.value;
   const organization = orgEl?.value.trim();
-  const subject = subjectEl?.value.trim();
   const workType = typeEl?.value || "hourly";
   const workDate = dateEl?.value;
   const hours = parseFloat(hoursEl?.value);
@@ -2635,65 +2336,34 @@ async function logHours() {
     return;
   }
 
-  let total = 0;
-  if (workType === "hourly") {
-    total = hours * rate;
-  } else {
-    total = rate;
-  }
-
+  const total = workType === "hourly" ? hours * rate : rate;
+  
   const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError("Please log in to log hours");
-    return;
-  }
+  if (!user) return;
 
   try {
-    const logHoursBtn = document.getElementById('logHoursBtn');
-    const logHoursText = document.getElementById('logHoursText');
-    const logHoursSpinner = document.getElementById('logHoursSpinner');
-    
-    if (logHoursBtn) logHoursBtn.disabled = true;
-    if (logHoursText) logHoursText.style.display = 'none';
-    if (logHoursSpinner) logHoursSpinner.style.display = 'inline';
+   const hoursData = {
+  student: studentId || null,
+  organization,
+  workType, // This now has more options
+  date: workDate,
+  dateIso: fmtDateISO(workDate),
+  hours: workType === "hourly" ? hours : 0, // Only store hours for hourly work
+  rate,
+  total,
+  loggedAt: new Date().toISOString()
+};
 
-    const hoursData = {
-      student: studentId || null,
-      organization,
-      subject: subject || 'General',
-      workType,
-      date: workDate,
-      dateIso: fmtDateISO(workDate),
-      hours: workType === "hourly" ? hours : 0,
-      rate,
-      total,
-      loggedAt: new Date().toISOString()
-    };
-
-    console.log('💾 Saving hours:', hoursData);
-    
     await addDoc(collection(db, "users", user.uid, "hours"), hoursData);
     
-    NotificationSystem.notifySuccess("Hours logged successfully!");
-    
-    await Promise.all([
-      recalcSummaryStats(user.uid),
-      renderRecentHours()
-    ]);
-    
+    NotificationSystem.notifySuccess("Hours logged successfully");
+    await recalcSummaryStats(user.uid);
+    await renderRecentHours();
     resetHoursForm();
     
   } catch (err) {
     console.error("Error logging hours:", err);
-    NotificationSystem.notifyError("Failed to log hours: " + err.message);
-  } finally {
-    const logHoursBtn = document.getElementById('logHoursBtn');
-    const logHoursText = document.getElementById('logHoursText');
-    const logHoursSpinner = document.getElementById('logHoursSpinner');
-    
-    if (logHoursBtn) logHoursBtn.disabled = false;
-    if (logHoursText) logHoursText.style.display = 'inline';
-    if (logHoursSpinner) logHoursSpinner.style.display = 'none';
+    NotificationSystem.notifyError("Failed to log hours");
   }
 }
 
@@ -2839,6 +2509,10 @@ async function recordPayment() {
 }
 
 // ===========================
+// STUDENT ACTIONS
+// ===========================
+
+// ===========================
 // STUDENT EDITING FUNCTIONS
 // ===========================
 
@@ -2852,6 +2526,7 @@ async function editStudent(studentId) {
   try {
     console.log('✏️ Editing student:', studentId);
     
+    // Show loading state immediately
     const submitBtn = document.getElementById('studentSubmitBtn');
     const cancelBtn = document.getElementById('studentCancelBtn');
     if (submitBtn) submitBtn.textContent = 'Loading...';
@@ -2865,6 +2540,7 @@ async function editStudent(studentId) {
 
     const student = studentDoc.data();
     
+    // Fill the form with student data
     document.getElementById('studentName').value = student.name || '';
     document.getElementById('studentId').value = student.id || '';
     document.getElementById('studentGender').value = student.gender || '';
@@ -2872,6 +2548,7 @@ async function editStudent(studentId) {
     document.getElementById('studentPhone').value = student.phone || '';
     document.getElementById('studentBaseRate').value = student.rate || '';
 
+    // Set edit mode
     currentEditStudentId = studentId;
     
     if (submitBtn) {
@@ -2883,6 +2560,7 @@ async function editStudent(studentId) {
       cancelBtn.style.display = 'inline-flex';
     }
 
+    // Scroll to form immediately
     const studentForm = document.getElementById('studentForm');
     if (studentForm) {
       studentForm.scrollIntoView({ 
@@ -2897,6 +2575,7 @@ async function editStudent(studentId) {
     console.error('Error loading student for edit:', error);
     NotificationSystem.notifyError('Failed to load student data');
     
+    // Reset button on error
     const submitBtn = document.getElementById('studentSubmitBtn');
     if (submitBtn) {
       submitBtn.textContent = '➕ Add Student';
@@ -2922,6 +2601,7 @@ function cancelEdit() {
     cancelBtn.style.display = 'none';
   }
   
+  // Clear the form
   clearStudentForm();
   
   NotificationSystem.notifyInfo('Edit canceled');
@@ -2954,6 +2634,7 @@ async function updateStudent(studentId) {
   }
 
   try {
+    // Show loading state
     const submitBtn = document.getElementById('studentSubmitBtn');
     if (submitBtn) {
       submitBtn.textContent = 'Updating...';
@@ -2973,13 +2654,16 @@ async function updateStudent(studentId) {
     const studentRef = doc(db, "users", user.uid, "students", studentId);
     await updateDoc(studentRef, studentData);
     
+    // Clear cache
     cache.students = null;
     cache.lastSync = null;
     
+    // Reset form to add mode
     clearStudentForm();
     
     NotificationSystem.notifySuccess("Student updated successfully");
     
+    // Refresh data
     await Promise.all([
       renderStudents(),
       loadStudentsForDropdowns(),
@@ -2990,6 +2674,7 @@ async function updateStudent(studentId) {
     console.error("Error updating student:", err);
     NotificationSystem.notifyError("Failed to update student");
     
+    // Re-enable button on error
     const submitBtn = document.getElementById('studentSubmitBtn');
     if (submitBtn) {
       submitBtn.textContent = '💾 Update Student';
@@ -3003,35 +2688,16 @@ async function deleteStudent(studentId) {
     const user = auth.currentUser;
     if (user) {
       try {
-        removeStudentFromCache(studentId);
-        
-        deleteDoc(doc(db, "users", user.uid, "students", studentId))
-          .then(() => console.log('✅ Student deleted from Firestore'))
-          .catch(error => console.error('❌ Background delete failed:', error));
-          
+        await deleteDoc(doc(db, "users", user.uid, "students", studentId));
         NotificationSystem.notifySuccess("Student deleted successfully");
-        
-        recalcSummaryStats(user.uid).catch(console.error);
-        
+        await renderStudents();
+        await loadStudentsForDropdowns();
       } catch (error) {
         console.error("Error deleting student:", error);
         NotificationSystem.notifyError("Failed to delete student");
       }
     }
   }
-}
-
-function removeStudentFromCache(studentId) {
-  const container = document.getElementById('studentsContainer');
-  if (!container) return;
-
-  const studentCard = container.querySelector(`.student-id:contains('${studentId}')`)?.closest('.student-card');
-  if (studentCard) {
-    studentCard.remove();
-  }
-
-  cache.students = null;
-  cache.lastSync = Date.now();
 }
 
 // ===========================
@@ -3064,14 +2730,17 @@ async function loadInitialData(user) {
   try {
     console.log('📥 Loading initial data for user:', user.uid);
     
+    // Load critical data first
     await Promise.allSettled([
       loadUserProfile(user.uid),
       loadStudentsForDropdowns(),
-      recalcSummaryStats(user.uid)
+      recalcSummaryStats(user.uid) // This will update everything
     ]);
     
+    // Then load visible content
     await renderStudents();
     
+    // Force header stats update
     updateHeaderStats();
     
     console.log('✅ Initial data loaded successfully');
@@ -3092,6 +2761,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (user) {
       console.log("✅ User authenticated:", user.email);
       
+      // Safe container access with null check
       const container = document.querySelector(".container");
       if (container && container.style) {
         container.style.display = "block";
@@ -3100,6 +2770,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.warn('⚠️ Container element not found or inaccessible');
       }
       
+      // Safely initialize app
       if (typeof initializeApp === 'function') {
         try {
           initializeApp();
@@ -3132,6 +2803,7 @@ async function showWeeklyBreakdown() {
     const rows = [];
     snap.forEach(d => rows.push(d.data()));
 
+    // Group by approximate ISO week
     const groups = {};
     rows.forEach(r => {
       const d = new Date(r.date || r.dateIso || new Date().toISOString());
@@ -3289,7 +2961,7 @@ async function showSubjectBreakdown() {
 }
 
 // ===========================
-// GLOBAL FUNCTION EXPORTS - FIXED
+// GLOBAL FUNCTION EXPORTS
 // ===========================
 
 window.addStudent = addStudent;
@@ -3320,179 +2992,13 @@ window.showMonthlyBreakdown = showMonthlyBreakdown;
 window.showSubjectBreakdown = showSubjectBreakdown;
 window.renderOverviewReports = renderOverviewReports;
 
-// 🔥 FIX: Make deleteHours globally available
-window.deleteHours = deleteHours;
-window.editHours = editHours;
-window.updateHours = updateHours;
-window.cancelHoursEdit = cancelHoursEdit;
+// Expose NotificationSystem for global access
+window.NotificationSystem = NotificationSystem;
 
 // Student actions
 window.editStudent = editStudent;
 window.deleteStudent = deleteStudent;
 
-// Expose NotificationSystem for global access
-window.NotificationSystem = NotificationSystem;
-
 // Sync bar functions for global access
 window.performSync = (mode = 'manual') => SyncBar.performSync(mode);
-
-/*===============================
-  DEBUG ZONE
-===============================*/
-
-// Debug: Verify functions are available globally
-console.log('🔧 deleteHours available globally:', typeof window.deleteHours);
-console.log('🔧 editHours available globally:', typeof window.editHours);
-console.log('🔧 FAB functions available globally:', typeof window.setupFloatingAddButton);
-
-// Add this debug function
-function debugFABVisibility() {
-  const fab = document.getElementById('floatingAddBtn');
-  const fabContainer = document.querySelector('.fab-container');
-  
-  console.log('🔍 FAB DEBUG - Current state:');
-  
-  if (!fab) {
-    console.error('❌ FAB element not found!');
-    return;
-  }
-  
-  const computed = window.getComputedStyle(fab);
-  console.log('FAB styles:', {
-    display: computed.display,
-    visibility: computed.visibility,
-    opacity: computed.opacity,
-    position: computed.position
-  });
-  
-  console.log('FAB classes:', fab.className);
-  console.log('FAB inline styles:', fab.style.cssText);
-  
-  // Check if any parent is hidden
-  let parent = fab.parentElement;
-  let level = 0;
-  while (parent && level < 5) {
-    const parentStyle = window.getComputedStyle(parent);
-    if (parentStyle.display === 'none') {
-      console.error(`❌ Parent ${level} is hidden:`, parent);
-    }
-    parent = parent.parentElement;
-    level++;
-  }
-}
-
-// Override the FAB setup to add debugging
-const originalSetupFAB = setupFloatingAddButton;
-setupFloatingAddButton = function() {
-  console.log('🔄 Setting up FAB with debug...');
-  const result = originalSetupFAB();
-  
-  // Add debug to tab switching
-  const tabs = document.querySelectorAll('.tab');
-  tabs.forEach(tab => {
-    const originalClick = tab.onclick;
-    tab.addEventListener('click', function(e) {
-      console.log('📑 Tab clicked:', this.getAttribute('data-tab'));
-      setTimeout(() => {
-        console.log('🔍 Checking FAB after tab switch...');
-        debugFABVisibility();
-      }, 100);
-    });
-  });
-  
-  return result;
-};
-
-// Call debug on load
-setTimeout(debugFABVisibility, 1000);
-
-// Monitor FAB for changes
-const fab = document.getElementById('floatingAddBtn');
-if (fab) {
-  const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-      if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
-        console.log('🚨 FAB style changed:', fab.style.cssText);
-      }
-      if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-        console.log('🚨 FAB classes changed:', fab.className);
-      }
-    });
-  });
-  
-  observer.observe(fab, {
-    attributes: true,
-    attributeFilter: ['style', 'class']
-  });
-}
-
-// Check for duplicate FAB elements
-function checkForDuplicateFAB() {
-  const fabElements = document.querySelectorAll('#floatingAddBtn, .fab-container');
-  console.log('🔍 Checking for duplicate FAB elements:');
-  console.log(`Found ${fabElements.length} FAB-related elements:`, fabElements);
-  
-  fabElements.forEach((element, index) => {
-    console.log(`FAB element ${index + 1}:`, element);
-    console.log(`- Parent:`, element.parentElement);
-    console.log(`- Is in hours tab:`, element.closest('#hours'));
-  });
-}
-
-// Call this on load
-setTimeout(checkForDuplicateFAB, 500);
-
-// Track FAB creation and movement
-function trackFABMovement() {
-  const fabContainer = document.querySelector('.fab-container');
-  
-  if (fabContainer) {
-    console.log('🔍 FAB Container initial parent:', fabContainer.parentElement);
-    
-    // Monitor for FAB being moved
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.type === 'childList') {
-          // Check if FAB container was moved
-          if (!document.body.contains(fabContainer)) {
-            console.log('🚨 FAB Container was removed from DOM!');
-          }
-          
-          // Check if FAB container was added to hours tab
-          const fabInHours = document.querySelector('#hours .fab-container');
-          if (fabInHours) {
-            console.log('🚨 FAB Container found inside hours tab!');
-            console.log('Moving FAB back to body...');
-            
-            // Move FAB back to body
-            document.body.appendChild(fabContainer);
-          }
-        }
-      });
-    });
-    
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-  }
-}
-
-// Also check if any JavaScript is creating duplicate FAB
-const originalCreateElement = document.createElement;
-document.createElement = function(tagName) {
-  const element = originalCreateElement.call(this, tagName);
-  if (tagName === 'div' || tagName === 'button') {
-    setTimeout(() => {
-      if (element.classList && (element.classList.contains('fab-container') || element.id === 'floatingAddBtn')) {
-        console.log('🚨 JavaScript created FAB element:', element);
-        console.trace('Stack trace for FAB creation');
-      }
-    }, 0);
-  }
-  return element;
-};
-
-// Call tracking on load
-setTimeout(trackFABMovement, 1000);
 
