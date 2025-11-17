@@ -1384,8 +1384,16 @@ function setupHoursEventListeners() {
 
 function setupHoursForm() {
   const hoursForm = document.getElementById('hoursForm');
+  console.log('🔍 Looking for hoursForm:', hoursForm);
+  
   if (!hoursForm) {
-    console.warn('⚠️ Hours form not found in DOM');
+    console.warn('⚠️ Hours form not found in DOM - checking tab state');
+    // Check if we're in the hours tab
+    const hoursTab = document.getElementById('hours');
+    console.log('🔍 Hours tab exists:', hoursTab);
+    if (hoursTab) {
+      console.log('🔍 Hours tab active:', hoursTab.classList.contains('active'));
+    }
     return;
   }
 
@@ -1394,9 +1402,19 @@ function setupHoursForm() {
   const rateInput = document.getElementById('hoursRate');
   const amountDisplay = document.getElementById('hoursAmount');
 
+  console.log('🔍 Hours form elements:', {
+    durationInput: !!durationInput,
+    rateInput: !!rateInput,
+    amountDisplay: !!amountDisplay
+  });
+
   // Check if all required elements exist
   if (!durationInput || !rateInput || !amountDisplay) {
     console.warn('⚠️ Some hours form elements not found');
+    console.log('🔍 Available elements in hours form:');
+    hoursForm.querySelectorAll('*').forEach(el => {
+      console.log('  -', el.tagName, el.id || el.className);
+    });
     return;
   }
 
