@@ -50,7 +50,6 @@ import {
 let autoSyncInterval = null;
 let isAutoSyncEnabled = false;
 let currentUserData = null;
-let currentEditStudentId = null;
 
 // DOM Elements
 const syncIndicator = document.getElementById("syncIndicator");
@@ -642,15 +641,10 @@ document.addEventListener('DOMContentLoaded', function() {
 // HEADER STATS
 // ===========================
 
-// Enhanced debug version of updateHeaderStats
 function updateHeaderStats() {
-  console.log('🔍 [updateHeaderStats] Starting...');
-  
   const localStatus = document.getElementById('localStatus');
   const syncStatus = document.getElementById('syncStatus');
   const dataStatus = document.getElementById('dataStatus');
-  const statStudents = document.getElementById('statStudents');
-  const statHours = document.getElementById('statHours');
   
   if (localStatus) {
     localStatus.textContent = '💾 Local Storage: Active';
@@ -661,8 +655,13 @@ function updateHeaderStats() {
     syncStatus.textContent = isAutoSync ? '☁️ Cloud Sync: Auto' : '☁️ Cloud Sync: Manual';
   }
   
-  // dataStatus will auto-update when statStudents and statHours update
-  console.log('✅ [updateHeaderStats] Header stats structure verified');
+  if (dataStatus) {
+    const statStudents = document.getElementById('statStudents');
+    const statHours = document.getElementById('statHours');
+    const students = statStudents ? statStudents.textContent : '0';
+    const hours = statHours ? statHours.textContent : '0';
+    dataStatus.textContent = `📊 Data: ${students} Students, ${hours} Sessions`;
+  }
 }
 
 // ===========================
@@ -722,26 +721,19 @@ async function updateUserStats(uid, newStats) {
     await setDoc(statsRef, newStats, { merge: true });
     console.log("✅ Stats updated:", newStats);
 
-    // Update DOM elements
-    if (newStats.students !== undefined) {
-      const statStudents = document.getElementById('statStudents');
-      if (statStudents) statStudents.textContent = newStats.students;
+    if (newStats.students !== undefined && document.getElementById('statStudents')) {
+      document.getElementById('statStudents').textContent = newStats.students;
     }
-    if (newStats.hours !== undefined) {
-      const statHours = document.getElementById('statHours');
-      if (statHours) statHours.textContent = newStats.hours;
+    if (newStats.hours !== undefined && document.getElementById('statHours')) {
+      document.getElementById('statHours').textContent = newStats.hours;
     }
-    if (newStats.earnings !== undefined) {
-      const statEarnings = document.getElementById('statEarnings');
-      if (statEarnings) statEarnings.textContent = fmtMoney(newStats.earnings);
+    if (newStats.earnings !== undefined && document.getElementById('statEarnings')) {
+      document.getElementById('statEarnings').textContent = fmtMoney(newStats.earnings);
     }
-    if (newStats.lastSync !== undefined) {
-      const statUpdated = document.getElementById('statUpdated');
-      if (statUpdated) statUpdated.textContent = newStats.lastSync;
+    if (newStats.lastSync !== undefined && document.getElementById('statUpdated')) {
+      document.getElementById('statUpdated').textContent = newStats.lastSync;
     }
 
-    // Update header stats after DOM updates
-    updateHeaderStats();
     refreshTimestamp();
   } catch (err) {
     console.error("❌ Error updating stats:", err);
@@ -781,7 +773,7 @@ async function recalcSummaryStats(uid) {
       lastSync: new Date().toLocaleString()
     });
 
-    // Update header stats AFTER updating user stats
+    // Update header stats
     updateHeaderStats();
     
     console.log('✅ Summary stats recalculated successfully');
@@ -1625,7 +1617,7 @@ const SyncBar = {
         }
 
         try {
-          NotificationSystem.notifyInfo('Fixing statistics... recalculating from your raw data');
+          NotificationSystem.notifyInfo('Syncing statistics...');
           await recalcSummaryStats(user.uid);
           await loadUserStats(user.uid);
           NotificationSystem.notifySuccess('Statistics synced successfully');
@@ -1981,30 +1973,6 @@ const UIManager = {
     console.log('✅ Event listeners initialized');
   }
 };
-
-// ===========================
-// STUDENT FORM EVENT LISTENERS
-// ===========================
-
-function setupStudentFormListeners() {
-  const submitBtn = document.getElementById('studentSubmitBtn');
-  const clearBtn = document.getElementById('clearStudentFormBtn');
-  const cancelBtn = document.getElementById('studentCancelBtn');
-
-  if (submitBtn) {
-    submitBtn.addEventListener('click', addStudent);
-  }
-
-  if (clearBtn) {
-    clearBtn.addEventListener('click', clearStudentForm);
-  }
-
-  if (cancelBtn) {
-    cancelBtn.addEventListener('click', cancelEdit);
-  }
-
-  console.log('✅ Student form event listeners setup');
-}
 
 // ===========================
 // STUDENT MANAGEMENT MODULE
@@ -2528,10 +2496,6 @@ async function recordPayment() {
 // STUDENT ACTIONS
 // ===========================
 
-// ===========================
-// STUDENT EDITING FUNCTIONS
-// ===========================
-
 async function editStudent(studentId) {
   const user = auth.currentUser;
   if (!user) {
@@ -2540,13 +2504,6 @@ async function editStudent(studentId) {
   }
 
   try {
-    console.log('✏️ Editing student:', studentId);
-    
-    // Show loading state immediately
-    const submitBtn = document.getElementById('studentSubmitBtn');
-    const cancelBtn = document.getElementById('studentCancelBtn');
-    if (submitBtn) submitBtn.textContent = 'Loading...';
-    
     const studentDoc = await getDoc(doc(db, "users", user.uid, "students", studentId));
     
     if (!studentDoc.exists()) {
@@ -2564,63 +2521,25 @@ async function editStudent(studentId) {
     document.getElementById('studentPhone').value = student.phone || '';
     document.getElementById('studentBaseRate').value = student.rate || '';
 
-    // Set edit mode
-    currentEditStudentId = studentId;
-    
+    // Change form to edit mode
+    const submitBtn = document.querySelector('#studentForm button[type="button"]');
     if (submitBtn) {
       submitBtn.textContent = '💾 Update Student';
       submitBtn.onclick = () => updateStudent(studentId);
     }
-    
-    if (cancelBtn) {
-      cancelBtn.style.display = 'inline-flex';
-    }
 
-    // Scroll to form immediately
-    const studentForm = document.getElementById('studentForm');
-    if (studentForm) {
-      studentForm.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'start' 
-      });
-    }
-    
+    // Scroll to form
+    document.getElementById('studentForm').scrollIntoView({ 
+      behavior: 'smooth', 
+      block: 'start' 
+    });
+
     NotificationSystem.notifyInfo(`Editing student: ${student.name}`);
     
   } catch (error) {
     console.error('Error loading student for edit:', error);
     NotificationSystem.notifyError('Failed to load student data');
-    
-    // Reset button on error
-    const submitBtn = document.getElementById('studentSubmitBtn');
-    if (submitBtn) {
-      submitBtn.textContent = '➕ Add Student';
-      submitBtn.onclick = addStudent;
-    }
   }
-}
-
-function cancelEdit() {
-  console.log('❌ Canceling edit...');
-  
-  currentEditStudentId = null;
-  
-  const submitBtn = document.getElementById('studentSubmitBtn');
-  const cancelBtn = document.getElementById('studentCancelBtn');
-  
-  if (submitBtn) {
-    submitBtn.textContent = '➕ Add Student';
-    submitBtn.onclick = addStudent;
-  }
-  
-  if (cancelBtn) {
-    cancelBtn.style.display = 'none';
-  }
-  
-  // Clear the form
-  clearStudentForm();
-  
-  NotificationSystem.notifyInfo('Edit canceled');
 }
 
 async function updateStudent(studentId) {
@@ -2650,13 +2569,6 @@ async function updateStudent(studentId) {
   }
 
   try {
-    // Show loading state
-    const submitBtn = document.getElementById('studentSubmitBtn');
-    if (submitBtn) {
-      submitBtn.textContent = 'Updating...';
-      submitBtn.disabled = true;
-    }
-
     const studentData = { 
       name, 
       id, 
@@ -2689,13 +2601,6 @@ async function updateStudent(studentId) {
   } catch (err) {
     console.error("Error updating student:", err);
     NotificationSystem.notifyError("Failed to update student");
-    
-    // Re-enable button on error
-    const submitBtn = document.getElementById('studentSubmitBtn');
-    if (submitBtn) {
-      submitBtn.textContent = '💾 Update Student';
-      submitBtn.disabled = false;
-    }
   }
 }
 
@@ -2727,7 +2632,6 @@ function initializeApp() {
   SyncBar.init();
   setupProfileModal();
   setupFloatingAddButton();
-  setupStudentFormListeners();
   updateHeaderStats();
   
   if (syncMessage) syncMessage.textContent = "Cloud Sync: Ready";
@@ -2746,18 +2650,15 @@ async function loadInitialData(user) {
   try {
     console.log('📥 Loading initial data for user:', user.uid);
     
-    // Load critical data first
+    // Load critical data first without waiting for profile
     await Promise.allSettled([
       loadUserProfile(user.uid),
       loadStudentsForDropdowns(),
-      recalcSummaryStats(user.uid) // This will update everything
+      recalcSummaryStats(user.uid)
     ]);
     
-    // Then load visible content
+    // Load visible content
     await renderStudents();
-    
-    // Force header stats update
-    updateHeaderStats();
     
     console.log('✅ Initial data loaded successfully');
     
@@ -3017,5 +2918,3 @@ window.deleteStudent = deleteStudent;
 
 // Sync bar functions for global access
 window.performSync = (mode = 'manual') => SyncBar.performSync(mode);
-
-
