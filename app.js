@@ -1849,110 +1849,91 @@ const UIManager = {
   const tabs = document.querySelectorAll('.tab');
   const tabContents = document.querySelectorAll('.tabcontent');
 
+  console.log('📑 Found tabs:', tabs.length);
+  console.log('📑 Found tab contents:', tabContents.length);
+
   tabs.forEach(tab => {
     tab.addEventListener('click', () => {
       const target = tab.getAttribute('data-tab');
       console.log('📑 Switching to tab:', target);
 
       // Remove active class from all tabs and contents
-      tabs.forEach(t => t.classList.remove('active'));
+      tabs.forEach(t => {
+        t.classList.remove('active');
+        console.log(`📑 Removed active from tab: ${t.getAttribute('data-tab')}`);
+      });
+      
       tabContents.forEach(tc => {
         tc.classList.remove('active');
         tc.style.display = 'none';
+        console.log(`📑 Hid tab content: ${tc.id}`);
       });
 
       // Add active class to clicked tab and target content
       tab.classList.add('active');
+      console.log(`📑 Added active to tab: ${target}`);
       
       const selected = document.getElementById(target);
       if (selected) {
         selected.classList.add('active');
         selected.style.display = 'block';
-        console.log('✅ Tab displayed:', target);
+        console.log(`✅ Tab displayed: ${target}`);
+        
+        // 🔥 FIX: Ensure FAB is visible on ALL tabs
+        ensureFABVisible();
+        
+        // 🔥 FIX: Load data for the tab if needed
+        this.loadTabData(target);
       } else {
         console.error('❌ Tab content not found:', target);
       }
-
-      // 🔥 FIX: Ensure FAB is visible on all tabs
-      ensureFABVisible();
     });
   });
 
   // Activate first tab by default
   const firstTab = document.querySelector('.tab.active') || document.querySelector('.tab');
   if (firstTab) {
+    console.log('📑 Activating first tab:', firstTab.getAttribute('data-tab'));
     firstTab.click();
+  } else if (tabs.length > 0) {
+    console.log('📑 No active tab found, clicking first tab');
+    tabs[0].click();
   }
   
   console.log('✅ Tabs initialized');
 },
 
-  bindUiEvents() {
-    console.log('🔧 Binding UI events...');
-    
-    const themeToggle = document.querySelector('.theme-toggle button');
-    if (themeToggle) {
-      themeToggle.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.toggleTheme();
-      });
-    }
-    
-    const forms = document.querySelectorAll('form');
-    forms.forEach(form => {
-      form.addEventListener('submit', (e) => e.preventDefault());
-    });
-    
-    this.setupHoursFormCalculations();
-    this.setupMarksFormCalculations();
-    
-    console.log('✅ UI events bound');
-  },
+loadTabData(tabName) {
+  const user = auth.currentUser;
+  if (!user) return;
 
-  setupHoursFormCalculations() {
-    const hoursInput = document.getElementById('hoursWorked');
-    const rateInput = document.getElementById('baseRate');
-    const workTypeSelect = document.getElementById('workType');
-    
-    const calculateTotal = () => {
-      const hours = parseFloat(hoursInput?.value) || 0;
-      const rate = parseFloat(rateInput?.value) || 0;
-      const workType = workTypeSelect?.value || "hourly";
-      const totalEl = document.getElementById('totalPay');
-      
-      if (totalEl) {
-        let total = 0;
-        
-        switch(workType) {
-          case "hourly":
-            total = hours * rate;
-            break;
-          case "session":
-          case "consultation":
-            total = rate;
-            break;
-          case "contract":
-          case "project":
-          case "other":
-            total = rate;
-            break;
-          default:
-            total = hours * rate;
-        }
-        
-        if ("value" in totalEl) {
-          totalEl.value = fmtMoney(total);
-        } else {
-          totalEl.textContent = fmtMoney(total);
-        }
-      }
-    };
-
-    if (hoursInput) hoursInput.addEventListener('input', calculateTotal);
-    if (rateInput) rateInput.addEventListener('input', calculateTotal);
-    if (workTypeSelect) workTypeSelect.addEventListener('change', calculateTotal);
-  },
+  console.log('📥 Loading data for tab:', tabName);
+  
+  switch(tabName) {
+    case 'students':
+      renderStudents();
+      break;
+    case 'hours':
+      renderRecentHours();
+      break;
+    case 'marks':
+      renderRecentMarks();
+      break;
+    case 'attendance':
+      renderAttendanceRecent();
+      break;
+    case 'payments':
+      renderPaymentActivity();
+      renderStudentBalances();
+      break;
+    case 'overview':
+      renderOverviewReports();
+      break;
+    case 'reports':
+      showWeeklyBreakdown();
+      break;
+  }
+},
 
   setupMarksFormCalculations() {
     const scoreInput = document.getElementById('marksScore');
@@ -3285,63 +3266,6 @@ async function showSubjectBreakdown() {
     subjectBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#666;padding:20px;">Error loading data</td></tr>`;
   }
 }
-
-// ===========================
-// EMERGENCY TAB FIX
-// ===========================
-function emergencyTabFix() {
-  console.log('🚨 Initializing emergency tab fix...');
-  
-  const tabs = document.querySelectorAll('.tab');
-  const tabContents = document.querySelectorAll('.tabcontent');
-  
-  if (tabs.length === 0) {
-    console.log('❌ No tabs found');
-    return;
-  }
-
-  tabs.forEach(tab => {
-    const newTab = tab.cloneNode(true);
-    tab.parentNode.replaceChild(newTab, tab);
-    
-    newTab.addEventListener('click', function(e) {
-      e.preventDefault();
-      const target = this.getAttribute('data-tab');
-      console.log('🎯 Tab clicked:', target);
-      
-      tabs.forEach(t => t.classList.remove('active'));
-      tabContents.forEach(tc => {
-        tc.classList.remove('active');
-        tc.style.display = 'none';
-      });
-      
-      this.classList.add('active');
-      const content = document.getElementById(target);
-      if (content) {
-        content.classList.add('active');
-        content.style.display = 'block';
-        console.log('✅ Switched to tab:', target);
-      }
-      
-      // 🔥 FIX: Ensure FAB stays visible
-      ensureFABVisible();
-    });
-  });
-
-  const activeTab = document.querySelector('.tab.active') || document.querySelector('.tab');
-  if (activeTab) {
-    activeTab.click();
-  }
-  
-  console.log('✅ Emergency tabs initialized');
-}
-
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('🏠 DOM loaded - starting emergency tab init');
-  setTimeout(emergencyTabFix, 100);
-  ensureFABVisible();
-});
 
 // ===========================
 // GLOBAL FUNCTION EXPORTS - FIXED
