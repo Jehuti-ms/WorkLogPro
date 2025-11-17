@@ -424,7 +424,7 @@ function updateProfileModal() {
 }
 
 // ===========================
-// FLOATING ADD BUTTON - FIXED VERSION (WORKS ON ALL TABS)
+// FLOATING ADD BUTTON - FIXED FOR ALL TABS
 // ===========================
 
 function setupFloatingAddButton() {
@@ -438,6 +438,14 @@ function setupFloatingAddButton() {
   if (!fab) {
     console.error('❌ FAB button not found!');
     return;
+  }
+
+  // Make sure FAB is visible on all tabs by positioning it fixed
+  const fabContainer = fab.closest('.fab-container');
+  if (fabContainer) {
+    fabContainer.style.position = 'fixed';
+    fabContainer.style.zIndex = '1000';
+    console.log('✅ FAB container positioned fixed');
   }
 
   let isExpanded = false;
@@ -458,7 +466,6 @@ function setupFloatingAddButton() {
     // Show overlay
     if (fabOverlay) {
       fabOverlay.style.display = 'block';
-      // Add a small delay for overlay to appear before adding click listener
       setTimeout(() => {
         fabOverlay.style.pointerEvents = 'auto';
       }, 10);
@@ -515,11 +522,11 @@ function setupFloatingAddButton() {
   // Close menu when clicking anywhere outside
   document.addEventListener('click', (e) => {
     if (isExpanded) {
-      // Check if click is outside FAB and menu
       const isClickOnFab = fab.contains(e.target);
       const isClickOnMenu = fabMenu && fabMenu.contains(e.target);
+      const isClickOnAction = e.target.closest('.fab-action');
       
-      if (!isClickOnFab && !isClickOnMenu) {
+      if (!isClickOnFab && !isClickOnMenu && !isClickOnAction) {
         console.log('🎯 Click outside FAB, closing menu');
         closeFabMenu();
       }
@@ -540,7 +547,7 @@ function setupFloatingAddButton() {
   console.log('✅ FAB setup completed');
 }
 
-// Enhanced FAB actions to open forms directly - FIXED FOR ALL TABS
+// Enhanced FAB actions to open forms directly on ALL tabs
 function setupFabActions(closeFabMenu) {
   const quickActions = {
     'fabAddStudent': () => {
@@ -548,7 +555,7 @@ function setupFabActions(closeFabMenu) {
       const studentTab = document.querySelector('[data-tab="students"]');
       if (studentTab) {
         studentTab.click();
-        // Scroll to student form
+        // Scroll to student form after tab switch
         setTimeout(() => {
           const studentForm = document.getElementById('studentForm');
           if (studentForm) {
@@ -557,7 +564,7 @@ function setupFabActions(closeFabMenu) {
             const firstInput = studentForm.querySelector('input');
             if (firstInput) firstInput.focus();
           }
-        }, 300);
+        }, 100);
       }
     },
     'fabAddHours': () => {
@@ -565,7 +572,7 @@ function setupFabActions(closeFabMenu) {
       const hoursTab = document.querySelector('[data-tab="hours"]');
       if (hoursTab) {
         hoursTab.click();
-        // Scroll to hours form
+        // Scroll to hours form after tab switch
         setTimeout(() => {
           const hoursForm = document.querySelector('#hours .section-card:first-child');
           if (hoursForm) {
@@ -573,7 +580,7 @@ function setupFabActions(closeFabMenu) {
             const firstInput = hoursForm.querySelector('input');
             if (firstInput) firstInput.focus();
           }
-        }, 300);
+        }, 100);
       }
     },
     'fabAddMark': () => {
@@ -581,7 +588,7 @@ function setupFabActions(closeFabMenu) {
       const marksTab = document.querySelector('[data-tab="marks"]');
       if (marksTab) {
         marksTab.click();
-        // Scroll to marks form
+        // Scroll to marks form after tab switch
         setTimeout(() => {
           const marksForm = document.getElementById('marksForm');
           if (marksForm) {
@@ -589,7 +596,7 @@ function setupFabActions(closeFabMenu) {
             const firstInput = marksForm.querySelector('input, select');
             if (firstInput) firstInput.focus();
           }
-        }, 300);
+        }, 100);
       }
     },
     'fabAddAttendance': () => {
@@ -597,7 +604,7 @@ function setupFabActions(closeFabMenu) {
       const attendanceTab = document.querySelector('[data-tab="attendance"]');
       if (attendanceTab) {
         attendanceTab.click();
-        // Scroll to attendance form
+        // Scroll to attendance form after tab switch
         setTimeout(() => {
           const attendanceForm = document.querySelector('#attendance .section-card:first-child');
           if (attendanceForm) {
@@ -605,7 +612,7 @@ function setupFabActions(closeFabMenu) {
             const firstInput = attendanceForm.querySelector('input');
             if (firstInput) firstInput.focus();
           }
-        }, 300);
+        }, 100);
       }
     }
   };
