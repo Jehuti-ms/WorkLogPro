@@ -290,10 +290,12 @@
             <label for="totalPay">Total Earnings</label>
             <input type="text" id="totalPay" readonly>
           </div>
-          <div class="form-actions">
-            <button type="button" class="button primary" onclick="logHours()">💾 Log Work</button>
-            <button type="button" class="button secondary" onclick="resetHoursForm()">🗑️ Clear Form</button>
-          </div>
+         <div class="form-actions">
+          <button type="button" class="button primary" id="logHoursBtn" onclick="logHours()">
+            <span id="logHoursText">💾 Log Work</span>
+            <span id="logHoursSpinner" style="display: none;">⏳ Saving...</span>
+          </button>
+          <button type="button" class="button secondary" onclick="resetHoursForm()">🗑️ Clear Form</button>
         </div>
 
         <div class="section-card">
