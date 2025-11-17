@@ -424,7 +424,7 @@ function updateProfileModal() {
 }
 
 // ===========================
-// FLOATING ADD BUTTON - FIXED FOR ALL TABS
+// FLOATING ADD BUTTON - FIXED VERSION
 // ===========================
 
 function setupFloatingAddButton() {
@@ -440,12 +440,18 @@ function setupFloatingAddButton() {
     return;
   }
 
-  // Make sure FAB is visible on all tabs by positioning it fixed
-  const fabContainer = fab.closest('.fab-container');
-  if (fabContainer) {
-    fabContainer.style.position = 'fixed';
-    fabContainer.style.zIndex = '1000';
-    console.log('✅ FAB container positioned fixed');
+  // Debug: Check if FAB is inside any tab content
+  const allTabContents = document.querySelectorAll('.tabcontent');
+  let isInsideTab = false;
+  allTabContents.forEach(tab => {
+    if (tab.contains(fab)) {
+      isInsideTab = true;
+      console.error('❌ FAB is INSIDE tab content:', tab.id);
+    }
+  });
+  
+  if (!isInsideTab) {
+    console.log('✅ FAB is properly outside all tab content');
   }
 
   let isExpanded = false;
@@ -522,11 +528,12 @@ function setupFloatingAddButton() {
   // Close menu when clicking anywhere outside
   document.addEventListener('click', (e) => {
     if (isExpanded) {
+      // Check if click is outside FAB and menu
       const isClickOnFab = fab.contains(e.target);
       const isClickOnMenu = fabMenu && fabMenu.contains(e.target);
-      const isClickOnAction = e.target.closest('.fab-action');
+      const isClickOnFabItem = e.target.closest('.fab-item');
       
-      if (!isClickOnFab && !isClickOnMenu && !isClickOnAction) {
+      if (!isClickOnFab && !isClickOnMenu && !isClickOnFabItem) {
         console.log('🎯 Click outside FAB, closing menu');
         closeFabMenu();
       }
@@ -547,7 +554,7 @@ function setupFloatingAddButton() {
   console.log('✅ FAB setup completed');
 }
 
-// Enhanced FAB actions to open forms directly on ALL tabs
+// Enhanced FAB actions to open forms directly
 function setupFabActions(closeFabMenu) {
   const quickActions = {
     'fabAddStudent': () => {
@@ -555,7 +562,7 @@ function setupFabActions(closeFabMenu) {
       const studentTab = document.querySelector('[data-tab="students"]');
       if (studentTab) {
         studentTab.click();
-        // Scroll to student form after tab switch
+        // Scroll to student form after tab animation
         setTimeout(() => {
           const studentForm = document.getElementById('studentForm');
           if (studentForm) {
@@ -564,7 +571,7 @@ function setupFabActions(closeFabMenu) {
             const firstInput = studentForm.querySelector('input');
             if (firstInput) firstInput.focus();
           }
-        }, 100);
+        }, 300);
       }
     },
     'fabAddHours': () => {
@@ -572,7 +579,7 @@ function setupFabActions(closeFabMenu) {
       const hoursTab = document.querySelector('[data-tab="hours"]');
       if (hoursTab) {
         hoursTab.click();
-        // Scroll to hours form after tab switch
+        // Scroll to hours form after tab animation
         setTimeout(() => {
           const hoursForm = document.querySelector('#hours .section-card:first-child');
           if (hoursForm) {
@@ -580,7 +587,7 @@ function setupFabActions(closeFabMenu) {
             const firstInput = hoursForm.querySelector('input');
             if (firstInput) firstInput.focus();
           }
-        }, 100);
+        }, 300);
       }
     },
     'fabAddMark': () => {
@@ -588,7 +595,7 @@ function setupFabActions(closeFabMenu) {
       const marksTab = document.querySelector('[data-tab="marks"]');
       if (marksTab) {
         marksTab.click();
-        // Scroll to marks form after tab switch
+        // Scroll to marks form after tab animation
         setTimeout(() => {
           const marksForm = document.getElementById('marksForm');
           if (marksForm) {
@@ -596,7 +603,7 @@ function setupFabActions(closeFabMenu) {
             const firstInput = marksForm.querySelector('input, select');
             if (firstInput) firstInput.focus();
           }
-        }, 100);
+        }, 300);
       }
     },
     'fabAddAttendance': () => {
@@ -604,7 +611,7 @@ function setupFabActions(closeFabMenu) {
       const attendanceTab = document.querySelector('[data-tab="attendance"]');
       if (attendanceTab) {
         attendanceTab.click();
-        // Scroll to attendance form after tab switch
+        // Scroll to attendance form after tab animation
         setTimeout(() => {
           const attendanceForm = document.querySelector('#attendance .section-card:first-child');
           if (attendanceForm) {
@@ -612,7 +619,7 @@ function setupFabActions(closeFabMenu) {
             const firstInput = attendanceForm.querySelector('input');
             if (firstInput) firstInput.focus();
           }
-        }, 100);
+        }, 300);
       }
     }
   };
