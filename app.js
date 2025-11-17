@@ -2377,28 +2377,111 @@ async function deleteHours(hoursId) {
 
 function cancelHoursEdit() {
   resetHoursFormToAddMode();
-  
-  // Hide cancel button
-  const cancelBtn = document.getElementById('cancelHoursEdit');
-  if (cancelBtn) {
-    cancelBtn.style.display = 'none';
-  }
-  
   NotificationSystem.notifyInfo('Hours edit cancelled');
 }
 
-// Update editHours to show cancel button
-// In editHours function, add:
-const cancelBtn = document.getElementById('cancelHoursEdit');
-if (cancelBtn) {
-  cancelBtn.style.display = 'inline-flex';
+// Update the resetHoursFormToAddMode function to handle cancel button:
+function resetHoursFormToAddMode() {
+  resetHoursForm();
+  
+  // Reset button to add mode
+  const logHoursBtn = document.getElementById('logHoursBtn');
+  if (logHoursBtn) {
+    logHoursBtn.onclick = logHours;
+    logHoursBtn.innerHTML = '<span id="logHoursText">💾 Log Work</span><span id="logHoursSpinner" style="display: none;">⏳ Saving...</span>';
+  }
+  
+  // Hide cancel button
+  const hoursCancelBtn = document.getElementById('cancelHoursEdit');
+  if (hoursCancelBtn) {
+    hoursCancelBtn.style.display = 'none';
+  }
+  
+  console.log("✅ Hours form reset to add mode");
 }
 
-// Update resetHoursFormToAddMode to hide cancel button
-// In resetHoursFormToAddMode function, add:
-const cancelBtn = document.getElementById('cancelHoursEdit');
-if (cancelBtn) {
-  cancelBtn.style.display = 'none';
+// Update editHours to show cancel button
+async function editHours(hoursId) {
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to edit hours');
+    return;
+  }
+
+  try {
+    // Show loading state
+    const logHoursBtn = document.getElementById('logHoursBtn');
+    if (logHoursBtn) {
+      logHoursBtn.disabled = true;
+      logHoursBtn.innerHTML = '<span id="logHoursText">⏳ Loading...</span>';
+    }
+
+    const hoursDoc = await getDoc(doc(db, "users", user.uid, "hours", hoursId));
+    
+    if (!hoursDoc.exists()) {
+      NotificationSystem.notifyError('Hours entry not found');
+      return;
+    }
+
+    const hours = hoursDoc.data();
+    
+    // Fill the form with hours data
+    document.getElementById('organization').value = hours.organization || '';
+    document.getElementById('workSubject').value = hours.subject || '';
+    document.getElementById('workType').value = hours.workType || 'hourly';
+    document.getElementById('workDate').value = hours.date || '';
+    document.getElementById('hoursWorked').value = hours.hours || '';
+    document.getElementById('baseRate').value = hours.rate || '';
+    
+    // Update student dropdown if exists
+    const studentEl = document.getElementById('hoursStudent');
+    if (studentEl && hours.student) {
+      studentEl.value = hours.student;
+    }
+    
+    // Update total display
+    const totalEl = document.getElementById('totalPay');
+    if (totalEl) {
+      if ("value" in totalEl) {
+        totalEl.value = fmtMoney(hours.total);
+      } else {
+        totalEl.textContent = fmtMoney(hours.total);
+      }
+    }
+    
+    // Change button to update mode and show cancel button
+    if (logHoursBtn) {
+      logHoursBtn.disabled = false;
+      logHoursBtn.onclick = () => updateHours(hoursId);
+      logHoursBtn.innerHTML = '<span id="logHoursText">💾 Update Hours</span><span id="logHoursSpinner" style="display: none;">⏳ Updating...</span>';
+    }
+    
+    // Show cancel button
+    const hoursCancelBtn = document.getElementById('cancelHoursEdit');
+    if (hoursCancelBtn) {
+      hoursCancelBtn.style.display = 'inline-flex';
+    }
+    
+    // Scroll to form
+    const hoursForm = document.querySelector('#hours .section-card:first-child');
+    if (hoursForm) {
+      hoursForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    
+    NotificationSystem.notifyInfo(`Editing hours entry from ${formatDate(hours.date)}`);
+    
+  } catch (error) {
+    console.error('Error loading hours for edit:', error);
+    NotificationSystem.notifyError('Failed to load hours data');
+    
+    // Reset button on error
+    const logHoursBtn = document.getElementById('logHoursBtn');
+    if (logHoursBtn) {
+      logHoursBtn.disabled = false;
+      logHoursBtn.onclick = logHours;
+      logHoursBtn.innerHTML = '<span id="logHoursText">💾 Log Work</span><span id="logHoursSpinner" style="display: none;">⏳ Saving...</span>';
+    }
+  }
 }
 
 function resetMarksForm() {
