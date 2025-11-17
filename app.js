@@ -2657,26 +2657,6 @@ function formatDateForInput(dateString) {
   }
 }
 
-function fmtDateISO(yyyyMmDd) {
-  if (!yyyyMmDd) return new Date().toISOString();
-  try {
-    const [year, month, day] = yyyyMmDd.split('-').map(Number);
-    const localDate = new Date(year, month - 1, day, 12, 0, 0);
-    const isoString = localDate.toISOString();
-    
-    console.log('🔧 Date conversion:', {
-      input: yyyyMmDd,
-      localDate: localDate.toString(),
-      isoString: isoString
-    });
-    
-    return isoString;
-  } catch (error) {
-    console.error('❌ Date conversion error:', error);
-    return new Date().toISOString();
-  }
-}
-
 function convertToLocalDate(dateString) {
   if (!dateString) return new Date();
   
