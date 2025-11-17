@@ -1846,78 +1846,67 @@ const UIManager = {
   },
 
  initTabs() {
-  const tabs = document.querySelectorAll('.tab');
-  const tabContents = document.querySelectorAll('.tabcontent');
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tabcontent');
 
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const target = tab.getAttribute('data-tab');
-      console.log('📑 Switching to tab:', target);
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.getAttribute('data-tab');
+        console.log('📑 Switching to tab:', target);
 
-      // Remove active class from all tabs and contents
-      tabs.forEach(t => t.classList.remove('active'));
-      tabContents.forEach(tc => {
-        tc.classList.remove('active');
-        tc.style.display = 'none';
-      });
+        // Remove active class from all tabs and contents
+        tabs.forEach(t => t.classList.remove('active'));
+        tabContents.forEach(tc => {
+          tc.classList.remove('active');
+          tc.style.display = 'none';
+        });
 
-      // Add active class to clicked tab and target content
-      tab.classList.add('active');
-      
-      const selected = document.getElementById(target);
-      if (selected) {
-        selected.classList.add('active');
-        selected.style.display = 'block';
-        console.log('✅ Tab displayed:', target);
+        // Add active class to clicked tab and target content
+        tab.classList.add('active');
         
-        // 🔥 ADD JUST THIS LINE: Ensure FAB is visible on all tabs
-        ensureFABVisible();
-      } else {
-        console.error('❌ Tab content not found:', target);
-      }
+        const selected = document.getElementById(target);
+        if (selected) {
+          selected.classList.add('active');
+          selected.style.display = 'block';
+          console.log('✅ Tab displayed:', target);
+        } else {
+          console.error('❌ Tab content not found:', target);
+        }
+      });
     });
-  });
 
-  // Activate first tab by default
-  const firstTab = document.querySelector('.tab.active') || document.querySelector('.tab');
-  if (firstTab) {
-    firstTab.click();
-  }
-  
-  console.log('✅ Tabs initialized');
-},
+    // Activate first tab by default
+    const firstTab = document.querySelector('.tab.active') || document.querySelector('.tab');
+    if (firstTab) {
+      firstTab.click();
+    }
+    
+    console.log('✅ Tabs initialized');
+  },
 
-loadTabData(tabName) {
-  const user = auth.currentUser;
-  if (!user) return;
+  bindUiEvents() {
+    console.log('🔧 Binding UI events...');
+    
+    const themeToggle = document.querySelector('.theme-toggle button');
+    if (themeToggle) {
+      themeToggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.toggleTheme();
+      });
+    }
+    
+    const forms = document.querySelectorAll('form');
+    forms.forEach(form => {
+      form.addEventListener('submit', (e) => e.preventDefault());
+    });
+    
+    this.setupHoursFormCalculations();
+    this.setupMarksFormCalculations();
+    
+    console.log('✅ UI events bound');
+  },
 
-  console.log('📥 Loading data for tab:', tabName);
-  
-  switch(tabName) {
-    case 'students':
-      renderStudents();
-      break;
-    case 'hours':
-      renderRecentHours();
-      break;
-    case 'marks':
-      renderRecentMarks();
-      break;
-    case 'attendance':
-      renderAttendanceRecent();
-      break;
-    case 'payments':
-      renderPaymentActivity();
-      renderStudentBalances();
-      break;
-    case 'overview':
-      renderOverviewReports();
-      break;
-    case 'reports':
-      showWeeklyBreakdown();
-      break;
-  }
-},
 
   setupMarksFormCalculations() {
     const scoreInput = document.getElementById('marksScore');
