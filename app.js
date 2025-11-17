@@ -1849,41 +1849,29 @@ const UIManager = {
   const tabs = document.querySelectorAll('.tab');
   const tabContents = document.querySelectorAll('.tabcontent');
 
-  console.log('📑 Found tabs:', tabs.length);
-  console.log('📑 Found tab contents:', tabContents.length);
-
   tabs.forEach(tab => {
     tab.addEventListener('click', () => {
       const target = tab.getAttribute('data-tab');
       console.log('📑 Switching to tab:', target);
 
       // Remove active class from all tabs and contents
-      tabs.forEach(t => {
-        t.classList.remove('active');
-        console.log(`📑 Removed active from tab: ${t.getAttribute('data-tab')}`);
-      });
-      
+      tabs.forEach(t => t.classList.remove('active'));
       tabContents.forEach(tc => {
         tc.classList.remove('active');
         tc.style.display = 'none';
-        console.log(`📑 Hid tab content: ${tc.id}`);
       });
 
       // Add active class to clicked tab and target content
       tab.classList.add('active');
-      console.log(`📑 Added active to tab: ${target}`);
       
       const selected = document.getElementById(target);
       if (selected) {
         selected.classList.add('active');
         selected.style.display = 'block';
-        console.log(`✅ Tab displayed: ${target}`);
+        console.log('✅ Tab displayed:', target);
         
-        // 🔥 FIX: Ensure FAB is visible on ALL tabs
+        // 🔥 ADD JUST THIS LINE: Ensure FAB is visible on all tabs
         ensureFABVisible();
-        
-        // 🔥 FIX: Load data for the tab if needed
-        this.loadTabData(target);
       } else {
         console.error('❌ Tab content not found:', target);
       }
@@ -1893,11 +1881,7 @@ const UIManager = {
   // Activate first tab by default
   const firstTab = document.querySelector('.tab.active') || document.querySelector('.tab');
   if (firstTab) {
-    console.log('📑 Activating first tab:', firstTab.getAttribute('data-tab'));
     firstTab.click();
-  } else if (tabs.length > 0) {
-    console.log('📑 No active tab found, clicking first tab');
-    tabs[0].click();
   }
   
   console.log('✅ Tabs initialized');
