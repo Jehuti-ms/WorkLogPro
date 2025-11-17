@@ -2383,10 +2383,9 @@ function useDefaultRateInHours() {
 }
 
 // ===========================
-// HOURS MANAGEMENT FUNCTIONS - ENHANCED WITH EDIT/DELETE
+// HOURS MANAGEMENT FUNCTIONS - WITH CACHE & BACKGROUND SYNC
 // ===========================
 
-// REPLACE your existing logHours function with this:
 async function logHours() {
   const studentEl = document.getElementById("hoursStudent");
   const orgEl = document.getElementById("organization");
@@ -2420,41 +2419,56 @@ async function logHours() {
       submitBtn.disabled = true;
     }
 
-    // Debug timezone conversion
-    console.log('🕐 Before date conversion:', {
-      inputDate: workDate,
-      isoDate: fmtDateISO(workDate)
-    });
-
     const hoursData = {
       student: studentId || null,
       organization,
       workType,
-      date: workDate, // Store the original local date
-      dateIso: fmtDateISO(workDate), // Store ISO with proper timezone
+      date: workDate,
+      dateIso: fmtDateISO(workDate),
       hours,
       rate,
       total,
-      loggedAt: new Date().toISOString()
+      loggedAt: new Date().toISOString(),
+      synced: false // Track sync status
     };
 
-    console.log('📝 Hours data to save:', hoursData);
-
+    let hoursId;
     if (currentEditHoursId) {
       // Update existing hours
-      const hoursRef = doc(db, "users", user.uid, "hours", currentEditHoursId);
+      hoursId = currentEditHoursId;
+      const hoursRef = doc(db, "users", user.uid, "hours", hoursId);
       await updateDoc(hoursRef, hoursData);
       NotificationSystem.notifySuccess("Hours updated successfully");
     } else {
-      // Add new hours
-      await addDoc(collection(db, "users", user.uid, "hours"), hoursData);
+      // Add new hours - generate ID for cache
+      hoursId = `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      hoursData.id = hoursId;
+      
+      // Save to Firestore
+      const docRef = await addDoc(collection(db, "users", user.uid, "hours"), hoursData);
+      hoursId = docRef.id; // Get the actual Firestore ID
       NotificationSystem.notifySuccess("Hours logged successfully");
     }
+
+    // Clear cache to force fresh data on next load
+    cache.hours = null;
+    cache.lastSync = null;
+    console.log('🗑️ Cache cleared for hours');
     
-    await recalcSummaryStats(user.uid);
-    await renderRecentHours();
+    // Clear form IMMEDIATELY after successful save
     resetHoursForm();
     
+    // Refresh data in background (don't wait for it)
+    Promise.all([
+      renderRecentHours(), // This will now fetch fresh data due to cache clear
+      recalcSummaryStats(user.uid)
+    ]).then(() => {
+      console.log('✅ Background refresh completed with fresh hours data');
+    }).catch(error => {
+      console.error("Background refresh failed:", error);
+      // Don't show error to user for background tasks
+    });
+
   } catch (err) {
     console.error("Error logging hours:", err);
     NotificationSystem.notifyError("Failed to log hours");
@@ -2466,6 +2480,223 @@ async function logHours() {
       submitBtn.disabled = false;
     }
   }
+}
+
+// Enhanced hours rendering with immediate cache display
+async function renderRecentHours(limit = 10) {
+  const user = auth.currentUser;
+  if (!user) return;
+  
+  const container = document.getElementById('hoursContainer');
+  if (!container) return;
+
+  // Show cached data immediately if available
+  if (isCacheValid('hours') && cache.hours) {
+    container.innerHTML = cache.hours;
+    console.log('✅ Hours loaded from cache');
+    return;
+  }
+
+  container.innerHTML = '<div class="loading">Loading recent hours...</div>';
+
+  try {
+    const hoursQuery = query(
+      collection(db, "users", user.uid, "hours"),
+      orderBy("dateIso", "desc")
+    );
+    
+    const snap = await getDocs(hoursQuery);
+    const rows = [];
+    snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+
+    if (rows.length === 0) {
+      const emptyHTML = `
+        <div class="empty-state">
+          <h3>No Hours Logged</h3>
+          <p>Log your first work session to get started</p>
+        </div>
+      `;
+      container.innerHTML = emptyHTML;
+      cache.hours = emptyHTML;
+      cache.lastSync = Date.now();
+      return;
+    }
+
+    let hoursHTML = '';
+    rows.slice(0, limit).forEach(entry => {
+      hoursHTML += `
+        <div class="hours-entry">
+          <div class="hours-header">
+            <strong>${entry.organization}</strong>
+            <span class="hours-type">${entry.workType}</span>
+            <div class="hours-actions">
+              <button class="btn-icon" onclick="editHours('${entry.id}')" title="Edit">✏️</button>
+              <button class="btn-icon" onclick="deleteHours('${entry.id}')" title="Delete">🗑️</button>
+            </div>
+          </div>
+          <div class="muted">${formatDate(entry.date)} • ${entry.subject || 'General'}</div>
+          <div class="hours-details">
+            <span>Hours: ${safeNumber(entry.hours)}</span>
+            <span>Rate: $${fmtMoney(entry.rate)}</span>
+            <span class="hours-total">Total: $${fmtMoney(entry.total)}</span>
+          </div>
+          ${entry.student ? `<div class="muted">Student: ${entry.student}</div>` : ''}
+        </div>
+      `;
+    });
+
+    container.innerHTML = hoursHTML;
+    cache.hours = hoursHTML;
+    cache.lastSync = Date.now();
+    
+    console.log('✅ Hours loaded from Firestore');
+
+  } catch (error) {
+    console.error("Error rendering hours:", error);
+    container.innerHTML = '<div class="error">Error loading hours</div>';
+  }
+}
+
+// Enhanced hours editing with cache clearing
+async function editHours(hoursId) {
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to edit hours');
+    return;
+  }
+
+  try {
+    console.log('✏️ Editing hours:', hoursId);
+    
+    // Show loading state immediately
+    const submitBtn = document.getElementById('hoursSubmitBtn');
+    if (submitBtn) submitBtn.textContent = 'Loading...';
+    
+    const hoursDoc = await getDoc(doc(db, "users", user.uid, "hours", hoursId));
+    
+    if (!hoursDoc.exists()) {
+      NotificationSystem.notifyError('Hours entry not found');
+      return;
+    }
+
+    const hours = hoursDoc.data();
+    
+    // Fill the form with hours data
+    document.getElementById('hoursStudent').value = hours.student || '';
+    document.getElementById('organization').value = hours.organization || '';
+    document.getElementById('workType').value = hours.workType || 'hourly';
+    document.getElementById('workDate').value = formatDateForInput(hours.dateIso || hours.date);
+    document.getElementById('hoursWorked').value = hours.hours || '';
+    document.getElementById('baseRate').value = hours.rate || '';
+
+    // Set edit mode
+    currentEditHoursId = hoursId;
+    
+    const submitBtnFinal = document.getElementById('hoursSubmitBtn');
+    const cancelBtn = document.getElementById('hoursCancelBtn');
+    
+    if (submitBtnFinal) {
+      submitBtnFinal.textContent = '💾 Update Hours';
+      submitBtnFinal.onclick = logHours;
+    }
+    
+    if (cancelBtn) {
+      cancelBtn.style.display = 'inline-flex';
+    }
+
+    // Update total display
+    const total = hours.total || 0;
+    const totalDisplay = document.getElementById('totalPay');
+    if (totalDisplay) {
+      totalDisplay.textContent = `$${fmtMoney(total)}`;
+    }
+
+    // Scroll to form immediately
+    const hoursForm = document.querySelector('#hours .section-card:first-child');
+    if (hoursForm) {
+      hoursForm.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start' 
+      });
+    }
+    
+    NotificationSystem.notifyInfo(`Editing hours entry for ${hours.organization}`);
+    
+  } catch (error) {
+    console.error('Error loading hours for edit:', error);
+    NotificationSystem.notifyError('Failed to load hours data');
+    
+    // Reset button on error
+    const submitBtn = document.getElementById('hoursSubmitBtn');
+    if (submitBtn) {
+      submitBtn.textContent = '💾 Log Hours';
+      submitBtn.onclick = logHours;
+    }
+  }
+}
+
+// Enhanced hours deletion with cache clearing
+async function deleteHours(hoursId) {
+  if (confirm("Are you sure you want to delete this hours entry? This action cannot be undone.")) {
+    const user = auth.currentUser;
+    if (user) {
+      try {
+        await deleteDoc(doc(db, "users", user.uid, "hours", hoursId));
+        
+        // Clear cache to force fresh data
+        cache.hours = null;
+        cache.lastSync = null;
+        
+        NotificationSystem.notifySuccess("Hours entry deleted successfully");
+        
+        // Refresh in background
+        Promise.all([
+          renderRecentHours(),
+          recalcSummaryStats(user.uid)
+        ]).then(() => {
+          console.log('✅ Background refresh after deletion completed');
+        }).catch(error => {
+          console.error("Background refresh failed:", error);
+        });
+        
+      } catch (error) {
+        console.error("Error deleting hours:", error);
+        NotificationSystem.notifyError("Failed to delete hours entry");
+      }
+    }
+  }
+}
+
+// Enhanced form reset
+function resetHoursForm() {
+  const form = document.getElementById("hoursForm");
+  if (form) {
+    form.reset();
+  }
+  
+  // Reset to add mode
+  const submitBtn = document.getElementById('hoursSubmitBtn');
+  const cancelBtn = document.getElementById('hoursCancelBtn');
+  
+  if (submitBtn) {
+    submitBtn.textContent = '💾 Log Hours';
+    submitBtn.onclick = logHours;
+    submitBtn.disabled = false;
+  }
+  
+  if (cancelBtn) {
+    cancelBtn.style.display = 'none';
+  }
+  
+  currentEditHoursId = null;
+  
+  // Reset total display
+  const totalDisplay = document.getElementById('totalPay');
+  if (totalDisplay) {
+    totalDisplay.textContent = '$0.00';
+  }
+  
+  console.log("✅ Hours form reset to add mode");
 }
 
 // ===========================
