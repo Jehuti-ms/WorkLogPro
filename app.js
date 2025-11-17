@@ -1821,6 +1821,58 @@ function updateMarksPercentage() {
   }
 }
 
+// Move these outside UIManager to be global functions
+function setupHoursFormCalculations() {
+  const hoursInput = document.getElementById('hoursWorked');
+  const rateInput = document.getElementById('baseRate');
+  const workTypeSelect = document.getElementById('workType');
+  
+  const calculateTotal = () => {
+    const hours = parseFloat(hoursInput?.value) || 0;
+    const rate = parseFloat(rateInput?.value) || 0;
+    const workType = workTypeSelect?.value || "hourly";
+    const totalEl = document.getElementById('totalPay');
+    
+    if (totalEl) {
+      let total = 0;
+      
+      switch(workType) {
+        case "hourly":
+          total = hours * rate;
+          break;
+        case "session":
+        case "consultation":
+          total = rate;
+          break;
+        case "contract":
+        case "project":
+        case "other":
+          total = rate;
+          break;
+        default:
+          total = hours * rate;
+      }
+      
+      if ("value" in totalEl) {
+        totalEl.value = fmtMoney(total);
+      } else {
+        totalEl.textContent = fmtMoney(total);
+      }
+    }
+  };
+
+  if (hoursInput) hoursInput.addEventListener('input', calculateTotal);
+  if (rateInput) rateInput.addEventListener('input', calculateTotal);
+  if (workTypeSelect) workTypeSelect.addEventListener('change', calculateTotal);
+}
+
+function setupMarksFormCalculations() {
+  const scoreInput = document.getElementById('marksScore');
+  const maxInput = document.getElementById('marksMax');
+  if (scoreInput) scoreInput.addEventListener('input', updateMarksPercentage);
+  if (maxInput) maxInput.addEventListener('input', updateMarksPercentage);
+}
+
 const UIManager = {
   init() {
     this.initializeTheme();
@@ -1845,7 +1897,7 @@ const UIManager = {
     console.log(`🎨 Theme changed to ${newTheme}`);
   },
 
- initTabs() {
+  initTabs() {
     const tabs = document.querySelectorAll('.tab');
     const tabContents = document.querySelectorAll('.tabcontent');
 
@@ -1869,6 +1921,9 @@ const UIManager = {
           selected.classList.add('active');
           selected.style.display = 'block';
           console.log('✅ Tab displayed:', target);
+          
+          // Ensure FAB is visible on all tabs
+          ensureFABVisible();
         } else {
           console.error('❌ Tab content not found:', target);
         }
@@ -1901,18 +1956,11 @@ const UIManager = {
       form.addEventListener('submit', (e) => e.preventDefault());
     });
     
-    this.setupHoursFormCalculations();
-    this.setupMarksFormCalculations();
+    // Call the global functions directly
+    setupHoursFormCalculations();
+    setupMarksFormCalculations();
     
     console.log('✅ UI events bound');
-  },
-
-
-  setupMarksFormCalculations() {
-    const scoreInput = document.getElementById('marksScore');
-    const maxInput = document.getElementById('marksMax');
-    if (scoreInput) scoreInput.addEventListener('input', updateMarksPercentage);
-    if (maxInput) maxInput.addEventListener('input', updateMarksPercentage);
   },
 
   initEventListeners() {
@@ -1931,7 +1979,7 @@ const UIManager = {
     console.log('✅ Event listeners initialized');
   }
 };
-
+  
 // ===========================
 // STUDENT FORM EVENT LISTENERS
 // ===========================
