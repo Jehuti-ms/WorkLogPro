@@ -2621,6 +2621,103 @@ async function deleteHours(hoursId) {
 }
 
 // ===========================
+// TIMEZONE UTILITY FUNCTIONS - SINGLE VERSION
+// ===========================
+
+function getLocalISODate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateForInput(dateString) {
+  if (!dateString) return new Date().toISOString().split('T')[0];
+  
+  try {
+    let date;
+    if (dateString.includes('T')) {
+      date = new Date(dateString);
+    } else {
+      const [year, month, day] = dateString.split('-').map(Number);
+      date = new Date(year, month - 1, day);
+    }
+    
+    if (isNaN(date.getTime())) {
+      return new Date().toISOString().split('T')[0];
+    }
+    
+    const localYear = date.getFullYear();
+    const localMonth = String(date.getMonth() + 1).padStart(2, '0');
+    const localDay = String(date.getDate()).padStart(2, '0');
+    return `${localYear}-${localMonth}-${localDay}`;
+  } catch {
+    return new Date().toISOString().split('T')[0];
+  }
+}
+
+function fmtDateISO(yyyyMmDd) {
+  if (!yyyyMmDd) return new Date().toISOString();
+  try {
+    const [year, month, day] = yyyyMmDd.split('-').map(Number);
+    const localDate = new Date(year, month - 1, day, 12, 0, 0);
+    const isoString = localDate.toISOString();
+    
+    console.log('🔧 Date conversion:', {
+      input: yyyyMmDd,
+      localDate: localDate.toString(),
+      isoString: isoString
+    });
+    
+    return isoString;
+  } catch (error) {
+    console.error('❌ Date conversion error:', error);
+    return new Date().toISOString();
+  }
+}
+
+function convertToLocalDate(dateString) {
+  if (!dateString) return new Date();
+  
+  try {
+    let date;
+    if (dateString.includes('T')) {
+      date = new Date(dateString);
+    } else {
+      const [year, month, day] = dateString.split('-').map(Number);
+      date = new Date(year, month - 1, day);
+    }
+    return date;
+  } catch {
+    return new Date();
+  }
+}
+
+function formatDate(dateString) {
+  if (!dateString) return 'Never';
+  try {
+    const date = convertToLocalDate(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch {
+    return dateString;
+  }
+}
+
+function debugTimezone(dateString) {
+  console.log('🕐 Timezone Debug:', {
+    input: dateString,
+    localFormat: formatDateForInput(dateString),
+    formatted: formatDate(dateString),
+    currentTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+  });
+}
+
+// ===========================
 // FORM SUBMISSION FUNCTIONS
 // ===========================
 
