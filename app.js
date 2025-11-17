@@ -2383,8 +2383,79 @@ function useDefaultRateInHours() {
 }
 
 // ===========================
-// HOURS MANAGEMENT FUNCTIONS - WITH CACHE & BACKGROUND SYNC
+// HOURS MANAGEMENT FUNCTIONS - WITH PROPER EDIT/CANCEL/CLEAR
 // ===========================
+
+function cancelHoursEdit() {
+  console.log('❌ Canceling hours edit...');
+  
+  currentEditHoursId = null;
+  
+  const submitBtn = document.getElementById('hoursSubmitBtn');
+  const cancelBtn = document.getElementById('hoursCancelBtn');
+  
+  if (submitBtn) {
+    submitBtn.textContent = '💾 Log Hours';
+    submitBtn.onclick = logHours;
+  }
+  
+  if (cancelBtn) {
+    cancelBtn.style.display = 'none';
+  }
+  
+  // Clear the form completely
+  clearHoursForm();
+  
+  NotificationSystem.notifyInfo('Hours edit canceled');
+}
+
+// Separate function to completely clear the form (used for cancel and after save)
+function clearHoursForm() {
+  const form = document.querySelector('#hours form');
+  if (form) {
+    form.reset();
+  }
+  
+  // Reset specific fields to ensure clean state
+  document.getElementById('organization').value = '';
+  document.getElementById('workSubject').value = '';
+  document.getElementById('hoursStudent').selectedIndex = 0;
+  document.getElementById('workType').selectedIndex = 0;
+  document.getElementById('workDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('hoursWorked').value = '';
+  document.getElementById('baseRate').value = '';
+  
+  // Reset total display
+  const totalDisplay = document.getElementById('totalPay');
+  if (totalDisplay) {
+    totalDisplay.textContent = '$0.00';
+  }
+  
+  console.log("✅ Hours form completely cleared");
+}
+
+// Enhanced form reset that handles both clear and post-edit scenarios
+function resetHoursForm() {
+  clearHoursForm();
+  
+  // Reset to add mode
+  const submitBtn = document.getElementById('hoursSubmitBtn');
+  const cancelBtn = document.getElementById('hoursCancelBtn');
+  
+  if (submitBtn) {
+    submitBtn.textContent = '💾 Log Hours';
+    submitBtn.onclick = logHours;
+    submitBtn.disabled = false;
+  }
+  
+  if (cancelBtn) {
+    cancelBtn.style.display = 'none';
+  }
+  
+  currentEditHoursId = null;
+  
+  console.log("✅ Hours form reset to add mode");
+}
 
 async function logHours() {
   const studentEl = document.getElementById("hoursStudent");
@@ -2428,25 +2499,17 @@ async function logHours() {
       hours,
       rate,
       total,
-      loggedAt: new Date().toISOString(),
-      synced: false // Track sync status
+      loggedAt: new Date().toISOString()
     };
 
-    let hoursId;
     if (currentEditHoursId) {
       // Update existing hours
-      hoursId = currentEditHoursId;
-      const hoursRef = doc(db, "users", user.uid, "hours", hoursId);
+      const hoursRef = doc(db, "users", user.uid, "hours", currentEditHoursId);
       await updateDoc(hoursRef, hoursData);
       NotificationSystem.notifySuccess("Hours updated successfully");
     } else {
-      // Add new hours - generate ID for cache
-      hoursId = `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      hoursData.id = hoursId;
-      
-      // Save to Firestore
-      const docRef = await addDoc(collection(db, "users", user.uid, "hours"), hoursData);
-      hoursId = docRef.id; // Get the actual Firestore ID
+      // Add new hours
+      await addDoc(collection(db, "users", user.uid, "hours"), hoursData);
       NotificationSystem.notifySuccess("Hours logged successfully");
     }
 
@@ -2455,8 +2518,9 @@ async function logHours() {
     cache.lastSync = null;
     console.log('🗑️ Cache cleared for hours');
     
-    // Clear form IMMEDIATELY after successful save
-    resetHoursForm();
+    // Clear form IMMEDIATELY after successful save - use clearHoursForm for complete reset
+    clearHoursForm();
+    resetHoursForm(); // This will also reset the button states
     
     // Refresh data in background (don't wait for it)
     Promise.all([
@@ -2482,82 +2546,6 @@ async function logHours() {
   }
 }
 
-// Enhanced hours rendering with immediate cache display
-async function renderRecentHours(limit = 10) {
-  const user = auth.currentUser;
-  if (!user) return;
-  
-  const container = document.getElementById('hoursContainer');
-  if (!container) return;
-
-  // Show cached data immediately if available
-  if (isCacheValid('hours') && cache.hours) {
-    container.innerHTML = cache.hours;
-    console.log('✅ Hours loaded from cache');
-    return;
-  }
-
-  container.innerHTML = '<div class="loading">Loading recent hours...</div>';
-
-  try {
-    const hoursQuery = query(
-      collection(db, "users", user.uid, "hours"),
-      orderBy("dateIso", "desc")
-    );
-    
-    const snap = await getDocs(hoursQuery);
-    const rows = [];
-    snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
-
-    if (rows.length === 0) {
-      const emptyHTML = `
-        <div class="empty-state">
-          <h3>No Hours Logged</h3>
-          <p>Log your first work session to get started</p>
-        </div>
-      `;
-      container.innerHTML = emptyHTML;
-      cache.hours = emptyHTML;
-      cache.lastSync = Date.now();
-      return;
-    }
-
-    let hoursHTML = '';
-    rows.slice(0, limit).forEach(entry => {
-      hoursHTML += `
-        <div class="hours-entry">
-          <div class="hours-header">
-            <strong>${entry.organization}</strong>
-            <span class="hours-type">${entry.workType}</span>
-            <div class="hours-actions">
-              <button class="btn-icon" onclick="editHours('${entry.id}')" title="Edit">✏️</button>
-              <button class="btn-icon" onclick="deleteHours('${entry.id}')" title="Delete">🗑️</button>
-            </div>
-          </div>
-          <div class="muted">${formatDate(entry.date)} • ${entry.subject || 'General'}</div>
-          <div class="hours-details">
-            <span>Hours: ${safeNumber(entry.hours)}</span>
-            <span>Rate: $${fmtMoney(entry.rate)}</span>
-            <span class="hours-total">Total: $${fmtMoney(entry.total)}</span>
-          </div>
-          ${entry.student ? `<div class="muted">Student: ${entry.student}</div>` : ''}
-        </div>
-      `;
-    });
-
-    container.innerHTML = hoursHTML;
-    cache.hours = hoursHTML;
-    cache.lastSync = Date.now();
-    
-    console.log('✅ Hours loaded from Firestore');
-
-  } catch (error) {
-    console.error("Error rendering hours:", error);
-    container.innerHTML = '<div class="error">Error loading hours</div>';
-  }
-}
-
-// Enhanced hours editing with cache clearing
 async function editHours(hoursId) {
   const user = auth.currentUser;
   if (!user) {
@@ -2598,6 +2586,7 @@ async function editHours(hoursId) {
     if (submitBtnFinal) {
       submitBtnFinal.textContent = '💾 Update Hours';
       submitBtnFinal.onclick = logHours;
+      submitBtnFinal.disabled = false;
     }
     
     if (cancelBtn) {
@@ -2631,11 +2620,11 @@ async function editHours(hoursId) {
     if (submitBtn) {
       submitBtn.textContent = '💾 Log Hours';
       submitBtn.onclick = logHours;
+      submitBtn.disabled = false;
     }
   }
 }
 
-// Enhanced hours deletion with cache clearing
 async function deleteHours(hoursId) {
   if (confirm("Are you sure you want to delete this hours entry? This action cannot be undone.")) {
     const user = auth.currentUser;
@@ -2665,38 +2654,6 @@ async function deleteHours(hoursId) {
       }
     }
   }
-}
-
-// Enhanced form reset
-function resetHoursForm() {
-  const form = document.getElementById("hoursForm");
-  if (form) {
-    form.reset();
-  }
-  
-  // Reset to add mode
-  const submitBtn = document.getElementById('hoursSubmitBtn');
-  const cancelBtn = document.getElementById('hoursCancelBtn');
-  
-  if (submitBtn) {
-    submitBtn.textContent = '💾 Log Hours';
-    submitBtn.onclick = logHours;
-    submitBtn.disabled = false;
-  }
-  
-  if (cancelBtn) {
-    cancelBtn.style.display = 'none';
-  }
-  
-  currentEditHoursId = null;
-  
-  // Reset total display
-  const totalDisplay = document.getElementById('totalPay');
-  if (totalDisplay) {
-    totalDisplay.textContent = '$0.00';
-  }
-  
-  console.log("✅ Hours form reset to add mode");
 }
 
 // ===========================
