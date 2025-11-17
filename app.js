@@ -1368,12 +1368,21 @@ function setupHoursEventListeners() {
 
 function setupHoursForm() {
   const hoursForm = document.getElementById('hoursForm');
-  if (!hoursForm) return;
+  if (!hoursForm) {
+    console.warn('⚠️ Hours form not found in DOM');
+    return;
+  }
 
-  // Rate calculation
+  // Rate calculation elements
   const durationInput = document.getElementById('hoursDuration');
   const rateInput = document.getElementById('hoursRate');
   const amountDisplay = document.getElementById('hoursAmount');
+
+  // Check if all required elements exist
+  if (!durationInput || !rateInput || !amountDisplay) {
+    console.warn('⚠️ Some hours form elements not found');
+    return;
+  }
 
   function calculateAmount() {
     const duration = safeNumber(durationInput.value);
@@ -1391,17 +1400,18 @@ function setupHoursForm() {
     
     const formData = new FormData(hoursForm);
     const studentId = formData.get('studentId');
-    const studentName = document.getElementById('hoursStudent').selectedOptions[0]?.text || 'Unknown';
+    const studentSelect = document.getElementById('hoursStudent');
+    const studentName = studentSelect ? studentSelect.selectedOptions[0]?.text || 'Unknown' : 'Unknown';
     
     const hoursData = {
       studentId: studentId,
       studentName: studentName,
-      date: formData.get('date'),
+      date: formData.get('date') || getLocalISODate(),
       dateIso: fmtDateISO(formData.get('date')),
       duration: safeNumber(formData.get('duration')),
       rate: safeNumber(formData.get('rate')),
       amount: safeNumber(formData.get('duration')) * safeNumber(formData.get('rate')),
-      notes: formData.get('notes'),
+      notes: formData.get('notes') || '',
       createdAt: new Date().toISOString()
     };
 
@@ -1412,7 +1422,8 @@ function setupHoursForm() {
         currentEditHoursId = null;
         
         // Reset form
-        hoursForm.querySelector('button[type="submit"]').textContent = 'Log Hours';
+        const submitBtn = hoursForm.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.textContent = 'Log Hours';
         hoursForm.reset();
         amountDisplay.textContent = '0.00';
       } else {
@@ -1439,6 +1450,8 @@ function setupHoursForm() {
   if (dateInput) {
     dateInput.value = getLocalISODate();
   }
+
+  console.log('✅ Hours form setup completed');
 }
 
 async function editHours(hoursId) {
@@ -1451,21 +1464,30 @@ async function editHours(hoursId) {
       const hours = JSON.parse(localItem);
       
       // Fill form with hours data
-      document.getElementById('hoursStudent').value = hours.studentId || '';
-      document.getElementById('hoursDate').value = formatDateForInput(hours.date);
-      document.getElementById('hoursDuration').value = hours.duration || '';
-      document.getElementById('hoursRate').value = hours.rate || '';
-      document.getElementById('hoursNotes').value = hours.notes || '';
+      const studentSelect = document.getElementById('hoursStudent');
+      const dateInput = document.getElementById('hoursDate');
+      const durationInput = document.getElementById('hoursDuration');
+      const rateInput = document.getElementById('hoursRate');
+      const notesInput = document.getElementById('hoursNotes');
+      
+      if (studentSelect) studentSelect.value = hours.studentId || '';
+      if (dateInput) dateInput.value = formatDateForInput(hours.date);
+      if (durationInput) durationInput.value = hours.duration || '';
+      if (rateInput) rateInput.value = hours.rate || '';
+      if (notesInput) notesInput.value = hours.notes || '';
       
       // Update amount display
-      document.getElementById('hoursAmount').textContent = fmtMoney(hours.amount || 0);
+      const amountDisplay = document.getElementById('hoursAmount');
+      if (amountDisplay) amountDisplay.textContent = fmtMoney(hours.amount || 0);
       
       // Change form to edit mode
       currentEditHoursId = hoursId;
-      document.getElementById('hoursForm').querySelector('button[type="submit"]').textContent = 'Update Hours';
+      const submitBtn = document.getElementById('hoursForm')?.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.textContent = 'Update Hours';
       
       // Scroll to form
-      document.getElementById('hoursForm').scrollIntoView({ behavior: 'smooth' });
+      const hoursForm = document.getElementById('hoursForm');
+      if (hoursForm) hoursForm.scrollIntoView({ behavior: 'smooth' });
       return;
     }
     
@@ -1478,21 +1500,30 @@ async function editHours(hoursId) {
       const hours = hoursDoc.data();
       
       // Fill form with hours data
-      document.getElementById('hoursStudent').value = hours.studentId || '';
-      document.getElementById('hoursDate').value = formatDateForInput(hours.date);
-      document.getElementById('hoursDuration').value = hours.duration || '';
-      document.getElementById('hoursRate').value = hours.rate || '';
-      document.getElementById('hoursNotes').value = hours.notes || '';
+      const studentSelect = document.getElementById('hoursStudent');
+      const dateInput = document.getElementById('hoursDate');
+      const durationInput = document.getElementById('hoursDuration');
+      const rateInput = document.getElementById('hoursRate');
+      const notesInput = document.getElementById('hoursNotes');
+      
+      if (studentSelect) studentSelect.value = hours.studentId || '';
+      if (dateInput) dateInput.value = formatDateForInput(hours.date);
+      if (durationInput) durationInput.value = hours.duration || '';
+      if (rateInput) rateInput.value = hours.rate || '';
+      if (notesInput) notesInput.value = hours.notes || '';
       
       // Update amount display
-      document.getElementById('hoursAmount').textContent = fmtMoney(hours.amount || 0);
+      const amountDisplay = document.getElementById('hoursAmount');
+      if (amountDisplay) amountDisplay.textContent = fmtMoney(hours.amount || 0);
       
       // Change form to edit mode
       currentEditHoursId = hoursId;
-      document.getElementById('hoursForm').querySelector('button[type="submit"]').textContent = 'Update Hours';
+      const submitBtn = document.getElementById('hoursForm')?.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.textContent = 'Update Hours';
       
       // Scroll to form
-      document.getElementById('hoursForm').scrollIntoView({ behavior: 'smooth' });
+      const hoursForm = document.getElementById('hoursForm');
+      if (hoursForm) hoursForm.scrollIntoView({ behavior: 'smooth' });
     }
   } catch (error) {
     console.error('Error loading hours for edit:', error);
@@ -1580,8 +1611,6 @@ async function updateStudentTotals(studentId) {
     console.error('Error updating student totals:', error);
   }
 }
-
-MARKS/GRADES TRACKING WITH 3-LAYER SYSTEM
 
 // ===========================
 // UTILITY FUNCTIONS
