@@ -2289,6 +2289,12 @@ async function deleteHours(hoursId) {
 function cancelHoursEdit() {
   resetHoursFormToAddMode();
   NotificationSystem.notifyInfo('Hours edit cancelled');
+  
+  // Hide delete button when canceling
+  const deleteHoursBtn = document.getElementById('deleteHoursBtn');
+  if (deleteHoursBtn) {
+    deleteHoursBtn.style.display = 'none';
+  }
 }
 
 // Update the resetHoursFormToAddMode function to handle cancel button:
@@ -2360,6 +2366,13 @@ async function editHours(hoursId) {
       }
     }
     
+    // Show and setup delete button
+    const deleteHoursBtn = document.getElementById('deleteHoursBtn');
+    if (deleteHoursBtn) {
+      deleteHoursBtn.style.display = 'inline-flex';
+      deleteHoursBtn.onclick = () => deleteHours(hoursId);
+    }
+    
     // Change button to update mode and show cancel button
     if (logHoursBtn) {
       logHoursBtn.disabled = false;
@@ -2391,6 +2404,12 @@ async function editHours(hoursId) {
       logHoursBtn.disabled = false;
       logHoursBtn.onclick = logHours;
       logHoursBtn.innerHTML = '<span id="logHoursText">💾 Log Work</span><span id="logHoursSpinner" style="display: none;">⏳ Saving...</span>';
+    }
+    
+    // Hide delete button on error
+    const deleteHoursBtn = document.getElementById('deleteHoursBtn');
+    if (deleteHoursBtn) {
+      deleteHoursBtn.style.display = 'none';
     }
   }
 }
