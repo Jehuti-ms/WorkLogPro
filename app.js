@@ -81,23 +81,30 @@ function fmtMoney(n) {
   return safeNumber(n).toFixed(2);
 }
 
+// Update the fmtDateISO function to handle timezone correctly
 function fmtDateISO(yyyyMmDd) {
   if (!yyyyMmDd) return new Date().toISOString();
   try {
-    const d = new Date(yyyyMmDd);
+    // Create date in local timezone, set to noon to avoid timezone issues
+    const [year, month, day] = yyyyMmDd.split('-');
+    const d = new Date(year, month - 1, day, 12, 0, 0); // Noon to avoid DST issues
     return d.toISOString();
   } catch {
     return new Date().toISOString();
   }
 }
 
+// Also update formatDate to be timezone aware
 function formatDate(dateString) {
   if (!dateString) return 'Never';
   try {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    const date = new Date(dateString);
+    // Use toLocaleDateString to respect local timezone
+    return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
+      timeZone: 'UTC' // Use UTC to avoid day shift
     });
   } catch {
     return dateString;
@@ -2139,9 +2146,25 @@ function clearStudentForm() {
 }
 
 function resetHoursForm() {
-  const form = document.getElementById("hoursForm");
+  const form = document.querySelector('#hours form');
   if (form) {
     form.reset();
+    
+    // Set today's date in correct format
+    const today = new Date().toISOString().split('T')[0];
+    const dateEl = document.getElementById("workDate");
+    if (dateEl) dateEl.value = today;
+    
+    // Reset total display
+    const totalEl = document.getElementById("totalPay");
+    if (totalEl) {
+      if ("value" in totalEl) {
+        totalEl.value = '$0.00';
+      } else {
+        totalEl.textContent = '$0.00';
+      }
+    }
+    
     console.log("✅ Hours form reset");
   }
 }
@@ -2441,6 +2464,7 @@ async function incrementStudentCount(uid) {
 async function logHours() {
   const studentEl = document.getElementById("hoursStudent");
   const orgEl = document.getElementById("organization");
+  const subjectEl = document.getElementById("workSubject");
   const typeEl = document.getElementById("workType");
   const dateEl = document.getElementById("workDate");
   const hoursEl = document.getElementById("hoursWorked");
@@ -2448,6 +2472,7 @@ async function logHours() {
 
   const studentId = studentEl?.value;
   const organization = orgEl?.value.trim();
+  const subject = subjectEl?.value.trim();
   const workType = typeEl?.value || "hourly";
   const workDate = dateEl?.value;
   const hours = parseFloat(hoursEl?.value);
@@ -2458,34 +2483,69 @@ async function logHours() {
     return;
   }
 
-  const total = workType === "hourly" ? hours * rate : rate;
-  
+  // Calculate total based on work type
+  let total = 0;
+  if (workType === "hourly") {
+    total = hours * rate;
+  } else {
+    total = rate; // Flat rate for session/contract/project/etc.
+  }
+
   const user = auth.currentUser;
-  if (!user) return;
+  if (!user) {
+    NotificationSystem.notifyError("Please log in to log hours");
+    return;
+  }
 
   try {
-   const hoursData = {
-  student: studentId || null,
-  organization,
-  workType, // This now has more options
-  date: workDate,
-  dateIso: fmtDateISO(workDate),
-  hours: workType === "hourly" ? hours : 0, // Only store hours for hourly work
-  rate,
-  total,
-  loggedAt: new Date().toISOString()
-};
+    // Show loading state
+    const logHoursBtn = document.getElementById('logHoursBtn');
+    const logHoursText = document.getElementById('logHoursText');
+    const logHoursSpinner = document.getElementById('logHoursSpinner');
+    
+    if (logHoursBtn) logHoursBtn.disabled = true;
+    if (logHoursText) logHoursText.style.display = 'none';
+    if (logHoursSpinner) logHoursSpinner.style.display = 'inline';
 
+    const hoursData = {
+      student: studentId || null,
+      organization,
+      subject: subject || 'General',
+      workType,
+      date: workDate,
+      dateIso: fmtDateISO(workDate),
+      hours: workType === "hourly" ? hours : 0,
+      rate,
+      total,
+      loggedAt: new Date().toISOString()
+    };
+
+    console.log('💾 Saving hours:', hoursData);
+    
     await addDoc(collection(db, "users", user.uid, "hours"), hoursData);
     
-    NotificationSystem.notifySuccess("Hours logged successfully");
-    await recalcSummaryStats(user.uid);
-    await renderRecentHours();
+    NotificationSystem.notifySuccess("Hours logged successfully!");
+    
+    // Refresh data
+    await Promise.all([
+      recalcSummaryStats(user.uid),
+      renderRecentHours()
+    ]);
+    
     resetHoursForm();
     
   } catch (err) {
     console.error("Error logging hours:", err);
-    NotificationSystem.notifyError("Failed to log hours");
+    NotificationSystem.notifyError("Failed to log hours: " + err.message);
+  } finally {
+    // Reset button state
+    const logHoursBtn = document.getElementById('logHoursBtn');
+    const logHoursText = document.getElementById('logHoursText');
+    const logHoursSpinner = document.getElementById('logHoursSpinner');
+    
+    if (logHoursBtn) logHoursBtn.disabled = false;
+    if (logHoursText) logHoursText.style.display = 'inline';
+    if (logHoursSpinner) logHoursSpinner.style.display = 'none';
   }
 }
 
