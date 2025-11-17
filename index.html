@@ -294,10 +294,18 @@
           <button type="button" class="button primary" id="logHoursBtn" onclick="logHours()">
             <span id="logHoursText">💾 Log Work</span>
             <span id="logHoursSpinner" style="display: none;">⏳ Saving...</span>
-          </button>
-          <button type="button" class="button secondary" onclick="resetHoursForm()">🗑️ Clear Form</button>
-          <button type="button" class="button warning" id="cancelHoursEdit" onclick="cancelHoursEdit()" style="display: none;">❌ Cancel Edit</button>
-        </div>
+          <!-- Add these edit mode buttons -->
+            <button type="button" class="button success" id="updateHoursBtn" onclick="updateHours()" style="display: none;">
+              💾 Update Hours
+            </button>
+            
+            <button type="button" class="button danger" id="deleteHoursBtn" onclick="deleteHours()" style="display: none;">
+              🗑️ Delete Entry
+            </button>
+            
+            <button type="button" class="button secondary" onclick="resetHoursForm()">🗑️ Clear Form</button>
+            <button type="button" class="button warning" id="cancelHoursEdit" onclick="cancelHoursEdit()" style="display: none;">❌ Cancel Edit</button>
+          </div>
 
         <div class="section-card">
           <h3>📊 Recent Earnings</h3>
