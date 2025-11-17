@@ -3442,3 +3442,57 @@ function checkForDuplicateFAB() {
 // Call this on load
 setTimeout(checkForDuplicateFAB, 500);
 
+// Track FAB creation and movement
+function trackFABMovement() {
+  const fabContainer = document.querySelector('.fab-container');
+  
+  if (fabContainer) {
+    console.log('🔍 FAB Container initial parent:', fabContainer.parentElement);
+    
+    // Monitor for FAB being moved
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'childList') {
+          // Check if FAB container was moved
+          if (!document.body.contains(fabContainer)) {
+            console.log('🚨 FAB Container was removed from DOM!');
+          }
+          
+          // Check if FAB container was added to hours tab
+          const fabInHours = document.querySelector('#hours .fab-container');
+          if (fabInHours) {
+            console.log('🚨 FAB Container found inside hours tab!');
+            console.log('Moving FAB back to body...');
+            
+            // Move FAB back to body
+            document.body.appendChild(fabContainer);
+          }
+        }
+      });
+    });
+    
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
+}
+
+// Also check if any JavaScript is creating duplicate FAB
+const originalCreateElement = document.createElement;
+document.createElement = function(tagName) {
+  const element = originalCreateElement.call(this, tagName);
+  if (tagName === 'div' || tagName === 'button') {
+    setTimeout(() => {
+      if (element.classList && (element.classList.contains('fab-container') || element.id === 'floatingAddBtn')) {
+        console.log('🚨 JavaScript created FAB element:', element);
+        console.trace('Stack trace for FAB creation');
+      }
+    }, 0);
+  }
+  return element;
+};
+
+// Call tracking on load
+setTimeout(trackFABMovement, 1000);
+
