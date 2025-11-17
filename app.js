@@ -3336,6 +3336,10 @@ window.NotificationSystem = NotificationSystem;
 // Sync bar functions for global access
 window.performSync = (mode = 'manual') => SyncBar.performSync(mode);
 
+/*===============================
+  DEBUG ZONE
+===============================*/
+
 // Debug: Verify functions are available globally
 console.log('🔧 deleteHours available globally:', typeof window.deleteHours);
 console.log('🔧 editHours available globally:', typeof window.editHours);
@@ -3421,3 +3425,20 @@ if (fab) {
     attributeFilter: ['style', 'class']
   });
 }
+
+// Check for duplicate FAB elements
+function checkForDuplicateFAB() {
+  const fabElements = document.querySelectorAll('#floatingAddBtn, .fab-container');
+  console.log('🔍 Checking for duplicate FAB elements:');
+  console.log(`Found ${fabElements.length} FAB-related elements:`, fabElements);
+  
+  fabElements.forEach((element, index) => {
+    console.log(`FAB element ${index + 1}:`, element);
+    console.log(`- Parent:`, element.parentElement);
+    console.log(`- Is in hours tab:`, element.closest('#hours'));
+  });
+}
+
+// Call this on load
+setTimeout(checkForDuplicateFAB, 500);
+
