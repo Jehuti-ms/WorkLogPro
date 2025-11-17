@@ -72,6 +72,7 @@ const clearDataBtn = document.getElementById("clearDataBtn");
 // TIMEZONE UTILITY FUNCTIONS - FIXED VERSION
 // ===========================
 
+// REPLACE your existing getLocalISODate function with this:
 function getLocalISODate() {
   const now = new Date();
   // Get local date in YYYY-MM-DD format
@@ -81,6 +82,7 @@ function getLocalISODate() {
   return `${year}-${month}-${day}`;
 }
 
+// REPLACE your existing formatDateForInput function with this:
 function formatDateForInput(dateString) {
   if (!dateString) return new Date().toISOString().split('T')[0];
   
@@ -109,6 +111,7 @@ function formatDateForInput(dateString) {
   }
 }
 
+// REPLACE your existing fmtDateISO function with this:
 function fmtDateISO(yyyyMmDd) {
   if (!yyyyMmDd) return new Date().toISOString();
   try {
@@ -134,6 +137,7 @@ function fmtDateISO(yyyyMmDd) {
   }
 }
 
+// REPLACE your existing convertToLocalDate function with this:
 function convertToLocalDate(dateString) {
   if (!dateString) return new Date();
   
@@ -154,6 +158,7 @@ function convertToLocalDate(dateString) {
   }
 }
 
+// REPLACE your existing formatDate function with this:
 function formatDate(dateString) {
   if (!dateString) return 'Never';
   try {
@@ -168,7 +173,7 @@ function formatDate(dateString) {
   }
 }
 
-// Enhanced debug function to check timezone issues
+// ADD this new debug function:
 function debugTimezone(dateString) {
   console.log('🕐 Timezone Debug:', {
     input: dateString,
@@ -2405,6 +2410,7 @@ function useDefaultRateInHours() {
 // HOURS MANAGEMENT FUNCTIONS - ENHANCED WITH EDIT/DELETE
 // ===========================
 
+// REPLACE your existing logHours function with this:
 async function logHours() {
   const studentEl = document.getElementById("hoursStudent");
   const orgEl = document.getElementById("organization");
@@ -2482,6 +2488,134 @@ async function logHours() {
     if (submitBtn) {
       submitBtn.textContent = currentEditHoursId ? '💾 Update Hours' : '💾 Log Hours';
       submitBtn.disabled = false;
+    }
+  }
+}
+
+// ===========================
+// HOURS EDITING FUNCTIONS - ADD THESE
+// ===========================
+
+async function editHours(hoursId) {
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to edit hours');
+    return;
+  }
+
+  try {
+    console.log('✏️ Editing hours:', hoursId);
+    
+    // Show loading state immediately
+    const submitBtn = document.getElementById('hoursSubmitBtn');
+    if (submitBtn) submitBtn.textContent = 'Loading...';
+    
+    const hoursDoc = await getDoc(doc(db, "users", user.uid, "hours", hoursId));
+    
+    if (!hoursDoc.exists()) {
+      NotificationSystem.notifyError('Hours entry not found');
+      return;
+    }
+
+    const hours = hoursDoc.data();
+    
+    // Debug the stored date
+    console.log('🕐 Stored hours data:', {
+      storedDate: hours.date,
+      storedDateIso: hours.dateIso,
+      convertedBack: formatDateForInput(hours.dateIso || hours.date)
+    });
+    
+    // Fill the form with hours data (with proper timezone conversion)
+    document.getElementById('hoursStudent').value = hours.student || '';
+    document.getElementById('organization').value = hours.organization || '';
+    document.getElementById('workType').value = hours.workType || 'hourly';
+    document.getElementById('workDate').value = formatDateForInput(hours.dateIso || hours.date);
+    document.getElementById('hoursWorked').value = hours.hours || '';
+    document.getElementById('baseRate').value = hours.rate || '';
+
+    // Set edit mode
+    currentEditHoursId = hoursId;
+    
+    const submitBtnFinal = document.getElementById('hoursSubmitBtn');
+    const cancelBtn = document.getElementById('hoursCancelBtn');
+    
+    if (submitBtnFinal) {
+      submitBtnFinal.textContent = '💾 Update Hours';
+      submitBtnFinal.onclick = logHours;
+    }
+    
+    if (cancelBtn) {
+      cancelBtn.style.display = 'inline-flex';
+    }
+
+    // Update total display
+    const total = hours.total || 0;
+    const totalDisplay = document.getElementById('totalPay');
+    if (totalDisplay) {
+      totalDisplay.textContent = `$${fmtMoney(total)}`;
+    }
+
+    // Scroll to form immediately
+    const hoursForm = document.querySelector('#hours .section-card:first-child');
+    if (hoursForm) {
+      hoursForm.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start' 
+      });
+    }
+    
+    NotificationSystem.notifyInfo(`Editing hours entry for ${hours.organization}`);
+    
+  } catch (error) {
+    console.error('Error loading hours for edit:', error);
+    NotificationSystem.notifyError('Failed to load hours data');
+    
+    // Reset button on error
+    const submitBtn = document.getElementById('hoursSubmitBtn');
+    if (submitBtn) {
+      submitBtn.textContent = '💾 Log Hours';
+      submitBtn.onclick = logHours;
+    }
+  }
+}
+
+function cancelHoursEdit() {
+  console.log('❌ Canceling hours edit...');
+  
+  currentEditHoursId = null;
+  
+  const submitBtn = document.getElementById('hoursSubmitBtn');
+  const cancelBtn = document.getElementById('hoursCancelBtn');
+  
+  if (submitBtn) {
+    submitBtn.textContent = '💾 Log Hours';
+    submitBtn.onclick = logHours;
+  }
+  
+  if (cancelBtn) {
+    cancelBtn.style.display = 'none';
+  }
+  
+  // Clear the form
+  resetHoursForm();
+  
+  NotificationSystem.notifyInfo('Hours edit canceled');
+}
+
+async function deleteHours(hoursId) {
+  if (confirm("Are you sure you want to delete this hours entry? This action cannot be undone.")) {
+    const user = auth.currentUser;
+    if (user) {
+      try {
+        await deleteDoc(doc(db, "users", user.uid, "hours", hoursId));
+        NotificationSystem.notifySuccess("Hours entry deleted successfully");
+        await renderRecentHours();
+        await recalcSummaryStats(user.uid);
+      } catch (error) {
+        console.error("Error deleting hours:", error);
+        NotificationSystem.notifyError("Failed to delete hours entry");
+      }
     }
   }
 }
