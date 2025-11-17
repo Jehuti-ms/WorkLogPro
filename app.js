@@ -185,7 +185,10 @@ function clearAllCache() {
 
 async function enhancedCreateOperation(collectionName, data, successMessage) {
   const user = auth.currentUser;
-  if (!user) return null;
+  if (!user) {
+    console.warn('⚠️ User not authenticated for create operation');
+    return null;
+  }
 
   try {
     // Generate unique ID
@@ -193,9 +196,12 @@ async function enhancedCreateOperation(collectionName, data, successMessage) {
     const itemData = { ...data, id: itemId };
 
     // LAYER 1: Save to local storage immediately (INSTANT)
-    StorageSystem.saveToLocal(collectionName, itemData);
+    const localKey = StorageSystem.saveToLocal(collectionName, itemData);
+    if (!localKey) {
+      throw new Error('Failed to save to local storage');
+    }
 
-    // LAYER 2: Update cache immediately (FAST)
+    // LAYER 2: Clear cache immediately (FAST)
     StorageSystem.clearCache(collectionName);
 
     // Show success immediately
@@ -207,11 +213,10 @@ async function enhancedCreateOperation(collectionName, data, successMessage) {
         await StorageSystem.syncToCloud(collectionName, itemData, 'create');
         
         // Update local storage to mark as synced
-        const key = `worklog_${collectionName}_${itemId}`;
-        const localItem = JSON.parse(localStorage.getItem(key));
+        const localItem = JSON.parse(localStorage.getItem(localKey));
         if (localItem) {
           localItem._synced = true;
-          localStorage.setItem(key, JSON.stringify(localItem));
+          localStorage.setItem(localKey, JSON.stringify(localItem));
         }
         
         console.log(`✅ Background sync completed: ${collectionName} - ${itemId}`);
@@ -228,6 +233,7 @@ async function enhancedCreateOperation(collectionName, data, successMessage) {
         }, 500);
       } catch (error) {
         console.error(`❌ Background sync failed: ${collectionName} - ${itemId}`, error);
+        // Don't show notification for background failures to avoid user confusion
       }
     }, 1000);
 
@@ -241,13 +247,16 @@ async function enhancedCreateOperation(collectionName, data, successMessage) {
 
 async function enhancedUpdateOperation(collectionName, docId, data, successMessage) {
   const user = auth.currentUser;
-  if (!user) return;
+  if (!user) {
+    console.warn('⚠️ User not authenticated for update operation');
+    return;
+  }
 
   try {
     const itemData = { ...data, id: docId };
+    const key = `worklog_${collectionName}_${docId}`;
 
     // LAYER 1: Update local storage immediately
-    const key = `worklog_${collectionName}_${docId}`;
     const existingItem = JSON.parse(localStorage.getItem(key));
     if (existingItem) {
       const updatedItem = { ...existingItem, ...itemData, _synced: false };
@@ -278,6 +287,7 @@ async function enhancedUpdateOperation(collectionName, docId, data, successMessa
         console.log(`✅ Background update sync completed: ${collectionName} - ${docId}`);
       } catch (error) {
         console.error(`❌ Background update sync failed: ${collectionName} - ${docId}`, error);
+        // Don't show notification for background failures
       }
     }, 1000);
 
@@ -290,11 +300,15 @@ async function enhancedUpdateOperation(collectionName, docId, data, successMessa
 
 async function enhancedDeleteOperation(collectionName, docId, successMessage) {
   const user = auth.currentUser;
-  if (!user) return;
+  if (!user) {
+    console.warn('⚠️ User not authenticated for delete operation');
+    return;
+  }
 
   try {
-    // LAYER 1: Remove from local storage immediately
     const key = `worklog_${collectionName}_${docId}`;
+
+    // LAYER 1: Remove from local storage immediately
     StorageSystem.removeFromLocal(key);
 
     // LAYER 2: Clear cache immediately
@@ -306,10 +320,12 @@ async function enhancedDeleteOperation(collectionName, docId, successMessage) {
     // LAYER 3: Delete from cloud in background
     setTimeout(async () => {
       try {
+        // For delete operations, we only need the document ID, not the data
         await StorageSystem.syncToCloud(collectionName, { id: docId }, 'delete');
         console.log(`✅ Background delete sync completed: ${collectionName} - ${docId}`);
       } catch (error) {
         console.error(`❌ Background delete sync failed: ${collectionName} - ${docId}`, error);
+        // Don't show notification for background failures
       }
     }, 1000);
 
@@ -1609,6 +1625,690 @@ async function updateStudentTotals(studentId) {
     
   } catch (error) {
     console.error('Error updating student totals:', error);
+  }
+}
+
+// ===========================
+// MARKS/GRADES TRACKING WITH 3-LAYER SYSTEM
+// ===========================
+
+async function renderRecentMarks() {
+  await renderWithLocalAndCloud('recentMarksList', 'marks', renderMarksList, 'No marks recorded yet', 10);
+}
+
+function renderMarksList(marks) {
+  if (!marks || marks.length === 0) {
+    return '<div class="empty-state"><h3>No marks recorded yet</h3><p>Record test scores and grades to see them here</p></div>';
+  }
+
+  return `
+    <div class="marks-list">
+      ${marks.map(mark => {
+        const percentage = safeNumber(mark.percentage);
+        const grade = calculateGrade(percentage);
+        const gradeClass = `grade-${grade.toLowerCase()}`;
+        const isLocal = mark._local && !mark._synced;
+        const syncBadge = isLocal ? '<span class="sync-badge local" title="Local only - not synced">💾</span>' : '';
+        
+        return `
+        <div class="mark-item" data-mark-id="${mark.id}">
+          <div class="mark-header">
+            <div class="mark-student">${mark.studentName || 'Unknown Student'} ${syncBadge}</div>
+            <div class="mark-percentage ${gradeClass}">${percentage}%</div>
+          </div>
+          <div class="mark-details">
+            <div class="mark-test">${mark.testName || 'Unnamed Test'}</div>
+            <div class="mark-grade ${gradeClass}">${grade}</div>
+            <div class="mark-date">${formatDate(mark.date)}</div>
+          </div>
+          ${mark.notes ? `<div class="mark-notes">${mark.notes}</div>` : ''}
+          <div class="mark-actions">
+            <button class="btn-small edit-mark">Edit</button>
+            <button class="btn-small btn-danger delete-mark">Delete</button>
+          </div>
+        </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function setupMarksEventListeners() {
+  document.querySelectorAll('.edit-mark').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const markItem = e.target.closest('.mark-item');
+      const markId = markItem.dataset.markId;
+      editMarks(markId);
+    });
+  });
+
+  document.querySelectorAll('.delete-mark').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const markItem = e.target.closest('.mark-item');
+      const markId = markItem.dataset.markId;
+      deleteMarks(markId);
+    });
+  });
+}
+
+function setupMarksForm() {
+  const marksForm = document.getElementById('marksForm');
+  if (!marksForm) {
+    console.warn('⚠️ Marks form not found in DOM');
+    return;
+  }
+
+  // Grade calculation elements
+  const scoreInput = document.getElementById('marksScore');
+  const maxScoreInput = document.getElementById('marksMaxScore');
+  const percentageDisplay = document.getElementById('marksPercentage');
+  const gradeDisplay = document.getElementById('marksGrade');
+
+  // Check if all required elements exist
+  if (!scoreInput || !maxScoreInput || !percentageDisplay || !gradeDisplay) {
+    console.warn('⚠️ Some marks form elements not found');
+    return;
+  }
+
+  function calculateGradeDisplay() {
+    const score = safeNumber(scoreInput.value);
+    const maxScore = safeNumber(maxScoreInput.value);
+    
+    if (maxScore > 0) {
+      const percentage = (score / maxScore) * 100;
+      const grade = calculateGrade(percentage);
+      
+      percentageDisplay.textContent = percentage.toFixed(1) + '%';
+      gradeDisplay.textContent = grade;
+      gradeDisplay.className = `grade-display grade-${grade.toLowerCase()}`;
+    } else {
+      percentageDisplay.textContent = '0%';
+      gradeDisplay.textContent = 'N/A';
+      gradeDisplay.className = 'grade-display';
+    }
+  }
+
+  scoreInput.addEventListener('input', calculateGradeDisplay);
+  maxScoreInput.addEventListener('input', calculateGradeDisplay);
+
+  // Form submission
+  marksForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(marksForm);
+    const studentId = formData.get('studentId');
+    const studentSelect = document.getElementById('marksStudent');
+    const studentName = studentSelect ? studentSelect.selectedOptions[0]?.text || 'Unknown' : 'Unknown';
+    const score = safeNumber(formData.get('score'));
+    const maxScore = safeNumber(formData.get('maxScore'));
+    const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
+    
+    const marksData = {
+      studentId: studentId,
+      studentName: studentName,
+      testName: formData.get('testName') || '',
+      date: formData.get('date') || getLocalISODate(),
+      dateIso: fmtDateISO(formData.get('date')),
+      score: score,
+      maxScore: maxScore,
+      percentage: percentage,
+      grade: calculateGrade(percentage),
+      notes: formData.get('notes') || '',
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      if (currentEditMarksId) {
+        // Update existing marks using 3-layer system
+        await enhancedUpdateOperation('marks', currentEditMarksId, marksData, 'Marks updated successfully!');
+        currentEditMarksId = null;
+        
+        // Reset form
+        const submitBtn = marksForm.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.textContent = 'Record Marks';
+        marksForm.reset();
+        percentageDisplay.textContent = '0%';
+        gradeDisplay.textContent = 'N/A';
+        gradeDisplay.className = 'grade-display';
+      } else {
+        // Add new marks using 3-layer system
+        await enhancedCreateOperation('marks', marksData, 'Marks recorded successfully!');
+        marksForm.reset();
+        percentageDisplay.textContent = '0%';
+        gradeDisplay.textContent = 'N/A';
+        gradeDisplay.className = 'grade-display';
+      }
+      
+      await renderRecentMarks();
+      
+    } catch (error) {
+      console.error('Error saving marks:', error);
+    }
+  });
+
+  // Set default date to today
+  const dateInput = document.getElementById('marksDate');
+  if (dateInput) {
+    dateInput.value = getLocalISODate();
+  }
+
+  console.log('✅ Marks form setup completed');
+}
+
+async function editMarks(markId) {
+  try {
+    // Try to get from local storage first
+    const localKey = `worklog_marks_${markId}`;
+    const localItem = localStorage.getItem(localKey);
+    
+    if (localItem) {
+      const mark = JSON.parse(localItem);
+      
+      // Fill form with mark data
+      const studentSelect = document.getElementById('marksStudent');
+      const testNameInput = document.getElementById('marksTestName');
+      const dateInput = document.getElementById('marksDate');
+      const scoreInput = document.getElementById('marksScore');
+      const maxScoreInput = document.getElementById('marksMaxScore');
+      const notesInput = document.getElementById('marksNotes');
+      
+      if (studentSelect) studentSelect.value = mark.studentId || '';
+      if (testNameInput) testNameInput.value = mark.testName || '';
+      if (dateInput) dateInput.value = formatDateForInput(mark.date);
+      if (scoreInput) scoreInput.value = mark.score || '';
+      if (maxScoreInput) maxScoreInput.value = mark.maxScore || '';
+      if (notesInput) notesInput.value = mark.notes || '';
+      
+      // Update grade display
+      const percentageDisplay = document.getElementById('marksPercentage');
+      const gradeDisplay = document.getElementById('marksGrade');
+      if (percentageDisplay && gradeDisplay) {
+        percentageDisplay.textContent = (mark.percentage || 0).toFixed(1) + '%';
+        gradeDisplay.textContent = mark.grade || 'N/A';
+        gradeDisplay.className = `grade-display grade-${(mark.grade || 'n/a').toLowerCase()}`;
+      }
+      
+      // Change form to edit mode
+      currentEditMarksId = markId;
+      const submitBtn = document.getElementById('marksForm')?.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.textContent = 'Update Marks';
+      
+      // Scroll to form
+      const marksForm = document.getElementById('marksForm');
+      if (marksForm) marksForm.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    
+    // Fallback to Firestore
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const markDoc = await getDoc(doc(db, "users", user.uid, "marks", markId));
+    if (markDoc.exists()) {
+      const mark = markDoc.data();
+      
+      // Fill form with mark data
+      const studentSelect = document.getElementById('marksStudent');
+      const testNameInput = document.getElementById('marksTestName');
+      const dateInput = document.getElementById('marksDate');
+      const scoreInput = document.getElementById('marksScore');
+      const maxScoreInput = document.getElementById('marksMaxScore');
+      const notesInput = document.getElementById('marksNotes');
+      
+      if (studentSelect) studentSelect.value = mark.studentId || '';
+      if (testNameInput) testNameInput.value = mark.testName || '';
+      if (dateInput) dateInput.value = formatDateForInput(mark.date);
+      if (scoreInput) scoreInput.value = mark.score || '';
+      if (maxScoreInput) maxScoreInput.value = mark.maxScore || '';
+      if (notesInput) notesInput.value = mark.notes || '';
+      
+      // Update grade display
+      const percentageDisplay = document.getElementById('marksPercentage');
+      const gradeDisplay = document.getElementById('marksGrade');
+      if (percentageDisplay && gradeDisplay) {
+        percentageDisplay.textContent = (mark.percentage || 0).toFixed(1) + '%';
+        gradeDisplay.textContent = mark.grade || 'N/A';
+        gradeDisplay.className = `grade-display grade-${(mark.grade || 'n/a').toLowerCase()}`;
+      }
+      
+      // Change form to edit mode
+      currentEditMarksId = markId;
+      const submitBtn = document.getElementById('marksForm')?.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.textContent = 'Update Marks';
+      
+      // Scroll to form
+      const marksForm = document.getElementById('marksForm');
+      if (marksForm) marksForm.scrollIntoView({ behavior: 'smooth' });
+    }
+  } catch (error) {
+    console.error('Error loading marks for edit:', error);
+    showNotification('Failed to load marks data', 'error');
+  }
+}
+
+async function deleteMarks(markId) {
+  if (!confirm('Are you sure you want to delete these marks?')) {
+    return;
+  }
+
+  try {
+    await enhancedDeleteOperation('marks', markId, 'Marks deleted successfully');
+    await renderRecentMarks();
+  } catch (error) {
+    console.error('Error deleting marks:', error);
+    showNotification('Failed to delete marks', 'error');
+  }
+}
+
+// ===========================
+// ATTENDANCE TRACKING WITH 3-LAYER SYSTEM
+// ===========================
+
+async function renderAttendanceRecent() {
+  await renderWithLocalAndCloud('attendanceRecentList', 'attendance', renderAttendanceList, 'No attendance records yet', 10);
+}
+
+function renderAttendanceList(attendance) {
+  if (!attendance || attendance.length === 0) {
+    return '<div class="empty-state"><h3>No attendance records yet</h3><p>Record student attendance to see them here</p></div>';
+  }
+
+  return `
+    <div class="attendance-list">
+      ${attendance.map(record => {
+        const statusClass = `attendance-${record.status || 'present'}`;
+        const statusIcon = record.status === 'absent' ? '❌' : record.status === 'late' ? '⚠️' : '✅';
+        const isLocal = record._local && !record._synced;
+        const syncBadge = isLocal ? '<span class="sync-badge local" title="Local only - not synced">💾</span>' : '';
+        
+        return `
+        <div class="attendance-item" data-attendance-id="${record.id}">
+          <div class="attendance-header">
+            <div class="attendance-student">${record.studentName || 'Unknown Student'} ${syncBadge}</div>
+            <div class="attendance-status ${statusClass}">${statusIcon} ${record.status || 'present'}</div>
+          </div>
+          <div class="attendance-details">
+            <div class="attendance-date">${formatDate(record.date)}</div>
+            ${record.duration ? `<div class="attendance-duration">${record.duration} hours</div>` : ''}
+          </div>
+          ${record.notes ? `<div class="attendance-notes">${record.notes}</div>` : ''}
+          <div class="attendance-actions">
+            <button class="btn-small edit-attendance">Edit</button>
+            <button class="btn-small btn-danger delete-attendance">Delete</button>
+          </div>
+        </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function setupAttendanceEventListeners() {
+  document.querySelectorAll('.edit-attendance').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const attendanceItem = e.target.closest('.attendance-item');
+      const attendanceId = attendanceItem.dataset.attendanceId;
+      editAttendance(attendanceId);
+    });
+  });
+
+  document.querySelectorAll('.delete-attendance').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const attendanceItem = e.target.closest('.attendance-item');
+      const attendanceId = attendanceItem.dataset.attendanceId;
+      deleteAttendance(attendanceId);
+    });
+  });
+}
+
+function setupAttendanceForm() {
+  const attendanceForm = document.getElementById('attendanceForm');
+  if (!attendanceForm) {
+    console.warn('⚠️ Attendance form not found in DOM');
+    return;
+  }
+
+  // Form submission
+  attendanceForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(attendanceForm);
+    const studentId = formData.get('studentId');
+    const studentSelect = document.getElementById('attendanceStudent');
+    const studentName = studentSelect ? studentSelect.selectedOptions[0]?.text || 'Unknown' : 'Unknown';
+    
+    const attendanceData = {
+      studentId: studentId,
+      studentName: studentName,
+      date: formData.get('date') || getLocalISODate(),
+      dateIso: fmtDateISO(formData.get('date')),
+      status: formData.get('status') || 'present',
+      duration: safeNumber(formData.get('duration')),
+      notes: formData.get('notes') || '',
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      if (currentEditAttendanceId) {
+        // Update existing attendance using 3-layer system
+        await enhancedUpdateOperation('attendance', currentEditAttendanceId, attendanceData, 'Attendance updated successfully!');
+        currentEditAttendanceId = null;
+        
+        // Reset form
+        const submitBtn = attendanceForm.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.textContent = 'Record Attendance';
+        attendanceForm.reset();
+      } else {
+        // Add new attendance using 3-layer system
+        await enhancedCreateOperation('attendance', attendanceData, 'Attendance recorded successfully!');
+        attendanceForm.reset();
+      }
+      
+      await renderAttendanceRecent();
+      
+    } catch (error) {
+      console.error('Error saving attendance:', error);
+    }
+  });
+
+  // Set default date to today
+  const dateInput = document.getElementById('attendanceDate');
+  if (dateInput) {
+    dateInput.value = getLocalISODate();
+  }
+
+  console.log('✅ Attendance form setup completed');
+}
+
+async function editAttendance(attendanceId) {
+  try {
+    // Try to get from local storage first
+    const localKey = `worklog_attendance_${attendanceId}`;
+    const localItem = localStorage.getItem(localKey);
+    
+    if (localItem) {
+      const attendance = JSON.parse(localItem);
+      
+      // Fill form with attendance data
+      const studentSelect = document.getElementById('attendanceStudent');
+      const dateInput = document.getElementById('attendanceDate');
+      const statusInput = document.getElementById('attendanceStatus');
+      const durationInput = document.getElementById('attendanceDuration');
+      const notesInput = document.getElementById('attendanceNotes');
+      
+      if (studentSelect) studentSelect.value = attendance.studentId || '';
+      if (dateInput) dateInput.value = formatDateForInput(attendance.date);
+      if (statusInput) statusInput.value = attendance.status || 'present';
+      if (durationInput) durationInput.value = attendance.duration || '';
+      if (notesInput) notesInput.value = attendance.notes || '';
+      
+      // Change form to edit mode
+      currentEditAttendanceId = attendanceId;
+      const submitBtn = document.getElementById('attendanceForm')?.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.textContent = 'Update Attendance';
+      
+      // Scroll to form
+      const attendanceForm = document.getElementById('attendanceForm');
+      if (attendanceForm) attendanceForm.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    
+    // Fallback to Firestore
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const attendanceDoc = await getDoc(doc(db, "users", user.uid, "attendance", attendanceId));
+    if (attendanceDoc.exists()) {
+      const attendance = attendanceDoc.data();
+      
+      // Fill form with attendance data
+      const studentSelect = document.getElementById('attendanceStudent');
+      const dateInput = document.getElementById('attendanceDate');
+      const statusInput = document.getElementById('attendanceStatus');
+      const durationInput = document.getElementById('attendanceDuration');
+      const notesInput = document.getElementById('attendanceNotes');
+      
+      if (studentSelect) studentSelect.value = attendance.studentId || '';
+      if (dateInput) dateInput.value = formatDateForInput(attendance.date);
+      if (statusInput) statusInput.value = attendance.status || 'present';
+      if (durationInput) durationInput.value = attendance.duration || '';
+      if (notesInput) notesInput.value = attendance.notes || '';
+      
+      // Change form to edit mode
+      currentEditAttendanceId = attendanceId;
+      const submitBtn = document.getElementById('attendanceForm')?.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.textContent = 'Update Attendance';
+      
+      // Scroll to form
+      const attendanceForm = document.getElementById('attendanceForm');
+      if (attendanceForm) attendanceForm.scrollIntoView({ behavior: 'smooth' });
+    }
+  } catch (error) {
+    console.error('Error loading attendance for edit:', error);
+    showNotification('Failed to load attendance data', 'error');
+  }
+}
+
+async function deleteAttendance(attendanceId) {
+  if (!confirm('Are you sure you want to delete this attendance record?')) {
+    return;
+  }
+
+  try {
+    await enhancedDeleteOperation('attendance', attendanceId, 'Attendance record deleted successfully');
+    await renderAttendanceRecent();
+  } catch (error) {
+    console.error('Error deleting attendance:', error);
+    showNotification('Failed to delete attendance record', 'error');
+  }
+}
+
+// ===========================
+// PAYMENTS TRACKING WITH 3-LAYER SYSTEM
+// ===========================
+
+async function renderPaymentActivity() {
+  await renderWithLocalAndCloud('paymentActivityList', 'payments', renderPaymentsList, 'No payments recorded yet', 10);
+}
+
+function renderPaymentsList(payments) {
+  if (!payments || payments.length === 0) {
+    return '<div class="empty-state"><h3>No payments recorded yet</h3><p>Record payment transactions to see them here</p></div>';
+  }
+
+  return `
+    <div class="payments-list">
+      ${payments.map(payment => {
+        const statusClass = `payment-${payment.status || 'pending'}`;
+        const statusIcon = payment.status === 'paid' ? '✅' : payment.status === 'overdue' ? '❌' : '⏳';
+        const isLocal = payment._local && !payment._synced;
+        const syncBadge = isLocal ? '<span class="sync-badge local" title="Local only - not synced">💾</span>' : '';
+        
+        return `
+        <div class="payment-item" data-payment-id="${payment.id}">
+          <div class="payment-header">
+            <div class="payment-student">${payment.studentName || 'Unknown Student'} ${syncBadge}</div>
+            <div class="payment-amount">$${fmtMoney(payment.amount || 0)}</div>
+          </div>
+          <div class="payment-details">
+            <div class="payment-date">${formatDate(payment.date)}</div>
+            <div class="payment-status ${statusClass}">${statusIcon} ${payment.status || 'pending'}</div>
+            <div class="payment-method">${payment.method || 'Not specified'}</div>
+          </div>
+          ${payment.notes ? `<div class="payment-notes">${payment.notes}</div>` : ''}
+          <div class="payment-actions">
+            <button class="btn-small edit-payment">Edit</button>
+            <button class="btn-small btn-danger delete-payment">Delete</button>
+          </div>
+        </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function setupPaymentsEventListeners() {
+  document.querySelectorAll('.edit-payment').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const paymentItem = e.target.closest('.payment-item');
+      const paymentId = paymentItem.dataset.paymentId;
+      editPayment(paymentId);
+    });
+  });
+
+  document.querySelectorAll('.delete-payment').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const paymentItem = e.target.closest('.payment-item');
+      const paymentId = paymentItem.dataset.paymentId;
+      deletePayment(paymentId);
+    });
+  });
+}
+
+function setupPaymentsForm() {
+  const paymentsForm = document.getElementById('paymentsForm');
+  if (!paymentsForm) {
+    console.warn('⚠️ Payments form not found in DOM');
+    return;
+  }
+
+  // Form submission
+  paymentsForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(paymentsForm);
+    const studentId = formData.get('studentId');
+    const studentSelect = document.getElementById('paymentStudent');
+    const studentName = studentSelect ? studentSelect.selectedOptions[0]?.text || 'Unknown' : 'Unknown';
+    
+    const paymentData = {
+      studentId: studentId,
+      studentName: studentName,
+      date: formData.get('date') || getLocalISODate(),
+      dateIso: fmtDateISO(formData.get('date')),
+      amount: safeNumber(formData.get('amount')),
+      status: formData.get('status') || 'pending',
+      method: formData.get('method') || '',
+      notes: formData.get('notes') || '',
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      if (currentEditPaymentId) {
+        // Update existing payment using 3-layer system
+        await enhancedUpdateOperation('payments', currentEditPaymentId, paymentData, 'Payment updated successfully!');
+        currentEditPaymentId = null;
+        
+        // Reset form
+        const submitBtn = paymentsForm.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.textContent = 'Record Payment';
+        paymentsForm.reset();
+      } else {
+        // Add new payment using 3-layer system
+        await enhancedCreateOperation('payments', paymentData, 'Payment recorded successfully!');
+        paymentsForm.reset();
+      }
+      
+      await renderPaymentActivity();
+      
+    } catch (error) {
+      console.error('Error saving payment:', error);
+    }
+  });
+
+  // Set default date to today
+  const dateInput = document.getElementById('paymentDate');
+  if (dateInput) {
+    dateInput.value = getLocalISODate();
+  }
+
+  console.log('✅ Payments form setup completed');
+}
+
+async function editPayment(paymentId) {
+  try {
+    // Try to get from local storage first
+    const localKey = `worklog_payments_${paymentId}`;
+    const localItem = localStorage.getItem(localKey);
+    
+    if (localItem) {
+      const payment = JSON.parse(localItem);
+      
+      // Fill form with payment data
+      const studentSelect = document.getElementById('paymentStudent');
+      const dateInput = document.getElementById('paymentDate');
+      const amountInput = document.getElementById('paymentAmount');
+      const statusInput = document.getElementById('paymentStatus');
+      const methodInput = document.getElementById('paymentMethod');
+      const notesInput = document.getElementById('paymentNotes');
+      
+      if (studentSelect) studentSelect.value = payment.studentId || '';
+      if (dateInput) dateInput.value = formatDateForInput(payment.date);
+      if (amountInput) amountInput.value = payment.amount || '';
+      if (statusInput) statusInput.value = payment.status || 'pending';
+      if (methodInput) methodInput.value = payment.method || '';
+      if (notesInput) notesInput.value = payment.notes || '';
+      
+      // Change form to edit mode
+      currentEditPaymentId = paymentId;
+      const submitBtn = document.getElementById('paymentsForm')?.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.textContent = 'Update Payment';
+      
+      // Scroll to form
+      const paymentsForm = document.getElementById('paymentsForm');
+      if (paymentsForm) paymentsForm.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    
+    // Fallback to Firestore
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const paymentDoc = await getDoc(doc(db, "users", user.uid, "payments", paymentId));
+    if (paymentDoc.exists()) {
+      const payment = paymentDoc.data();
+      
+      // Fill form with payment data
+      const studentSelect = document.getElementById('paymentStudent');
+      const dateInput = document.getElementById('paymentDate');
+      const amountInput = document.getElementById('paymentAmount');
+      const statusInput = document.getElementById('paymentStatus');
+      const methodInput = document.getElementById('paymentMethod');
+      const notesInput = document.getElementById('paymentNotes');
+      
+      if (studentSelect) studentSelect.value = payment.studentId || '';
+      if (dateInput) dateInput.value = formatDateForInput(payment.date);
+      if (amountInput) amountInput.value = payment.amount || '';
+      if (statusInput) statusInput.value = payment.status || 'pending';
+      if (methodInput) methodInput.value = payment.method || '';
+      if (notesInput) notesInput.value = payment.notes || '';
+      
+      // Change form to edit mode
+      currentEditPaymentId = paymentId;
+      const submitBtn = document.getElementById('paymentsForm')?.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.textContent = 'Update Payment';
+      
+      // Scroll to form
+      const paymentsForm = document.getElementById('paymentsForm');
+      if (paymentsForm) paymentsForm.scrollIntoView({ behavior: 'smooth' });
+    }
+  } catch (error) {
+    console.error('Error loading payment for edit:', error);
+    showNotification('Failed to load payment data', 'error');
+  }
+}
+
+async function deletePayment(paymentId) {
+  if (!confirm('Are you sure you want to delete this payment record?')) {
+    return;
+  }
+
+  try {
+    await enhancedDeleteOperation('payments', paymentId, 'Payment record deleted successfully');
+    await renderPaymentActivity();
+  } catch (error) {
+    console.error('Error deleting payment:', error);
+    showNotification('Failed to delete payment record', 'error');
   }
 }
 
