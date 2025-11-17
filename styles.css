@@ -1703,3 +1703,27 @@ body {
   background: #eab308;
   border-color: #eab308;
 }
+
+
+/* DEBUG: Force FAB to be visible always - add this to your CSS */
+#floatingAddBtn {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 1000 !important;
+}
+
+.fab-container {
+  display: block !important;
+  visibility: visible !important;
+}
+
+/* Remove any potential hiding */
+#floatingAddBtn.hidden,
+#floatingAddBtn.d-none,
+.fab-container.hidden,
+.fab-container.d-none {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
