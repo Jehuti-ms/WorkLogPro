@@ -906,19 +906,23 @@ async function renderRecentHours(limit = 10) {
     rows.slice(0, limit).forEach(entry => {
       const item = document.createElement("div");
       item.className = "hours-entry";
-      item.innerHTML = `
-        <div class="hours-header">
-          <strong>${entry.organization}</strong>
-          <span class="hours-type">${entry.workType}</span>
-        </div>
-        <div class="muted">${formatDate(entry.date)} • ${entry.subject || 'General'}</div>
-        <div class="hours-details">
-          <span>Hours: ${safeNumber(entry.hours)}</span>
-          <span>Rate: $${fmtMoney(entry.rate)}</span>
-          <span class="hours-total">Total: $${fmtMoney(entry.total)}</span>
-        </div>
-        ${entry.student ? `<div class="muted">Student: ${entry.student}</div>` : ''}
-      `;
+     item.innerHTML = `
+          <div class="hours-header">
+            <strong>${entry.organization}</strong>
+            <span class="hours-type">${entry.workType}</span>
+            <div class="student-actions">
+              <button class="btn-icon" onclick="editHours('${entry.id}')" title="Edit">✏️</button>
+              <button class="btn-icon" onclick="deleteHours('${entry.id}')" title="Delete">🗑️</button>
+            </div>
+          </div>
+          <div class="muted">${formatDate(entry.date)} • ${entry.subject || 'General'}</div>
+          <div class="hours-details">
+            <span>Hours: ${safeNumber(entry.hours)}</span>
+            <span>Rate: $${fmtMoney(entry.rate)}</span>
+            <span class="hours-total">Total: $${fmtMoney(entry.total)}</span>
+          </div>
+          ${entry.student ? `<div class="muted">Student: ${entry.student}</div>` : ''}
+        `;
       container.appendChild(item);
     });
 
@@ -2177,6 +2181,13 @@ async function editHours(hoursId) {
   }
 
   try {
+    // Show loading state
+    const logHoursBtn = document.getElementById('logHoursBtn');
+    if (logHoursBtn) {
+      logHoursBtn.disabled = true;
+      logHoursBtn.innerHTML = '<span id="logHoursText">⏳ Loading...</span>';
+    }
+
     const hoursDoc = await getDoc(doc(db, "users", user.uid, "hours", hoursId));
     
     if (!hoursDoc.exists()) {
@@ -2211,10 +2222,16 @@ async function editHours(hoursId) {
     }
     
     // Change button to update mode
-    const logHoursBtn = document.getElementById('logHoursBtn');
     if (logHoursBtn) {
+      logHoursBtn.disabled = false;
       logHoursBtn.onclick = () => updateHours(hoursId);
       logHoursBtn.innerHTML = '<span id="logHoursText">💾 Update Hours</span><span id="logHoursSpinner" style="display: none;">⏳ Updating...</span>';
+    }
+    
+    // Scroll to form
+    const hoursForm = document.querySelector('#hours .section-card:first-child');
+    if (hoursForm) {
+      hoursForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
     
     NotificationSystem.notifyInfo(`Editing hours entry from ${formatDate(hours.date)}`);
@@ -2222,12 +2239,123 @@ async function editHours(hoursId) {
   } catch (error) {
     console.error('Error loading hours for edit:', error);
     NotificationSystem.notifyError('Failed to load hours data');
+    
+    // Reset button on error
+    const logHoursBtn = document.getElementById('logHoursBtn');
+    if (logHoursBtn) {
+      logHoursBtn.disabled = false;
+      logHoursBtn.onclick = logHours;
+      logHoursBtn.innerHTML = '<span id="logHoursText">💾 Log Work</span><span id="logHoursSpinner" style="display: none;">⏳ Saving...</span>';
+    }
   }
 }
 
 async function updateHours(hoursId) {
-  // Similar to logHours but with updateDoc instead of addDoc
-  // You can copy the logHours function and modify it for updates
+  const studentEl = document.getElementById("hoursStudent");
+  const orgEl = document.getElementById("organization");
+  const subjectEl = document.getElementById("workSubject");
+  const typeEl = document.getElementById("workType");
+  const dateEl = document.getElementById("workDate");
+  const hoursEl = document.getElementById("hoursWorked");
+  const rateEl = document.getElementById("baseRate");
+
+  const studentId = studentEl?.value;
+  const organization = orgEl?.value.trim();
+  const subject = subjectEl?.value.trim();
+  const workType = typeEl?.value || "hourly";
+  const workDate = dateEl?.value;
+  const hours = parseFloat(hoursEl?.value);
+  const rate = parseFloat(rateEl?.value);
+
+  if (!organization || !workDate || !Number.isFinite(hours) || hours <= 0 || !Number.isFinite(rate) || rate <= 0) {
+    NotificationSystem.notifyError("Please fill required fields: Organization, Date, Hours, Rate");
+    return;
+  }
+
+  // Calculate total based on work type
+  let total = 0;
+  if (workType === "hourly") {
+    total = hours * rate;
+  } else {
+    total = rate; // Flat rate for session/contract/project/etc.
+  }
+
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError("Please log in to update hours");
+    return;
+  }
+
+  try {
+    // Show loading state
+    const logHoursBtn = document.getElementById('logHoursBtn');
+    const logHoursText = document.getElementById('logHoursText');
+    const logHoursSpinner = document.getElementById('logHoursSpinner');
+    
+    if (logHoursBtn) logHoursBtn.disabled = true;
+    if (logHoursText) logHoursText.style.display = 'none';
+    if (logHoursSpinner) {
+      logHoursSpinner.textContent = '⏳ Updating...';
+      logHoursSpinner.style.display = 'inline';
+    }
+
+    const hoursData = {
+      student: studentId || null,
+      organization,
+      subject: subject || 'General',
+      workType,
+      date: workDate,
+      dateIso: fmtDateISO(workDate),
+      hours: workType === "hourly" ? hours : 0,
+      rate,
+      total,
+      updatedAt: new Date().toISOString()
+    };
+
+    console.log('✏️ Updating hours:', hoursId, hoursData);
+    
+    // Update in Firestore
+    const hoursRef = doc(db, "users", user.uid, "hours", hoursId);
+    await updateDoc(hoursRef, hoursData);
+    
+    NotificationSystem.notifySuccess("Hours updated successfully!");
+    
+    // Reset form to add mode
+    resetHoursFormToAddMode();
+    
+    // Refresh data
+    await Promise.all([
+      recalcSummaryStats(user.uid),
+      renderRecentHours()
+    ]);
+    
+  } catch (err) {
+    console.error("Error updating hours:", err);
+    NotificationSystem.notifyError("Failed to update hours: " + err.message);
+  } finally {
+    // Reset button state
+    const logHoursBtn = document.getElementById('logHoursBtn');
+    const logHoursText = document.getElementById('logHoursText');
+    const logHoursSpinner = document.getElementById('logHoursSpinner');
+    
+    if (logHoursBtn) logHoursBtn.disabled = false;
+    if (logHoursText) logHoursText.style.display = 'inline';
+    if (logHoursSpinner) logHoursSpinner.style.display = 'none';
+  }
+}
+
+// Helper function to reset form back to "add" mode
+function resetHoursFormToAddMode() {
+  resetHoursForm();
+  
+  // Reset button to add mode
+  const logHoursBtn = document.getElementById('logHoursBtn');
+  if (logHoursBtn) {
+    logHoursBtn.onclick = logHours;
+    logHoursBtn.innerHTML = '<span id="logHoursText">💾 Log Work</span><span id="logHoursSpinner" style="display: none;">⏳ Saving...</span>';
+  }
+  
+  console.log("✅ Hours form reset to add mode");
 }
 
 async function deleteHours(hoursId) {
