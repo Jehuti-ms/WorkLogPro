@@ -2268,6 +2268,8 @@ async function updateHours(hoursId) {
 }
 
 async function deleteHours(hoursId) {
+  console.log("deleteHours defined:", typeof deleteHours);
+  
   if (confirm("Are you sure you want to delete this hours entry?")) {
     const user = auth.currentUser;
     if (user) {
