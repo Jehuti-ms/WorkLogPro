@@ -2695,75 +2695,113 @@ async function clearAllUserData(uid) {
 // TAB NAVIGATION - DEBUGGING VERSION
 // ===========================
 
+// ===========================
+// TAB NAVIGATION SYSTEM
+// ===========================
+
 function setupTabNavigation() {
+  console.log('🔧 Setting up tab navigation...');
+  
   const tabButtons = document.querySelectorAll('[data-tab]');
   const tabContents = document.querySelectorAll('.tab-content');
 
-  console.log('🔍 Found tab buttons:', tabButtons.length);
-  console.log('🔍 Found tab contents:', tabContents.length);
+  console.log(`📊 Found ${tabButtons.length} tab buttons and ${tabContents.length} tab contents`);
 
+  if (tabButtons.length === 0 || tabContents.length === 0) {
+    console.error('❌ No tabs found in DOM! Check your HTML structure');
+    showNotification('Tab navigation not available', 'error');
+    return;
+  }
+
+  // Add click listeners to all tab buttons
   tabButtons.forEach(button => {
-    console.log('📌 Tab button:', button.getAttribute('data-tab'));
+    const targetTab = button.getAttribute('data-tab');
+    console.log(`📌 Setting up tab button for: ${targetTab}`);
     
-    button.addEventListener('click', () => {
-      const targetTab = button.getAttribute('data-tab');
-      console.log('🎯 Switching to tab:', targetTab);
-      
-      // Update active tab button
-      tabButtons.forEach(btn => {
-        btn.classList.remove('active');
-        console.log('➖ Removed active from:', btn.getAttribute('data-tab'));
-      });
-      button.classList.add('active');
-      console.log('✅ Added active to:', targetTab);
-      
-      // Show target tab content
-      tabContents.forEach(content => {
-        content.classList.remove('active');
-        console.log('➖ Hid content:', content.id);
-        if (content.id === targetTab) {
-          content.classList.add('active');
-          console.log('✅ Showing content:', content.id);
-        }
-      });
-
-      // Load data for the tab if needed
-      console.log('🔄 Loading data for tab:', targetTab);
-      switch(targetTab) {
-        case 'students':
-          renderStudents();
-          break;
-        case 'hours':
-          renderRecentHours();
-          break;
-        case 'marks':
-          renderRecentMarks();
-          break;
-        case 'attendance':
-          renderAttendanceRecent();
-          break;
-        case 'payments':
-          renderPaymentActivity();
-          break;
-      }
-
-      // Setup forms for the active tab
-      setTimeout(() => setupTabForms(targetTab), 100);
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      console.log(`🎯 Clicked tab: ${targetTab}`);
+      switchToTab(targetTab);
     });
   });
 
   // Activate first tab by default
-  if (tabButtons.length > 0) {
-    const firstTab = tabButtons[0];
-    console.log('🚀 Activating first tab:', firstTab.getAttribute('data-tab'));
-    firstTab.click();
+  const firstTab = tabButtons[0]?.getAttribute('data-tab');
+  if (firstTab) {
+    console.log(`🚀 Activating first tab: ${firstTab}`);
+    switchToTab(firstTab);
+  } else {
+    console.error('❌ No tabs available to activate');
   }
 }
 
-function setupTabForms(activeTab) {
-  console.log('🔧 Setting up forms for tab:', activeTab);
+function switchToTab(tabName) {
+  console.log(`🔄 Switching to tab: ${tabName}`);
   
-  switch(activeTab) {
+  // Update tab buttons
+  const tabButtons = document.querySelectorAll('[data-tab]');
+  tabButtons.forEach(btn => {
+    btn.classList.remove('active');
+    if (btn.getAttribute('data-tab') === tabName) {
+      btn.classList.add('active');
+      console.log(`✅ Activated button: ${tabName}`);
+    }
+  });
+
+  // Update tab contents
+  const tabContents = document.querySelectorAll('.tab-content');
+  let foundTab = false;
+  
+  tabContents.forEach(content => {
+    content.classList.remove('active');
+    if (content.id === tabName) {
+      content.classList.add('active');
+      foundTab = true;
+      console.log(`✅ Activated content: ${tabName}`);
+    }
+  });
+
+  if (!foundTab) {
+    console.error(`❌ Tab content not found for: ${tabName}`);
+    showNotification(`Tab '${tabName}' not found`, 'error');
+    return;
+  }
+
+  // Load data for the active tab
+  loadTabData(tabName);
+  
+  // Setup forms for the active tab
+  setupTabForms(tabName);
+}
+
+function loadTabData(tabName) {
+  console.log(`📊 Loading data for tab: ${tabName}`);
+  
+  switch(tabName) {
+    case 'students':
+      renderStudents();
+      break;
+    case 'hours':
+      renderRecentHours();
+      break;
+    case 'marks':
+      renderRecentMarks();
+      break;
+    case 'attendance':
+      renderAttendanceRecent();
+      break;
+    case 'payments':
+      renderPaymentActivity();
+      break;
+    default:
+      console.warn(`⚠️ Unknown tab: ${tabName}`);
+  }
+}
+
+function setupTabForms(tabName) {
+  console.log(`🔧 Setting up forms for tab: ${tabName}`);
+  
+  switch(tabName) {
     case 'students':
       setupStudentForm();
       break;
@@ -2796,8 +2834,7 @@ async function initializeApp() {
         unsubscribe();
         resolve(user);
       });
-    });
-
+    
     if (!user) {
       console.log('❌ No user signed in, redirecting to auth...');
       window.location.href = "auth.html";
