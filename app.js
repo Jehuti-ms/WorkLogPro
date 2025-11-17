@@ -2375,6 +2375,32 @@ async function deleteHours(hoursId) {
   }
 }
 
+function cancelHoursEdit() {
+  resetHoursFormToAddMode();
+  
+  // Hide cancel button
+  const cancelBtn = document.getElementById('cancelHoursEdit');
+  if (cancelBtn) {
+    cancelBtn.style.display = 'none';
+  }
+  
+  NotificationSystem.notifyInfo('Hours edit cancelled');
+}
+
+// Update editHours to show cancel button
+// In editHours function, add:
+const cancelBtn = document.getElementById('cancelHoursEdit');
+if (cancelBtn) {
+  cancelBtn.style.display = 'inline-flex';
+}
+
+// Update resetHoursFormToAddMode to hide cancel button
+// In resetHoursFormToAddMode function, add:
+const cancelBtn = document.getElementById('cancelHoursEdit');
+if (cancelBtn) {
+  cancelBtn.style.display = 'none';
+}
+
 function resetMarksForm() {
   const form = document.getElementById("marksForm");
   if (form) form.reset();
