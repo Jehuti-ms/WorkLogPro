@@ -76,40 +76,40 @@
     </div>
   </div>
 
- <header class="header">
-  <div class="logo-title">
-    <img src="icons/worklog_cogs.svg" alt="WorkLog Logo" class="logo">
-    <h1>WorkLog</h1>
-  </div>
-  
-  <div class="header-main">
-    <p class="subtitle">Student Tracker & Hours Management System</p>
-    
-   <div class="stats-row">
-  <div class="storage-status">
-    <span id="localStatus">💾 Local Storage: Active</span>
-    <span id="syncStatus">☁️ Cloud Sync: Ready</span>
-    <span id="dataStatus">📊 Data: <span id="statStudents">0</span> Students, <span id="statHours">0</span> Hours</span>   
-  </div>
+  <div class="container">
+    <header class="header">
+      <div class="logo-title">
+        <img src="icons/worklog_cogs.svg" alt="WorkLog Logo" class="logo">
+        <h1>WorkLog</h1>
+      </div>
       
-      <div class="header-controls">
-        <div class="theme-toggle">
-          <button>🌓</button>
-        </div>
-        <div class="auth-section">
-          <button id="profileBtn" class="btn btn-secondary">
-            👤 <span id="userName">Loading...</span>
-          </button>
+      <div class="header-main">
+        <p class="subtitle">Student Tracker & Hours Management System</p>
+        
+        <div class="stats-row">
+          <div class="storage-status">
+            <span id="localStatus">💾 Local Storage: Active</span>
+            <span id="syncStatus">☁️ Cloud Sync: Ready</span>
+            <span id="dataStatus">📊 Data: <span id="statStudents">0</span> Students, <span id="statHours">0</span> Hours</span>   
+          </div>
+          
+          <div class="header-controls">
+            <div class="theme-toggle">
+              <button>🌓</button>
+            </div>
+            <div class="auth-section">
+              <button id="profileBtn" class="btn btn-secondary">
+                👤 <span id="userName">Loading...</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  </div>
-</header>
-   
-  <!-- Cloud Sync Bar -->
+    </header>
+     
+    <!-- Cloud Sync Bar -->
     <div class="sync-toolbar">
       <div id="syncIndicator"></div>
-     <!-- <div id="syncSpinner"></div> -->
       <label class="auto-sync-label" id="autoSyncLabel">
         <input type="checkbox" id="autoSyncCheckbox">
         <span class="auto-sync-text" id="autoSyncText">Manual</span>
@@ -137,6 +137,7 @@
       </div>
     </div>
 
+    <!-- Tab Contents -->
     <!-- Students Tab -->
     <div id="students" class="tabcontent active">
       <div class="section-header">
@@ -205,7 +206,7 @@
             </div>
           </div>
           <div class="form-actions">
-            <button type="button" class="button primary" onclick="addStudent()">➕ Add Student</button>
+            <button type="button" class="button primary" id="studentSubmitBtn">➕ Add Student</button>
             <button type="button" class="button secondary" onclick="clearStudentForm()">🗑️ Clear Form</button>
             <button type="button" class="button warning" id="studentCancelBtn" style="display: none;">❌ Cancel Edit</button>
           </div>
@@ -266,11 +267,11 @@
               <option value="other">One-off Job</option>
             </select>
             <div class="help-text">
-            • Hourly: Charged per hour worked<br>
-            • Session/Consultation: Flat fee per meeting<br>
-            • Contract/Project/One-off: Fixed amount for the job
+              • Hourly: Charged per hour worked<br>
+              • Session/Consultation: Flat fee per meeting<br>
+              • Contract/Project/One-off: Fixed amount for the job
+            </div>
           </div>
-        </div>
           <div class="form-group">
             <label for="workDate">Date *</label>
             <input type="date" id="workDate" required>
@@ -287,25 +288,15 @@
             </button>
           </div>
           <div class="form-group">
-            <label for="totalPay">Total Earnings</label>
-            <input type="text" id="totalPay" readonly>
+            <label>Total Earnings</label>
+            <div class="total-display" id="totalPay">$0.00</div>
           </div>
-         <div class="form-actions">
-          <button type="button" class="button primary" id="logHoursBtn" onclick="logHours()">
-            <span id="logHoursText">💾 Log Work</span>
-            <span id="logHoursSpinner" style="display: none;">⏳ Saving...</span>
-          <!-- Add these edit mode buttons -->
-            <button type="button" class="button success" id="updateHoursBtn" onclick="updateHours()" style="display: none;">
-              💾 Update Hours
-            </button>
-            
-            <button type="button" class="button danger" id="deleteHoursBtn" onclick="deleteHours()" style="display: none;">
-              🗑️ Delete Entry
-            </button>
-            
+          <div class="form-actions">
+            <button type="button" class="button primary" id="hoursSubmitBtn">💾 Log Hours</button>
             <button type="button" class="button secondary" onclick="resetHoursForm()">🗑️ Clear Form</button>
-            <button type="button" class="button warning" id="cancelHoursEdit" onclick="cancelHoursEdit()" style="display: none;">❌ Cancel Edit</button>
+            <button type="button" class="button warning" id="hoursCancelBtn" style="display: none;">❌ Cancel Edit</button>
           </div>
+        </div>
 
         <div class="section-card">
           <h3>📊 Recent Earnings</h3>
@@ -568,59 +559,59 @@
         </div>
       </div>
     </div>
+  </div> <!-- End of container -->
 
-   <!-- Floating Action Button -->
-<div class="fab-container">
-  <button id="floatingAddBtn" class="fab">➕</button>
-  <div id="fabMenu" class="fab-menu">
-    <button id="fabAddStudent" class="fab-item">
-      <span class="icon">👤</span>
-      Add Student
-    </button>
-    <button id="fabAddHours" class="fab-item">
-      <span class="icon">⏱️</span>
-      Log Hours
-    </button>
-    <button id="fabAddMark" class="fab-item">
-      <span class="icon">📝</span>
-      Add Mark
-    </button>
-    <button id="fabAddAttendance" class="fab-item">
-      <span class="icon">✅</span>
-      Take Attendance
-    </button>
+  <!-- Floating Action Button - OUTSIDE ALL TAB CONTENT -->
+  <div class="fab-container">
+    <button id="floatingAddBtn" class="fab">+</button>
+    <div id="fabMenu" class="fab-menu">
+      <button id="fabAddStudent" class="fab-item">
+        <span class="icon">👤</span>
+        Add Student
+      </button>
+      <button id="fabAddHours" class="fab-item">
+        <span class="icon">⏱️</span>
+        Log Hours
+      </button>
+      <button id="fabAddMark" class="fab-item">
+        <span class="icon">📝</span>
+        Add Mark
+      </button>
+      <button id="fabAddAttendance" class="fab-item">
+        <span class="icon">✅</span>
+        Take Attendance
+      </button>
+    </div>
+    <div id="fabOverlay" class="fab-overlay"></div>
   </div>
-  <div id="fabOverlay" class="fab-overlay"></div>
-</div>
 
   <!-- Firebase and App Scripts -->
   <script type="module" src="firebase-config.js"></script>
   <script type="module" src="app.js"></script>
 
   <!-- Auth Check -->
-  <!-- Auth Check -->
-<script type="module">
-  import { auth } from "./firebase-config.js";
-  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  <script type="module">
+    import { auth } from "./firebase-config.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-  console.log("🔐 Starting auth check on index.html...");
+    console.log("🔐 Starting auth check on index.html...");
 
-  onAuthStateChanged(auth, user => {
-    if (user) {
-      console.log("✅ User authenticated:", user.email);
-      
-      // Safe container access with null check
-      const container = document.querySelector(".container");
-      if (container) {
-        container.style.display = "block";
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        console.log("✅ User authenticated:", user.email);
+        
+        // Safe container access with null check
+        const container = document.querySelector(".container");
+        if (container) {
+          container.style.display = "block";
+        } else {
+          console.warn("⚠️ Container element not found");
+        }
       } else {
-        console.warn("⚠️ Container element not found");
+        console.log("🚫 No user authenticated - redirecting to login");
+        window.location.href = "auth.html";
       }
-    } else {
-      console.log("🚫 No user authenticated - redirecting to login");
-      window.location.href = "auth.html";
-    }
-  });
-</script>
+    });
+  </script>
 </body>
 </html>
