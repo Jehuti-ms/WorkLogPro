@@ -2344,20 +2344,6 @@ async function updateHours(hoursId) {
   }
 }
 
-// Helper function to reset form back to "add" mode
-function resetHoursFormToAddMode() {
-  resetHoursForm();
-  
-  // Reset button to add mode
-  const logHoursBtn = document.getElementById('logHoursBtn');
-  if (logHoursBtn) {
-    logHoursBtn.onclick = logHours;
-    logHoursBtn.innerHTML = '<span id="logHoursText">💾 Log Work</span><span id="logHoursSpinner" style="display: none;">⏳ Saving...</span>';
-  }
-  
-  console.log("✅ Hours form reset to add mode");
-}
-
 async function deleteHours(hoursId) {
   if (confirm("Are you sure you want to delete this hours entry?")) {
     const user = auth.currentUser;
