@@ -2629,29 +2629,6 @@ async function deleteHours(hoursId) {
 // HOURS EDITING FUNCTIONS - ADD THESE
 // ===========================
 
-function cancelHoursEdit() {
-  console.log('❌ Canceling hours edit...');
-  
-  currentEditHoursId = null;
-  
-  const submitBtn = document.getElementById('hoursSubmitBtn');
-  const cancelBtn = document.getElementById('hoursCancelBtn');
-  
-  if (submitBtn) {
-    submitBtn.textContent = '💾 Log Hours';
-    submitBtn.onclick = logHours;
-  }
-  
-  if (cancelBtn) {
-    cancelBtn.style.display = 'none';
-  }
-  
-  // Clear the form
-  resetHoursForm();
-  
-  NotificationSystem.notifyInfo('Hours edit canceled');
-}
-
 async function deleteHours(hoursId) {
   if (confirm("Are you sure you want to delete this hours entry? This action cannot be undone.")) {
     const user = auth.currentUser;
