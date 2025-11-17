@@ -200,17 +200,6 @@ function fmtMoney(n) {
   return safeNumber(n).toFixed(2);
 }
 
-function fmtDateISO(yyyyMmDd) {
-  if (!yyyyMmDd) return new Date().toISOString();
-  try {
-    // Convert local date to ISO string with timezone info
-    const localDate = convertToLocalDate(yyyyMmDd);
-    return localDate.toISOString();
-  } catch {
-    return new Date().toISOString();
-  }
-}
-
 function formatDate(dateString) {
   if (!dateString) return 'Never';
   try {
