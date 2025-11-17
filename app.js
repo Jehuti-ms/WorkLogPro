@@ -1,300 +1,4 @@
 // ===========================
-// 3-LAYER STORAGE SYSTEM: LOCAL → CACHE → CLOUD
-// ===========================
-
-const StorageSystem = {
-  // Layer 1: Local Storage (Instant)
-  saveToLocal(collectionName, data) {
-    try {
-      const key = `worklog_${collectionName}_${data.id || Date.now()}`;
-      const item = {
-        ...data,
-        _local: true,
-        _synced: false,
-        _createdAt: new Date().toISOString()
-      };
-      localStorage.setItem(key, JSON.stringify(item));
-      console.log(`💾 Saved to local storage: ${key}`);
-      return key;
-    } catch (error) {
-      console.error('❌ Local storage save failed:', error);
-      return null;
-    }
-  },
-
-  getFromLocal(collectionName) {
-    try {
-      const items = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith(`worklog_${collectionName}_`)) {
-          const item = JSON.parse(localStorage.getItem(key));
-          items.push(item);
-        }
-      }
-      return items;
-    } catch (error) {
-      console.error('❌ Local storage read failed:', error);
-      return [];
-    }
-  },
-
-  removeFromLocal(key) {
-    try {
-      localStorage.removeItem(key);
-      console.log(`🗑️ Removed from local storage: ${key}`);
-    } catch (error) {
-      console.error('❌ Local storage remove failed:', error);
-    }
-  },
-
-  // Layer 2: Cache (Fast)
-  updateCache(collectionName, data) {
-    cache[collectionName] = data;
-    cache.lastSync = Date.now();
-    console.log(`✅ Cache updated: ${collectionName}`);
-  },
-
-  clearCache(collectionName) {
-    cache[collectionName] = null;
-    console.log(`🗑️ Cache cleared: ${collectionName}`);
-  },
-
-  // Layer 3: Background Cloud Sync
-  async syncToCloud(collectionName, data, operation = 'create') {
-    const user = auth.currentUser;
-    if (!user) return null;
-
-    try {
-      let result;
-      switch (operation) {
-        case 'create':
-          result = await addDoc(collection(db, "users", user.uid, collectionName), data);
-          break;
-        case 'update':
-          const docRef = doc(db, "users", user.uid, collectionName, data.id);
-          await updateDoc(docRef, data);
-          result = docRef;
-          break;
-        case 'delete':
-          const deleteRef = doc(db, "users", user.uid, collectionName, data.id);
-          await deleteDoc(deleteRef);
-          result = deleteRef;
-          break;
-      }
-      
-      console.log(`☁️ Cloud sync successful: ${collectionName} ${operation}`);
-      return result;
-    } catch (error) {
-      console.error(`❌ Cloud sync failed: ${collectionName} ${operation}`, error);
-      throw error;
-    }
-  },
-
-  // Process pending local items in background
-  async processPendingSync() {
-    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
-    let processedCount = 0;
-    
-    for (const collectionName of collections) {
-      const pendingItems = this.getFromLocal(collectionName);
-      
-      for (const item of pendingItems) {
-        if (item._local && !item._synced) {
-          try {
-            // Remove local flags before syncing to cloud
-            const { _local, _synced, _createdAt, ...cleanData } = item;
-            await this.syncToCloud(collectionName, cleanData, 'create');
-            
-            // Mark as synced and update in local storage
-            item._synced = true;
-            const key = `worklog_${collectionName}_${item.id}`;
-            localStorage.setItem(key, JSON.stringify(item));
-            
-            processedCount++;
-            console.log(`✅ Processed pending sync: ${collectionName} - ${item.id}`);
-          } catch (error) {
-            console.error(`❌ Failed to sync pending item: ${collectionName} - ${item.id}`, error);
-          }
-        }
-      }
-    }
-    
-    if (processedCount > 0) {
-      console.log(`✅ Processed ${processedCount} pending sync items`);
-    }
-  }
-};
-
-// Enhanced cache system
-const cache = {
-  students: null,
-  hours: null,
-  marks: null,
-  attendance: null,
-  payments: null,
-  lastSync: null
-};
-
-const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
-
-function isCacheValid(key) {
-  if (!cache[key] || !cache.lastSync) return false;
-  return (Date.now() - cache.lastSync) < CACHE_DURATION;
-}
-
-function clearAllCache() {
-  cache.students = null;
-  cache.hours = null;
-  cache.marks = null;
-  cache.attendance = null;
-  cache.payments = null;
-  cache.lastSync = null;
-  console.log('🗑️ All cache cleared');
-}
-
-// ===========================
-// ENHANCED CRUD OPERATIONS WITH 3-LAYER SYSTEM
-// ===========================
-
-async function enhancedCreateOperation(collectionName, data, successMessage) {
-  const user = auth.currentUser;
-  if (!user) return null;
-
-  try {
-    // Generate unique ID
-    const itemId = data.id || `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const itemData = { ...data, id: itemId };
-
-    // LAYER 1: Save to local storage immediately (INSTANT)
-    StorageSystem.saveToLocal(collectionName, itemData);
-
-    // LAYER 2: Update cache immediately (FAST)
-    StorageSystem.clearCache(collectionName);
-
-    // Show success immediately
-    NotificationSystem.notifySuccess(successMessage);
-
-    // LAYER 3: Sync to cloud in background (SLOW)
-    setTimeout(async () => {
-      try {
-        await StorageSystem.syncToCloud(collectionName, itemData, 'create');
-        
-        // Update local storage to mark as synced
-        const key = `worklog_${collectionName}_${itemId}`;
-        const localItem = JSON.parse(localStorage.getItem(key));
-        if (localItem) {
-          localItem._synced = true;
-          localStorage.setItem(key, JSON.stringify(localItem));
-        }
-        
-        console.log(`✅ Background sync completed: ${collectionName} - ${itemId}`);
-        
-        // Refresh the view to show synced status
-        setTimeout(() => {
-          switch(collectionName) {
-            case 'students': renderStudents(); break;
-            case 'hours': renderRecentHours(); break;
-            case 'marks': renderRecentMarks(); break;
-            case 'attendance': renderAttendanceRecent(); break;
-            case 'payments': renderPaymentActivity(); break;
-          }
-        }, 500);
-      } catch (error) {
-        console.error(`❌ Background sync failed: ${collectionName} - ${itemId}`, error);
-      }
-    }, 1000);
-
-    return itemId;
-  } catch (error) {
-    console.error(`Error in enhanced create operation for ${collectionName}:`, error);
-    NotificationSystem.notifyError(`Failed to save ${collectionName}`);
-    throw error;
-  }
-}
-
-async function enhancedUpdateOperation(collectionName, docId, data, successMessage) {
-  const user = auth.currentUser;
-  if (!user) return;
-
-  try {
-    const itemData = { ...data, id: docId };
-
-    // LAYER 1: Update local storage immediately
-    const key = `worklog_${collectionName}_${docId}`;
-    const existingItem = JSON.parse(localStorage.getItem(key));
-    if (existingItem) {
-      const updatedItem = { ...existingItem, ...itemData, _synced: false };
-      localStorage.setItem(key, JSON.stringify(updatedItem));
-    } else {
-      // If not in local storage, create new local entry
-      StorageSystem.saveToLocal(collectionName, itemData);
-    }
-
-    // LAYER 2: Clear cache immediately
-    StorageSystem.clearCache(collectionName);
-
-    // Show success immediately
-    NotificationSystem.notifySuccess(successMessage);
-
-    // LAYER 3: Sync to cloud in background
-    setTimeout(async () => {
-      try {
-        await StorageSystem.syncToCloud(collectionName, itemData, 'update');
-        
-        // Mark as synced in local storage
-        const localItem = JSON.parse(localStorage.getItem(key));
-        if (localItem) {
-          localItem._synced = true;
-          localStorage.setItem(key, JSON.stringify(localItem));
-        }
-        
-        console.log(`✅ Background update sync completed: ${collectionName} - ${docId}`);
-      } catch (error) {
-        console.error(`❌ Background update sync failed: ${collectionName} - ${docId}`, error);
-      }
-    }, 1000);
-
-  } catch (error) {
-    console.error(`Error in enhanced update operation for ${collectionName}:`, error);
-    NotificationSystem.notifyError(`Failed to update ${collectionName}`);
-    throw error;
-  }
-}
-
-async function enhancedDeleteOperation(collectionName, docId, successMessage) {
-  const user = auth.currentUser;
-  if (!user) return;
-
-  try {
-    // LAYER 1: Remove from local storage immediately
-    const key = `worklog_${collectionName}_${docId}`;
-    StorageSystem.removeFromLocal(key);
-
-    // LAYER 2: Clear cache immediately
-    StorageSystem.clearCache(collectionName);
-
-    // Show success immediately
-    NotificationSystem.notifySuccess(successMessage);
-
-    // LAYER 3: Delete from cloud in background
-    setTimeout(async () => {
-      try {
-        await StorageSystem.syncToCloud(collectionName, { id: docId }, 'delete');
-        console.log(`✅ Background delete sync completed: ${collectionName} - ${docId}`);
-      } catch (error) {
-        console.error(`❌ Background delete sync failed: ${collectionName} - ${docId}`, error);
-      }
-    }, 1000);
-
-  } catch (error) {
-    console.error(`Error in enhanced delete operation for ${collectionName}:`, error);
-    NotificationSystem.notifyError(`Failed to delete ${collectionName}`);
-    throw error;
-  }
-}
-
-// ===========================
 // IMPORTS
 // ===========================
 
@@ -310,7 +14,8 @@ import {
   orderBy,
   where,
   updateDoc,
-  deleteDoc
+  deleteDoc,
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 import { auth, db } from "./firebase-config.js";
@@ -328,6 +33,9 @@ let isAutoSyncEnabled = false;
 let currentUserData = null;
 let currentEditStudentId = null;
 let currentEditHoursId = null;
+let currentEditMarksId = null;
+let currentEditAttendanceId = null;
+let currentEditPaymentId = null;
 
 // DOM Elements
 const syncIndicator = document.getElementById("syncIndicator");
@@ -341,7 +49,7 @@ const exportCloudBtn = document.getElementById("exportCloudBtn");
 const importCloudBtn = document.getElementById("importCloudBtn");
 const syncStatsBtn = document.getElementById("syncStatsBtn");
 const exportDataBtn = document.getElementById("exportDataBtn");
-const importDataBtn = document.getElementById("importDataBtn");
+importDataBtn = document.getElementById("importDataBtn");
 const clearDataBtn = document.getElementById("clearDataBtn");
 
 // ===========================
@@ -425,6 +133,22 @@ function formatDate(dateString) {
   }
 }
 
+function formatDateTime(dateString) {
+  if (!dateString) return 'Never';
+  try {
+    const date = convertToLocalDate(dateString);
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch {
+    return dateString;
+  }
+}
+
 // ===========================
 // UTILITY FUNCTIONS
 // ===========================
@@ -455,78 +179,33 @@ function calculateGrade(percentage) {
   return 'F';
 }
 
-// ===========================
-// ENHANCED RENDER FUNCTIONS WITH LOCAL + CLOUD DATA
-// ===========================
+function showNotification(message, type = 'info') {
+  // Remove any existing notifications
+  const existingNotifications = document.querySelectorAll('.notification');
+  existingNotifications.forEach(notification => notification.remove());
 
-async function renderWithLocalAndCloud(containerId, collectionName, renderFunction, emptyMessage, limit = null) {
-  const user = auth.currentUser;
-  if (!user) return;
+  const notification = document.createElement('div');
+  notification.className = `notification notification-${type}`;
+  notification.innerHTML = `
+    <div class="notification-content">
+      <span class="notification-message">${message}</span>
+      <button class="notification-close">&times;</button>
+    </div>
+  `;
 
-  const container = document.getElementById(containerId);
-  if (!container) return;
+  document.body.appendChild(notification);
 
-  // Show cached data immediately if available
-  if (isCacheValid(collectionName) && cache[collectionName]) {
-    container.innerHTML = cache[collectionName];
-    console.log(`✅ ${collectionName} loaded from cache`);
-    return;
-  }
-
-  container.innerHTML = '<div class="loading">Loading...</div>';
-
-  try {
-    // Get data from both local storage and cloud
-    const localItems = StorageSystem.getFromLocal(collectionName);
-    let cloudItems = [];
-
-    try {
-      const isTimeBased = ['hours', 'marks', 'attendance', 'payments'].includes(collectionName);
-      const firestoreQuery = isTimeBased 
-        ? query(collection(db, "users", user.uid, collectionName), orderBy("dateIso", "desc"))
-        : collection(db, "users", user.uid, collectionName);
-      
-      const snap = await getDocs(firestoreQuery);
-      cloudItems = snap.docs.map(doc => ({ id: doc.id, ...doc.data(), _synced: true }));
-    } catch (cloudError) {
-      console.warn(`⚠️ Cloud data unavailable for ${collectionName}, using local data only`);
+  // Auto remove after 5 seconds
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.remove();
     }
+  }, 5000);
 
-    // Merge and deduplicate items (local items take precedence for un-synced data)
-    const allItems = [...cloudItems];
-    const localItemIds = new Set(cloudItems.map(item => item.id));
-    
-    localItems.forEach(localItem => {
-      if (!localItemIds.has(localItem.id) && !localItem._synced) {
-        allItems.push(localItem);
-      }
-    });
-
-    if (allItems.length === 0) {
-      const emptyHTML = `<div class="empty-state"><h3>${emptyMessage}</h3></div>`;
-      container.innerHTML = emptyHTML;
-      StorageSystem.updateCache(collectionName, emptyHTML);
-      return;
-    }
-
-    // Sort if needed (for time-based collections)
-    if (['hours', 'marks', 'attendance', 'payments'].includes(collectionName)) {
-      allItems.sort((a, b) => new Date(b.dateIso || b.date) - new Date(a.dateIso || a.date));
-    }
-
-    // Apply limit if specified
-    const finalItems = limit ? allItems.slice(0, limit) : allItems;
-    const html = await renderFunction(finalItems);
-    container.innerHTML = html;
-    StorageSystem.updateCache(collectionName, html);
-    
-    const unsyncedCount = localItems.filter(i => !i._synced).length;
-    console.log(`✅ ${collectionName} loaded: ${unsyncedCount} local + ${cloudItems.length} cloud items`);
-
-  } catch (error) {
-    console.error(`Error rendering ${collectionName}:`, error);
-    container.innerHTML = '<div class="error">Error loading data</div>';
-  }
+  // Close button
+  notification.querySelector('.notification-close').addEventListener('click', () => {
+    notification.remove();
+  });
 }
 
 // ===========================
@@ -635,17 +314,16 @@ async function applyDefaultRateToAllStudents(uid, newRate) {
 
     if (updateCount > 0) {
       await batch.commit();
-      StorageSystem.clearCache('students');
-      NotificationSystem.notifySuccess(`Default rate applied to ${updateCount} students`);
+      showNotification(`Default rate applied to ${updateCount} students`, 'success');
       setTimeout(() => renderStudents(), 100);
     } else {
-      NotificationSystem.notifyInfo("No students found to update");
+      showNotification("No students found to update", 'info');
     }
     
     return updateCount;
   } catch (err) {
     console.error("❌ Error applying rate to all students:", err);
-    NotificationSystem.notifyError("Failed to apply rate to all students");
+    showNotification("Failed to apply rate to all students", 'error');
     return 0;
   }
 }
@@ -655,6 +333,7 @@ function setupProfileModal() {
   const profileModal = document.getElementById('profileModal');
   const closeProfileModal = document.getElementById('closeProfileModal');
   const logoutBtn = document.getElementById('logoutBtn');
+  const applyRateToAllBtn = document.getElementById('applyRateToAllBtn');
 
   console.log('🔧 Setting up profile modal...');
 
@@ -692,8 +371,24 @@ function setupProfileModal() {
           window.location.href = "auth.html";
         } catch (error) {
           console.error('Logout error:', error);
-          NotificationSystem.notifyError('Logout failed');
+          showNotification('Logout failed', 'error');
         }
+      }
+    });
+  }
+
+  if (applyRateToAllBtn) {
+    applyRateToAllBtn.addEventListener('click', async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+      
+      const newRate = currentUserData?.defaultRate || 0;
+      if (newRate > 0) {
+        if (confirm(`Apply $${fmtMoney(newRate)}/hour rate to ALL students?`)) {
+          await applyDefaultRateToAllStudents(user.uid, newRate);
+        }
+      } else {
+        showNotification('Please set a default rate first', 'error');
       }
     });
   }
@@ -978,11 +673,6 @@ function initializeTheme() {
     updateThemeIcon(savedTheme);
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    initializeTheme();
-    setupThemeToggle();
-});
-
 // ===========================
 // HEADER STATS
 // ===========================
@@ -1083,333 +773,1146 @@ async function updateUserStats(uid, newStats) {
   } catch (err) {
     console.error("❌ Error updating stats:", err);
     if (syncMessageLine) syncMessageLine.textContent = "Status: Offline - stats update failed";
-    
-    // Fallback to local storage for stats
-    const localStats = JSON.parse(localStorage.getItem('userStats') || '{}');
-    const updatedStats = { ...localStats, ...newStats };
-    localStorage.setItem('userStats', JSON.stringify(updatedStats));
   }
 }
 
 // ===========================
-// NOTIFICATION SYSTEM
+// STUDENT MANAGEMENT
 // ===========================
 
-const NotificationSystem = {
-  notifySuccess(message) {
-    this.showNotification(message, 'success');
-  },
+async function renderStudents() {
+  const container = document.getElementById('studentsList');
+  if (!container) return;
 
-  notifyError(message) {
-    this.showNotification(message, 'error');
-  },
+  const user = auth.currentUser;
+  if (!user) return;
 
-  notifyInfo(message) {
-    this.showNotification(message, 'info');
-  },
+  container.innerHTML = '<div class="loading">Loading students...</div>';
 
-  showNotification(message, type = 'info') {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.className = `notification notification-${type}`;
-    notification.innerHTML = `
-      <div class="notification-content">
-        <span class="notification-message">${message}</span>
-        <button class="notification-close">&times;</button>
-      </div>
-    `;
+  try {
+    const studentsSnap = await getDocs(collection(db, "users", user.uid, "students"));
+    const students = studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    // Add to container
-    const container = document.getElementById('notificationContainer') || this.createContainer();
-    container.appendChild(notification);
-
-    // Auto remove after 5 seconds
-    setTimeout(() => {
-      if (notification.parentNode) {
-        notification.classList.add('notification-fadeout');
-        setTimeout(() => notification.remove(), 300);
-      }
-    }, 5000);
-
-    // Close button
-    notification.querySelector('.notification-close').addEventListener('click', () => {
-      notification.classList.add('notification-fadeout');
-      setTimeout(() => notification.remove(), 300);
-    });
-  },
-
-  createContainer() {
-    const container = document.createElement('div');
-    container.id = 'notificationContainer';
-    container.className = 'notification-container';
-    document.body.appendChild(container);
-    return container;
-  }
-};
-
-// ===========================
-// SYNC MANAGEMENT SYSTEM
-// ===========================
-
-const SyncManager = {
-  async manualSync() {
-    if (!auth.currentUser) {
-      NotificationSystem.notifyError('Please sign in to sync');
+    if (students.length === 0) {
+      container.innerHTML = '<div class="empty-state"><h3>No students added yet</h3><p>Add your first student to get started</p></div>';
       return;
     }
 
-    this.setSyncStatus('syncing', 'Syncing data...');
+    container.innerHTML = renderStudentsList(students);
+    setupStudentEventListeners();
     
+    // Update stats
+    await updateUserStats(user.uid, { students: students.length });
+    
+  } catch (error) {
+    console.error('Error loading students:', error);
+    container.innerHTML = '<div class="error">Error loading students</div>';
+  }
+}
+
+function renderStudentsList(students) {
+  return `
+    <div class="students-grid">
+      ${students.map(student => `
+        <div class="student-card" data-student-id="${student.id}">
+          <div class="student-header">
+            <h3>${student.name || 'Unnamed Student'}</h3>
+            <div class="student-actions">
+              <button class="btn-icon edit-student" title="Edit Student">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="btn-icon delete-student" title="Delete Student">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+          <div class="student-details">
+            <div class="student-info">
+              <span class="label">Rate:</span>
+              <span class="value">$${fmtMoney(student.rate || 0)}/hr</span>
+            </div>
+            <div class="student-info">
+              <span class="label">Subject:</span>
+              <span class="value">${student.subject || 'Not specified'}</span>
+            </div>
+            <div class="student-info">
+              <span class="label">Contact:</span>
+              <span class="value">${student.contact || 'Not provided'}</span>
+            </div>
+            ${student.notes ? `
+            <div class="student-info">
+              <span class="label">Notes:</span>
+              <span class="value">${student.notes}</span>
+            </div>
+            ` : ''}
+          </div>
+          <div class="student-stats">
+            <div class="stat">
+              <span class="stat-label">Total Hours</span>
+              <span class="stat-value">${student.totalHours || 0}</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Total Earned</span>
+              <span class="stat-value">$${fmtMoney(student.totalEarned || 0)}</span>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function setupStudentEventListeners() {
+  // Edit student buttons
+  document.querySelectorAll('.edit-student').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const studentCard = e.target.closest('.student-card');
+      const studentId = studentCard.dataset.studentId;
+      editStudent(studentId);
+    });
+  });
+
+  // Delete student buttons
+  document.querySelectorAll('.delete-student').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const studentCard = e.target.closest('.student-card');
+      const studentId = studentCard.dataset.studentId;
+      deleteStudent(studentId);
+    });
+  });
+}
+
+function setupStudentForm() {
+  const studentForm = document.getElementById('studentForm');
+  if (!studentForm) return;
+
+  studentForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(studentForm);
+    const studentData = {
+      name: formData.get('name'),
+      rate: safeNumber(formData.get('rate')),
+      subject: formData.get('subject'),
+      contact: formData.get('contact'),
+      notes: formData.get('notes'),
+      createdAt: new Date().toISOString(),
+      totalHours: 0,
+      totalEarned: 0
+    };
+
     try {
-      // Process all pending sync items
-      await StorageSystem.processPendingSync();
+      const user = auth.currentUser;
+      if (!user) throw new Error('Not authenticated');
+
+      if (currentEditStudentId) {
+        // Update existing student
+        await updateDoc(doc(db, "users", user.uid, "students", currentEditStudentId), studentData);
+        showNotification('Student updated successfully!', 'success');
+        currentEditStudentId = null;
+        
+        // Reset form to "add" mode
+        studentForm.querySelector('button[type="submit"]').textContent = 'Add Student';
+        studentForm.reset();
+      } else {
+        // Add new student
+        await addDoc(collection(db, "users", user.uid, "students"), studentData);
+        showNotification('Student added successfully!', 'success');
+        studentForm.reset();
+      }
       
-      // Clear all caches to force refresh
-      clearAllCache();
+      await renderStudents();
+    } catch (error) {
+      console.error('Error saving student:', error);
+      showNotification('Failed to save student', 'error');
+    }
+  });
+}
+
+async function editStudent(studentId) {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    const studentDoc = await getDoc(doc(db, "users", user.uid, "students", studentId));
+    if (studentDoc.exists()) {
+      const student = studentDoc.data();
       
-      // Refresh all views
-      await this.refreshAllData();
+      // Fill form with student data
+      document.getElementById('studentName').value = student.name || '';
+      document.getElementById('studentRate').value = student.rate || '';
+      document.getElementById('studentSubject').value = student.subject || '';
+      document.getElementById('studentContact').value = student.contact || '';
+      document.getElementById('studentNotes').value = student.notes || '';
       
-      this.setSyncStatus('success', 'Sync completed successfully');
-      NotificationSystem.notifySuccess('Data synced successfully');
+      // Change form to edit mode
+      currentEditStudentId = studentId;
+      document.getElementById('studentForm').querySelector('button[type="submit"]').textContent = 'Update Student';
+      
+      // Scroll to form
+      document.getElementById('studentForm').scrollIntoView({ behavior: 'smooth' });
+    }
+  } catch (error) {
+    console.error('Error loading student for edit:', error);
+    showNotification('Failed to load student data', 'error');
+  }
+}
+
+async function deleteStudent(studentId) {
+  if (!confirm('Are you sure you want to delete this student? This will also delete all associated hours, marks, and attendance records.')) {
+    return;
+  }
+
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    // Delete student
+    await deleteDoc(doc(db, "users", user.uid, "students", studentId));
+    
+    // Delete associated hours
+    const hoursSnap = await getDocs(query(collection(db, "users", user.uid, "hours"), where("studentId", "==", studentId)));
+    const hoursBatch = writeBatch(db);
+    hoursSnap.docs.forEach(doc => hoursBatch.delete(doc.ref));
+    await hoursBatch.commit();
+    
+    // Delete associated marks
+    const marksSnap = await getDocs(query(collection(db, "users", user.uid, "marks"), where("studentId", "==", studentId)));
+    const marksBatch = writeBatch(db);
+    marksSnap.docs.forEach(doc => marksBatch.delete(doc.ref));
+    await marksBatch.commit();
+    
+    // Delete associated attendance
+    const attendanceSnap = await getDocs(query(collection(db, "users", user.uid, "attendance"), where("studentId", "==", studentId)));
+    const attendanceBatch = writeBatch(db);
+    attendanceSnap.docs.forEach(doc => attendanceBatch.delete(doc.ref));
+    await attendanceBatch.commit();
+    
+    showNotification('Student and all associated data deleted successfully', 'success');
+    await renderStudents();
+    await renderRecentHours();
+    await renderRecentMarks();
+    await renderAttendanceRecent();
+    
+  } catch (error) {
+    console.error('Error deleting student:', error);
+    showNotification('Failed to delete student', 'error');
+  }
+}
+
+// ===========================
+// HOURS TRACKING
+// ===========================
+
+async function renderRecentHours() {
+  const container = document.getElementById('recentHoursList');
+  if (!container) return;
+
+  const user = auth.currentUser;
+  if (!user) return;
+
+  container.innerHTML = '<div class="loading">Loading hours...</div>';
+
+  try {
+    // Get students for dropdown
+    const studentsSnap = await getDocs(collection(db, "users", user.uid, "students"));
+    const students = studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    populateStudentDropdown('hoursStudent', students);
+    
+    // Get recent hours
+    const hoursQuery = query(collection(db, "users", user.uid, "hours"), orderBy("dateIso", "desc"));
+    const hoursSnap = await getDocs(hoursQuery);
+    const hours = hoursSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    if (hours.length === 0) {
+      container.innerHTML = '<div class="empty-state"><h3>No hours logged yet</h3><p>Track your tutoring sessions to see them here</p></div>';
+      return;
+    }
+
+    const recentHours = hours.slice(0, 10); // Show last 10 entries
+    container.innerHTML = renderHoursList(recentHours);
+    setupHoursEventListeners();
+    
+    // Calculate totals for stats
+    const totalHours = hours.reduce((sum, hour) => sum + safeNumber(hour.duration), 0);
+    const totalEarnings = hours.reduce((sum, hour) => sum + safeNumber(hour.amount), 0);
+    
+    await updateUserStats(user.uid, { 
+      hours: totalHours.toFixed(1),
+      earnings: totalEarnings
+    });
+    
+  } catch (error) {
+    console.error('Error loading hours:', error);
+    container.innerHTML = '<div class="error">Error loading hours</div>';
+  }
+}
+
+function renderHoursList(hours) {
+  return `
+    <div class="hours-list">
+      ${hours.map(hour => `
+        <div class="hour-item" data-hour-id="${hour.id}">
+          <div class="hour-header">
+            <div class="hour-student">${hour.studentName || 'Unknown Student'}</div>
+            <div class="hour-amount">$${fmtMoney(hour.amount || 0)}</div>
+          </div>
+          <div class="hour-details">
+            <div class="hour-date">${formatDate(hour.date)}</div>
+            <div class="hour-duration">${hour.duration || 0} hours</div>
+            <div class="hour-rate">@ $${fmtMoney(hour.rate || 0)}/hr</div>
+          </div>
+          ${hour.notes ? `<div class="hour-notes">${hour.notes}</div>` : ''}
+          <div class="hour-actions">
+            <button class="btn-small edit-hour">Edit</button>
+            <button class="btn-small btn-danger delete-hour">Delete</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function setupHoursEventListeners() {
+  document.querySelectorAll('.edit-hour').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const hourItem = e.target.closest('.hour-item');
+      const hourId = hourItem.dataset.hourId;
+      editHours(hourId);
+    });
+  });
+
+  document.querySelectorAll('.delete-hour').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const hourItem = e.target.closest('.hour-item');
+      const hourId = hourItem.dataset.hourId;
+      deleteHours(hourId);
+    });
+  });
+}
+
+function setupHoursForm() {
+  const hoursForm = document.getElementById('hoursForm');
+  if (!hoursForm) return;
+
+  // Rate calculation
+  const durationInput = document.getElementById('hoursDuration');
+  const rateInput = document.getElementById('hoursRate');
+  const amountDisplay = document.getElementById('hoursAmount');
+
+  function calculateAmount() {
+    const duration = safeNumber(durationInput.value);
+    const rate = safeNumber(rateInput.value);
+    const amount = duration * rate;
+    amountDisplay.textContent = fmtMoney(amount);
+  }
+
+  durationInput.addEventListener('input', calculateAmount);
+  rateInput.addEventListener('input', calculateAmount);
+
+  // Form submission
+  hoursForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(hoursForm);
+    const studentId = formData.get('studentId');
+    const studentName = document.getElementById('hoursStudent').selectedOptions[0]?.text || 'Unknown';
+    
+    const hoursData = {
+      studentId: studentId,
+      studentName: studentName,
+      date: formData.get('date'),
+      dateIso: fmtDateISO(formData.get('date')),
+      duration: safeNumber(formData.get('duration')),
+      rate: safeNumber(formData.get('rate')),
+      amount: safeNumber(formData.get('duration')) * safeNumber(formData.get('rate')),
+      notes: formData.get('notes'),
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('Not authenticated');
+
+      if (currentEditHoursId) {
+        // Update existing hours
+        await updateDoc(doc(db, "users", user.uid, "hours", currentEditHoursId), hoursData);
+        showNotification('Hours updated successfully!', 'success');
+        currentEditHoursId = null;
+        
+        // Reset form
+        hoursForm.querySelector('button[type="submit"]').textContent = 'Log Hours';
+        hoursForm.reset();
+        amountDisplay.textContent = '0.00';
+      } else {
+        // Add new hours
+        await addDoc(collection(db, "users", user.uid, "hours"), hoursData);
+        showNotification('Hours logged successfully!', 'success');
+        hoursForm.reset();
+        amountDisplay.textContent = '0.00';
+      }
+      
+      await renderRecentHours();
+      
+      // Update student totals
+      if (studentId) {
+        await updateStudentTotals(studentId);
+      }
       
     } catch (error) {
-      console.error('❌ Manual sync failed:', error);
-      this.setSyncStatus('error', 'Sync failed - check connection');
-      NotificationSystem.notifyError('Sync failed - some data may be offline');
+      console.error('Error saving hours:', error);
+      showNotification('Failed to save hours', 'error');
     }
-  },
+  });
 
-  setSyncStatus(status, message = '') {
-    const statusMap = {
-      syncing: { icon: '🔄', class: 'syncing' },
-      success: { icon: '✅', class: 'success' },
-      error: { icon: '❌', class: 'error' },
-      offline: { icon: '🌐', class: 'offline' }
-    };
-
-    const statusInfo = statusMap[status] || statusMap.offline;
-    
-    if (syncIndicator) {
-      syncIndicator.innerHTML = `${statusInfo.icon} ${message}`;
-      syncIndicator.className = `sync-status ${statusInfo.class}`;
-    }
-
-    if (syncSpinner) {
-      syncSpinner.style.display = status === 'syncing' ? 'inline-block' : 'none';
-    }
-  },
-
-  async refreshAllData() {
-    const refreshTasks = [
-      renderStudents(),
-      renderRecentHours(),
-      renderRecentMarks(),
-      renderAttendanceRecent(),
-      renderPaymentActivity()
-    ];
-
-    await Promise.allSettled(refreshTasks);
-    console.log('✅ All data refreshed after sync');
-  },
-
-  setupAutoSync() {
-    autoSyncCheckbox.addEventListener('change', (e) => {
-      const enabled = e.target.checked;
-      this.toggleAutoSync(enabled);
-    });
-
-    // Load saved auto-sync preference
-    const savedAutoSync = localStorage.getItem('autoSyncEnabled') === 'true';
-    autoSyncCheckbox.checked = savedAutoSync;
-    this.toggleAutoSync(savedAutoSync);
-  },
-
-  toggleAutoSync(enabled) {
-    isAutoSyncEnabled = enabled;
-    localStorage.setItem('autoSyncEnabled', enabled.toString());
-
-    if (enabled) {
-      // Start auto-sync every 2 minutes
-      autoSyncInterval = setInterval(() => {
-        if (auth.currentUser && navigator.onLine) {
-          console.log('🔄 Auto-sync running...');
-          StorageSystem.processPendingSync();
-        }
-      }, 2 * 60 * 1000);
-
-      autoSyncText.textContent = 'Auto-sync: ON';
-      NotificationSystem.notifyInfo('Auto-sync enabled');
-    } else {
-      if (autoSyncInterval) {
-        clearInterval(autoSyncInterval);
-        autoSyncInterval = null;
-      }
-      autoSyncText.textContent = 'Auto-sync: OFF';
-      NotificationSystem.notifyInfo('Auto-sync disabled');
-    }
-
-    updateHeaderStats();
+  // Set default date to today
+  const dateInput = document.getElementById('hoursDate');
+  if (dateInput) {
+    dateInput.value = getLocalISODate();
   }
-};
+}
 
-// ===========================
-// DATA MANAGEMENT FUNCTIONS
-// ===========================
-
-async function exportAllData() {
+async function editHours(hoursId) {
   const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError('Please sign in to export data');
-    return;
-  }
+  if (!user) return;
 
   try {
-    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
-    const exportData = {};
-
-    for (const collectionName of collections) {
-      const localItems = StorageSystem.getFromLocal(collectionName);
+    const hoursDoc = await getDoc(doc(db, "users", user.uid, "hours", hoursId));
+    if (hoursDoc.exists()) {
+      const hours = hoursDoc.data();
       
-      try {
-        const snap = await getDocs(collection(db, "users", user.uid, collectionName));
-        const cloudItems = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
-        // Merge local and cloud data (cloud takes precedence)
-        const allItems = [...localItems];
-        const cloudIds = new Set(cloudItems.map(item => item.id));
-        
-        cloudItems.forEach(cloudItem => {
-          const existingIndex = allItems.findIndex(item => item.id === cloudItem.id);
-          if (existingIndex >= 0) {
-            allItems[existingIndex] = cloudItem;
-          } else {
-            allItems.push(cloudItem);
-          }
-        });
+      // Fill form with hours data
+      document.getElementById('hoursStudent').value = hours.studentId || '';
+      document.getElementById('hoursDate').value = formatDateForInput(hours.date);
+      document.getElementById('hoursDuration').value = hours.duration || '';
+      document.getElementById('hoursRate').value = hours.rate || '';
+      document.getElementById('hoursNotes').value = hours.notes || '';
+      
+      // Update amount display
+      document.getElementById('hoursAmount').textContent = fmtMoney(hours.amount || 0);
+      
+      // Change form to edit mode
+      currentEditHoursId = hoursId;
+      document.getElementById('hoursForm').querySelector('button[type="submit"]').textContent = 'Update Hours';
+      
+      // Scroll to form
+      document.getElementById('hoursForm').scrollIntoView({ behavior: 'smooth' });
+    }
+  } catch (error) {
+    console.error('Error loading hours for edit:', error);
+    showNotification('Failed to load hours data', 'error');
+  }
+}
 
-        exportData[collectionName] = allItems;
-      } catch (error) {
-        console.warn(`⚠️ Could not export ${collectionName} from cloud:`, error);
-        exportData[collectionName] = localItems;
-      }
+async function deleteHours(hoursId) {
+  if (!confirm('Are you sure you want to delete these hours?')) {
+    return;
+  }
+
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    // Get hours data first to update student totals
+    const hoursDoc = await getDoc(doc(db, "users", user.uid, "hours", hoursId));
+    const hours = hoursDoc.data();
+    
+    // Delete hours
+    await deleteDoc(doc(db, "users", user.uid, "hours", hoursId));
+    
+    showNotification('Hours deleted successfully', 'success');
+    await renderRecentHours();
+    
+    // Update student totals
+    if (hours.studentId) {
+      await updateStudentTotals(hours.studentId);
+    }
+    
+  } catch (error) {
+    console.error('Error deleting hours:', error);
+    showNotification('Failed to delete hours', 'error');
+  }
+}
+
+async function updateStudentTotals(studentId) {
+  const user = auth.currentUser;
+  if (!user || !studentId) return;
+
+  try {
+    // Get all hours for this student
+    const hoursQuery = query(collection(db, "users", user.uid, "hours"), where("studentId", "==", studentId));
+    const hoursSnap = await getDocs(hoursQuery);
+    const hours = hoursSnap.docs.map(doc => doc.data());
+    
+    // Calculate totals
+    const totalHours = hours.reduce((sum, hour) => sum + safeNumber(hour.duration), 0);
+    const totalEarned = hours.reduce((sum, hour) => sum + safeNumber(hour.amount), 0);
+    
+    // Update student document
+    await updateDoc(doc(db, "users", user.uid, "students", studentId), {
+      totalHours: totalHours,
+      totalEarned: totalEarned
+    });
+    
+    // Refresh students display
+    await renderStudents();
+    
+  } catch (error) {
+    console.error('Error updating student totals:', error);
+  }
+}
+
+// ===========================
+// MARKS/GRADES TRACKING
+// ===========================
+
+async function renderRecentMarks() {
+  const container = document.getElementById('recentMarksList');
+  if (!container) return;
+
+  const user = auth.currentUser;
+  if (!user) return;
+
+  container.innerHTML = '<div class="loading">Loading marks...</div>';
+
+  try {
+    // Get students for dropdown
+    const studentsSnap = await getDocs(collection(db, "users", user.uid, "students"));
+    const students = studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    populateStudentDropdown('marksStudent', students);
+    
+    // Get recent marks
+    const marksQuery = query(collection(db, "users", user.uid, "marks"), orderBy("dateIso", "desc"));
+    const marksSnap = await getDocs(marksQuery);
+    const marks = marksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    if (marks.length === 0) {
+      container.innerHTML = '<div class="empty-state"><h3>No marks recorded yet</h3><p>Record test scores and grades to see them here</p></div>';
+      return;
     }
 
-    // Add metadata
-    exportData.metadata = {
-      exportedAt: new Date().toISOString(),
-      userId: user.uid,
-      version: '1.0'
+    const recentMarks = marks.slice(0, 10); // Show last 10 entries
+    container.innerHTML = renderMarksList(recentMarks);
+    setupMarksEventListeners();
+    
+  } catch (error) {
+    console.error('Error loading marks:', error);
+    container.innerHTML = '<div class="error">Error loading marks</div>';
+  }
+}
+
+function renderMarksList(marks) {
+  return `
+    <div class="marks-list">
+      ${marks.map(mark => {
+        const percentage = safeNumber(mark.percentage);
+        const grade = calculateGrade(percentage);
+        const gradeClass = `grade-${grade.toLowerCase()}`;
+        
+        return `
+        <div class="mark-item" data-mark-id="${mark.id}">
+          <div class="mark-header">
+            <div class="mark-student">${mark.studentName || 'Unknown Student'}</div>
+            <div class="mark-percentage ${gradeClass}">${percentage}%</div>
+          </div>
+          <div class="mark-details">
+            <div class="mark-test">${mark.testName || 'Unnamed Test'}</div>
+            <div class="mark-grade ${gradeClass}">${grade}</div>
+            <div class="mark-date">${formatDate(mark.date)}</div>
+          </div>
+          ${mark.notes ? `<div class="mark-notes">${mark.notes}</div>` : ''}
+          <div class="mark-actions">
+            <button class="btn-small edit-mark">Edit</button>
+            <button class="btn-small btn-danger delete-mark">Delete</button>
+          </div>
+        </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function setupMarksEventListeners() {
+  document.querySelectorAll('.edit-mark').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const markItem = e.target.closest('.mark-item');
+      const markId = markItem.dataset.markId;
+      editMarks(markId);
+    });
+  });
+
+  document.querySelectorAll('.delete-mark').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const markItem = e.target.closest('.mark-item');
+      const markId = markItem.dataset.markId;
+      deleteMarks(markId);
+    });
+  });
+}
+
+function setupMarksForm() {
+  const marksForm = document.getElementById('marksForm');
+  if (!marksForm) return;
+
+  // Grade calculation
+  const scoreInput = document.getElementById('marksScore');
+  const maxScoreInput = document.getElementById('marksMaxScore');
+  const percentageDisplay = document.getElementById('marksPercentage');
+  const gradeDisplay = document.getElementById('marksGrade');
+
+  function calculateGradeDisplay() {
+    const score = safeNumber(scoreInput.value);
+    const maxScore = safeNumber(maxScoreInput.value);
+    
+    if (maxScore > 0) {
+      const percentage = (score / maxScore) * 100;
+      const grade = calculateGrade(percentage);
+      
+      percentageDisplay.textContent = percentage.toFixed(1) + '%';
+      gradeDisplay.textContent = grade;
+      gradeDisplay.className = `grade-display grade-${grade.toLowerCase()}`;
+    } else {
+      percentageDisplay.textContent = '0%';
+      gradeDisplay.textContent = 'N/A';
+      gradeDisplay.className = 'grade-display';
+    }
+  }
+
+  scoreInput.addEventListener('input', calculateGradeDisplay);
+  maxScoreInput.addEventListener('input', calculateGradeDisplay);
+
+  // Form submission
+  marksForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(marksForm);
+    const studentId = formData.get('studentId');
+    const studentName = document.getElementById('marksStudent').selectedOptions[0]?.text || 'Unknown';
+    const score = safeNumber(formData.get('score'));
+    const maxScore = safeNumber(formData.get('maxScore'));
+    const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
+    
+    const marksData = {
+      studentId: studentId,
+      studentName: studentName,
+      testName: formData.get('testName'),
+      date: formData.get('date'),
+      dateIso: fmtDateISO(formData.get('date')),
+      score: score,
+      maxScore: maxScore,
+      percentage: percentage,
+      grade: calculateGrade(percentage),
+      notes: formData.get('notes'),
+      createdAt: new Date().toISOString()
     };
 
-    // Download as JSON file
-    const dataStr = JSON.stringify(exportData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `worklog-backup-${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('Not authenticated');
 
-    NotificationSystem.notifySuccess('Data exported successfully');
-  } catch (error) {
-    console.error('❌ Export failed:', error);
-    NotificationSystem.notifyError('Export failed');
+      if (currentEditMarksId) {
+        // Update existing marks
+        await updateDoc(doc(db, "users", user.uid, "marks", currentEditMarksId), marksData);
+        showNotification('Marks updated successfully!', 'success');
+        currentEditMarksId = null;
+        
+        // Reset form
+        marksForm.querySelector('button[type="submit"]').textContent = 'Record Marks';
+        marksForm.reset();
+        percentageDisplay.textContent = '0%';
+        gradeDisplay.textContent = 'N/A';
+        gradeDisplay.className = 'grade-display';
+      } else {
+        // Add new marks
+        await addDoc(collection(db, "users", user.uid, "marks"), marksData);
+        showNotification('Marks recorded successfully!', 'success');
+        marksForm.reset();
+        percentageDisplay.textContent = '0%';
+        gradeDisplay.textContent = 'N/A';
+        gradeDisplay.className = 'grade-display';
+      }
+      
+      await renderRecentMarks();
+      
+    } catch (error) {
+      console.error('Error saving marks:', error);
+      showNotification('Failed to save marks', 'error');
+    }
+  });
+
+  // Set default date to today
+  const dateInput = document.getElementById('marksDate');
+  if (dateInput) {
+    dateInput.value = getLocalISODate();
   }
 }
 
-async function importAllData(file) {
+async function editMarks(markId) {
   const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError('Please sign in to import data');
-    return;
-  }
-
-  if (!confirm('This will replace all your current data. Continue?')) {
-    return;
-  }
+  if (!user) return;
 
   try {
-    const text = await file.text();
-    const importData = JSON.parse(text);
-
-    // Validate import data
-    if (!importData.metadata || !importData.metadata.version) {
-      throw new Error('Invalid backup file format');
+    const markDoc = await getDoc(doc(db, "users", user.uid, "marks", markId));
+    if (markDoc.exists()) {
+      const mark = markDoc.data();
+      
+      // Fill form with mark data
+      document.getElementById('marksStudent').value = mark.studentId || '';
+      document.getElementById('marksTestName').value = mark.testName || '';
+      document.getElementById('marksDate').value = formatDateForInput(mark.date);
+      document.getElementById('marksScore').value = mark.score || '';
+      document.getElementById('marksMaxScore').value = mark.maxScore || '';
+      document.getElementById('marksNotes').value = mark.notes || '';
+      
+      // Update grade display
+      const percentageDisplay = document.getElementById('marksPercentage');
+      const gradeDisplay = document.getElementById('marksGrade');
+      percentageDisplay.textContent = (mark.percentage || 0).toFixed(1) + '%';
+      gradeDisplay.textContent = mark.grade || 'N/A';
+      gradeDisplay.className = `grade-display grade-${(mark.grade || 'n/a').toLowerCase()}`;
+      
+      // Change form to edit mode
+      currentEditMarksId = markId;
+      document.getElementById('marksForm').querySelector('button[type="submit"]').textContent = 'Update Marks';
+      
+      // Scroll to form
+      document.getElementById('marksForm').scrollIntoView({ behavior: 'smooth' });
     }
-
-    SyncManager.setSyncStatus('syncing', 'Importing data...');
-
-    // Clear existing data first
-    await clearAllUserData(user.uid);
-
-    // Import each collection
-    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
-    let totalImported = 0;
-
-    for (const collectionName of collections) {
-      if (importData[collectionName]) {
-        for (const item of importData[collectionName]) {
-          try {
-            await enhancedCreateOperation(collectionName, item, `Imported ${collectionName}`);
-            totalImported++;
-          } catch (error) {
-            console.error(`❌ Failed to import ${collectionName} item:`, error);
-          }
-        }
-      }
-    }
-
-    // Clear cache and refresh
-    clearAllCache();
-    await SyncManager.refreshAllData();
-
-    SyncManager.setSyncStatus('success', `Imported ${totalImported} items`);
-    NotificationSystem.notifySuccess(`Successfully imported ${totalImported} items`);
   } catch (error) {
-    console.error('❌ Import failed:', error);
-    SyncManager.setSyncStatus('error', 'Import failed');
-    NotificationSystem.notifyError('Import failed - invalid file format');
+    console.error('Error loading marks for edit:', error);
+    showNotification('Failed to load marks data', 'error');
   }
 }
 
-async function clearAllUserData(uid) {
+async function deleteMarks(markId) {
+  if (!confirm('Are you sure you want to delete these marks?')) {
+    return;
+  }
+
+  const user = auth.currentUser;
+  if (!user) return;
+
   try {
-    // Clear local storage
-    const keysToRemove = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('worklog_')) {
-        keysToRemove.push(key);
-      }
-    }
-    keysToRemove.forEach(key => localStorage.removeItem(key));
-
-    // Clear cloud data
-    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
-    const batch = writeBatch(db);
-
-    for (const collectionName of collections) {
-      const snap = await getDocs(collection(db, "users", uid, collectionName));
-      snap.docs.forEach(docSnap => {
-        batch.delete(doc(db, "users", uid, collectionName, docSnap.id));
-      });
-    }
-
-    await batch.commit();
-    clearAllCache();
-
-    console.log('✅ All user data cleared');
+    await deleteDoc(doc(db, "users", user.uid, "marks", markId));
+    showNotification('Marks deleted successfully', 'success');
+    await renderRecentMarks();
+    
   } catch (error) {
-    console.error('❌ Error clearing user data:', error);
-    throw error;
+    console.error('Error deleting marks:', error);
+    showNotification('Failed to delete marks', 'error');
   }
 }
 
 // ===========================
-// INITIALIZATION FUNCTIONS
+// ATTENDANCE TRACKING
 // ===========================
+
+async function renderAttendanceRecent() {
+  const container = document.getElementById('attendanceRecentList');
+  if (!container) return;
+
+  const user = auth.currentUser;
+  if (!user) return;
+
+  container.innerHTML = '<div class="loading">Loading attendance...</div>';
+
+  try {
+    // Get students for dropdown
+    const studentsSnap = await getDocs(collection(db, "users", user.uid, "students"));
+    const students = studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    populateStudentDropdown('attendanceStudent', students);
+    
+    // Get recent attendance
+    const attendanceQuery = query(collection(db, "users", user.uid, "attendance"), orderBy("dateIso", "desc"));
+    const attendanceSnap = await getDocs(attendanceQuery);
+    const attendance = attendanceSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    if (attendance.length === 0) {
+      container.innerHTML = '<div class="empty-state"><h3>No attendance records yet</h3><p>Record student attendance to see them here</p></div>';
+      return;
+    }
+
+    const recentAttendance = attendance.slice(0, 10); // Show last 10 entries
+    container.innerHTML = renderAttendanceList(recentAttendance);
+    setupAttendanceEventListeners();
+    
+  } catch (error) {
+    console.error('Error loading attendance:', error);
+    container.innerHTML = '<div class="error">Error loading attendance</div>';
+  }
+}
+
+function renderAttendanceList(attendance) {
+  return `
+    <div class="attendance-list">
+      ${attendance.map(record => {
+        const statusClass = `attendance-${record.status || 'present'}`;
+        const statusIcon = record.status === 'absent' ? '❌' : record.status === 'late' ? '⚠️' : '✅';
+        
+        return `
+        <div class="attendance-item" data-attendance-id="${record.id}">
+          <div class="attendance-header">
+            <div class="attendance-student">${record.studentName || 'Unknown Student'}</div>
+            <div class="attendance-status ${statusClass}">${statusIcon} ${record.status || 'present'}</div>
+          </div>
+          <div class="attendance-details">
+            <div class="attendance-date">${formatDate(record.date)}</div>
+            ${record.duration ? `<div class="attendance-duration">${record.duration} hours</div>` : ''}
+          </div>
+          ${record.notes ? `<div class="attendance-notes">${record.notes}</div>` : ''}
+          <div class="attendance-actions">
+            <button class="btn-small edit-attendance">Edit</button>
+            <button class="btn-small btn-danger delete-attendance">Delete</button>
+          </div>
+        </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function setupAttendanceEventListeners() {
+  document.querySelectorAll('.edit-attendance').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const attendanceItem = e.target.closest('.attendance-item');
+      const attendanceId = attendanceItem.dataset.attendanceId;
+      editAttendance(attendanceId);
+    });
+  });
+
+  document.querySelectorAll('.delete-attendance').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const attendanceItem = e.target.closest('.attendance-item');
+      const attendanceId = attendanceItem.dataset.attendanceId;
+      deleteAttendance(attendanceId);
+    });
+  });
+}
+
+function setupAttendanceForm() {
+  const attendanceForm = document.getElementById('attendanceForm');
+  if (!attendanceForm) return;
+
+  // Form submission
+  attendanceForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(attendanceForm);
+    const studentId = formData.get('studentId');
+    const studentName = document.getElementById('attendanceStudent').selectedOptions[0]?.text || 'Unknown';
+    
+    const attendanceData = {
+      studentId: studentId,
+      studentName: studentName,
+      date: formData.get('date'),
+      dateIso: fmtDateISO(formData.get('date')),
+      status: formData.get('status'),
+      duration: safeNumber(formData.get('duration')),
+      notes: formData.get('notes'),
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('Not authenticated');
+
+      if (currentEditAttendanceId) {
+        // Update existing attendance
+        await updateDoc(doc(db, "users", user.uid, "attendance", currentEditAttendanceId), attendanceData);
+        showNotification('Attendance updated successfully!', 'success');
+        currentEditAttendanceId = null;
+        
+        // Reset form
+        attendanceForm.querySelector('button[type="submit"]').textContent = 'Record Attendance';
+        attendanceForm.reset();
+      } else {
+        // Add new attendance
+        await addDoc(collection(db, "users", user.uid, "attendance"), attendanceData);
+        showNotification('Attendance recorded successfully!', 'success');
+        attendanceForm.reset();
+      }
+      
+      await renderAttendanceRecent();
+      
+    } catch (error) {
+      console.error('Error saving attendance:', error);
+      showNotification('Failed to save attendance', 'error');
+    }
+  });
+
+  // Set default date to today
+  const dateInput = document.getElementById('attendanceDate');
+  if (dateInput) {
+    dateInput.value = getLocalISODate();
+  }
+}
+
+async function editAttendance(attendanceId) {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    const attendanceDoc = await getDoc(doc(db, "users", user.uid, "attendance", attendanceId));
+    if (attendanceDoc.exists()) {
+      const attendance = attendanceDoc.data();
+      
+      // Fill form with attendance data
+      document.getElementById('attendanceStudent').value = attendance.studentId || '';
+      document.getElementById('attendanceDate').value = formatDateForInput(attendance.date);
+      document.getElementById('attendanceStatus').value = attendance.status || 'present';
+      document.getElementById('attendanceDuration').value = attendance.duration || '';
+      document.getElementById('attendanceNotes').value = attendance.notes || '';
+      
+      // Change form to edit mode
+      currentEditAttendanceId = attendanceId;
+      document.getElementById('attendanceForm').querySelector('button[type="submit"]').textContent = 'Update Attendance';
+      
+      // Scroll to form
+      document.getElementById('attendanceForm').scrollIntoView({ behavior: 'smooth' });
+    }
+  } catch (error) {
+    console.error('Error loading attendance for edit:', error);
+    showNotification('Failed to load attendance data', 'error');
+  }
+}
+
+async function deleteAttendance(attendanceId) {
+  if (!confirm('Are you sure you want to delete this attendance record?')) {
+    return;
+  }
+
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    await deleteDoc(doc(db, "users", user.uid, "attendance", attendanceId));
+    showNotification('Attendance record deleted successfully', 'success');
+    await renderAttendanceRecent();
+    
+  } catch (error) {
+    console.error('Error deleting attendance:', error);
+    showNotification('Failed to delete attendance record', 'error');
+  }
+}
+
+// ===========================
+// PAYMENTS TRACKING
+// ===========================
+
+async function renderPaymentActivity() {
+  const container = document.getElementById('paymentActivityList');
+  if (!container) return;
+
+  const user = auth.currentUser;
+  if (!user) return;
+
+  container.innerHTML = '<div class="loading">Loading payments...</div>';
+
+  try {
+    // Get students for dropdown
+    const studentsSnap = await getDocs(collection(db, "users", user.uid, "students"));
+    const students = studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    populateStudentDropdown('paymentStudent', students);
+    
+    // Get recent payments
+    const paymentsQuery = query(collection(db, "users", user.uid, "payments"), orderBy("dateIso", "desc"));
+    const paymentsSnap = await getDocs(paymentsQuery);
+    const payments = paymentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    if (payments.length === 0) {
+      container.innerHTML = '<div class="empty-state"><h3>No payments recorded yet</h3><p>Record payment transactions to see them here</p></div>';
+      return;
+    }
+
+    const recentPayments = payments.slice(0, 10); // Show last 10 entries
+    container.innerHTML = renderPaymentsList(recentPayments);
+    setupPaymentsEventListeners();
+    
+  } catch (error) {
+    console.error('Error loading payments:', error);
+    container.innerHTML = '<div class="error">Error loading payments</div>';
+  }
+}
+
+function renderPaymentsList(payments) {
+  return `
+    <div class="payments-list">
+      ${payments.map(payment => {
+        const statusClass = `payment-${payment.status || 'pending'}`;
+        const statusIcon = payment.status === 'paid' ? '✅' : payment.status === 'overdue' ? '❌' : '⏳';
+        
+        return `
+        <div class="payment-item" data-payment-id="${payment.id}">
+          <div class="payment-header">
+            <div class="payment-student">${payment.studentName || 'Unknown Student'}</div>
+            <div class="payment-amount">$${fmtMoney(payment.amount || 0)}</div>
+          </div>
+          <div class="payment-details">
+            <div class="payment-date">${formatDate(payment.date)}</div>
+            <div class="payment-status ${statusClass}">${statusIcon} ${payment.status || 'pending'}</div>
+            <div class="payment-method">${payment.method || 'Not specified'}</div>
+          </div>
+          ${payment.notes ? `<div class="payment-notes">${payment.notes}</div>` : ''}
+          <div class="payment-actions">
+            <button class="btn-small edit-payment">Edit</button>
+            <button class="btn-small btn-danger delete-payment">Delete</button>
+          </div>
+        </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function setupPaymentsEventListeners() {
+  document.querySelectorAll('.edit-payment').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const paymentItem = e.target.closest('.payment-item');
+      const paymentId = paymentItem.dataset.paymentId;
+      editPayment(paymentId);
+    });
+  });
+
+  document.querySelectorAll('.delete-payment').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const paymentItem = e.target.closest('.payment-item');
+      const paymentId = paymentItem.dataset.paymentId;
+      deletePayment(paymentId);
+    });
+  });
+}
+
+function setupPaymentsForm() {
+  const paymentsForm = document.getElementById('paymentsForm');
+  if (!paymentsForm) return;
+
+  // Form submission
+  paymentsForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(paymentsForm);
+    const studentId = formData.get('studentId');
+    const studentName = document.getElementById('paymentStudent').selectedOptions[0]?.text || 'Unknown';
+    
+    const paymentData = {
+      studentId: studentId,
+      studentName: studentName,
+      date: formData.get('date'),
+      dateIso: fmtDateISO(formData.get('date')),
+      amount: safeNumber(formData.get('amount')),
+      status: formData.get('status'),
+      method: formData.get('method'),
+      notes: formData.get('notes'),
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('Not authenticated');
+
+      if (currentEditPaymentId) {
+        // Update existing payment
+        await updateDoc(doc(db, "users", user.uid, "payments", currentEditPaymentId), paymentData);
+        showNotification('Payment updated successfully!', 'success');
+        currentEditPaymentId = null;
+        
+        // Reset form
+        paymentsForm.querySelector('button[type="submit"]').textContent = 'Record Payment';
+        paymentsForm.reset();
+      } else {
+        // Add new payment
+        await addDoc(collection(db, "users", user.uid, "payments"), paymentData);
+        showNotification('Payment recorded successfully!', 'success');
+        paymentsForm.reset();
+      }
+      
+      await renderPaymentActivity();
+      
+    } catch (error) {
+      console.error('Error saving payment:', error);
+      showNotification('Failed to save payment', 'error');
+    }
+  });
+
+  // Set default date to today
+  const dateInput = document.getElementById('paymentDate');
+  if (dateInput) {
+    dateInput.value = getLocalISODate();
+  }
+}
+
+async function editPayment(paymentId) {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    const paymentDoc = await getDoc(doc(db, "users", user.uid, "payments", paymentId));
+    if (paymentDoc.exists()) {
+      const payment = paymentDoc.data();
+      
+      // Fill form with payment data
+      document.getElementById('paymentStudent').value = payment.studentId || '';
+      document.getElementById('paymentDate').value = formatDateForInput(payment.date);
+      document.getElementById('paymentAmount').value = payment.amount || '';
+      document.getElementById('paymentStatus').value = payment.status || 'pending';
+      document.getElementById('paymentMethod').value = payment.method || '';
+      document.getElementById('paymentNotes').value = payment.notes || '';
+      
+      // Change form to edit mode
+      currentEditPaymentId = paymentId;
+      document.getElementById('paymentsForm').querySelector('button[type="submit"]').textContent = 'Update Payment';
+      
+      // Scroll to form
+      document.getElementById('paymentsForm').scrollIntoView({ behavior: 'smooth' });
+    }
+  } catch (error) {
+    console.error('Error loading payment for edit:', error);
+    showNotification('Failed to load payment data', 'error');
+  }
+}
+
+async function deletePayment(paymentId) {
+  if (!confirm('Are you sure you want to delete this payment record?')) {
+    return;
+  }
+
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    await deleteDoc(doc(db, "users", user.uid, "payments", paymentId));
+    showNotification('Payment record deleted successfully', 'success');
+    await renderPaymentActivity();
+    
+  } catch (error) {
+    console.error('Error deleting payment:', error);
+    showNotification('Failed to delete payment record', 'error');
+  }
+}
+
+// ===========================
+// UTILITY FUNCTIONS
+// ===========================
+
+function populateStudentDropdown(dropdownId, students) {
+  const dropdown = document.getElementById(dropdownId);
+  if (!dropdown) return;
+
+  // Clear existing options except the first one
+  while (dropdown.options.length > 1) {
+    dropdown.remove(1);
+  }
+
+  // Add student options
+  students.forEach(student => {
+    const option = document.createElement('option');
+    option.value = student.id;
+    option.textContent = student.name || 'Unnamed Student';
+    dropdown.appendChild(option);
+  });
+}
 
 function initializeDefaultRate(defaultRate = 0) {
   const defaultRateInput = document.getElementById('defaultRate');
@@ -1423,21 +1926,38 @@ function initializeDefaultRate(defaultRate = 0) {
       if (user) {
         const success = await updateUserDefaultRate(user.uid, newRate);
         if (success) {
-          NotificationSystem.notifySuccess(`Default rate updated to $${fmtMoney(newRate)}/hour`);
+          showNotification(`Default rate updated to $${fmtMoney(newRate)}/hour`, 'success');
         }
       }
     });
   }
 }
 
-function setupEventListeners() {
-  console.log('🔧 Setting up event listeners...');
+// ===========================
+// SYNC MANAGEMENT
+// ===========================
 
-  // Sync buttons
+function setupSyncManagement() {
+  // Manual sync button
   if (syncBtn) {
-    syncBtn.addEventListener('click', () => SyncManager.manualSync());
+    syncBtn.addEventListener('click', async () => {
+      await manualSync();
+    });
   }
 
+  // Auto-sync toggle
+  if (autoSyncCheckbox) {
+    autoSyncCheckbox.addEventListener('change', (e) => {
+      toggleAutoSync(e.target.checked);
+    });
+
+    // Load saved preference
+    const savedAutoSync = localStorage.getItem('autoSyncEnabled') === 'true';
+    autoSyncCheckbox.checked = savedAutoSync;
+    toggleAutoSync(savedAutoSync);
+  }
+
+  // Export/Import buttons
   if (exportCloudBtn) {
     exportCloudBtn.addEventListener('click', exportAllData);
   }
@@ -1468,11 +1988,14 @@ function setupEventListeners() {
         if (user) {
           try {
             await clearAllUserData(user.uid);
-            clearAllCache();
-            await SyncManager.refreshAllData();
-            NotificationSystem.notifySuccess('All data cleared successfully');
+            showNotification('All data cleared successfully', 'success');
+            await renderStudents();
+            await renderRecentHours();
+            await renderRecentMarks();
+            await renderAttendanceRecent();
+            await renderPaymentActivity();
           } catch (error) {
-            NotificationSystem.notifyError('Failed to clear data');
+            showNotification('Failed to clear data', 'error');
           }
         }
       }
@@ -1481,17 +2004,261 @@ function setupEventListeners() {
 
   // Online/offline detection
   window.addEventListener('online', () => {
-    NotificationSystem.notifyInfo('Connection restored - syncing data...');
-    SyncManager.setSyncStatus('success', 'Online - sync available');
-    StorageSystem.processPendingSync();
+    showNotification('Connection restored - syncing data...', 'info');
+    setSyncStatus('success', 'Online - sync available');
+    if (isAutoSyncEnabled) {
+      manualSync();
+    }
   });
 
   window.addEventListener('offline', () => {
-    NotificationSystem.notifyInfo('Working offline - changes saved locally');
-    SyncManager.setSyncStatus('offline', 'Offline - local storage only');
+    showNotification('Working offline - changes saved locally', 'info');
+    setSyncStatus('offline', 'Offline - local storage only');
   });
+}
 
-  console.log('✅ Event listeners setup completed');
+async function manualSync() {
+  const user = auth.currentUser;
+  if (!user) {
+    showNotification('Please sign in to sync', 'error');
+    return;
+  }
+
+  setSyncStatus('syncing', 'Syncing data...');
+  
+  try {
+    // Refresh all data from Firestore
+    await Promise.all([
+      renderStudents(),
+      renderRecentHours(),
+      renderRecentMarks(),
+      renderAttendanceRecent(),
+      renderPaymentActivity()
+    ]);
+    
+    setSyncStatus('success', 'Sync completed successfully');
+    showNotification('Data synced successfully', 'success');
+    
+  } catch (error) {
+    console.error('Manual sync failed:', error);
+    setSyncStatus('error', 'Sync failed - check connection');
+    showNotification('Sync failed - some data may be offline', 'error');
+  }
+}
+
+function setSyncStatus(status, message = '') {
+  const statusMap = {
+    syncing: { icon: '🔄', class: 'syncing' },
+    success: { icon: '✅', class: 'success' },
+    error: { icon: '❌', class: 'error' },
+    offline: { icon: '🌐', class: 'offline' }
+  };
+
+  const statusInfo = statusMap[status] || statusMap.offline;
+  
+  if (syncIndicator) {
+    syncIndicator.innerHTML = `${statusInfo.icon} ${message}`;
+    syncIndicator.className = `sync-status ${statusInfo.class}`;
+  }
+
+  if (syncSpinner) {
+    syncSpinner.style.display = status === 'syncing' ? 'inline-block' : 'none';
+  }
+}
+
+function toggleAutoSync(enabled) {
+  isAutoSyncEnabled = enabled;
+  localStorage.setItem('autoSyncEnabled', enabled.toString());
+
+  if (enabled) {
+    // Start auto-sync every 2 minutes
+    autoSyncInterval = setInterval(() => {
+      if (auth.currentUser && navigator.onLine) {
+        console.log('🔄 Auto-sync running...');
+        manualSync();
+      }
+    }, 2 * 60 * 1000);
+
+    if (autoSyncText) autoSyncText.textContent = 'Auto-sync: ON';
+    showNotification('Auto-sync enabled', 'info');
+  } else {
+    if (autoSyncInterval) {
+      clearInterval(autoSyncInterval);
+      autoSyncInterval = null;
+    }
+    if (autoSyncText) autoSyncText.textContent = 'Auto-sync: OFF';
+    showNotification('Auto-sync disabled', 'info');
+  }
+
+  updateHeaderStats();
+}
+
+async function exportAllData() {
+  const user = auth.currentUser;
+  if (!user) {
+    showNotification('Please sign in to export data', 'error');
+    return;
+  }
+
+  try {
+    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
+    const exportData = {};
+
+    for (const collectionName of collections) {
+      const snap = await getDocs(collection(db, "users", user.uid, collectionName));
+      exportData[collectionName] = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }
+
+    // Add metadata
+    exportData.metadata = {
+      exportedAt: new Date().toISOString(),
+      userId: user.uid,
+      version: '1.0'
+    };
+
+    // Download as JSON file
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `worklog-backup-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    showNotification('Data exported successfully', 'success');
+  } catch (error) {
+    console.error('Export failed:', error);
+    showNotification('Export failed', 'error');
+  }
+}
+
+async function importAllData(file) {
+  const user = auth.currentUser;
+  if (!user) {
+    showNotification('Please sign in to import data', 'error');
+    return;
+  }
+
+  if (!confirm('This will replace all your current data. Continue?')) {
+    return;
+  }
+
+  try {
+    const text = await file.text();
+    const importData = JSON.parse(text);
+
+    // Validate import data
+    if (!importData.metadata || !importData.metadata.version) {
+      throw new Error('Invalid backup file format');
+    }
+
+    setSyncStatus('syncing', 'Importing data...');
+
+    // Clear existing data first
+    await clearAllUserData(user.uid);
+
+    // Import each collection
+    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
+    let totalImported = 0;
+
+    for (const collectionName of collections) {
+      if (importData[collectionName]) {
+        for (const item of importData[collectionName]) {
+          try {
+            // Remove ID since Firestore will generate new ones
+            const { id, ...itemData } = item;
+            await addDoc(collection(db, "users", user.uid, collectionName), itemData);
+            totalImported++;
+          } catch (error) {
+            console.error(`Failed to import ${collectionName} item:`, error);
+          }
+        }
+      }
+    }
+
+    // Refresh all data
+    await Promise.all([
+      renderStudents(),
+      renderRecentHours(),
+      renderRecentMarks(),
+      renderAttendanceRecent(),
+      renderPaymentActivity()
+    ]);
+
+    setSyncStatus('success', `Imported ${totalImported} items`);
+    showNotification(`Successfully imported ${totalImported} items`, 'success');
+  } catch (error) {
+    console.error('Import failed:', error);
+    setSyncStatus('error', 'Import failed');
+    showNotification('Import failed - invalid file format', 'error');
+  }
+}
+
+async function clearAllUserData(uid) {
+  try {
+    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
+    const batch = writeBatch(db);
+
+    for (const collectionName of collections) {
+      const snap = await getDocs(collection(db, "users", uid, collectionName));
+      snap.docs.forEach(docSnap => {
+        batch.delete(doc(db, "users", uid, collectionName, docSnap.id));
+      });
+    }
+
+    await batch.commit();
+    console.log('✅ All user data cleared');
+  } catch (error) {
+    console.error('Error clearing user data:', error);
+    throw error;
+  }
+}
+
+// ===========================
+// TAB NAVIGATION
+// ===========================
+
+function setupTabNavigation() {
+  const tabButtons = document.querySelectorAll('[data-tab]');
+  const tabContents = document.querySelectorAll('.tab-content');
+
+  tabButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const targetTab = button.getAttribute('data-tab');
+      
+      // Update active tab button
+      tabButtons.forEach(btn => btn.classList.remove('active'));
+      button.classList.add('active');
+      
+      // Show target tab content
+      tabContents.forEach(content => {
+        content.classList.remove('active');
+        if (content.id === targetTab) {
+          content.classList.add('active');
+        }
+      });
+
+      // Load data for the tab if needed
+      switch(targetTab) {
+        case 'students':
+          renderStudents();
+          break;
+        case 'hours':
+          renderRecentHours();
+          break;
+        case 'marks':
+          renderRecentMarks();
+          break;
+        case 'attendance':
+          renderAttendanceRecent();
+          break;
+        case 'payments':
+          renderPaymentActivity();
+          break;
+      }
+    });
+  });
 }
 
 // ===========================
@@ -1523,30 +2290,34 @@ async function initializeApp() {
     setupThemeToggle();
     setupProfileModal();
     setupFloatingAddButton();
-    setupEventListeners();
-    SyncManager.setupAutoSync();
+    setupTabNavigation();
+    setupSyncManagement();
+    
+    // Setup form handlers
+    setupStudentForm();
+    setupHoursForm();
+    setupMarksForm();
+    setupAttendanceForm();
+    setupPaymentsForm();
     
     // Load user data
     await loadUserProfile(user.uid);
     await loadUserStats(user.uid);
     updateHeaderStats();
 
-    // Load initial data with 3-layer system
-    await renderWithLocalAndCloud('studentsList', 'students', renderStudentsList, 'No students added yet');
-    await renderWithLocalAndCloud('recentHoursList', 'hours', renderHoursList, 'No hours logged yet', 10);
-    await renderWithLocalAndCloud('recentMarksList', 'marks', renderMarksList, 'No marks recorded yet', 10);
-    await renderWithLocalAndCloud('attendanceRecentList', 'attendance', renderAttendanceList, 'No attendance records yet', 10);
-    await renderWithLocalAndCloud('paymentActivityList', 'payments', renderPaymentsList, 'No payments recorded yet', 10);
-
-    // Process any pending sync items
-    setTimeout(() => StorageSystem.processPendingSync(), 2000);
+    // Load initial data
+    await renderStudents();
+    await renderRecentHours();
+    await renderRecentMarks();
+    await renderAttendanceRecent();
+    await renderPaymentActivity();
 
     console.log('✅ WorkLog App initialized successfully');
-    NotificationSystem.notifySuccess('App loaded successfully');
+    showNotification('App loaded successfully', 'success');
 
   } catch (error) {
     console.error('❌ App initialization failed:', error);
-    NotificationSystem.notifyError('App initialization failed');
+    showNotification('App initialization failed', 'error');
   }
 }
 
@@ -1555,11 +2326,3 @@ async function initializeApp() {
 // ===========================
 
 document.addEventListener('DOMContentLoaded', initializeApp);
-
-// Export for use in other modules
-window.StorageSystem = StorageSystem;
-window.SyncManager = SyncManager;
-window.NotificationSystem = NotificationSystem;
-window.enhancedCreateOperation = enhancedCreateOperation;
-window.enhancedUpdateOperation = enhancedUpdateOperation;
-window.enhancedDeleteOperation = enhancedDeleteOperation;
