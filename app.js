@@ -2868,32 +2868,8 @@ function checkDOMStructure() {
 // TAB NAVIGATION SYSTEM
 // ===========================
 
-function loadTabData(tabName) {
-  console.log(`📊 Loading data for tab: ${tabName}`);
-  
-  // Use setTimeout to prevent blocking the UI
-  setTimeout(() => {
-    switch(tabName) {
-      case 'students':
-        renderStudents().catch(console.error);
-        break;
-      case 'hours':
-        renderRecentHours().catch(console.error);
-        break;
-      case 'marks':
-        renderRecentMarks().catch(console.error);
-        break;
-      case 'attendance':
-        renderAttendanceRecent().catch(console.error);
-        break;
-      case 'payments':
-        renderPaymentActivity().catch(console.error);
-        break;
-      default:
-        console.warn(`⚠️ Unknown tab: ${tabName}`);
-    }
-  }, 100);
-}
+
+
 
 function setupTabForms(tabName) {
   console.log(`🔧 Setting up forms for tab: ${tabName}`);
@@ -3000,58 +2976,6 @@ function switchToTab(tabName) {
   
   // Setup forms for the active tab
   setupTabForms(tabName);
-}
-
-function loadTabData(tabName) {
-  console.log(`📊 Loading data for tab: ${tabName}`);
-  
-  // Use setTimeout to prevent blocking the UI
-  setTimeout(() => {
-    switch(tabName) {
-      case 'students':
-        renderStudents().catch(console.error);
-        break;
-      case 'hours':
-        renderRecentHours().catch(console.error);
-        break;
-      case 'marks':
-        renderRecentMarks().catch(console.error);
-        break;
-      case 'attendance':
-        renderAttendanceRecent().catch(console.error);
-        break;
-      case 'payments':
-        renderPaymentActivity().catch(console.error);
-        break;
-      default:
-        console.warn(`⚠️ Unknown tab: ${tabName}`);
-    }
-  }, 100);
-}
-
-function setupTabForms(tabName) {
-  console.log(`🔧 Setting up forms for tab: ${tabName}`);
-  
-  // Use setTimeout to ensure DOM is ready
-  setTimeout(() => {
-    switch(tabName) {
-      case 'students':
-        setupStudentForm();
-        break;
-      case 'hours':
-        setupHoursForm();
-        break;
-      case 'marks':
-        setupMarksForm();
-        break;
-      case 'attendance':
-        setupAttendanceForm();
-        break;
-      case 'payments':
-        setupPaymentsForm();
-        break;
-    }
-  }, 50);
 }
 
 // ===========================
