@@ -251,7 +251,7 @@ body {
 /* =========================== */
 /* TAB BAR STYLES - GRID LAYOUT FOR MOBILE */
 /* =========================== */
-/*.tabs {
+.tabs {
   display: flex;
   width: 100%;
   background: var(--surface);
@@ -291,8 +291,8 @@ body {
 }
 
 /* Mobile Grid Layout - 2 columns, 4 rows */
-/*@media (max-width: 768px) {
-/*  .tabs {
+@media (max-width: 768px) {
+  .tabs {
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: repeat(4, auto);
@@ -331,7 +331,7 @@ body {
   }
 
   /* Specific positioning for 7 tabs in 2x4 grid */
-/*  .tab:nth-child(1) { grid-column: 1; grid-row: 1; }
+  .tab:nth-child(1) { grid-column: 1; grid-row: 1; }
   .tab:nth-child(2) { grid-column: 2; grid-row: 1; }
   .tab:nth-child(3) { grid-column: 1; grid-row: 2; }
   .tab:nth-child(4) { grid-column: 2; grid-row: 2; }
@@ -341,173 +341,21 @@ body {
 }
 
 /* Extra small screens optimization */
-/*@media (max-width: 480px) {
-/*  .tabs {
+@media (max-width: 480px) {
+  .tabs {
     gap: 0.5px;
     border-radius: 6px;
   }
 
- /* .tab {
+  .tab {
     padding: 12px 8px;
     font-size: 12px;
     line-height: 1.2;
   }
 }
-*/
 
-/* =========================== */
-/* TAB BAR STYLES - FLEXIBLE MOBILE DESIGN */
-/* =========================== */
-.tabs {
-  display: flex;
-  width: 100%;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 0;
-  margin: 0;
-  overflow-x: auto;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
-}
 
-.tabs::-webkit-scrollbar {
-  display: none; /* Chrome, Safari and Opera */
-}
 
-.tab {
-  flex: 1;
-  min-width: fit-content;
-  padding: 12px 16px;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--text-light);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tab:hover {
-  background: var(--border-light);
-  color: var(--text);
-}
-
-.tab.active {
-  color: var(--primary);
-  border-bottom-color: var(--primary);
-  background: var(--surface);
-}
-
-/* Mobile Grid Layout - Flexible 2-column grid */
-@media (max-width: 768px) {
-  .tabs {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    gap: 1px;
-    background: var(--border);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-    box-shadow: var(--shadow);
-  }
-
-  .tab {
-    flex: none;
-    min-width: auto;
-    padding: 14px 8px;
-    font-size: 13px;
-    border-bottom: none;
-    border-radius: 0;
-    background: var(--surface);
-    border: none;
-    text-align: center;
-    white-space: normal;
-    word-break: break-word;
-    line-height: 1.3;
-    /* Let CSS Grid handle automatic positioning */
-  }
-
-  .tab:hover {
-    background: var(--border-light);
-  }
-
-  .tab.active {
-    background: var(--primary);
-    color: white;
-    border-bottom-color: transparent;
-    font-weight: 600;
-  }
-}
-
-/* Enhanced mobile experience for very small screens */
-@media (max-width: 480px) {
-  .tabs {
-    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-    gap: 0.5px;
-    border-radius: 6px;
-  }
-
-  .tab {
-    padding: 12px 6px;
-    font-size: 12px;
-    line-height: 1.2;
-  }
-}
-
-/* Ultra-small screens (like very narrow phones) */
-@media (max-width: 360px) {
-  .tabs {
-    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
-  }
-
-  .tab {
-    padding: 10px 4px;
-    font-size: 11px;
-  }
-}
-
-/* Desktop hover effects */
-@media (hover: hover) and (pointer: fine) {
-  .tab:hover {
-    transform: translateY(-1px);
-  }
-  
-  .tab.active:hover {
-    transform: none;
-  }
-}
-
-/* Touch device optimizations */
-@media (pointer: coarse) {
-  .tab {
-    padding: 14px 16px; /* Larger touch targets */
-  }
-  
-  @media (max-width: 768px) {
-    .tab {
-      padding: 16px 8px; /* Even larger touch targets on mobile */
-      min-height: 50px; /* Ensure minimum touch target size */
-    }
-  }
-}
-
-/* Reduced motion support */
-@media (prefers-reduced-motion: reduce) {
-  .tab {
-    transition: none;
-  }
-  
-  @media (hover: hover) and (pointer: fine) {
-    .tab:hover {
-      transform: none;
-    }
-  }
-}
 
 /* =========================== */
 /* TAB CONTENT */
