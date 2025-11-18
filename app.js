@@ -2096,7 +2096,7 @@ const UIManager = {
         }
       });
     }
-  },
+  }, */
 
   initEventListeners() {
     console.log('🔧 Initializing event listeners...');
@@ -2113,7 +2113,7 @@ const UIManager = {
     
     console.log('✅ Event listeners initialized');
   }
-}; // ← END OF UIMANAGER OBJECT*/
+}; // ← END OF UIMANAGER OBJECT
 
 // ===========================
 // PAYMENT FORM EVENT LISTENERS - ADD THIS
