@@ -2120,15 +2120,21 @@ const UIManager = {
 // ===========================
 
 function setupPaymentFormListeners() {
+  console.log('🔧 Setting up payment form listeners...');
   const submitBtn = document.getElementById('paymentSubmitBtn');
   const clearBtn = document.getElementById('paymentClearBtn');
 
+  console.log('Payment submit button:', submitBtn);
+  console.log('Payment clear button:', clearBtn);
+
   if (submitBtn) {
     submitBtn.addEventListener('click', recordPayment);
+    console.log('✅ Payment submit listener added');
   }
 
   if (clearBtn) {
     clearBtn.addEventListener('click', resetPaymentForm);
+    console.log('✅ Payment clear listener added');
   }
 
   console.log('✅ Payment form event listeners setup');
@@ -2139,25 +2145,35 @@ function setupPaymentFormListeners() {
 // ===========================
 
 function setupReportTabListeners() {
+  console.log('🔧 Setting up report tab listeners...');
   const weeklyReportBtn = document.getElementById('weeklyReportBtn');
   const biweeklyReportBtn = document.getElementById('biweeklyReportBtn');
   const monthlyReportBtn = document.getElementById('monthlyReportBtn');
   const subjectReportBtn = document.getElementById('subjectReportBtn');
 
+  console.log('Weekly button:', weeklyReportBtn);
+  console.log('Biweekly button:', biweeklyReportBtn);
+  console.log('Monthly button:', monthlyReportBtn);
+  console.log('Subject button:', subjectReportBtn);
+
   if (weeklyReportBtn) {
     weeklyReportBtn.addEventListener('click', showWeeklyBreakdown);
+    console.log('✅ Weekly report button listener added');
   }
 
   if (biweeklyReportBtn) {
     biweeklyReportBtn.addEventListener('click', showBiWeeklyBreakdown);
+    console.log('✅ Biweekly report button listener added');
   }
 
   if (monthlyReportBtn) {
     monthlyReportBtn.addEventListener('click', showMonthlyBreakdown);
+    console.log('✅ Monthly report button listener added');
   }
 
   if (subjectReportBtn) {
     subjectReportBtn.addEventListener('click', showSubjectBreakdown);
+    console.log('✅ Subject report button listener added');
   }
 
   console.log('✅ Report tab event listeners setup');
