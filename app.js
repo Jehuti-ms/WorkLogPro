@@ -2497,54 +2497,6 @@ function useDefaultRateInHours() {
 // HOURS MANAGEMENT FUNCTIONS - WITH PROPER EDIT/CANCEL/CLEAR
 // ===========================
 
-function cancelHoursEdit() {
-  console.log('❌ Canceling hours edit...');
-  
-  currentEditHoursId = null;
-  
-  const submitBtn = document.getElementById('hoursSubmitBtn');
-  const cancelBtn = document.getElementById('hoursCancelBtn');
-  
-  if (submitBtn) {
-    submitBtn.textContent = '💾 Log Hours';
-    submitBtn.onclick = logHours;
-  }
-  
-  if (cancelBtn) {
-    cancelBtn.style.display = 'none';
-  }
-  
-  // Clear the form completely
-  clearHoursForm();
-  
-  NotificationSystem.notifyInfo('Hours edit canceled');
-}
-
-// Separate function to completely clear the form (used for cancel and after save)
-function clearHoursForm() {
-  const form = document.querySelector('#hours form');
-  if (form) {
-    form.reset();
-  }
-  
-  // Reset specific fields to ensure clean state
-  document.getElementById('organization').value = '';
-  document.getElementById('workSubject').value = '';
-  document.getElementById('hoursStudent').selectedIndex = 0;
-  document.getElementById('workType').selectedIndex = 0;
-  document.getElementById('workDate').value = new Date().toISOString().split('T')[0];
-  document.getElementById('hoursWorked').value = '';
-  document.getElementById('baseRate').value = '';
-  
-  // Reset total display
-  const totalDisplay = document.getElementById('totalPay');
-  if (totalDisplay) {
-    totalDisplay.textContent = '$0.00';
-  }
-  
-  console.log("✅ Hours form completely cleared");
-}
-
 async function logHours() {
   const studentEl = document.getElementById("hoursStudent");
   const orgEl = document.getElementById("organization");
