@@ -472,7 +472,10 @@ async function renderWithLocalAndCloud(containerId, collectionName, renderFuncti
   if (!user) return;
 
   const container = document.getElementById(containerId);
-  if (!container) return;
+  if (!container) {
+    console.warn(`⚠️ Container ${containerId} not found`);
+    return;
+  }
 
   // Show cached data immediately if available
   if (isCacheValid(collectionName) && cache[collectionName]) {
@@ -538,7 +541,7 @@ async function renderWithLocalAndCloud(containerId, collectionName, renderFuncti
 }
 
 // ===========================
-// DOM STRUCTURE CHECKER
+// DOM STRUCTURE CHECKER - FLEXIBLE VERSION
 // ===========================
 
 function checkDOMStructure() {
@@ -574,11 +577,87 @@ function checkDOMStructure() {
     console.log(`  - ${listId}: ${list ? 'FOUND' : 'MISSING'}`);
   });
 
-  return tabButtons.length > 0 && tabContents.length > 0;
+  // More flexible check - we only need SOME structure to work
+  const hasBasicStructure = tabButtons.length > 0 || tabContents.length > 0;
+  
+  if (!hasBasicStructure) {
+    console.warn('⚠️ No basic tab structure found, creating emergency structure...');
+    createEmergencyTabs();
+    return true; // Return true anyway, we'll create the structure
+  }
+  
+  return true; // Always return true now, we'll handle missing elements gracefully
 }
 
 // ===========================
-// TAB NAVIGATION SYSTEM
+// EMERGENCY TAB CREATION
+// ===========================
+
+function createEmergencyTabs() {
+  console.log('🚨 Creating emergency tabs...');
+  
+  const mainContainer = document.querySelector('main') || document.body;
+  
+  // Create emergency tab structure
+  const tabBar = document.createElement('div');
+  tabBar.className = 'tabs';
+  tabBar.style.cssText = `
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+    background: #f5f5f5;
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  `;
+  
+  tabBar.innerHTML = `
+    <button data-tab="students" class="tab-button active" style="padding: 10px 20px; border: 1px solid #ccc; background: #007bff; color: white; border-radius: 5px; cursor: pointer;">Students</button>
+    <button data-tab="hours" class="tab-button" style="padding: 10px 20px; border: 1px solid #ccc; background: white; border-radius: 5px; cursor: pointer;">Hours</button>
+    <button data-tab="marks" class="tab-button" style="padding: 10px 20px; border: 1px solid #ccc; background: white; border-radius: 5px; cursor: pointer;">Marks</button>
+    <button data-tab="attendance" class="tab-button" style="padding: 10px 20px; border: 1px solid #ccc; background: white; border-radius: 5px; cursor: pointer;">Attendance</button>
+    <button data-tab="payments" class="tab-button" style="padding: 10px 20px; border: 1px solid #ccc; background: white; border-radius: 5px; cursor: pointer;">Payments</button>
+  `;
+  
+  mainContainer.insertBefore(tabBar, mainContainer.firstChild);
+  
+  // Create emergency tab contents
+  const tabs = [
+    { id: 'students', title: 'Students', content: 'Manage your students and their information' },
+    { id: 'hours', title: 'Hours', content: 'Track tutoring sessions and hours' },
+    { id: 'marks', title: 'Marks', content: 'Record test scores and grades' },
+    { id: 'attendance', title: 'Attendance', content: 'Track student attendance' },
+    { id: 'payments', title: 'Payments', content: 'Manage payment records' }
+  ];
+  
+  tabs.forEach(tab => {
+    if (!document.getElementById(tab.id)) {
+      const tabContent = document.createElement('div');
+      tabContent.id = tab.id;
+      tabContent.className = 'tab-content';
+      tabContent.style.cssText = tab.id === 'students' ? 
+        'display: block; padding: 20px;' : 'display: none; padding: 20px;';
+      
+      tabContent.innerHTML = `
+        <div class="section-card">
+          <h2>${tab.title}</h2>
+          <p>${tab.content}</p>
+          <div id="${tab.id}List" class="content-area">
+            <div class="loading">Loading ${tab.title.toLowerCase()}...</div>
+          </div>
+        </div>
+      `;
+      
+      mainContainer.appendChild(tabContent);
+    }
+  });
+  
+  console.log('✅ Emergency tabs and content created');
+  return true;
+}
+
+// ===========================
+// FLEXIBLE TAB NAVIGATION
 // ===========================
 
 function setupTabNavigation() {
@@ -589,10 +668,10 @@ function setupTabNavigation() {
 
   console.log(`📊 Found ${tabButtons.length} tab buttons and ${tabContents.length} tab contents`);
 
-  if (tabButtons.length === 0 || tabContents.length === 0) {
-    console.error('❌ No tabs found in DOM! Check your HTML structure');
+  if (tabButtons.length === 0) {
+    console.error('❌ No tab buttons found in DOM!');
     showNotification('Tab navigation not available', 'error');
-    return;
+    return false;
   }
 
   // Add click listeners to all tab buttons
@@ -612,9 +691,10 @@ function setupTabNavigation() {
   if (firstTab) {
     console.log(`🚀 Activating first tab: ${firstTab}`);
     switchToTab(firstTab);
-  } else {
-    console.error('❌ No tabs available to activate');
+    return true;
   }
+  
+  return false;
 }
 
 function switchToTab(tabName) {
@@ -624,8 +704,13 @@ function switchToTab(tabName) {
   const tabButtons = document.querySelectorAll('[data-tab]');
   tabButtons.forEach(btn => {
     btn.classList.remove('active');
+    btn.style.background = 'white';
+    btn.style.color = 'black';
+    
     if (btn.getAttribute('data-tab') === tabName) {
       btn.classList.add('active');
+      btn.style.background = '#007bff';
+      btn.style.color = 'white';
       console.log(`✅ Activated button: ${tabName}`);
     }
   });
@@ -635,18 +720,17 @@ function switchToTab(tabName) {
   let foundTab = false;
   
   tabContents.forEach(content => {
-    content.classList.remove('active');
+    content.style.display = 'none';
     if (content.id === tabName) {
-      content.classList.add('active');
+      content.style.display = 'block';
       foundTab = true;
       console.log(`✅ Activated content: ${tabName}`);
     }
   });
 
   if (!foundTab) {
-    console.error(`❌ Tab content not found for: ${tabName}`);
-    showNotification(`Tab '${tabName}' not found`, 'error');
-    return;
+    console.warn(`⚠️ Tab content not found for: ${tabName}, creating it...`);
+    createTabContent(tabName);
   }
 
   // Load data for the active tab
@@ -654,6 +738,35 @@ function switchToTab(tabName) {
   
   // Setup forms for the active tab
   setupTabForms(tabName);
+}
+
+function createTabContent(tabName) {
+  const mainContainer = document.querySelector('main') || document.body;
+  const tabContent = document.createElement('div');
+  tabContent.id = tabName;
+  tabContent.className = 'tab-content';
+  tabContent.style.cssText = 'display: block; padding: 20px;';
+  
+  const tabTitles = {
+    'students': 'Students',
+    'hours': 'Hours', 
+    'marks': 'Marks',
+    'attendance': 'Attendance',
+    'payments': 'Payments'
+  };
+  
+  tabContent.innerHTML = `
+    <div class="section-card">
+      <h2>${tabTitles[tabName] || tabName}</h2>
+      <p>Content for ${tabTitles[tabName] || tabName} will appear here.</p>
+      <div id="${tabName}List" class="content-area">
+        <div class="loading">Loading ${tabTitles[tabName] || tabName.toLowerCase()}...</div>
+      </div>
+    </div>
+  `;
+  
+  mainContainer.appendChild(tabContent);
+  console.log(`✅ Created tab content for: ${tabName}`);
 }
 
 function loadTabData(tabName) {
@@ -774,7 +887,8 @@ function renderStudentsList(students) {
 function setupStudentForm() {
   const studentForm = document.getElementById('studentForm');
   if (!studentForm) {
-    console.warn('⚠️ Student form not found in DOM');
+    console.warn('⚠️ Student form not found in DOM - creating basic form');
+    createBasicStudentForm();
     return;
   }
 
@@ -813,6 +927,61 @@ function setupStudentForm() {
       console.error('Error saving student:', error);
     }
   });
+}
+
+function createBasicStudentForm() {
+  const studentsTab = document.getElementById('students');
+  if (!studentsTab) return;
+  
+  // Create a basic form structure
+  const formHtml = `
+    <div class="section-card">
+      <h3>Add Student</h3>
+      <form id="studentForm">
+        <div class="form-group">
+          <label for="studentName">Student Name:</label>
+          <input type="text" id="studentName" name="name" required>
+        </div>
+        <div class="form-group">
+          <label for="studentRate">Hourly Rate ($):</label>
+          <input type="number" id="studentRate" name="rate" step="0.01" value="0">
+        </div>
+        <div class="form-group">
+          <label for="studentSubject">Subject:</label>
+          <input type="text" id="studentSubject" name="subject">
+        </div>
+        <button type="submit">Add Student</button>
+      </form>
+    </div>
+  `;
+  
+  studentsTab.innerHTML = formHtml + studentsTab.innerHTML;
+  console.log('✅ Created basic student form');
+  
+  // Now set up the form
+  const newForm = document.getElementById('studentForm');
+  if (newForm) {
+    newForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(newForm);
+      const studentData = {
+        name: formData.get('name'),
+        rate: safeNumber(formData.get('rate')),
+        subject: formData.get('subject'),
+        createdAt: new Date().toISOString(),
+        totalHours: 0,
+        totalEarned: 0
+      };
+
+      try {
+        await enhancedCreateOperation('students', studentData, 'Student added successfully!');
+        newForm.reset();
+        renderStudents();
+      } catch (error) {
+        console.error('Error saving student:', error);
+      }
+    });
+  }
 }
 
 // ===========================
@@ -1258,7 +1427,8 @@ function setupPaymentsForm() {
       method: formData.get('method') || '',
       notes: formData.get('notes') || '',
       createdAt: new Date().toISOString()
-  };
+    };
+
     try {
       if (currentEditPaymentId) {
         // Update existing payment using 3-layer system
@@ -1753,7 +1923,7 @@ async function initializeApp() {
     // Wait for auth state
     const user = await new Promise((resolve) => {
       const unsubscribe = onAuthStateChanged(auth, (user) => {
-        unsubscribe(); // Important: unsubscribe immediately
+        unsubscribe();
         resolve(user);
       });
     });
@@ -1766,13 +1936,8 @@ async function initializeApp() {
 
     console.log('✅ User authenticated:', user.uid);
 
-    // Check DOM structure first
-    const domValid = checkDOMStructure();
-    if (!domValid) {
-      console.error('❌ DOM structure invalid, cannot initialize app');
-      showNotification('App structure error - please refresh', 'error');
-      return;
-    }
+    // Check DOM structure first - this will now create structure if missing
+    checkDOMStructure();
 
     // Initialize core systems
     initializeTheme();
@@ -1784,7 +1949,7 @@ async function initializeApp() {
     // Load user profile
     await loadUserProfile(user.uid);
 
-    // Setup tab navigation - this is critical
+    // Setup tab navigation - this will work even with emergency structure
     setupTabNavigation();
 
     console.log('✅ WorkLog App initialized successfully');
@@ -1793,7 +1958,6 @@ async function initializeApp() {
   } catch (error) {
     console.error('❌ App initialization failed:', error);
     showNotification('App initialization failed', 'error');
-    // Reset flag on failure so we can retry
     appInitialized = false;
   }
 }
