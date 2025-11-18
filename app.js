@@ -2825,17 +2825,205 @@ function setupTabForms(tabName) {
 // ===========================
 
 // ===========================
-// CORRECTED INITIALIZE APP FUNCTION
+// DOM STRUCTURE CHECKER
 // ===========================
 
+function checkDOMStructure() {
+  console.log('🔍 Checking DOM structure...');
+  
+  // Check tabs
+  const tabButtons = document.querySelectorAll('[data-tab]');
+  const tabContents = document.querySelectorAll('.tab-content');
+  
+  console.log('📋 Tab Buttons:', tabButtons.length);
+  tabButtons.forEach(btn => {
+    console.log(`  - ${btn.getAttribute('data-tab')} (${btn.textContent})`);
+  });
+  
+  console.log('📋 Tab Contents:', tabContents.length);
+  tabContents.forEach(content => {
+    console.log(`  - ${content.id}`);
+  });
+
+  // Check forms
+  const forms = ['studentForm', 'hoursForm', 'marksForm', 'attendanceForm', 'paymentsForm'];
+  console.log('📋 Forms:');
+  forms.forEach(formId => {
+    const form = document.getElementById(formId);
+    console.log(`  - ${formId}: ${form ? 'FOUND' : 'MISSING'}`);
+  });
+
+  // Check lists
+  const lists = ['studentsList', 'recentHoursList', 'recentMarksList', 'attendanceRecentList', 'paymentActivityList'];
+  console.log('📋 Lists:');
+  lists.forEach(listId => {
+    const list = document.getElementById(listId);
+    console.log(`  - ${listId}: ${list ? 'FOUND' : 'MISSING'}`);
+  });
+
+  return tabButtons.length > 0 && tabContents.length > 0;
+}
+
+// ===========================
+// TAB NAVIGATION SYSTEM
+// ===========================
+
+function setupTabNavigation() {
+  console.log('🔧 Setting up tab navigation...');
+  
+  const tabButtons = document.querySelectorAll('[data-tab]');
+  const tabContents = document.querySelectorAll('.tab-content');
+
+  console.log(`📊 Found ${tabButtons.length} tab buttons and ${tabContents.length} tab contents`);
+
+  if (tabButtons.length === 0 || tabContents.length === 0) {
+    console.error('❌ No tabs found in DOM! Check your HTML structure');
+    showNotification('Tab navigation not available', 'error');
+    return false;
+  }
+
+  // Remove any existing event listeners by cloning
+  tabButtons.forEach(button => {
+    const newButton = button.cloneNode(true);
+    button.parentNode.replaceChild(newButton, button);
+  });
+
+  // Get fresh references after clone
+  const freshTabButtons = document.querySelectorAll('[data-tab]');
+  
+  freshTabButtons.forEach(button => {
+    const targetTab = button.getAttribute('data-tab');
+    
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      console.log(`🎯 Clicked tab: ${targetTab}`);
+      switchToTab(targetTab);
+    });
+  });
+
+  // Activate first tab by default
+  const firstTab = freshTabButtons[0]?.getAttribute('data-tab');
+  if (firstTab) {
+    console.log(`🚀 Activating first tab: ${firstTab}`);
+    switchToTab(firstTab);
+    return true;
+  }
+  
+  return false;
+}
+
+function switchToTab(tabName) {
+  console.log(`🔄 Switching to tab: ${tabName}`);
+  
+  // Update tab buttons
+  const tabButtons = document.querySelectorAll('[data-tab]');
+  tabButtons.forEach(btn => {
+    btn.classList.remove('active');
+    if (btn.getAttribute('data-tab') === tabName) {
+      btn.classList.add('active');
+      console.log(`✅ Activated button: ${tabName}`);
+    }
+  });
+
+  // Update tab contents
+  const tabContents = document.querySelectorAll('.tab-content');
+  let foundTab = false;
+  
+  tabContents.forEach(content => {
+    content.classList.remove('active');
+    if (content.id === tabName) {
+      content.classList.add('active');
+      foundTab = true;
+      console.log(`✅ Activated content: ${tabName}`);
+    }
+  });
+
+  if (!foundTab) {
+    console.error(`❌ Tab content not found for: ${tabName}`);
+    return;
+  }
+
+  // Load data for the active tab
+  loadTabData(tabName);
+  
+  // Setup forms for the active tab
+  setupTabForms(tabName);
+}
+
+function loadTabData(tabName) {
+  console.log(`📊 Loading data for tab: ${tabName}`);
+  
+  // Use setTimeout to prevent blocking the UI
+  setTimeout(() => {
+    switch(tabName) {
+      case 'students':
+        renderStudents().catch(console.error);
+        break;
+      case 'hours':
+        renderRecentHours().catch(console.error);
+        break;
+      case 'marks':
+        renderRecentMarks().catch(console.error);
+        break;
+      case 'attendance':
+        renderAttendanceRecent().catch(console.error);
+        break;
+      case 'payments':
+        renderPaymentActivity().catch(console.error);
+        break;
+      default:
+        console.warn(`⚠️ Unknown tab: ${tabName}`);
+    }
+  }, 100);
+}
+
+function setupTabForms(tabName) {
+  console.log(`🔧 Setting up forms for tab: ${tabName}`);
+  
+  // Use setTimeout to ensure DOM is ready
+  setTimeout(() => {
+    switch(tabName) {
+      case 'students':
+        setupStudentForm();
+        break;
+      case 'hours':
+        setupHoursForm();
+        break;
+      case 'marks':
+        setupMarksForm();
+        break;
+      case 'attendance':
+        setupAttendanceForm();
+        break;
+      case 'payments':
+        setupPaymentsForm();
+        break;
+    }
+  }, 50);
+}
+
+// ===========================
+// MAIN APP INITIALIZATION
+// ===========================
+
+// Flag to prevent duplicate initialization
+let appInitialized = false;
+
 async function initializeApp() {
+  // Prevent duplicate initialization
+  if (appInitialized) {
+    console.log('⚠️ App already initialized, skipping...');
+    return;
+  }
+  
   console.log('🚀 Initializing WorkLog App...');
+  appInitialized = true;
 
   try {
     // Wait for auth state
     const user = await new Promise((resolve) => {
       const unsubscribe = onAuthStateChanged(auth, (user) => {
-        unsubscribe();
+        unsubscribe(); // Important: unsubscribe immediately
         resolve(user);
       });
     });
@@ -2848,22 +3036,32 @@ async function initializeApp() {
 
     console.log('✅ User authenticated:', user.uid);
 
-    // First, check DOM structure
-    checkDOMStructure();
+    // Check DOM structure first
+    const domValid = checkDOMStructure();
+    if (!domValid) {
+      console.error('❌ DOM structure invalid, cannot initialize app');
+      showNotification('App structure error - please refresh', 'error');
+      return;
+    }
 
-    // Initialize systems in sequence
+    // Initialize core systems
     initializeTheme();
     setupThemeToggle();
     setupProfileModal();
     setupFloatingAddButton();
     setupSyncManagement();
     
-    // Load user data - THIS NEEDS AWAIT BUT FUNCTION MUST BE ASYNC
+    // Load user profile
     await loadUserProfile(user.uid);
     updateHeaderStats();
 
-    // Setup tab navigation
-    setupTabNavigation();
+    // Setup tab navigation - this is critical
+    const tabsSetup = setupTabNavigation();
+    if (!tabsSetup) {
+      console.error('❌ Tab navigation setup failed');
+      showNotification('Navigation setup failed', 'error');
+      return;
+    }
 
     console.log('✅ WorkLog App initialized successfully');
     showNotification('App loaded successfully', 'success');
@@ -2871,15 +3069,116 @@ async function initializeApp() {
   } catch (error) {
     console.error('❌ App initialization failed:', error);
     showNotification('App initialization failed', 'error');
+    // Reset flag on failure so we can retry
+    appInitialized = false;
   }
 }
 
-// Make sure the event listener properly handles the async function
+// ===========================
+// EVENT LISTENERS - SINGLE INITIALIZATION
+// ===========================
+
+// Only set up one event listener to prevent duplicates
+let domContentLoadedFired = false;
+
 document.addEventListener('DOMContentLoaded', function() {
-  initializeApp().catch(error => {
-    console.error('Failed to initialize app:', error);
-  });
+  if (domContentLoadedFired) {
+    console.log('⚠️ DOMContentLoaded already fired, skipping...');
+    return;
+  }
+  
+  domContentLoadedFired = true;
+  console.log('📄 DOM Content Loaded - Starting app initialization');
+  
+  // Small delay to ensure all DOM is ready
+  setTimeout(() => {
+    initializeApp().catch(error => {
+      console.error('Failed to initialize app:', error);
+    });
+  }, 100);
 });
+
+// Also handle window load as a fallback
+window.addEventListener('load', function() {
+  console.log('🔄 Window loaded - checking if app initialized');
+  if (!appInitialized) {
+    console.log('🔄 App not initialized from DOMContentLoaded, initializing now...');
+    setTimeout(() => {
+      initializeApp().catch(console.error);
+    }, 200);
+  }
+});
+
+// ===========================
+// EMERGENCY FALLBACKS
+// ===========================
+
+// Emergency tab creation if none exist
+function createEmergencyTabs() {
+  console.log('🚨 Creating emergency tabs...');
+  
+  const mainContainer = document.querySelector('main') || document.body;
+  const existingTabs = document.querySelector('.tabs');
+  
+  if (existingTabs) {
+    console.log('✅ Tabs already exist, no need for emergency creation');
+    return true;
+  }
+
+  // Create emergency tab structure
+  const tabBar = document.createElement('div');
+  tabBar.className = 'tabs';
+  tabBar.style.cssText = `
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+    background: #f5f5f5;
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 20px;
+  `;
+  
+  tabBar.innerHTML = `
+    <button data-tab="students" class="tab-button" style="padding: 10px 20px; border: 1px solid #ccc; background: white; border-radius: 5px; cursor: pointer;">Students</button>
+    <button data-tab="hours" class="tab-button" style="padding: 10px 20px; border: 1px solid #ccc; background: white; border-radius: 5px; cursor: pointer;">Hours</button>
+    <button data-tab="marks" class="tab-button" style="padding: 10px 20px; border: 1px solid #ccc; background: white; border-radius: 5px; cursor: pointer;">Marks</button>
+    <button data-tab="attendance" class="tab-button" style="padding: 10px 20px; border: 1px solid #ccc; background: white; border-radius: 5px; cursor: pointer;">Attendance</button>
+    <button data-tab="payments" class="tab-button" style="padding: 10px 20px; border: 1px solid #ccc; background: white; border-radius: 5px; cursor: pointer;">Payments</button>
+  `;
+  
+  mainContainer.insertBefore(tabBar, mainContainer.firstChild);
+  console.log('✅ Emergency tabs created');
+  
+  // Create emergency tab contents if they don't exist
+  const tabs = ['students', 'hours', 'marks', 'attendance', 'payments'];
+  tabs.forEach(tabName => {
+    if (!document.getElementById(tabName)) {
+      const tabContent = document.createElement('div');
+      tabContent.id = tabName;
+      tabContent.className = 'tab-content';
+      tabContent.style.cssText = 'display: none; padding: 20px;';
+      tabContent.innerHTML = `<h3>${tabName.charAt(0).toUpperCase() + tabName.slice(1)}</h3><p>Content for ${tabName} will appear here.</p>`;
+      mainContainer.appendChild(tabContent);
+    }
+  });
+  
+  return true;
+}
+
+// Auto-fix if tabs don't exist after 3 seconds
+setTimeout(() => {
+  if (!appInitialized) {
+    console.log('⏰ Auto-fix: Checking if tabs exist...');
+    const hasTabs = document.querySelectorAll('[data-tab]').length > 0;
+    if (!hasTabs) {
+      console.log('🚨 No tabs found, running emergency setup...');
+      createEmergencyTabs();
+      // Retry initialization
+      if (!appInitialized) {
+        initializeApp().catch(console.error);
+      }
+    }
+  }
+}, 3000);
 
 // ===========================
 // START THE APPLICATION
