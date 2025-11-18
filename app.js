@@ -952,8 +952,6 @@ async function renderRecentHours(limit = 10) {
   const container = document.getElementById('hoursContainer');
   if (!container) return;
 
-  container.innerHTML = '<div class="loading">Loading recent hours...</div>';
-
   try {
     const hoursQuery = query(
       collection(db, "users", user.uid, "hours"),
@@ -965,48 +963,58 @@ async function renderRecentHours(limit = 10) {
     snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
 
     if (rows.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <h3>No Hours Logged</h3>
-          <p>Log your first work session to get started</p>
-        </div>
-      `;
+      container.innerHTML = '<p class="empty-message">No work logged yet.</p>';
       // Still update stats even when no hours
       await updateHoursTabStats();
       return;
     }
 
-    container.innerHTML = '';
+    let hoursHTML = '';
     rows.slice(0, limit).forEach(entry => {
-      const item = document.createElement("div");
-      item.className = "hours-entry";
-      item.innerHTML = `
-        <div class="hours-header">
-          <strong>${entry.organization}</strong>
-          <span class="hours-type">${entry.workType}</span>
-          <div class="hours-actions">
-            <button class="btn-icon" onclick="editHours('${entry.id}')" title="Edit">✏️</button>
-            <button class="btn-icon" onclick="deleteHours('${entry.id}')" title="Delete">🗑️</button>
+      hoursHTML += `
+        <div class="hours-entry">
+          <div class="hours-header">
+            <strong>${entry.organization}</strong>
+            <span class="hours-type">${getWorkTypeDisplay(entry.workType)}</span>
+            <div class="hours-actions">
+              <button class="btn-icon" onclick="editHours('${entry.id}')" title="Edit">✏️</button>
+              <button class="btn-icon" onclick="deleteHours('${entry.id}')" title="Delete">🗑️</button>
+            </div>
           </div>
+          <div class="muted">${formatDate(entry.date)} • ${entry.subject || 'General'}</div>
+          <div class="hours-details">
+            <span>Hours: ${safeNumber(entry.hours)}</span>
+            <span>Rate: $${fmtMoney(entry.rate)}</span>
+            <span class="hours-total">Total: $${fmtMoney(entry.total)}</span>
+          </div>
+          ${entry.student ? `<div class="muted">Student: ${entry.student}</div>` : ''}
+          ${entry.notes ? `<div class="muted">Notes: ${entry.notes}</div>` : ''}
         </div>
-        <div class="muted">${formatDate(entry.date)} • ${entry.subject || 'General'}</div>
-        <div class="hours-details">
-          <span>Hours: ${safeNumber(entry.hours)}</span>
-          <span>Rate: $${fmtMoney(entry.rate)}</span>
-          <span class="hours-total">Total: $${fmtMoney(entry.total)}</span>
-        </div>
-        ${entry.student ? `<div class="muted">Student: ${entry.student}</div>` : ''}
       `;
-      container.appendChild(item);
     });
+
+    container.innerHTML = hoursHTML;
 
     // UPDATE: Refresh hours tab stats after rendering
     await updateHoursTabStats();
 
   } catch (error) {
     console.error("Error rendering hours:", error);
-    container.innerHTML = '<div class="error">Error loading hours</div>';
+    container.innerHTML = '<p class="error-message">Error loading hours</p>';
   }
+}
+
+// Helper function to display work type nicely
+function getWorkTypeDisplay(workType) {
+  const workTypeMap = {
+    'hourly': 'Hourly',
+    'session': 'Per-Session', 
+    'contract': 'Contract Work',
+    'project': 'Project Based',
+    'consultation': 'Consultation',
+    'other': 'One-off Job'
+  };
+  return workTypeMap[workType] || workType;
 }
 
 async function renderRecentMarks(limit = 10) {
@@ -2106,7 +2114,7 @@ function setupStudentFormListeners() {
 }
 
 // ===========================
-// HOURS FORM EVENT LISTENERS - ENHANCED WITH EDIT/CANCEL
+// HOURS FORM EVENT LISTENERS - CLEAN VERSION
 // ===========================
 
 function setupHoursFormListeners() {
@@ -2127,6 +2135,136 @@ function setupHoursFormListeners() {
   }
 
   console.log('✅ Hours form event listeners setup');
+  // NOTE: Calculations are handled by UIManager.init()
+}
+
+// ===========================
+// HOURS MANAGEMENT FUNCTIONS - CLEAN VERSION
+// ===========================
+
+function cancelHoursEdit() {
+  console.log('❌ Canceling hours edit...');
+  currentEditHoursId = null;
+  resetHoursForm();
+  NotificationSystem.notifyInfo('Hours edit canceled');
+}
+
+function resetHoursForm() {
+  console.log('🔄 Resetting hours form...');
+  
+  // Clear form fields
+  const form = document.querySelector('#hours form');
+  if (form) form.reset();
+  
+  // Reset specific fields
+  document.getElementById('organization').value = '';
+  document.getElementById('workSubject').value = '';
+  document.getElementById('hoursStudent').selectedIndex = 0;
+  document.getElementById('workType').selectedIndex = 0;
+  document.getElementById('workDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('hoursWorked').value = '';
+  document.getElementById('baseRate').value = '';
+  
+  // Reset button states
+  const submitBtn = document.getElementById('hoursSubmitBtn');
+  const cancelBtn = document.getElementById('hoursCancelBtn');
+  
+  if (submitBtn) {
+    submitBtn.textContent = '💾 Log Hours';
+    submitBtn.onclick = logHours;
+    submitBtn.disabled = false;
+  }
+  
+  if (cancelBtn) cancelBtn.style.display = 'none';
+  
+  currentEditHoursId = null;
+  console.log("✅ Hours form reset to add mode");
+}
+
+async function logHours() {
+  // Get form values
+  const studentEl = document.getElementById("hoursStudent");
+  const orgEl = document.getElementById("organization");
+  const typeEl = document.getElementById("workType");
+  const dateEl = document.getElementById("workDate");
+  const hoursEl = document.getElementById("hoursWorked");
+  const rateEl = document.getElementById("baseRate");
+
+  const studentId = studentEl?.value;
+  const organization = orgEl?.value.trim();
+  const workType = typeEl?.value || "hourly";
+  const workDate = dateEl?.value;
+  const hours = parseFloat(hoursEl?.value);
+  const rate = parseFloat(rateEl?.value);
+
+  // Validation (uses same logic as UIManager calculations)
+  if (!organization || !workDate || !Number.isFinite(rate) || rate <= 0) {
+    NotificationSystem.notifyError("Please fill required fields: Organization, Date, Rate");
+    return;
+  }
+
+  if (workType === "hourly" && (!Number.isFinite(hours) || hours <= 0)) {
+    NotificationSystem.notifyError("Please enter valid hours for hourly work");
+    return;
+  }
+
+  // Get total from display (calculated by UIManager)
+  const totalDisplay = document.getElementById('totalPay');
+  const totalText = totalDisplay?.textContent?.replace('$', '') || '0';
+  const total = parseFloat(totalText);
+
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    const submitBtn = document.getElementById('hoursSubmitBtn');
+    if (submitBtn) {
+      submitBtn.textContent = 'Saving...';
+      submitBtn.disabled = true;
+    }
+
+    const hoursData = {
+      student: studentId || null,
+      organization,
+      workType,
+      date: workDate,
+      dateIso: fmtDateISO(workDate),
+      hours: workType === "hourly" ? hours : (hours || 0),
+      rate,
+      total,
+      loggedAt: new Date().toISOString()
+    };
+
+    if (currentEditHoursId) {
+      const hoursRef = doc(db, "users", user.uid, "hours", currentEditHoursId);
+      await updateDoc(hoursRef, hoursData);
+      NotificationSystem.notifySuccess("Hours updated successfully");
+    } else {
+      await addDoc(collection(db, "users", user.uid, "hours"), hoursData);
+      NotificationSystem.notifySuccess("Hours logged successfully");
+    }
+
+    cache.hours = null;
+    cache.lastSync = null;
+    resetHoursForm();
+    
+    // Refresh data
+    await Promise.all([
+      renderRecentHours(),
+      updateHoursTabStats(),
+      recalcSummaryStats(user.uid)
+    ]);
+
+  } catch (err) {
+    console.error("Error logging hours:", err);
+    NotificationSystem.notifyError("Failed to log hours");
+    
+    const submitBtn = document.getElementById('hoursSubmitBtn');
+    if (submitBtn) {
+      submitBtn.textContent = currentEditHoursId ? '💾 Update Hours' : '💾 Log Hours';
+      submitBtn.disabled = false;
+    }
+  }
 }
 
 // ===========================
@@ -2410,24 +2548,37 @@ function clearHoursForm() {
 async function logHours() {
   const studentEl = document.getElementById("hoursStudent");
   const orgEl = document.getElementById("organization");
+  const subjectEl = document.getElementById("workSubject");
   const typeEl = document.getElementById("workType");
   const dateEl = document.getElementById("workDate");
   const hoursEl = document.getElementById("hoursWorked");
   const rateEl = document.getElementById("baseRate");
+  const notesEl = document.getElementById("workNotes"); // Add this if you have a notes field
+  const totalDisplay = document.getElementById('totalPay'); // ADD THIS
 
   const studentId = studentEl?.value;
   const organization = orgEl?.value.trim();
+  const subject = subjectEl?.value.trim();
   const workType = typeEl?.value || "hourly";
   const workDate = dateEl?.value;
   const hours = parseFloat(hoursEl?.value);
   const rate = parseFloat(rateEl?.value);
+  const notes = notesEl?.value.trim() || '';
 
-  if (!organization || !workDate || !Number.isFinite(hours) || hours <= 0 || !Number.isFinite(rate) || rate <= 0) {
-    NotificationSystem.notifyError("Please fill required fields: Organization, Date, Hours, Rate");
+  if (!organization || !workDate || !Number.isFinite(rate) || rate <= 0) {
+    NotificationSystem.notifyError("Please fill required fields: Organization, Date, Rate");
     return;
   }
 
-  const total = workType === "hourly" ? hours * rate : rate;
+  // For hourly work, require hours. For fixed work, hours are optional.
+  if (workType === "hourly" && (!Number.isFinite(hours) || hours <= 0)) {
+    NotificationSystem.notifyError("Please enter valid hours for hourly work");
+    return;
+  }
+
+  // FIX: Get total from display instead of recalculating
+  const totalText = totalDisplay?.textContent?.replace('$', '') || '0';
+  const total = parseFloat(totalText);
   
   const user = auth.currentUser;
   if (!user) return;
@@ -2443,12 +2594,14 @@ async function logHours() {
     const hoursData = {
       student: studentId || null,
       organization,
+      subject: subject || null,
       workType,
       date: workDate,
       dateIso: fmtDateISO(workDate),
-      hours,
+      hours: workType === "hourly" ? hours : (hours || 0),
       rate,
-      total,
+      total, // Now using the display value
+      notes: notes || null,
       loggedAt: new Date().toISOString()
     };
 
@@ -2460,7 +2613,7 @@ async function logHours() {
     } else {
       // Add new hours
       await addDoc(collection(db, "users", user.uid, "hours"), hoursData);
-      NotificationSystem.notifySuccess("Hours logged successfully");
+      NotificationSystem.notifySuccess("Work logged successfully");
     }
 
     // Clear cache to force fresh data on next load
@@ -2474,7 +2627,7 @@ async function logHours() {
     // Refresh data in background including hours tab stats
     Promise.all([
       renderRecentHours(),
-      updateHoursTabStats(), // NEW: Update hours tab stats
+      updateHoursTabStats(), // Update the weekly/monthly stats
       recalcSummaryStats(user.uid)
     ]).then(() => {
       console.log('✅ Background refresh completed with fresh hours data');
@@ -2484,7 +2637,7 @@ async function logHours() {
 
   } catch (err) {
     console.error("Error logging hours:", err);
-    NotificationSystem.notifyError("Failed to log hours");
+    NotificationSystem.notifyError("Failed to log work");
     
     // Re-enable button on error but don't reset form
     const submitBtn = document.getElementById('hoursSubmitBtn');
@@ -2521,10 +2674,12 @@ async function editHours(hoursId) {
     // Fill the form with hours data
     document.getElementById('hoursStudent').value = hours.student || '';
     document.getElementById('organization').value = hours.organization || '';
+    document.getElementById('workSubject').value = hours.subject || '';
     document.getElementById('workType').value = hours.workType || 'hourly';
     document.getElementById('workDate').value = formatDateForInput(hours.dateIso || hours.date);
     document.getElementById('hoursWorked').value = hours.hours || '';
     document.getElementById('baseRate').value = hours.rate || '';
+    // If you have notes field: document.getElementById('workNotes').value = hours.notes || '';
 
     // Set edit mode
     currentEditHoursId = hoursId;
@@ -2558,11 +2713,11 @@ async function editHours(hoursId) {
       });
     }
     
-    NotificationSystem.notifyInfo(`Editing hours entry for ${hours.organization}`);
+    NotificationSystem.notifyInfo(`Editing work entry for ${hours.organization}`);
     
   } catch (error) {
     console.error('Error loading hours for edit:', error);
-    NotificationSystem.notifyError('Failed to load hours data');
+    NotificationSystem.notifyError('Failed to load work data');
     
     // Reset button on error
     const submitBtn = document.getElementById('hoursSubmitBtn');
@@ -2603,6 +2758,154 @@ async function deleteHours(hoursId) {
       }
     }
   }
+}
+
+// ENHANCED: Properly reset hours form and button states
+function resetHoursForm() {
+  console.log('🔄 Resetting hours form...');
+  
+  // Clear form fields
+  const form = document.querySelector('#hours form');
+  if (form) {
+    form.reset();
+  }
+  
+  // Reset specific fields to ensure clean state
+  const fieldsToReset = {
+    'organization': '',
+    'workSubject': '',
+    'hoursStudent': 0, // select index
+    'workType': 0, // select index  
+    'workDate': new Date().toISOString().split('T')[0],
+    'hoursWorked': '',
+    'baseRate': '',
+    'workNotes': '' // Add this if you have notes
+  };
+
+  Object.keys(fieldsToReset).forEach(fieldId => {
+    const element = document.getElementById(fieldId);
+    if (element) {
+      if (element.type === 'select-one') {
+        element.selectedIndex = fieldsToReset[fieldId];
+      } else {
+        element.value = fieldsToReset[fieldId];
+      }
+    }
+  });
+  
+  // Reset total display
+  const totalDisplay = document.getElementById('totalPay');
+  if (totalDisplay) {
+    totalDisplay.textContent = '$0.00';
+  }
+  
+  // CRITICAL FIX: Reset button states properly
+  const submitBtn = document.getElementById('hoursSubmitBtn');
+  const cancelBtn = document.getElementById('hoursCancelBtn');
+  
+  if (submitBtn) {
+    submitBtn.textContent = '💾 Log Hours';
+    submitBtn.onclick = logHours;
+    submitBtn.disabled = false;
+    console.log('✅ Submit button reset to "Log Hours"');
+  }
+  
+  if (cancelBtn) {
+    cancelBtn.style.display = 'none';
+    console.log('✅ Cancel button hidden');
+  }
+  
+  // Clear edit state
+  currentEditHoursId = null;
+  
+  console.log("✅ Hours form completely reset to add mode");
+}
+// ===========================
+// HOURS TAB STATS FUNCTIONS - UPDATED
+// ===========================
+
+async function updateHoursTabStats() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    const hoursSnap = await getDocs(collection(db, "users", user.uid, "hours"));
+    const rows = [];
+    hoursSnap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+
+    // Get current date range for weekly/monthly calculations
+    const now = new Date();
+    const startOfWeek = getStartOfWeek(now);
+    const startOfMonth = getStartOfMonth(now);
+
+    let weeklyHours = 0;
+    let weeklyTotal = 0;
+    let monthlyHours = 0;
+    let monthlyTotal = 0;
+    let totalHours = 0;
+    let totalEarnings = 0;
+
+    rows.forEach(entry => {
+      const entryDate = new Date(entry.dateIso || entry.date || entry.loggedAt);
+      const hours = safeNumber(entry.hours);
+      const total = safeNumber(entry.total);
+
+      totalHours += hours;
+      totalEarnings += total;
+
+      // Check if this entry is within current week
+      if (entryDate >= startOfWeek) {
+        weeklyHours += hours;
+        weeklyTotal += total;
+      }
+
+      // Check if this entry is within current month
+      if (entryDate >= startOfMonth) {
+        monthlyHours += hours;
+        monthlyTotal += total;
+      }
+    });
+
+    // Update the stats display with your new HTML structure
+    const weeklyHoursEl = document.getElementById('weeklyHours');
+    const weeklyTotalEl = document.getElementById('weeklyTotal');
+    const monthlyHoursEl = document.getElementById('monthlyHours');
+    const monthlyTotalEl = document.getElementById('monthlyTotal');
+
+    if (weeklyHoursEl) weeklyHoursEl.textContent = weeklyHours.toFixed(1);
+    if (weeklyTotalEl) weeklyTotalEl.textContent = fmtMoney(weeklyTotal);
+    if (monthlyHoursEl) monthlyHoursEl.textContent = monthlyHours.toFixed(1);
+    if (monthlyTotalEl) monthlyTotalEl.textContent = fmtMoney(monthlyTotal);
+
+    console.log('✅ Hours tab stats updated:', {
+      weeklyHours,
+      weeklyTotal,
+      monthlyHours,
+      monthlyTotal,
+      totalHours,
+      totalEarnings
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating hours tab stats:', error);
+  }
+}
+
+// Helper functions for date calculations
+function getStartOfWeek(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function getStartOfMonth(date) {
+  const d = new Date(date);
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  return d;
 }
 
 // ===========================
