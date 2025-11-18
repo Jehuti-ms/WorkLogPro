@@ -2720,6 +2720,9 @@ async function updateHoursTabStats() {
       totalEarnings
     });
 
+    updateUserFriendlyStats();
+    updateGoalProgress();
+    
   } catch (error) {
     console.error('❌ Error updating hours tab stats:', error);
   }
