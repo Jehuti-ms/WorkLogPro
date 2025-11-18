@@ -2103,6 +2103,54 @@ const UIManager = {
 };
 
 // ===========================
+// PAYMENT FORM EVENT LISTENERS - ADD THIS
+// ===========================
+
+function setupPaymentFormListeners() {
+  const submitBtn = document.getElementById('paymentSubmitBtn');
+  const clearBtn = document.getElementById('paymentClearBtn');
+
+  if (submitBtn) {
+    submitBtn.addEventListener('click', recordPayment);
+  }
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', resetPaymentForm);
+  }
+
+  console.log('✅ Payment form event listeners setup');
+}
+
+// ===========================
+// REPORT TAB EVENT LISTENERS - ADD THIS
+// ===========================
+
+function setupReportTabListeners() {
+  const weeklyReportBtn = document.getElementById('weeklyReportBtn');
+  const biweeklyReportBtn = document.getElementById('biweeklyReportBtn');
+  const monthlyReportBtn = document.getElementById('monthlyReportBtn');
+  const subjectReportBtn = document.getElementById('subjectReportBtn');
+
+  if (weeklyReportBtn) {
+    weeklyReportBtn.addEventListener('click', showWeeklyBreakdown);
+  }
+
+  if (biweeklyReportBtn) {
+    biweeklyReportBtn.addEventListener('click', showBiWeeklyBreakdown);
+  }
+
+  if (monthlyReportBtn) {
+    monthlyReportBtn.addEventListener('click', showMonthlyBreakdown);
+  }
+
+  if (subjectReportBtn) {
+    subjectReportBtn.addEventListener('click', showSubjectBreakdown);
+  }
+
+  console.log('✅ Report tab event listeners setup');
+}
+
+// ===========================
 // STUDENT FORM EVENT LISTENERS
 // ===========================
 
