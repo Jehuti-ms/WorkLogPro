@@ -2824,6 +2824,10 @@ function setupTabForms(tabName) {
 // MAIN INITIALIZATION
 // ===========================
 
+// ===========================
+// CORRECTED INITIALIZE APP FUNCTION
+// ===========================
+
 async function initializeApp() {
   console.log('🚀 Initializing WorkLog App...');
 
@@ -2834,7 +2838,8 @@ async function initializeApp() {
         unsubscribe();
         resolve(user);
       });
-    
+    });
+
     if (!user) {
       console.log('❌ No user signed in, redirecting to auth...');
       window.location.href = "auth.html";
@@ -2843,19 +2848,22 @@ async function initializeApp() {
 
     console.log('✅ User authenticated:', user.uid);
 
+    // First, check DOM structure
+    checkDOMStructure();
+
     // Initialize systems in sequence
     initializeTheme();
     setupThemeToggle();
     setupProfileModal();
     setupFloatingAddButton();
+    setupSyncManagement();
     
-    // Load user data first
+    // Load user data - THIS NEEDS AWAIT BUT FUNCTION MUST BE ASYNC
     await loadUserProfile(user.uid);
     updateHeaderStats();
 
-    // Setup tab navigation (this will handle form setup)
+    // Setup tab navigation
     setupTabNavigation();
-    setupSyncManagement();
 
     console.log('✅ WorkLog App initialized successfully');
     showNotification('App loaded successfully', 'success');
@@ -2865,6 +2873,13 @@ async function initializeApp() {
     showNotification('App initialization failed', 'error');
   }
 }
+
+// Make sure the event listener properly handles the async function
+document.addEventListener('DOMContentLoaded', function() {
+  initializeApp().catch(error => {
+    console.error('Failed to initialize app:', error);
+  });
+});
 
 // ===========================
 // START THE APPLICATION
