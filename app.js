@@ -2402,21 +2402,7 @@ function cancelAttendanceEdit() {
   console.log('❌ Canceling attendance edit...');
   
   currentEditAttendanceId = null;
-  
-  const saveBtn = document.querySelector('#attendance .button.primary');
-  const clearBtn = document.querySelector('#attendance .button.secondary');
-  
-  if (saveBtn) {
-    saveBtn.textContent = '💾 Save Attendance';
-    saveBtn.onclick = saveAttendance;
-  }
-  
-  if (clearBtn) {
-    clearBtn.textContent = '🗑️ Clear Form';
-    clearBtn.onclick = clearAttendanceForm;
-  }
-  
-  // Clear the form
+  resetAttendanceFormButtons(); // Use the new reset function
   clearAttendanceForm();
   
   NotificationSystem.notifyInfo('Attendance edit canceled');
@@ -2464,16 +2450,50 @@ function resetMarksForm() {
 }
 
 function clearAttendanceForm() {
+  console.log('🗑️ Clearing attendance form...');
+  
   const dateEl = document.getElementById("attendanceDate");
   const subjectEl = document.getElementById("attendanceSubject");
   const topicEl = document.getElementById("attendanceTopic");
 
-  if (dateEl) dateEl.value = "";
+  // Reset form fields
+  if (dateEl) dateEl.value = new Date().toISOString().split('T')[0]; // Default to today
   if (subjectEl) subjectEl.value = "";
   if (topicEl) topicEl.value = "";
 
+  // Uncheck all student checkboxes
   document.querySelectorAll("#attendanceList input[type=checkbox]")
     .forEach(cb => cb.checked = false);
+
+  console.log('✅ Attendance form cleared');
+}
+
+function resetAttendanceFormButtons() {
+  console.log('🔄 Resetting attendance form buttons...');
+  
+  const saveBtn = document.querySelector('#attendance .button.primary') || 
+                 document.getElementById('attendanceSubmitBtn');
+  const clearBtn = document.querySelector('#attendance .button.secondary') || 
+                  document.getElementById('attendanceClearBtn');
+  
+  // Reset save button
+  if (saveBtn) {
+    saveBtn.textContent = '💾 Save Attendance';
+    saveBtn.onclick = saveAttendance;
+    saveBtn.disabled = false;
+  }
+  
+  // Reset clear button
+  if (clearBtn) {
+    clearBtn.textContent = '🗑️ Clear Form';
+    clearBtn.onclick = clearAttendanceForm;
+    clearBtn.disabled = false;
+  }
+  
+  // Clear edit state
+  currentEditAttendanceId = null;
+  
+  console.log('✅ Attendance form buttons reset');
 }
 
 function resetPaymentForm() {
