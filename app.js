@@ -2212,6 +2212,34 @@ function updateMarksPercentage() {
   }
 }
 
+function updateUserFriendlyStats() {
+  const weeklyHours = parseFloat(document.getElementById('weeklyHours')?.textContent) || 0;
+  const weeklyTotal = parseFloat(document.getElementById('weeklyTotal')?.textContent) || 0;
+  
+  const summaryEl = document.getElementById('weeklySummary');
+  if (!summaryEl) return;
+  
+  let intensity = '';
+  if (weeklyHours >= 35) intensity = 'very busy';
+  else if (weeklyHours >= 25) intensity = 'productive';
+  else if (weeklyHours >= 15) intensity = 'moderate';
+  else intensity = 'light';
+
+  summaryEl.textContent = `This was a ${intensity} week! You worked ${weeklyHours} hours and earned $${weeklyTotal}.`;
+}
+
+function updateGoalProgress() {
+  const weeklyHours = parseFloat(document.getElementById('weeklyHours')?.textContent) || 0;
+  const goalProgressEl = document.getElementById('goalProgress');
+  if (!goalProgressEl) return;
+  
+  const weeklyGoal = 30;
+  const progress = Math.min((weeklyHours / weeklyGoal) * 100, 100);
+  const filled = Math.round(progress / 10);
+  
+  goalProgressEl.innerHTML = `Weekly Goal: ${'⭐'.repeat(filled)}${'⚪'.repeat(10-filled)} ${Math.round(progress)}%`;
+}
+
 // ===========================
 // FORM MANAGEMENT FUNCTIONS
 // ===========================
