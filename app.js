@@ -2045,7 +2045,6 @@ const UIManager = {
     console.log('✅ UI events bound');
   },
 
-  // ENHANCED HOURS FORM CALCULATIONS WITH TOTAL
   setupHoursFormCalculations() {
     const hoursInput = document.getElementById('hoursWorked');
     const rateInput = document.getElementById('baseRate');
@@ -2086,6 +2085,19 @@ const UIManager = {
     if (maxInput) maxInput.addEventListener('input', updateMarksPercentage);
   },
 
+  setupPaymentFormCalculations() {
+    const amountInput = document.getElementById('paymentAmount');
+    if (amountInput) {
+      amountInput.addEventListener('input', function() {
+        // Format as currency if needed
+        const value = parseFloat(this.value) || 0;
+        if (value > 0) {
+          // You can add real-time formatting here if needed
+        }
+      });
+    }
+  },
+
   initEventListeners() {
     console.log('🔧 Initializing event listeners...');
     
@@ -2101,21 +2113,7 @@ const UIManager = {
     
     console.log('✅ Event listeners initialized');
   }
-};
-
-  setupPaymentFormCalculations() {  // ✅ Fixed - properly defined as object method
-    const amountInput = document.getElementById('paymentAmount');
-    if (amountInput) {
-      amountInput.addEventListener('input', function() {
-        // Format as currency if needed
-        const value = parseFloat(this.value) || 0;
-        if (value > 0) {
-          // You can add real-time formatting here if needed
-        }
-      });
-    }
-  }
-};
+}; // ← END OF UIMANAGER OBJECT
 
 // ===========================
 // PAYMENT FORM EVENT LISTENERS - ADD THIS
