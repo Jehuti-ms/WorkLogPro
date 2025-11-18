@@ -2103,18 +2103,19 @@ const UIManager = {
   }
 };
 
-setupPaymentFormCalculations() {
-  const amountInput = document.getElementById('paymentAmount');
-  if (amountInput) {
-    amountInput.addEventListener('input', function() {
-      // Format as currency if needed
-      const value = parseFloat(this.value) || 0;
-      if (value > 0) {
-        // You can add real-time formatting here if needed
-      }
-    });
+  setupPaymentFormCalculations() {  // ✅ Fixed - properly defined as object method
+    const amountInput = document.getElementById('paymentAmount');
+    if (amountInput) {
+      amountInput.addEventListener('input', function() {
+        // Format as currency if needed
+        const value = parseFloat(this.value) || 0;
+        if (value > 0) {
+          // You can add real-time formatting here if needed
+        }
+      });
+    }
   }
-}
+};
 
 // ===========================
 // PAYMENT FORM EVENT LISTENERS - ADD THIS
