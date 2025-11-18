@@ -1097,6 +1097,8 @@ async function renderAttendanceRecent(limit = 10) {
           <p>Record your first attendance session</p>
         </div>
       `;
+      // Still populate student list even if no attendance records
+      await populateAttendanceStudentList();
       return;
     }
 
@@ -1111,6 +1113,9 @@ async function renderAttendanceRecent(limit = 10) {
       `;
       container.appendChild(item);
     });
+
+    // Populate the student list for attendance form
+    await populateAttendanceStudentList();
 
     // Update attendance summary
     const lastSessionDateEl = document.getElementById('lastSessionDate');
@@ -2238,6 +2243,63 @@ function updateGoalProgress() {
   const filled = Math.round(progress / 10);
   
   goalProgressEl.innerHTML = `Weekly Goal: ${'⭐'.repeat(filled)}${'⚪'.repeat(10-filled)} ${Math.round(progress)}%`;
+}
+
+// ===========================
+// ATTENDANCE STUDENT LIST POPULATION
+// ===========================
+
+async function populateAttendanceStudentList() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    const studentsSnap = await getDocs(collection(db, "users", user.uid, "students"));
+    const attendanceList = document.getElementById('attendanceList');
+    
+    if (!attendanceList) {
+      console.error('❌ Attendance list element not found');
+      return;
+    }
+
+    // Clear existing list (except the template if any)
+    attendanceList.innerHTML = '';
+
+    if (studentsSnap.size === 0) {
+      attendanceList.innerHTML = `
+        <div class="empty-state">
+          <p>No students registered yet. Add students in the Students tab first.</p>
+        </div>
+      `;
+      return;
+    }
+
+    studentsSnap.forEach(doc => {
+      const student = { id: doc.id, ...doc.data() };
+      const studentItem = document.createElement('div');
+      studentItem.className = 'attendance-student-item';
+      studentItem.innerHTML = `
+        <label class="checkbox-label">
+          <input type="checkbox" value="${student.id}">
+          <span class="checkmark"></span>
+          <div class="student-info">
+            <strong>${student.name}</strong>
+            <span class="student-id">${student.id}</span>
+          </div>
+        </label>
+      `;
+      attendanceList.appendChild(studentItem);
+    });
+
+    console.log(`✅ Populated ${studentsSnap.size} students in attendance list`);
+
+  } catch (error) {
+    console.error('❌ Error populating attendance student list:', error);
+    const attendanceList = document.getElementById('attendanceList');
+    if (attendanceList) {
+      attendanceList.innerHTML = '<div class="error">Error loading students</div>';
+    }
+  }
 }
 
 // ===========================
