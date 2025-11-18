@@ -3820,3 +3820,47 @@ window.NotificationSystem = NotificationSystem;
 // Sync bar functions for global access
 window.performSync = (mode = 'manual') => SyncBar.performSync(mode);
 
+// Manual tab system initialization
+function initTabsManually() {
+  const tabs = document.querySelectorAll('.tab');
+  const tabContents = document.querySelectorAll('.tabcontent');
+  
+  console.log('Found tabs:', tabs.length);
+  console.log('Found tab contents:', tabContents.length);
+  
+  tabs.forEach(tab => {
+    // Remove any existing listeners
+    const newTab = tab.cloneNode(true);
+    tab.parentNode.replaceChild(newTab, tab);
+    
+    // Add click listener
+    newTab.addEventListener('click', function() {
+      const target = this.getAttribute('data-tab');
+      console.log('Clicked tab:', target);
+      
+      // Hide all tab contents
+      tabContents.forEach(tc => {
+        tc.style.display = 'none';
+        tc.classList.remove('active');
+      });
+      
+      // Deactivate all tabs
+      tabs.forEach(t => t.classList.remove('active'));
+      
+      // Activate clicked tab
+      this.classList.add('active');
+      const targetContent = document.getElementById(target);
+      if (targetContent) {
+        targetContent.style.display = 'block';
+        targetContent.classList.add('active');
+        console.log('✅ Showing tab:', target);
+      } else {
+        console.log('❌ Tab content not found:', target);
+      }
+    });
+  });
+  
+  console.log('✅ Manual tab initialization complete');
+}
+
+initTabsManually();
