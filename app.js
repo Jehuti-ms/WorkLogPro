@@ -2149,38 +2149,6 @@ function cancelHoursEdit() {
   NotificationSystem.notifyInfo('Hours edit canceled');
 }
 
-function resetHoursForm() {
-  console.log('🔄 Resetting hours form...');
-  
-  // Clear form fields
-  const form = document.querySelector('#hours form');
-  if (form) form.reset();
-  
-  // Reset specific fields
-  document.getElementById('organization').value = '';
-  document.getElementById('workSubject').value = '';
-  document.getElementById('hoursStudent').selectedIndex = 0;
-  document.getElementById('workType').selectedIndex = 0;
-  document.getElementById('workDate').value = new Date().toISOString().split('T')[0];
-  document.getElementById('hoursWorked').value = '';
-  document.getElementById('baseRate').value = '';
-  
-  // Reset button states
-  const submitBtn = document.getElementById('hoursSubmitBtn');
-  const cancelBtn = document.getElementById('hoursCancelBtn');
-  
-  if (submitBtn) {
-    submitBtn.textContent = '💾 Log Hours';
-    submitBtn.onclick = logHours;
-    submitBtn.disabled = false;
-  }
-  
-  if (cancelBtn) cancelBtn.style.display = 'none';
-  
-  currentEditHoursId = null;
-  console.log("✅ Hours form reset to add mode");
-}
-
 // ===========================
 // STUDENT MANAGEMENT MODULE
 // ===========================
