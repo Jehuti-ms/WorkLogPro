@@ -2040,6 +2040,7 @@ const UIManager = {
     
     this.setupHoursFormCalculations();
     this.setupMarksFormCalculations();
+    this.setupPaymentFormCalculations();
     
     console.log('✅ UI events bound');
   },
@@ -2101,6 +2102,19 @@ const UIManager = {
     console.log('✅ Event listeners initialized');
   }
 };
+
+setupPaymentFormCalculations() {
+  const amountInput = document.getElementById('paymentAmount');
+  if (amountInput) {
+    amountInput.addEventListener('input', function() {
+      // Format as currency if needed
+      const value = parseFloat(this.value) || 0;
+      if (value > 0) {
+        // You can add real-time formatting here if needed
+      }
+    });
+  }
+}
 
 // ===========================
 // PAYMENT FORM EVENT LISTENERS - ADD THIS
@@ -3488,6 +3502,8 @@ function initializeApp() {
   setupFloatingAddButton();
   setupStudentFormListeners();
   setupHoursFormListeners(); // NEW: Setup hours form listeners
+  setupPaymentFormListeners(); // ADD THIS LINE
+  setupReportTabListeners();   // ADD THIS LINE
   updateHeaderStats();
   
   if (syncMessage) syncMessage.textContent = "Cloud Sync: Ready";
