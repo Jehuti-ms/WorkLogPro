@@ -1771,3 +1771,20 @@ body {
   margin-bottom: 10px;
 }
 
+.attendance-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.attendance-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.small {
+  font-size: 0.85em;
+}
+
+
