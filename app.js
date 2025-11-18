@@ -1097,7 +1097,6 @@ async function renderAttendanceRecent(limit = 10) {
           <p>Record your first attendance session</p>
         </div>
       `;
-      // Still populate student list even if no attendance records
       await populateAttendanceStudentList();
       return;
     }
@@ -1107,14 +1106,23 @@ async function renderAttendanceRecent(limit = 10) {
       const item = document.createElement("div");
       item.className = "attendance-entry";
       item.innerHTML = `
-        <div><strong>${entry.subject}</strong> — ${entry.topic || "—"}</div>
-        <div class="muted">${formatDate(entry.date)}</div>
+        <div class="attendance-header">
+          <div>
+            <strong>${entry.subject}</strong> — ${entry.topic || "—"}
+            <div class="muted">${formatDate(entry.date)}</div>
+          </div>
+          <div class="attendance-actions">
+            <button class="btn-icon" onclick="editAttendance('${entry.id}')" title="Edit">✏️</button>
+            <button class="btn-icon" onclick="deleteAttendance('${entry.id}')" title="Delete">🗑️</button>
+          </div>
+        </div>
         <div>Present: ${Array.isArray(entry.present) ? entry.present.length : 0} students</div>
+        ${Array.isArray(entry.present) && entry.present.length > 0 ? 
+          `<div class="muted small">Students: ${entry.present.join(', ')}</div>` : ''}
       `;
       container.appendChild(item);
     });
 
-    // Populate the student list for attendance form
     await populateAttendanceStudentList();
 
     // Update attendance summary
