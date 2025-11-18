@@ -2040,7 +2040,7 @@ const UIManager = {
     
     this.setupHoursFormCalculations();
     this.setupMarksFormCalculations();
-    this.setupPaymentFormCalculations();
+    /*this.setupPaymentFormCalculations();*/
     
     console.log('✅ UI events bound');
   },
