@@ -945,7 +945,6 @@ async function renderStudents() {
   }
 }
 
-// ENHANCED HOURS RENDERING WITH EDIT/DELETE ACTIONS
 async function renderRecentHours(limit = 10) {
   const user = auth.currentUser;
   if (!user) return;
@@ -972,6 +971,8 @@ async function renderRecentHours(limit = 10) {
           <p>Log your first work session to get started</p>
         </div>
       `;
+      // Still update stats even when no hours
+      await updateHoursTabStats();
       return;
     }
 
@@ -998,6 +999,9 @@ async function renderRecentHours(limit = 10) {
       `;
       container.appendChild(item);
     });
+
+    // UPDATE: Refresh hours tab stats after rendering
+    await updateHoursTabStats();
 
   } catch (error) {
     console.error("Error rendering hours:", error);
@@ -2403,29 +2407,6 @@ function clearHoursForm() {
   console.log("✅ Hours form completely cleared");
 }
 
-// Enhanced form reset that handles both clear and post-edit scenarios
-function resetHoursForm() {
-  clearHoursForm();
-  
-  // Reset to add mode
-  const submitBtn = document.getElementById('hoursSubmitBtn');
-  const cancelBtn = document.getElementById('hoursCancelBtn');
-  
-  if (submitBtn) {
-    submitBtn.textContent = '💾 Log Hours';
-    submitBtn.onclick = logHours;
-    submitBtn.disabled = false;
-  }
-  
-  if (cancelBtn) {
-    cancelBtn.style.display = 'none';
-  }
-  
-  currentEditHoursId = null;
-  
-  console.log("✅ Hours form reset to add mode");
-}
-
 async function logHours() {
   const studentEl = document.getElementById("hoursStudent");
   const orgEl = document.getElementById("organization");
@@ -2487,26 +2468,25 @@ async function logHours() {
     cache.lastSync = null;
     console.log('🗑️ Cache cleared for hours');
     
-    // Clear form IMMEDIATELY after successful save - use clearHoursForm for complete reset
-    clearHoursForm();
-    resetHoursForm(); // This will also reset the button states
+    // CRITICAL: Reset form and button states IMMEDIATELY after successful save
+    resetHoursForm();
     
-    // Refresh data in background (don't wait for it)
+    // Refresh data in background including hours tab stats
     Promise.all([
-      renderRecentHours(), // This will now fetch fresh data due to cache clear
+      renderRecentHours(),
+      updateHoursTabStats(), // NEW: Update hours tab stats
       recalcSummaryStats(user.uid)
     ]).then(() => {
       console.log('✅ Background refresh completed with fresh hours data');
     }).catch(error => {
       console.error("Background refresh failed:", error);
-      // Don't show error to user for background tasks
     });
 
   } catch (err) {
     console.error("Error logging hours:", err);
     NotificationSystem.notifyError("Failed to log hours");
     
-    // Re-enable button on error
+    // Re-enable button on error but don't reset form
     const submitBtn = document.getElementById('hoursSubmitBtn');
     if (submitBtn) {
       submitBtn.textContent = currentEditHoursId ? '💾 Update Hours' : '💾 Log Hours';
