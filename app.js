@@ -2326,14 +2326,15 @@ async function editAttendance(attendanceId) {
   try {
     console.log('✏️ Editing attendance:', attendanceId);
     
-    // Show loading state
-    const saveBtn = document.querySelector('#attendance .button.primary');
+    // Show loading state using specific ID
+    const saveBtn = document.getElementById('attendanceSubmitBtn');
     if (saveBtn) saveBtn.textContent = 'Loading...';
     
     const attendanceDoc = await getDoc(doc(db, "users", user.uid, "attendance", attendanceId));
     
     if (!attendanceDoc.exists()) {
       NotificationSystem.notifyError('Attendance record not found');
+      resetAttendanceFormButtons(); // Reset on error
       return;
     }
 
@@ -2360,27 +2361,24 @@ async function editAttendance(attendanceId) {
     // Set edit mode
     currentEditAttendanceId = attendanceId;
     
-    const saveBtnFinal = document.querySelector('#attendance .button.primary');
-    const clearBtn = document.querySelector('#attendance .button.secondary');
+    // Update button states for edit mode
+    const saveBtnFinal = document.getElementById('attendanceSubmitBtn');
+    const clearBtn = document.getElementById('attendanceClearBtn');
     
     if (saveBtnFinal) {
       saveBtnFinal.textContent = '💾 Update Attendance';
       saveBtnFinal.onclick = saveAttendance;
     }
     
-    // Change clear button to cancel
     if (clearBtn) {
       clearBtn.textContent = '❌ Cancel Edit';
       clearBtn.onclick = cancelAttendanceEdit;
     }
 
-    // Scroll to form immediately
+    // Scroll to form
     const attendanceForm = document.querySelector('#attendance .section-card:first-child');
     if (attendanceForm) {
-      attendanceForm.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'start' 
-      });
+      attendanceForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
     
     NotificationSystem.notifyInfo(`Editing attendance for ${attendance.subject}`);
@@ -2388,13 +2386,7 @@ async function editAttendance(attendanceId) {
   } catch (error) {
     console.error('Error loading attendance for edit:', error);
     NotificationSystem.notifyError('Failed to load attendance data');
-    
-    // Reset button on error
-    const saveBtn = document.querySelector('#attendance .button.primary');
-    if (saveBtn) {
-      saveBtn.textContent = '💾 Save Attendance';
-      saveBtn.onclick = saveAttendance;
-    }
+    resetAttendanceFormButtons(); // Always reset on error
   }
 }
 
