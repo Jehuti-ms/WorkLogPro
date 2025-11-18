@@ -1552,6 +1552,174 @@ function initializeDefaultRate(defaultRate = 0) {
 }
 
 // ===========================
+// PROFILE MODAL MANAGEMENT
+// ===========================
+
+function setupProfileModal() {
+  const profileBtn = document.getElementById('profileBtn');
+  const profileModal = document.getElementById('profileModal');
+  const closeProfileModal = document.getElementById('closeProfileModal');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const applyRateToAllBtn = document.getElementById('applyRateToAllBtn');
+
+  console.log('🔧 Setting up profile modal...');
+
+  if (!profileModal) {
+    console.error('❌ Profile modal not found in DOM');
+    return;
+  }
+
+  if (profileBtn && profileModal) {
+    profileBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('👤 Profile button clicked');
+      
+      updateProfileModal();
+      
+      profileModal.style.display = 'flex';
+      document.body.classList.add('modal-open');
+    });
+  } else {
+    console.error('❌ Profile button or modal not found');
+  }
+
+  if (closeProfileModal) {
+    closeProfileModal.addEventListener('click', () => {
+      closeModal();
+    });
+  }
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      if (confirm('Are you sure you want to logout?')) {
+        try {
+          await signOut(auth);
+          window.location.href = "auth.html";
+        } catch (error) {
+          console.error('Logout error:', error);
+          showNotification('Logout failed', 'error');
+        }
+      }
+    });
+  }
+
+  if (applyRateToAllBtn) {
+    applyRateToAllBtn.addEventListener('click', async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+      
+      const newRate = currentUserData?.defaultRate || 0;
+      if (newRate > 0) {
+        if (confirm(`Apply $${fmtMoney(newRate)}/hour rate to ALL students?`)) {
+          await applyDefaultRateToAllStudents(user.uid, newRate);
+        }
+      } else {
+        showNotification('Please set a default rate first', 'error');
+      }
+    });
+  }
+
+  window.addEventListener('click', (event) => {
+    if (profileModal && event.target === profileModal) {
+      closeModal();
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && profileModal && profileModal.style.display === 'flex') {
+      closeModal();
+    }
+  });
+
+  function closeModal() {
+    if (profileModal) {
+      profileModal.style.display = 'none';
+      document.body.classList.remove('modal-open');
+    }
+  }
+}
+
+function updateProfileModal() {
+  const profileUserEmail = document.getElementById('profileUserEmail');
+  const profileUserSince = document.getElementById('profileUserSince');
+  const profileDefaultRate = document.getElementById('profileDefaultRate');
+  const modalStatStudents = document.getElementById('modalStatStudents');
+  const modalStatHours = document.getElementById('modalStatHours');
+  const modalStatEarnings = document.getElementById('modalStatEarnings');
+  const modalStatUpdated = document.getElementById('modalStatUpdated');
+
+  if (currentUserData) {
+    const email = currentUserData.email || auth.currentUser?.email || 'Not available';
+    if (profileUserEmail) profileUserEmail.textContent = email;
+    
+    const createdAt = currentUserData.createdAt || currentUserData.lastLogin || new Date().toISOString();
+    if (profileUserSince) profileUserSince.textContent = formatDate(createdAt);
+    
+    if (profileDefaultRate) {
+      profileDefaultRate.textContent = `$${fmtMoney(currentUserData.defaultRate || 0)}/hour`;
+    }
+  }
+
+  // Use placeholder values for stats since we don't have real stats yet
+  if (modalStatStudents) modalStatStudents.textContent = '0';
+  if (modalStatHours) modalStatHours.textContent = '0';
+  if (modalStatEarnings) modalStatEarnings.textContent = '$0.00';
+  if (modalStatUpdated) modalStatUpdated.textContent = 'Never';
+
+  console.log('✅ Profile modal stats updated');
+}
+
+async function updateUserDefaultRate(uid, newRate) {
+  try {
+    const userRef = doc(db, "users", uid);
+    await updateDoc(userRef, {
+      defaultRate: newRate,
+      updatedAt: new Date().toISOString()
+    });
+    
+    if (currentUserData) {
+      currentUserData.defaultRate = newRate;
+    }
+    
+    console.log('✅ Default rate updated:', newRate);
+    return true;
+  } catch (err) {
+    console.error("❌ Error updating default rate:", err);
+    return false;
+  }
+}
+
+async function applyDefaultRateToAllStudents(uid, newRate) {
+  try {
+    const studentsSnap = await getDocs(collection(db, "users", uid, "students"));
+    const batch = writeBatch(db);
+    let updateCount = 0;
+
+    studentsSnap.forEach((docSnap) => {
+      const studentRef = doc(db, "users", uid, "students", docSnap.id);
+      batch.update(studentRef, { rate: newRate });
+      updateCount++;
+    });
+
+    if (updateCount > 0) {
+      await batch.commit();
+      StorageSystem.clearCache('students');
+      showNotification(`Default rate applied to ${updateCount} students`, 'success');
+      setTimeout(() => renderStudents(), 100);
+    } else {
+      showNotification("No students found to update", 'info');
+    }
+    
+    return updateCount;
+  } catch (err) {
+    console.error("❌ Error applying rate to all students:", err);
+    showNotification("Failed to apply rate to all students", 'error');
+    return 0;
+  }
+}
+
+// ===========================
 // THEME MANAGEMENT
 // ===========================
 
