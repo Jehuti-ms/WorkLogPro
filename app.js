@@ -3046,50 +3046,6 @@ function checkDOMStructure() {
 // TAB NAVIGATION SYSTEM
 // ===========================
 
-function setupTabNavigation() {
-  console.log('🔧 Setting up tab navigation...');
-  
-  const tabButtons = document.querySelectorAll('[data-tab]');
-  const tabContents = document.querySelectorAll('.tab-content');
-
-  console.log(`📊 Found ${tabButtons.length} tab buttons and ${tabContents.length} tab contents`);
-
-  if (tabButtons.length === 0 || tabContents.length === 0) {
-    console.error('❌ No tabs found in DOM! Check your HTML structure');
-    showNotification('Tab navigation not available', 'error');
-    return false;
-  }
-
-  // Remove any existing event listeners by cloning
-  tabButtons.forEach(button => {
-    const newButton = button.cloneNode(true);
-    button.parentNode.replaceChild(newButton, button);
-  });
-
-  // Get fresh references after clone
-  const freshTabButtons = document.querySelectorAll('[data-tab]');
-  
-  freshTabButtons.forEach(button => {
-    const targetTab = button.getAttribute('data-tab');
-    
-    button.addEventListener('click', (e) => {
-      e.preventDefault();
-      console.log(`🎯 Clicked tab: ${targetTab}`);
-      switchToTab(targetTab);
-    });
-  });
-
-  // Activate first tab by default
-  const firstTab = freshTabButtons[0]?.getAttribute('data-tab');
-  if (firstTab) {
-    console.log(`🚀 Activating first tab: ${firstTab}`);
-    switchToTab(firstTab);
-    return true;
-  }
-  
-  return false;
-}
-
 function switchToTab(tabName) {
   console.log(`🔄 Switching to tab: ${tabName}`);
   
