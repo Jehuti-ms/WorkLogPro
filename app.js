@@ -1955,7 +1955,7 @@ const SyncBar = {
 };
 
 // ===========================
-// UI MANAGEMENT MODULE
+// UI MANAGEMENT MODULE - FIXED VERSION
 // ===========================
 
 const UIManager = {
@@ -1982,103 +1982,160 @@ const UIManager = {
     console.log(`🎨 Theme changed to ${newTheme}`);
   },
 
-initTabs() {
-  const tabs = document.querySelectorAll('.tab');
-  const tabContents = document.querySelectorAll('.tabcontent');
+  initTabs() {
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tabcontent');
 
-  console.log('🔧 Initializing tabs system...');
-  console.log('Found tabs:', tabs.length);
-  console.log('Found tab contents:', tabContents.length);
+    console.log('🔧 Initializing tabs system...');
+    console.log('Found tabs:', tabs.length);
+    console.log('Found tab contents:', tabContents.length);
 
-  // First, ensure only the active tab is visible
-  tabContents.forEach(tab => {
-    const isActive = tab.classList.contains('active');
-    tab.style.display = isActive ? 'block' : 'none';
-    console.log(`Tab ${tab.id}: display = ${tab.style.display}, active = ${isActive}`);
-  });
-
-  // Add click listeners to all tabs
-  tabs.forEach(tab => {
-    tab.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      const targetId = tab.getAttribute('data-tab');
-      console.log('🎯 Switching to tab:', targetId);
-
-      // Remove active class from all tabs and hide all contents
-      tabs.forEach(t => {
-        t.classList.remove('active');
-        t.setAttribute('aria-selected', 'false');
-      });
-      
-      tabContents.forEach(tc => {
-        tc.classList.remove('active');
-        tc.style.display = 'none';
-        tc.setAttribute('aria-hidden', 'true');
-      });
-
-      // Activate clicked tab and show target content
-      tab.classList.add('active');
-      tab.setAttribute('aria-selected', 'true');
-      
-      const targetContent = document.getElementById(targetId);
-      if (targetContent) {
-        targetContent.classList.add('active');
-        targetContent.style.display = 'block';
-        targetContent.setAttribute('aria-hidden', 'false');
-        
-        console.log('✅ Tab displayed:', targetId);
-        console.log('Target content display style:', targetContent.style.display);
-        
-        // Load tab-specific data
-        this.loadTabData(targetId);
-      } else {
-        console.error('❌ Tab content not found:', targetId);
-      }
+    // First, ensure only the active tab is visible
+    tabContents.forEach(tab => {
+      const isActive = tab.classList.contains('active');
+      tab.style.display = isActive ? 'block' : 'none';
+      console.log(`Tab ${tab.id}: display = ${tab.style.display}, active = ${isActive}`);
     });
-  });
 
-  // Ensure first tab is active if none are
-  const activeTab = document.querySelector('.tab.active');
-  if (!activeTab && tabs.length > 0) {
-    tabs[0].click();
-  }
-  
-  console.log('✅ Tab system initialized');
-},
+    // Add click listeners to all tabs
+    tabs.forEach(tab => {
+      tab.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const targetId = tab.getAttribute('data-tab');
+        console.log('🎯 Switching to tab:', targetId);
 
-loadTabData(tabId) {
-  console.log('📥 Loading data for tab:', tabId);
-  
-  const user = auth.currentUser;
-  if (!user) return;
+        // Remove active class from all tabs and hide all contents
+        tabs.forEach(t => {
+          t.classList.remove('active');
+          t.setAttribute('aria-selected', 'false');
+        });
+        
+        tabContents.forEach(tc => {
+          tc.classList.remove('active');
+          tc.style.display = 'none';
+          tc.setAttribute('aria-hidden', 'true');
+        });
 
-  switch(tabId) {
-    case 'payments':
-      renderPaymentActivity();
-      renderStudentBalances();
-      break;
-    case 'reports':
-      renderOverviewReports();
-      break;
-    case 'students':
-      renderStudents();
-      break;
-    case 'hours':
-      renderRecentHours();
-      updateHoursTabStats();
-      break;
-    case 'marks':
-      renderRecentMarks();
-      break;
-    case 'attendance':
-      renderAttendanceRecent();
-      populateAttendanceStudentList();
-      break;
-  }
-},
-  
+        // Activate clicked tab and show target content
+        tab.classList.add('active');
+        tab.setAttribute('aria-selected', 'true');
+        
+        const targetContent = document.getElementById(targetId);
+        if (targetContent) {
+          targetContent.classList.add('active');
+          targetContent.style.display = 'block';
+          targetContent.setAttribute('aria-hidden', 'false');
+          
+          console.log('✅ Tab displayed:', targetId);
+          console.log('Target content display style:', targetContent.style.display);
+          
+          // Load tab-specific data
+          this.loadTabData(targetId);
+        } else {
+          console.error('❌ Tab content not found:', targetId);
+        }
+      });
+    });
+
+    // Ensure first tab is active if none are
+    const activeTab = document.querySelector('.tab.active');
+    if (!activeTab && tabs.length > 0) {
+      tabs[0].click();
+    }
+    
+    console.log('✅ Tab system initialized');
+  },
+
+  loadTabData(tabId) {
+    console.log('📥 Loading data for tab:', tabId);
+    
+    const user = auth.currentUser;
+    if (!user) return;
+
+    switch(tabId) {
+      case 'payments':
+        renderPaymentActivity();
+        renderStudentBalances();
+        break;
+      case 'reports':
+        renderOverviewReports();
+        break;
+      case 'students':
+        renderStudents();
+        break;
+      case 'hours':
+        renderRecentHours();
+        updateHoursTabStats();
+        break;
+      case 'marks':
+        renderRecentMarks();
+        break;
+      case 'attendance':
+        renderAttendanceRecent();
+        populateAttendanceStudentList();
+        break;
+    }
+  },
+
+  bindUiEvents() {
+    console.log('🔧 Binding UI events...');
+    
+    const themeToggle = document.querySelector('.theme-toggle button');
+    if (themeToggle) {
+      themeToggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.toggleTheme();
+      });
+    }
+    
+    const forms = document.querySelectorAll('form');
+    forms.forEach(form => {
+      form.addEventListener('submit', (e) => e.preventDefault());
+    });
+    
+    this.setupHoursFormCalculations();
+    this.setupMarksFormCalculations();
+    // this.setupPaymentFormCalculations(); // Keep commented out for now
+    
+    console.log('✅ UI events bound');
+  },
+
+  setupHoursFormCalculations() {
+    const hoursInput = document.getElementById('hoursWorked');
+    const rateInput = document.getElementById('baseRate');
+    const workTypeSelect = document.getElementById('workType');
+    const totalDisplay = document.getElementById('totalPay');
+    
+    const calculateTotal = () => {
+      const hours = parseFloat(hoursInput?.value) || 0;
+      const rate = parseFloat(rateInput?.value) || 0;
+      const workType = workTypeSelect?.value || "hourly";
+      
+      let total = 0;
+      if (workType === "hourly") {
+        total = hours * rate;
+      } else {
+        total = rate; // Fixed rate for session
+      }
+      
+      if (totalDisplay) {
+        totalDisplay.textContent = `$${fmtMoney(total)}`;
+      }
+      
+      console.log('💰 Total calculated:', { hours, rate, workType, total });
+    };
+
+    if (hoursInput) hoursInput.addEventListener('input', calculateTotal);
+    if (rateInput) rateInput.addEventListener('input', calculateTotal);
+    if (workTypeSelect) workTypeSelect.addEventListener('change', calculateTotal);
+    
+    // Initial calculation
+    setTimeout(calculateTotal, 100);
+  },
+
   setupMarksFormCalculations() {
     const scoreInput = document.getElementById('marksScore');
     const maxInput = document.getElementById('marksMax');
@@ -2097,7 +2154,7 @@ loadTabData(tabId) {
         }
       });
     }
-  }, 
+  },
 
   initEventListeners() {
     console.log('🔧 Initializing event listeners...');
