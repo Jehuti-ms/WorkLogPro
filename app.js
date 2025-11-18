@@ -2865,46 +2865,6 @@ function checkDOMStructure() {
 }
 
 // ===========================
-// DOM STRUCTURE CHECKER
-// ===========================
-
-function checkDOMStructure() {
-  console.log('🔍 Checking DOM structure...');
-  
-  // Check tabs
-  const tabButtons = document.querySelectorAll('[data-tab]');
-  const tabContents = document.querySelectorAll('.tab-content');
-  
-  console.log('📋 Tab Buttons:', tabButtons.length);
-  tabButtons.forEach(btn => {
-    console.log(`  - ${btn.getAttribute('data-tab')} (${btn.textContent})`);
-  });
-  
-  console.log('📋 Tab Contents:', tabContents.length);
-  tabContents.forEach(content => {
-    console.log(`  - ${content.id}`);
-  });
-
-  // Check forms
-  const forms = ['studentForm', 'hoursForm', 'marksForm', 'attendanceForm', 'paymentsForm'];
-  console.log('📋 Forms:');
-  forms.forEach(formId => {
-    const form = document.getElementById(formId);
-    console.log(`  - ${formId}: ${form ? 'FOUND' : 'MISSING'}`);
-  });
-
-  // Check lists
-  const lists = ['studentsList', 'recentHoursList', 'recentMarksList', 'attendanceRecentList', 'paymentActivityList'];
-  console.log('📋 Lists:');
-  lists.forEach(listId => {
-    const list = document.getElementById(listId);
-    console.log(`  - ${listId}: ${list ? 'FOUND' : 'MISSING'}`);
-  });
-
-  return tabButtons.length > 0 && tabContents.length > 0;
-}
-
-// ===========================
 // TAB NAVIGATION SYSTEM
 // ===========================
 
