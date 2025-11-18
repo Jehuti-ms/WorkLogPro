@@ -2311,6 +2311,118 @@ async function populateAttendanceStudentList() {
 }
 
 // ===========================
+// ATTENDANCE EDIT FUNCTIONS
+// ===========================
+
+let currentEditAttendanceId = null;
+
+async function editAttendance(attendanceId) {
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to edit attendance');
+    return;
+  }
+
+  try {
+    console.log('✏️ Editing attendance:', attendanceId);
+    
+    // Show loading state
+    const saveBtn = document.querySelector('#attendance .button.primary');
+    if (saveBtn) saveBtn.textContent = 'Loading...';
+    
+    const attendanceDoc = await getDoc(doc(db, "users", user.uid, "attendance", attendanceId));
+    
+    if (!attendanceDoc.exists()) {
+      NotificationSystem.notifyError('Attendance record not found');
+      return;
+    }
+
+    const attendance = attendanceDoc.data();
+    
+    // Fill the form with attendance data
+    document.getElementById('attendanceDate').value = formatDateForInput(attendance.dateIso || attendance.date);
+    document.getElementById('attendanceSubject').value = attendance.subject || '';
+    document.getElementById('attendanceTopic').value = attendance.topic || '';
+
+    // Wait for student list to populate, then check the present students
+    await populateAttendanceStudentList();
+    
+    // Check the checkboxes for students who were present
+    if (Array.isArray(attendance.present)) {
+      attendance.present.forEach(studentId => {
+        const checkbox = document.querySelector(`#attendanceList input[value="${studentId}"]`);
+        if (checkbox) {
+          checkbox.checked = true;
+        }
+      });
+    }
+
+    // Set edit mode
+    currentEditAttendanceId = attendanceId;
+    
+    const saveBtnFinal = document.querySelector('#attendance .button.primary');
+    const clearBtn = document.querySelector('#attendance .button.secondary');
+    
+    if (saveBtnFinal) {
+      saveBtnFinal.textContent = '💾 Update Attendance';
+      saveBtnFinal.onclick = saveAttendance;
+    }
+    
+    // Change clear button to cancel
+    if (clearBtn) {
+      clearBtn.textContent = '❌ Cancel Edit';
+      clearBtn.onclick = cancelAttendanceEdit;
+    }
+
+    // Scroll to form immediately
+    const attendanceForm = document.querySelector('#attendance .section-card:first-child');
+    if (attendanceForm) {
+      attendanceForm.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start' 
+      });
+    }
+    
+    NotificationSystem.notifyInfo(`Editing attendance for ${attendance.subject}`);
+    
+  } catch (error) {
+    console.error('Error loading attendance for edit:', error);
+    NotificationSystem.notifyError('Failed to load attendance data');
+    
+    // Reset button on error
+    const saveBtn = document.querySelector('#attendance .button.primary');
+    if (saveBtn) {
+      saveBtn.textContent = '💾 Save Attendance';
+      saveBtn.onclick = saveAttendance;
+    }
+  }
+}
+
+function cancelAttendanceEdit() {
+  console.log('❌ Canceling attendance edit...');
+  
+  currentEditAttendanceId = null;
+  
+  const saveBtn = document.querySelector('#attendance .button.primary');
+  const clearBtn = document.querySelector('#attendance .button.secondary');
+  
+  if (saveBtn) {
+    saveBtn.textContent = '💾 Save Attendance';
+    saveBtn.onclick = saveAttendance;
+  }
+  
+  if (clearBtn) {
+    clearBtn.textContent = '🗑️ Clear Form';
+    clearBtn.onclick = clearAttendanceForm;
+  }
+  
+  // Clear the form
+  clearAttendanceForm();
+  
+  NotificationSystem.notifyInfo('Attendance edit canceled');
+}
+
+// ===========================
 // FORM MANAGEMENT FUNCTIONS
 // ===========================
 
@@ -3015,7 +3127,7 @@ async function saveAttendance() {
 
   const attendanceData = {
     date,
-    dateIso: fmtDateISO(date), // Timezone-aware date conversion
+    dateIso: fmtDateISO(date),
     subject,
     topic: topic || "General",
     present: presentStudents,
@@ -3023,15 +3135,50 @@ async function saveAttendance() {
   };
 
   const user = auth.currentUser;
-  if (user) {
-    try {
+  if (!user) return;
+
+  try {
+    // Show loading state
+    const saveBtn = document.querySelector('#attendance .button.primary');
+    if (saveBtn) {
+      saveBtn.textContent = 'Saving...';
+      saveBtn.disabled = true;
+    }
+
+    if (currentEditAttendanceId) {
+      // Update existing attendance
+      const attendanceRef = doc(db, "users", user.uid, "attendance", currentEditAttendanceId);
+      await updateDoc(attendanceRef, {
+        ...attendanceData,
+        updatedAt: new Date().toISOString()
+      });
+      NotificationSystem.notifySuccess("Attendance updated successfully");
+    } else {
+      // Add new attendance
       await addDoc(collection(db, "users", user.uid, "attendance"), attendanceData);
       NotificationSystem.notifySuccess("Attendance recorded successfully");
-      clearAttendanceForm();
-      await renderAttendanceRecent();
-    } catch (err) {
-      console.error("Error saving attendance:", err);
-      NotificationSystem.notifyError("Failed to save attendance");
+    }
+
+    // Clear cache
+    cache.attendance = null;
+    cache.lastSync = null;
+    
+    // Reset form and button states
+    clearAttendanceForm();
+    cancelAttendanceEdit();
+    
+    // Refresh data
+    await renderAttendanceRecent();
+
+  } catch (err) {
+    console.error("Error saving attendance:", err);
+    NotificationSystem.notifyError("Failed to save attendance");
+    
+    // Re-enable button on error
+    const saveBtn = document.querySelector('#attendance .button.primary');
+    if (saveBtn) {
+      saveBtn.textContent = currentEditAttendanceId ? '💾 Update Attendance' : '💾 Save Attendance';
+      saveBtn.disabled = false;
     }
   }
 }
