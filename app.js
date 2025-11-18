@@ -3296,6 +3296,8 @@ async function loadInitialData(user) {
       loadUserProfile(user.uid),
       loadStudentsForDropdowns(),
       recalcSummaryStats(user.uid) // This will update everything
+      updateHoursTabStats(),
+      populateAttendanceStudentList() // NEW: Populate attendance list
     ]);
     
     // Then load visible content
