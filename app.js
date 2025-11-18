@@ -2085,7 +2085,7 @@ const UIManager = {
     if (maxInput) maxInput.addEventListener('input', updateMarksPercentage);
   },
 
-  setupPaymentFormCalculations() {
+/*  setupPaymentFormCalculations() {
     const amountInput = document.getElementById('paymentAmount');
     if (amountInput) {
       amountInput.addEventListener('input', function() {
@@ -2113,7 +2113,7 @@ const UIManager = {
     
     console.log('✅ Event listeners initialized');
   }
-}; // ← END OF UIMANAGER OBJECT
+}; // ← END OF UIMANAGER OBJECT*/
 
 // ===========================
 // PAYMENT FORM EVENT LISTENERS - ADD THIS
