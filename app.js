@@ -2865,38 +2865,6 @@ function checkDOMStructure() {
 }
 
 // ===========================
-// TAB NAVIGATION SYSTEM
-// ===========================
-
-
-
-
-function setupTabForms(tabName) {
-  console.log(`🔧 Setting up forms for tab: ${tabName}`);
-  
-  // Use setTimeout to ensure DOM is ready
-  setTimeout(() => {
-    switch(tabName) {
-      case 'students':
-        setupStudentForm();
-        break;
-      case 'hours':
-        setupHoursForm();
-        break;
-      case 'marks':
-        setupMarksForm();
-        break;
-      case 'attendance':
-        setupAttendanceForm();
-        break;
-      case 'payments':
-        setupPaymentsForm();
-        break;
-    }
-  }, 50);
-}
-
-// ===========================
 // DOM STRUCTURE CHECKER
 // ===========================
 
