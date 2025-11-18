@@ -2864,47 +2864,6 @@ function checkDOMStructure() {
   return tabButtons.length > 0 && tabContents.length > 0;
 }
 
-// ===========================
-// TAB NAVIGATION SYSTEM
-// ===========================
-
-function switchToTab(tabName) {
-  console.log(`🔄 Switching to tab: ${tabName}`);
-  
-  // Update tab buttons
-  const tabButtons = document.querySelectorAll('[data-tab]');
-  tabButtons.forEach(btn => {
-    btn.classList.remove('active');
-    if (btn.getAttribute('data-tab') === tabName) {
-      btn.classList.add('active');
-      console.log(`✅ Activated button: ${tabName}`);
-    }
-  });
-
-  // Update tab contents
-  const tabContents = document.querySelectorAll('.tab-content');
-  let foundTab = false;
-  
-  tabContents.forEach(content => {
-    content.classList.remove('active');
-    if (content.id === tabName) {
-      content.classList.add('active');
-      foundTab = true;
-      console.log(`✅ Activated content: ${tabName}`);
-    }
-  });
-
-  if (!foundTab) {
-    console.error(`❌ Tab content not found for: ${tabName}`);
-    return;
-  }
-
-  // Load data for the active tab
-  loadTabData(tabName);
-  
-  // Setup forms for the active tab
-  setupTabForms(tabName);
-}
 
 // ===========================
 // MAIN APP INITIALIZATION
