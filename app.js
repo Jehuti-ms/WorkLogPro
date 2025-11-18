@@ -185,10 +185,7 @@ function clearAllCache() {
 
 async function enhancedCreateOperation(collectionName, data, successMessage) {
   const user = auth.currentUser;
-  if (!user) {
-    console.warn('⚠️ User not authenticated for create operation');
-    return null;
-  }
+  if (!user) return null;
 
   try {
     // Generate unique ID
@@ -196,12 +193,9 @@ async function enhancedCreateOperation(collectionName, data, successMessage) {
     const itemData = { ...data, id: itemId };
 
     // LAYER 1: Save to local storage immediately (INSTANT)
-    const localKey = StorageSystem.saveToLocal(collectionName, itemData);
-    if (!localKey) {
-      throw new Error('Failed to save to local storage');
-    }
+    StorageSystem.saveToLocal(collectionName, itemData);
 
-    // LAYER 2: Clear cache immediately (FAST)
+    // LAYER 2: Update cache immediately (FAST)
     StorageSystem.clearCache(collectionName);
 
     // Show success immediately
@@ -213,10 +207,11 @@ async function enhancedCreateOperation(collectionName, data, successMessage) {
         await StorageSystem.syncToCloud(collectionName, itemData, 'create');
         
         // Update local storage to mark as synced
-        const localItem = JSON.parse(localStorage.getItem(localKey));
+        const key = `worklog_${collectionName}_${itemId}`;
+        const localItem = JSON.parse(localStorage.getItem(key));
         if (localItem) {
           localItem._synced = true;
-          localStorage.setItem(localKey, JSON.stringify(localItem));
+          localStorage.setItem(key, JSON.stringify(localItem));
         }
         
         console.log(`✅ Background sync completed: ${collectionName} - ${itemId}`);
@@ -233,7 +228,6 @@ async function enhancedCreateOperation(collectionName, data, successMessage) {
         }, 500);
       } catch (error) {
         console.error(`❌ Background sync failed: ${collectionName} - ${itemId}`, error);
-        // Don't show notification for background failures to avoid user confusion
       }
     }, 1000);
 
@@ -247,16 +241,13 @@ async function enhancedCreateOperation(collectionName, data, successMessage) {
 
 async function enhancedUpdateOperation(collectionName, docId, data, successMessage) {
   const user = auth.currentUser;
-  if (!user) {
-    console.warn('⚠️ User not authenticated for update operation');
-    return;
-  }
+  if (!user) return;
 
   try {
     const itemData = { ...data, id: docId };
-    const key = `worklog_${collectionName}_${docId}`;
 
     // LAYER 1: Update local storage immediately
+    const key = `worklog_${collectionName}_${docId}`;
     const existingItem = JSON.parse(localStorage.getItem(key));
     if (existingItem) {
       const updatedItem = { ...existingItem, ...itemData, _synced: false };
@@ -287,7 +278,6 @@ async function enhancedUpdateOperation(collectionName, docId, data, successMessa
         console.log(`✅ Background update sync completed: ${collectionName} - ${docId}`);
       } catch (error) {
         console.error(`❌ Background update sync failed: ${collectionName} - ${docId}`, error);
-        // Don't show notification for background failures
       }
     }, 1000);
 
@@ -300,15 +290,11 @@ async function enhancedUpdateOperation(collectionName, docId, data, successMessa
 
 async function enhancedDeleteOperation(collectionName, docId, successMessage) {
   const user = auth.currentUser;
-  if (!user) {
-    console.warn('⚠️ User not authenticated for delete operation');
-    return;
-  }
+  if (!user) return;
 
   try {
-    const key = `worklog_${collectionName}_${docId}`;
-
     // LAYER 1: Remove from local storage immediately
+    const key = `worklog_${collectionName}_${docId}`;
     StorageSystem.removeFromLocal(key);
 
     // LAYER 2: Clear cache immediately
@@ -320,12 +306,10 @@ async function enhancedDeleteOperation(collectionName, docId, successMessage) {
     // LAYER 3: Delete from cloud in background
     setTimeout(async () => {
       try {
-        // For delete operations, we only need the document ID, not the data
         await StorageSystem.syncToCloud(collectionName, { id: docId }, 'delete');
         console.log(`✅ Background delete sync completed: ${collectionName} - ${docId}`);
       } catch (error) {
         console.error(`❌ Background delete sync failed: ${collectionName} - ${docId}`, error);
-        // Don't show notification for background failures
       }
     }, 1000);
 
@@ -348,24 +332,11 @@ let currentEditHoursId = null;
 let currentEditMarksId = null;
 let currentEditAttendanceId = null;
 let currentEditPaymentId = null;
-
-// DOM Elements
-const syncIndicator = document.getElementById("syncIndicator");
-const syncSpinner = document.getElementById("syncSpinner");
-const autoSyncCheckbox = document.getElementById("autoSyncCheckbox");
-const autoSyncText = document.getElementById("autoSyncText");
-const syncMessage = document.getElementById("syncMessage");
-const syncMessageLine = document.getElementById("syncMessageLine");
-const syncBtn = document.getElementById("syncBtn");
-const exportCloudBtn = document.getElementById("exportCloudBtn");
-const importCloudBtn = document.getElementById("importCloudBtn");
-const syncStatsBtn = document.getElementById("syncStatsBtn");
-const exportDataBtn = document.getElementById("exportDataBtn");
-const importDataBtn = document.getElementById("importDataBtn");
-const clearDataBtn = document.getElementById("clearDataBtn");
+let appInitialized = false;
+let domContentLoadedFired = false;
 
 // ===========================
-// TIMEZONE UTILITY FUNCTIONS
+// UTILITY FUNCTIONS
 // ===========================
 
 function getLocalISODate() {
@@ -445,26 +416,6 @@ function formatDate(dateString) {
   }
 }
 
-function formatDateTime(dateString) {
-  if (!dateString) return 'Never';
-  try {
-    const date = convertToLocalDate(dateString);
-    return date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  } catch {
-    return dateString;
-  }
-}
-
-// ===========================
-// UTILITY FUNCTIONS
-// ===========================
-
 function safeNumber(n, fallback = 0) {
   if (n === null || n === undefined || n === '') return fallback;
   const v = Number(n);
@@ -473,14 +424,6 @@ function safeNumber(n, fallback = 0) {
 
 function fmtMoney(n) {
   return safeNumber(n).toFixed(2);
-}
-
-function refreshTimestamp() {
-  const now = new Date().toLocaleString();
-  if (syncMessageLine) syncMessageLine.textContent = "Status: Last synced at " + now;
-  if (document.getElementById('statUpdated')) {
-    document.getElementById('statUpdated').textContent = now;
-  }
 }
 
 function calculateGrade(percentage) {
@@ -595,6 +538,759 @@ async function renderWithLocalAndCloud(containerId, collectionName, renderFuncti
 }
 
 // ===========================
+// DOM STRUCTURE CHECKER
+// ===========================
+
+function checkDOMStructure() {
+  console.log('🔍 Checking DOM structure...');
+  
+  // Check tabs
+  const tabButtons = document.querySelectorAll('[data-tab]');
+  const tabContents = document.querySelectorAll('.tab-content');
+  
+  console.log('📋 Tab Buttons:', tabButtons.length);
+  tabButtons.forEach(btn => {
+    console.log(`  - ${btn.getAttribute('data-tab')} (${btn.textContent})`);
+  });
+  
+  console.log('📋 Tab Contents:', tabContents.length);
+  tabContents.forEach(content => {
+    console.log(`  - ${content.id}`);
+  });
+
+  // Check forms
+  const forms = ['studentForm', 'hoursForm', 'marksForm', 'attendanceForm', 'paymentsForm'];
+  console.log('📋 Forms:');
+  forms.forEach(formId => {
+    const form = document.getElementById(formId);
+    console.log(`  - ${formId}: ${form ? 'FOUND' : 'MISSING'}`);
+  });
+
+  // Check lists
+  const lists = ['studentsList', 'recentHoursList', 'recentMarksList', 'attendanceRecentList', 'paymentActivityList'];
+  console.log('📋 Lists:');
+  lists.forEach(listId => {
+    const list = document.getElementById(listId);
+    console.log(`  - ${listId}: ${list ? 'FOUND' : 'MISSING'}`);
+  });
+
+  return tabButtons.length > 0 && tabContents.length > 0;
+}
+
+// ===========================
+// TAB NAVIGATION SYSTEM
+// ===========================
+
+function setupTabNavigation() {
+  console.log('🔧 Setting up tab navigation...');
+  
+  const tabButtons = document.querySelectorAll('[data-tab]');
+  const tabContents = document.querySelectorAll('.tab-content');
+
+  console.log(`📊 Found ${tabButtons.length} tab buttons and ${tabContents.length} tab contents`);
+
+  if (tabButtons.length === 0 || tabContents.length === 0) {
+    console.error('❌ No tabs found in DOM! Check your HTML structure');
+    showNotification('Tab navigation not available', 'error');
+    return;
+  }
+
+  // Add click listeners to all tab buttons
+  tabButtons.forEach(button => {
+    const targetTab = button.getAttribute('data-tab');
+    console.log(`📌 Setting up tab button for: ${targetTab}`);
+    
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      console.log(`🎯 Clicked tab: ${targetTab}`);
+      switchToTab(targetTab);
+    });
+  });
+
+  // Activate first tab by default
+  const firstTab = tabButtons[0]?.getAttribute('data-tab');
+  if (firstTab) {
+    console.log(`🚀 Activating first tab: ${firstTab}`);
+    switchToTab(firstTab);
+  } else {
+    console.error('❌ No tabs available to activate');
+  }
+}
+
+function switchToTab(tabName) {
+  console.log(`🔄 Switching to tab: ${tabName}`);
+  
+  // Update tab buttons
+  const tabButtons = document.querySelectorAll('[data-tab]');
+  tabButtons.forEach(btn => {
+    btn.classList.remove('active');
+    if (btn.getAttribute('data-tab') === tabName) {
+      btn.classList.add('active');
+      console.log(`✅ Activated button: ${tabName}`);
+    }
+  });
+
+  // Update tab contents
+  const tabContents = document.querySelectorAll('.tab-content');
+  let foundTab = false;
+  
+  tabContents.forEach(content => {
+    content.classList.remove('active');
+    if (content.id === tabName) {
+      content.classList.add('active');
+      foundTab = true;
+      console.log(`✅ Activated content: ${tabName}`);
+    }
+  });
+
+  if (!foundTab) {
+    console.error(`❌ Tab content not found for: ${tabName}`);
+    showNotification(`Tab '${tabName}' not found`, 'error');
+    return;
+  }
+
+  // Load data for the active tab
+  loadTabData(tabName);
+  
+  // Setup forms for the active tab
+  setupTabForms(tabName);
+}
+
+function loadTabData(tabName) {
+  console.log(`📊 Loading data for tab: ${tabName}`);
+  
+  switch(tabName) {
+    case 'students':
+      renderStudents();
+      break;
+    case 'hours':
+      renderRecentHours();
+      break;
+    case 'marks':
+      renderRecentMarks();
+      break;
+    case 'attendance':
+      renderAttendanceRecent();
+      break;
+    case 'payments':
+      renderPaymentActivity();
+      break;
+    default:
+      console.warn(`⚠️ Unknown tab: ${tabName}`);
+  }
+}
+
+function setupTabForms(tabName) {
+  console.log(`🔧 Setting up forms for tab: ${tabName}`);
+  
+  switch(tabName) {
+    case 'students':
+      setupStudentForm();
+      break;
+    case 'hours':
+      setupHoursForm();
+      break;
+    case 'marks':
+      setupMarksForm();
+      break;
+    case 'attendance':
+      setupAttendanceForm();
+      break;
+    case 'payments':
+      setupPaymentsForm();
+      break;
+  }
+}
+
+// ===========================
+// STUDENT MANAGEMENT
+// ===========================
+
+async function renderStudents() {
+  await renderWithLocalAndCloud('studentsList', 'students', renderStudentsList, 'No students added yet');
+}
+
+function renderStudentsList(students) {
+  if (!students || students.length === 0) {
+    return '<div class="empty-state"><h3>No students added yet</h3><p>Add your first student to get started</p></div>';
+  }
+
+  return `
+    <div class="students-grid">
+      ${students.map(student => {
+        const isLocal = student._local && !student._synced;
+        const syncBadge = isLocal ? '<span class="sync-badge local" title="Local only - not synced">💾</span>' : '';
+        
+        return `
+        <div class="student-card" data-student-id="${student.id}">
+          <div class="student-header">
+            <h3>${student.name || 'Unnamed Student'} ${syncBadge}</h3>
+            <div class="student-actions">
+              <button class="btn-icon edit-student" title="Edit Student">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="btn-icon delete-student" title="Delete Student">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+          <div class="student-details">
+            <div class="student-info">
+              <span class="label">Rate:</span>
+              <span class="value">$${fmtMoney(student.rate || 0)}/hr</span>
+            </div>
+            <div class="student-info">
+              <span class="label">Subject:</span>
+              <span class="value">${student.subject || 'Not specified'}</span>
+            </div>
+            <div class="student-info">
+              <span class="label">Contact:</span>
+              <span class="value">${student.contact || 'Not provided'}</span>
+            </div>
+            ${student.notes ? `
+            <div class="student-info">
+              <span class="label">Notes:</span>
+              <span class="value">${student.notes}</span>
+            </div>
+            ` : ''}
+          </div>
+          <div class="student-stats">
+            <div class="stat">
+              <span class="stat-label">Total Hours</span>
+              <span class="stat-value">${student.totalHours || 0}</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Total Earned</span>
+              <span class="stat-value">$${fmtMoney(student.totalEarned || 0)}</span>
+            </div>
+          </div>
+        </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function setupStudentForm() {
+  const studentForm = document.getElementById('studentForm');
+  if (!studentForm) {
+    console.warn('⚠️ Student form not found in DOM');
+    return;
+  }
+
+  studentForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(studentForm);
+    const studentData = {
+      name: formData.get('name'),
+      rate: safeNumber(formData.get('rate')),
+      subject: formData.get('subject'),
+      contact: formData.get('contact'),
+      notes: formData.get('notes'),
+      createdAt: new Date().toISOString(),
+      totalHours: 0,
+      totalEarned: 0
+    };
+
+    try {
+      if (currentEditStudentId) {
+        // Update existing student using 3-layer system
+        await enhancedUpdateOperation('students', currentEditStudentId, studentData, 'Student updated successfully!');
+        currentEditStudentId = null;
+        
+        // Reset form to "add" mode
+        studentForm.querySelector('button[type="submit"]').textContent = 'Add Student';
+        studentForm.reset();
+      } else {
+        // Add new student using 3-layer system
+        await enhancedCreateOperation('students', studentData, 'Student added successfully!');
+        studentForm.reset();
+      }
+      
+      await renderStudents();
+    } catch (error) {
+      console.error('Error saving student:', error);
+    }
+  });
+}
+
+// ===========================
+// HOURS TRACKING
+// ===========================
+
+async function renderRecentHours() {
+  await renderWithLocalAndCloud('recentHoursList', 'hours', renderHoursList, 'No hours logged yet', 10);
+}
+
+function renderHoursList(hours) {
+  if (!hours || hours.length === 0) {
+    return '<div class="empty-state"><h3>No hours logged yet</h3><p>Track your tutoring sessions to see them here</p></div>';
+  }
+
+  return `
+    <div class="hours-list">
+      ${hours.map(hour => {
+        const isLocal = hour._local && !hour._synced;
+        const syncBadge = isLocal ? '<span class="sync-badge local" title="Local only - not synced">💾</span>' : '';
+        
+        return `
+        <div class="hour-item" data-hour-id="${hour.id}">
+          <div class="hour-header">
+            <div class="hour-student">${hour.studentName || 'Unknown Student'} ${syncBadge}</div>
+            <div class="hour-amount">$${fmtMoney(hour.amount || 0)}</div>
+          </div>
+          <div class="hour-details">
+            <div class="hour-date">${formatDate(hour.date)}</div>
+            <div class="hour-duration">${hour.duration || 0} hours</div>
+            <div class="hour-rate">@ $${fmtMoney(hour.rate || 0)}/hr</div>
+          </div>
+          ${hour.notes ? `<div class="hour-notes">${hour.notes}</div>` : ''}
+          <div class="hour-actions">
+            <button class="btn-small edit-hour">Edit</button>
+            <button class="btn-small btn-danger delete-hour">Delete</button>
+          </div>
+        </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function setupHoursForm() {
+  const hoursForm = document.getElementById('hoursForm');
+  if (!hoursForm) {
+    console.warn('⚠️ Hours form not found in DOM');
+    return;
+  }
+
+  // Rate calculation elements
+  const durationInput = document.getElementById('hoursDuration');
+  const rateInput = document.getElementById('hoursRate');
+  const amountDisplay = document.getElementById('hoursAmount');
+
+  // Check if all required elements exist
+  if (!durationInput || !rateInput || !amountDisplay) {
+    console.warn('⚠️ Some hours form elements not found');
+    return;
+  }
+
+  function calculateAmount() {
+    const duration = safeNumber(durationInput.value);
+    const rate = safeNumber(rateInput.value);
+    const amount = duration * rate;
+    amountDisplay.textContent = fmtMoney(amount);
+  }
+
+  durationInput.addEventListener('input', calculateAmount);
+  rateInput.addEventListener('input', calculateAmount);
+
+  // Form submission
+  hoursForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(hoursForm);
+    const studentId = formData.get('studentId');
+    const studentSelect = document.getElementById('hoursStudent');
+    const studentName = studentSelect ? studentSelect.selectedOptions[0]?.text || 'Unknown' : 'Unknown';
+    
+    const hoursData = {
+      studentId: studentId,
+      studentName: studentName,
+      date: formData.get('date') || getLocalISODate(),
+      dateIso: fmtDateISO(formData.get('date')),
+      duration: safeNumber(formData.get('duration')),
+      rate: safeNumber(formData.get('rate')),
+      amount: safeNumber(formData.get('duration')) * safeNumber(formData.get('rate')),
+      notes: formData.get('notes') || '',
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      if (currentEditHoursId) {
+        // Update existing hours using 3-layer system
+        await enhancedUpdateOperation('hours', currentEditHoursId, hoursData, 'Hours updated successfully!');
+        currentEditHoursId = null;
+        
+        // Reset form
+        hoursForm.querySelector('button[type="submit"]').textContent = 'Log Hours';
+        hoursForm.reset();
+        amountDisplay.textContent = '0.00';
+      } else {
+        // Add new hours using 3-layer system
+        await enhancedCreateOperation('hours', hoursData, 'Hours logged successfully!');
+        hoursForm.reset();
+        amountDisplay.textContent = '0.00';
+      }
+      
+      await renderRecentHours();
+      
+    } catch (error) {
+      console.error('Error saving hours:', error);
+    }
+  });
+
+  // Set default date to today
+  const dateInput = document.getElementById('hoursDate');
+  if (dateInput) {
+    dateInput.value = getLocalISODate();
+  }
+
+  console.log('✅ Hours form setup completed');
+}
+
+// ===========================
+// MARKS/GRADES TRACKING
+// ===========================
+
+async function renderRecentMarks() {
+  await renderWithLocalAndCloud('recentMarksList', 'marks', renderMarksList, 'No marks recorded yet', 10);
+}
+
+function renderMarksList(marks) {
+  if (!marks || marks.length === 0) {
+    return '<div class="empty-state"><h3>No marks recorded yet</h3><p>Record test scores and grades to see them here</p></div>';
+  }
+
+  return `
+    <div class="marks-list">
+      ${marks.map(mark => {
+        const percentage = safeNumber(mark.percentage);
+        const grade = calculateGrade(percentage);
+        const gradeClass = `grade-${grade.toLowerCase()}`;
+        const isLocal = mark._local && !mark._synced;
+        const syncBadge = isLocal ? '<span class="sync-badge local" title="Local only - not synced">💾</span>' : '';
+        
+        return `
+        <div class="mark-item" data-mark-id="${mark.id}">
+          <div class="mark-header">
+            <div class="mark-student">${mark.studentName || 'Unknown Student'} ${syncBadge}</div>
+            <div class="mark-percentage ${gradeClass}">${percentage}%</div>
+          </div>
+          <div class="mark-details">
+            <div class="mark-test">${mark.testName || 'Unnamed Test'}</div>
+            <div class="mark-grade ${gradeClass}">${grade}</div>
+            <div class="mark-date">${formatDate(mark.date)}</div>
+          </div>
+          ${mark.notes ? `<div class="mark-notes">${mark.notes}</div>` : ''}
+          <div class="mark-actions">
+            <button class="btn-small edit-mark">Edit</button>
+            <button class="btn-small btn-danger delete-mark">Delete</button>
+          </div>
+        </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function setupMarksForm() {
+  const marksForm = document.getElementById('marksForm');
+  if (!marksForm) {
+    console.warn('⚠️ Marks form not found in DOM');
+    return;
+  }
+
+  // Grade calculation elements
+  const scoreInput = document.getElementById('marksScore');
+  const maxScoreInput = document.getElementById('marksMaxScore');
+  const percentageDisplay = document.getElementById('marksPercentage');
+  const gradeDisplay = document.getElementById('marksGrade');
+
+  // Check if all required elements exist
+  if (!scoreInput || !maxScoreInput || !percentageDisplay || !gradeDisplay) {
+    console.warn('⚠️ Some marks form elements not found');
+    return;
+  }
+
+  function calculateGradeDisplay() {
+    const score = safeNumber(scoreInput.value);
+    const maxScore = safeNumber(maxScoreInput.value);
+    
+    if (maxScore > 0) {
+      const percentage = (score / maxScore) * 100;
+      const grade = calculateGrade(percentage);
+      
+      percentageDisplay.textContent = percentage.toFixed(1) + '%';
+      gradeDisplay.textContent = grade;
+      gradeDisplay.className = `grade-display grade-${grade.toLowerCase()}`;
+    } else {
+      percentageDisplay.textContent = '0%';
+      gradeDisplay.textContent = 'N/A';
+      gradeDisplay.className = 'grade-display';
+    }
+  }
+
+  scoreInput.addEventListener('input', calculateGradeDisplay);
+  maxScoreInput.addEventListener('input', calculateGradeDisplay);
+
+  // Form submission
+  marksForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(marksForm);
+    const studentId = formData.get('studentId');
+    const studentSelect = document.getElementById('marksStudent');
+    const studentName = studentSelect ? studentSelect.selectedOptions[0]?.text || 'Unknown' : 'Unknown';
+    const score = safeNumber(formData.get('score'));
+    const maxScore = safeNumber(formData.get('maxScore'));
+    const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
+    
+    const marksData = {
+      studentId: studentId,
+      studentName: studentName,
+      testName: formData.get('testName') || '',
+      date: formData.get('date') || getLocalISODate(),
+      dateIso: fmtDateISO(formData.get('date')),
+      score: score,
+      maxScore: maxScore,
+      percentage: percentage,
+      grade: calculateGrade(percentage),
+      notes: formData.get('notes') || '',
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      if (currentEditMarksId) {
+        // Update existing marks using 3-layer system
+        await enhancedUpdateOperation('marks', currentEditMarksId, marksData, 'Marks updated successfully!');
+        currentEditMarksId = null;
+        
+        // Reset form
+        marksForm.querySelector('button[type="submit"]').textContent = 'Record Marks';
+        marksForm.reset();
+        percentageDisplay.textContent = '0%';
+        gradeDisplay.textContent = 'N/A';
+        gradeDisplay.className = 'grade-display';
+      } else {
+        // Add new marks using 3-layer system
+        await enhancedCreateOperation('marks', marksData, 'Marks recorded successfully!');
+        marksForm.reset();
+        percentageDisplay.textContent = '0%';
+        gradeDisplay.textContent = 'N/A';
+        gradeDisplay.className = 'grade-display';
+      }
+      
+      await renderRecentMarks();
+      
+    } catch (error) {
+      console.error('Error saving marks:', error);
+    }
+  });
+
+  // Set default date to today
+  const dateInput = document.getElementById('marksDate');
+  if (dateInput) {
+    dateInput.value = getLocalISODate();
+  }
+
+  console.log('✅ Marks form setup completed');
+}
+
+// ===========================
+// ATTENDANCE TRACKING
+// ===========================
+
+async function renderAttendanceRecent() {
+  await renderWithLocalAndCloud('attendanceRecentList', 'attendance', renderAttendanceList, 'No attendance records yet', 10);
+}
+
+function renderAttendanceList(attendance) {
+  if (!attendance || attendance.length === 0) {
+    return '<div class="empty-state"><h3>No attendance records yet</h3><p>Record student attendance to see them here</p></div>';
+  }
+
+  return `
+    <div class="attendance-list">
+      ${attendance.map(record => {
+        const statusClass = `attendance-${record.status || 'present'}`;
+        const statusIcon = record.status === 'absent' ? '❌' : record.status === 'late' ? '⚠️' : '✅';
+        const isLocal = record._local && !record._synced;
+        const syncBadge = isLocal ? '<span class="sync-badge local" title="Local only - not synced">💾</span>' : '';
+        
+        return `
+        <div class="attendance-item" data-attendance-id="${record.id}">
+          <div class="attendance-header">
+            <div class="attendance-student">${record.studentName || 'Unknown Student'} ${syncBadge}</div>
+            <div class="attendance-status ${statusClass}">${statusIcon} ${record.status || 'present'}</div>
+          </div>
+          <div class="attendance-details">
+            <div class="attendance-date">${formatDate(record.date)}</div>
+            ${record.duration ? `<div class="attendance-duration">${record.duration} hours</div>` : ''}
+          </div>
+          ${record.notes ? `<div class="attendance-notes">${record.notes}</div>` : ''}
+          <div class="attendance-actions">
+            <button class="btn-small edit-attendance">Edit</button>
+            <button class="btn-small btn-danger delete-attendance">Delete</button>
+          </div>
+        </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function setupAttendanceForm() {
+  const attendanceForm = document.getElementById('attendanceForm');
+  if (!attendanceForm) {
+    console.warn('⚠️ Attendance form not found in DOM');
+    return;
+  }
+
+  // Form submission
+  attendanceForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(attendanceForm);
+    const studentId = formData.get('studentId');
+    const studentSelect = document.getElementById('attendanceStudent');
+    const studentName = studentSelect ? studentSelect.selectedOptions[0]?.text || 'Unknown' : 'Unknown';
+    
+    const attendanceData = {
+      studentId: studentId,
+      studentName: studentName,
+      date: formData.get('date') || getLocalISODate(),
+      dateIso: fmtDateISO(formData.get('date')),
+      status: formData.get('status') || 'present',
+      duration: safeNumber(formData.get('duration')),
+      notes: formData.get('notes') || '',
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      if (currentEditAttendanceId) {
+        // Update existing attendance using 3-layer system
+        await enhancedUpdateOperation('attendance', currentEditAttendanceId, attendanceData, 'Attendance updated successfully!');
+        currentEditAttendanceId = null;
+        
+        // Reset form
+        attendanceForm.querySelector('button[type="submit"]').textContent = 'Record Attendance';
+        attendanceForm.reset();
+      } else {
+        // Add new attendance using 3-layer system
+        await enhancedCreateOperation('attendance', attendanceData, 'Attendance recorded successfully!');
+        attendanceForm.reset();
+      }
+      
+      await renderAttendanceRecent();
+      
+    } catch (error) {
+      console.error('Error saving attendance:', error);
+    }
+  });
+
+  // Set default date to today
+  const dateInput = document.getElementById('attendanceDate');
+  if (dateInput) {
+    dateInput.value = getLocalISODate();
+  }
+
+  console.log('✅ Attendance form setup completed');
+}
+
+// ===========================
+// PAYMENTS TRACKING
+// ===========================
+
+async function renderPaymentActivity() {
+  await renderWithLocalAndCloud('paymentActivityList', 'payments', renderPaymentsList, 'No payments recorded yet', 10);
+}
+
+function renderPaymentsList(payments) {
+  if (!payments || payments.length === 0) {
+    return '<div class="empty-state"><h3>No payments recorded yet</h3><p>Record payment transactions to see them here</p></div>';
+  }
+
+  return `
+    <div class="payments-list">
+      ${payments.map(payment => {
+        const statusClass = `payment-${payment.status || 'pending'}`;
+        const statusIcon = payment.status === 'paid' ? '✅' : payment.status === 'overdue' ? '❌' : '⏳';
+        const isLocal = payment._local && !payment._synced;
+        const syncBadge = isLocal ? '<span class="sync-badge local" title="Local only - not synced">💾</span>' : '';
+        
+        return `
+        <div class="payment-item" data-payment-id="${payment.id}">
+          <div class="payment-header">
+            <div class="payment-student">${payment.studentName || 'Unknown Student'} ${syncBadge}</div>
+            <div class="payment-amount">$${fmtMoney(payment.amount || 0)}</div>
+          </div>
+          <div class="payment-details">
+            <div class="payment-date">${formatDate(payment.date)}</div>
+            <div class="payment-status ${statusClass}">${statusIcon} ${payment.status || 'pending'}</div>
+            <div class="payment-method">${payment.method || 'Not specified'}</div>
+          </div>
+          ${payment.notes ? `<div class="payment-notes">${payment.notes}</div>` : ''}
+          <div class="payment-actions">
+            <button class="btn-small edit-payment">Edit</button>
+            <button class="btn-small btn-danger delete-payment">Delete</button>
+          </div>
+        </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function setupPaymentsForm() {
+  const paymentsForm = document.getElementById('paymentsForm');
+  if (!paymentsForm) {
+    console.warn('⚠️ Payments form not found in DOM');
+    return;
+  }
+
+  // Form submission
+  paymentsForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(paymentsForm);
+    const studentId = formData.get('studentId');
+    const studentSelect = document.getElementById('paymentStudent');
+    const studentName = studentSelect ? studentSelect.selectedOptions[0]?.text || 'Unknown' : 'Unknown';
+    
+    const paymentData = {
+      studentId: studentId,
+      studentName: studentName,
+      date: formData.get('date') || getLocalISODate(),
+      dateIso: fmtDateISO(formData.get('date')),
+      amount: safeNumber(formData.get('amount')),
+      status: formData.get('status') || 'pending',
+      method: formData.get('method') || '',
+      notes: formData.get('notes') || '',
+      createdAt: new Date().toISOString()
+  };
+    try {
+      if (currentEditPaymentId) {
+        // Update existing payment using 3-layer system
+        await enhancedUpdateOperation('payments', currentEditPaymentId, paymentData, 'Payment updated successfully!');
+        currentEditPaymentId = null;
+        
+        // Reset form
+        paymentsForm.querySelector('button[type="submit"]').textContent = 'Record Payment';
+        paymentsForm.reset();
+      } else {
+        // Add new payment using 3-layer system
+        await enhancedCreateOperation('payments', paymentData, 'Payment recorded successfully!');
+        paymentsForm.reset();
+      }
+      
+      await renderPaymentActivity();
+      
+    } catch (error) {
+      console.error('Error saving payment:', error);
+    }
+  });
+
+  // Set default date to today
+  const dateInput = document.getElementById('paymentDate');
+  if (dateInput) {
+    dateInput.value = getLocalISODate();
+  }
+
+  console.log('✅ Payments form setup completed');
+}
+
+// ===========================
 // USER PROFILE & AUTHENTICATION
 // ===========================
 
@@ -666,170 +1362,66 @@ function updateProfileButton(userData) {
   }
 }
 
-async function updateUserDefaultRate(uid, newRate) {
-  try {
-    const userRef = doc(db, "users", uid);
-    await updateDoc(userRef, {
-      defaultRate: newRate,
-      updatedAt: new Date().toISOString()
-    });
+function initializeDefaultRate(defaultRate = 0) {
+  const defaultRateInput = document.getElementById('defaultRate');
+  if (defaultRateInput) {
+    defaultRateInput.value = defaultRate;
     
-    if (currentUserData) {
-      currentUserData.defaultRate = newRate;
-    }
-    
-    console.log('✅ Default rate updated:', newRate);
-    return true;
-  } catch (err) {
-    console.error("❌ Error updating default rate:", err);
-    return false;
-  }
-}
-
-async function applyDefaultRateToAllStudents(uid, newRate) {
-  try {
-    const studentsSnap = await getDocs(collection(db, "users", uid, "students"));
-    const batch = writeBatch(db);
-    let updateCount = 0;
-
-    studentsSnap.forEach((docSnap) => {
-      const studentRef = doc(db, "users", uid, "students", docSnap.id);
-      batch.update(studentRef, { rate: newRate });
-      updateCount++;
-    });
-
-    if (updateCount > 0) {
-      await batch.commit();
-      StorageSystem.clearCache('students');
-      showNotification(`Default rate applied to ${updateCount} students`, 'success');
-      setTimeout(() => renderStudents(), 100);
-    } else {
-      showNotification("No students found to update", 'info');
-    }
-    
-    return updateCount;
-  } catch (err) {
-    console.error("❌ Error applying rate to all students:", err);
-    showNotification("Failed to apply rate to all students", 'error');
-    return 0;
-  }
-}
-
-function setupProfileModal() {
-  const profileBtn = document.getElementById('profileBtn');
-  const profileModal = document.getElementById('profileModal');
-  const closeProfileModal = document.getElementById('closeProfileModal');
-  const logoutBtn = document.getElementById('logoutBtn');
-  const applyRateToAllBtn = document.getElementById('applyRateToAllBtn');
-
-  console.log('🔧 Setting up profile modal...');
-
-  if (!profileModal) {
-    console.error('❌ Profile modal not found in DOM');
-    return;
-  }
-
-  if (profileBtn && profileModal) {
-    profileBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      console.log('👤 Profile button clicked');
-      
-      updateProfileModal();
-      
-      profileModal.style.display = 'flex';
-      document.body.classList.add('modal-open');
-    });
-  } else {
-    console.error('❌ Profile button or modal not found');
-  }
-
-  if (closeProfileModal) {
-    closeProfileModal.addEventListener('click', () => {
-      closeModal();
-    });
-  }
-
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', async () => {
-      if (confirm('Are you sure you want to logout?')) {
-        try {
-          await signOut(auth);
-          window.location.href = "auth.html";
-        } catch (error) {
-          console.error('Logout error:', error);
-          showNotification('Logout failed', 'error');
-        }
-      }
-    });
-  }
-
-  if (applyRateToAllBtn) {
-    applyRateToAllBtn.addEventListener('click', async () => {
+    defaultRateInput.addEventListener('change', async (e) => {
+      const newRate = safeNumber(e.target.value);
       const user = auth.currentUser;
-      if (!user) return;
       
-      const newRate = currentUserData?.defaultRate || 0;
-      if (newRate > 0) {
-        if (confirm(`Apply $${fmtMoney(newRate)}/hour rate to ALL students?`)) {
-          await applyDefaultRateToAllStudents(user.uid, newRate);
+      if (user) {
+        const success = await updateUserDefaultRate(user.uid, newRate);
+        if (success) {
+          showNotification(`Default rate updated to $${fmtMoney(newRate)}/hour`, 'success');
         }
-      } else {
-        showNotification('Please set a default rate first', 'error');
       }
     });
   }
-
-  window.addEventListener('click', (event) => {
-    if (profileModal && event.target === profileModal) {
-      closeModal();
-    }
-  });
-
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && profileModal && profileModal.style.display === 'flex') {
-      closeModal();
-    }
-  });
-
-  function closeModal() {
-    profileModal.style.display = 'none';
-    document.body.classList.remove('modal-open');
-  }
 }
 
-function updateProfileModal() {
-  const profileUserEmail = document.getElementById('profileUserEmail');
-  const profileUserSince = document.getElementById('profileUserSince');
-  const profileDefaultRate = document.getElementById('profileDefaultRate');
-  const modalStatStudents = document.getElementById('modalStatStudents');
-  const modalStatHours = document.getElementById('modalStatHours');
-  const modalStatEarnings = document.getElementById('modalStatEarnings');
-  const modalStatUpdated = document.getElementById('modalStatUpdated');
+// ===========================
+// THEME MANAGEMENT
+// ===========================
 
-  if (currentUserData) {
-    const email = currentUserData.email || auth.currentUser?.email || 'Not available';
-    if (profileUserEmail) profileUserEmail.textContent = email;
+function updateThemeIcon(theme) {
+    const themeButton = document.querySelector('.theme-toggle button');
+    if (!themeButton) return;
     
-    const createdAt = currentUserData.createdAt || currentUserData.lastLogin || new Date().toISOString();
-    if (profileUserSince) profileUserSince.textContent = formatDate(createdAt);
-    
-    if (profileDefaultRate) {
-      profileDefaultRate.textContent = `$${fmtMoney(currentUserData.defaultRate || 0)}/hour`;
+    if (theme === 'dark') {
+        themeButton.setAttribute('title', 'Switch to light mode');
+    } else {
+        themeButton.setAttribute('title', 'Switch to dark mode');
     }
-  }
+}
 
-  const statStudents = document.getElementById('statStudents');
-  const statHours = document.getElementById('statHours');
-  const statEarnings = document.getElementById('statEarnings');
-  const statUpdated = document.getElementById('statUpdated');
+function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    updateThemeIcon(newTheme);
+    
+    console.log(`🎨 Theme changed to ${newTheme}`);
+}
 
-  if (modalStatStudents && statStudents) modalStatStudents.textContent = statStudents.textContent || '0';
-  if (modalStatHours && statHours) modalStatHours.textContent = statHours.textContent || '0';
-  if (modalStatEarnings && statEarnings) modalStatEarnings.textContent = statEarnings.textContent || '$0.00';
-  if (modalStatUpdated && statUpdated) modalStatUpdated.textContent = statUpdated.textContent || 'Never';
+function setupThemeToggle() {
+    const themeToggle = document.querySelector('.theme-toggle button');
+    if (themeToggle) {
+        themeToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleTheme();
+        });
+    }
+}
 
-  console.log('✅ Profile modal stats updated');
+function initializeTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    updateThemeIcon(savedTheme);
 }
 
 // ===========================
@@ -1018,1365 +1610,12 @@ function setupFabActions(closeFabMenu) {
 }
 
 // ===========================
-// THEME MANAGEMENT
-// ===========================
-
-function updateThemeIcon(theme) {
-    const themeButton = document.querySelector('.theme-toggle button');
-    if (!themeButton) return;
-    
-    if (theme === 'dark') {
-        themeButton.setAttribute('title', 'Switch to light mode');
-    } else {
-        themeButton.setAttribute('title', 'Switch to dark mode');
-    }
-}
-
-function toggleTheme() {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    
-    document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
-    updateThemeIcon(newTheme);
-    
-    console.log(`🎨 Theme changed to ${newTheme}`);
-}
-
-function setupThemeToggle() {
-    const themeToggle = document.querySelector('.theme-toggle button');
-    if (themeToggle) {
-        themeToggle.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleTheme();
-        });
-    }
-}
-
-function initializeTheme() {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    updateThemeIcon(savedTheme);
-}
-
-// ===========================
-// HEADER STATS
-// ===========================
-
-function updateHeaderStats() {
-  console.log('🔍 [updateHeaderStats] Starting...');
-  
-  const localStatus = document.getElementById('localStatus');
-  const syncStatus = document.getElementById('syncStatus');
-  const dataStatus = document.getElementById('dataStatus');
-  
-  if (localStatus) {
-    localStatus.textContent = '💾 Local Storage: Active';
-  }
-  
-  if (syncStatus) {
-    const isAutoSync = localStorage.getItem('autoSyncEnabled') === 'true';
-    syncStatus.textContent = isAutoSync ? '☁️ Cloud Sync: Auto' : '☁️ Cloud Sync: Manual';
-  }
-  
-  console.log('✅ [updateHeaderStats] Header stats structure verified');
-}
-
-// ===========================
-// STUDENT MANAGEMENT WITH 3-LAYER SYSTEM
-// ===========================
-
-async function renderStudents() {
-  await renderWithLocalAndCloud('studentsList', 'students', renderStudentsList, 'No students added yet');
-}
-
-function renderStudentsList(students) {
-  if (!students || students.length === 0) {
-    return '<div class="empty-state"><h3>No students added yet</h3><p>Add your first student to get started</p></div>';
-  }
-
-  return `
-    <div class="students-grid">
-      ${students.map(student => {
-        const isLocal = student._local && !student._synced;
-        const syncBadge = isLocal ? '<span class="sync-badge local" title="Local only - not synced">💾</span>' : '';
-        
-        return `
-        <div class="student-card" data-student-id="${student.id}">
-          <div class="student-header">
-            <h3>${student.name || 'Unnamed Student'} ${syncBadge}</h3>
-            <div class="student-actions">
-              <button class="btn-icon edit-student" title="Edit Student">
-                <i class="fas fa-edit"></i>
-              </button>
-              <button class="btn-icon delete-student" title="Delete Student">
-                <i class="fas fa-trash"></i>
-              </button>
-            </div>
-          </div>
-          <div class="student-details">
-            <div class="student-info">
-              <span class="label">Rate:</span>
-              <span class="value">$${fmtMoney(student.rate || 0)}/hr</span>
-            </div>
-            <div class="student-info">
-              <span class="label">Subject:</span>
-              <span class="value">${student.subject || 'Not specified'}</span>
-            </div>
-            <div class="student-info">
-              <span class="label">Contact:</span>
-              <span class="value">${student.contact || 'Not provided'}</span>
-            </div>
-            ${student.notes ? `
-            <div class="student-info">
-              <span class="label">Notes:</span>
-              <span class="value">${student.notes}</span>
-            </div>
-            ` : ''}
-          </div>
-          <div class="student-stats">
-            <div class="stat">
-              <span class="stat-label">Total Hours</span>
-              <span class="stat-value">${student.totalHours || 0}</span>
-            </div>
-            <div class="stat">
-              <span class="stat-label">Total Earned</span>
-              <span class="stat-value">$${fmtMoney(student.totalEarned || 0)}</span>
-            </div>
-          </div>
-        </div>
-        `;
-      }).join('')}
-    </div>
-  `;
-}
-
-function setupStudentEventListeners() {
-  // Edit student buttons
-  document.querySelectorAll('.edit-student').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const studentCard = e.target.closest('.student-card');
-      const studentId = studentCard.dataset.studentId;
-      editStudent(studentId);
-    });
-  });
-
-  // Delete student buttons
-  document.querySelectorAll('.delete-student').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const studentCard = e.target.closest('.student-card');
-      const studentId = studentCard.dataset.studentId;
-      deleteStudent(studentId);
-    });
-  });
-}
-
-function setupStudentForm() {
-  const studentForm = document.getElementById('studentForm');
-  if (!studentForm) return;
-
-  studentForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const formData = new FormData(studentForm);
-    const studentData = {
-      name: formData.get('name'),
-      rate: safeNumber(formData.get('rate')),
-      subject: formData.get('subject'),
-      contact: formData.get('contact'),
-      notes: formData.get('notes'),
-      createdAt: new Date().toISOString(),
-      totalHours: 0,
-      totalEarned: 0
-    };
-
-    try {
-      if (currentEditStudentId) {
-        // Update existing student using 3-layer system
-        await enhancedUpdateOperation('students', currentEditStudentId, studentData, 'Student updated successfully!');
-        currentEditStudentId = null;
-        
-        // Reset form to "add" mode
-        studentForm.querySelector('button[type="submit"]').textContent = 'Add Student';
-        studentForm.reset();
-      } else {
-        // Add new student using 3-layer system
-        await enhancedCreateOperation('students', studentData, 'Student added successfully!');
-        studentForm.reset();
-      }
-      
-      await renderStudents();
-    } catch (error) {
-      console.error('Error saving student:', error);
-    }
-  });
-}
-
-async function editStudent(studentId) {
-  try {
-    // Try to get from local storage first
-    const localKey = `worklog_students_${studentId}`;
-    const localItem = localStorage.getItem(localKey);
-    
-    if (localItem) {
-      const student = JSON.parse(localItem);
-      
-      // Fill form with student data
-      document.getElementById('studentName').value = student.name || '';
-      document.getElementById('studentRate').value = student.rate || '';
-      document.getElementById('studentSubject').value = student.subject || '';
-      document.getElementById('studentContact').value = student.contact || '';
-      document.getElementById('studentNotes').value = student.notes || '';
-      
-      // Change form to edit mode
-      currentEditStudentId = studentId;
-      document.getElementById('studentForm').querySelector('button[type="submit"]').textContent = 'Update Student';
-      
-      // Scroll to form
-      document.getElementById('studentForm').scrollIntoView({ behavior: 'smooth' });
-      return;
-    }
-    
-    // Fallback to Firestore if not in local storage
-    const user = auth.currentUser;
-    if (!user) return;
-
-    const studentDoc = await getDoc(doc(db, "users", user.uid, "students", studentId));
-    if (studentDoc.exists()) {
-      const student = studentDoc.data();
-      
-      // Fill form with student data
-      document.getElementById('studentName').value = student.name || '';
-      document.getElementById('studentRate').value = student.rate || '';
-      document.getElementById('studentSubject').value = student.subject || '';
-      document.getElementById('studentContact').value = student.contact || '';
-      document.getElementById('studentNotes').value = student.notes || '';
-      
-      // Change form to edit mode
-      currentEditStudentId = studentId;
-      document.getElementById('studentForm').querySelector('button[type="submit"]').textContent = 'Update Student';
-      
-      // Scroll to form
-      document.getElementById('studentForm').scrollIntoView({ behavior: 'smooth' });
-    }
-  } catch (error) {
-    console.error('Error loading student for edit:', error);
-    showNotification('Failed to load student data', 'error');
-  }
-}
-
-async function deleteStudent(studentId) {
-  if (!confirm('Are you sure you want to delete this student? This will also delete all associated hours, marks, and attendance records.')) {
-    return;
-  }
-
-  try {
-    // Delete using 3-layer system
-    await enhancedDeleteOperation('students', studentId, 'Student and all associated data deleted successfully');
-    
-    // Also delete associated records
-    await deleteAssociatedRecords('hours', 'studentId', studentId);
-    await deleteAssociatedRecords('marks', 'studentId', studentId);
-    await deleteAssociatedRecords('attendance', 'studentId', studentId);
-    await deleteAssociatedRecords('payments', 'studentId', studentId);
-    
-    await renderStudents();
-    await renderRecentHours();
-    await renderRecentMarks();
-    await renderAttendanceRecent();
-    await renderPaymentActivity();
-    
-  } catch (error) {
-    console.error('Error deleting student:', error);
-    showNotification('Failed to delete student', 'error');
-  }
-}
-
-async function deleteAssociatedRecords(collectionName, field, value) {
-  try {
-    const localItems = StorageSystem.getFromLocal(collectionName);
-    localItems.forEach(item => {
-      if (item[field] === value) {
-        const key = `worklog_${collectionName}_${item.id}`;
-        StorageSystem.removeFromLocal(key);
-      }
-    });
-    
-    // Also delete from Firestore
-    const user = auth.currentUser;
-    if (user) {
-      const querySnap = await getDocs(query(collection(db, "users", user.uid, collectionName), where(field, "==", value)));
-      const batch = writeBatch(db);
-      querySnap.docs.forEach(docSnap => {
-        batch.delete(doc(db, "users", user.uid, collectionName, docSnap.id));
-      });
-      await batch.commit();
-    }
-    
-    StorageSystem.clearCache(collectionName);
-  } catch (error) {
-    console.error(`Error deleting associated ${collectionName}:`, error);
-  }
-}
-
-// ===========================
-// HOURS TRACKING WITH 3-LAYER SYSTEM
-// ===========================
-
-async function renderRecentHours() {
-  await renderWithLocalAndCloud('recentHoursList', 'hours', renderHoursList, 'No hours logged yet', 10);
-}
-
-function renderHoursList(hours) {
-  if (!hours || hours.length === 0) {
-    return '<div class="empty-state"><h3>No hours logged yet</h3><p>Track your tutoring sessions to see them here</p></div>';
-  }
-
-  return `
-    <div class="hours-list">
-      ${hours.map(hour => {
-        const isLocal = hour._local && !hour._synced;
-        const syncBadge = isLocal ? '<span class="sync-badge local" title="Local only - not synced">💾</span>' : '';
-        
-        return `
-        <div class="hour-item" data-hour-id="${hour.id}">
-          <div class="hour-header">
-            <div class="hour-student">${hour.studentName || 'Unknown Student'} ${syncBadge}</div>
-            <div class="hour-amount">$${fmtMoney(hour.amount || 0)}</div>
-          </div>
-          <div class="hour-details">
-            <div class="hour-date">${formatDate(hour.date)}</div>
-            <div class="hour-duration">${hour.duration || 0} hours</div>
-            <div class="hour-rate">@ $${fmtMoney(hour.rate || 0)}/hr</div>
-          </div>
-          ${hour.notes ? `<div class="hour-notes">${hour.notes}</div>` : ''}
-          <div class="hour-actions">
-            <button class="btn-small edit-hour">Edit</button>
-            <button class="btn-small btn-danger delete-hour">Delete</button>
-          </div>
-        </div>
-        `;
-      }).join('')}
-    </div>
-  `;
-}
-
-function setupHoursEventListeners() {
-  document.querySelectorAll('.edit-hour').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const hourItem = e.target.closest('.hour-item');
-      const hourId = hourItem.dataset.hourId;
-      editHours(hourId);
-    });
-  });
-
-  document.querySelectorAll('.delete-hour').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const hourItem = e.target.closest('.hour-item');
-      const hourId = hourItem.dataset.hourId;
-      deleteHours(hourId);
-    });
-  });
-}
-
-function setupHoursForm() {
-  const hoursForm = document.getElementById('hoursForm');
-  console.log('🔍 Looking for hoursForm:', hoursForm);
-  
-  if (!hoursForm) {
-    console.warn('⚠️ Hours form not found in DOM - checking tab state');
-    // Check if we're in the hours tab
-    const hoursTab = document.getElementById('hours');
-    console.log('🔍 Hours tab exists:', hoursTab);
-    if (hoursTab) {
-      console.log('🔍 Hours tab active:', hoursTab.classList.contains('active'));
-    }
-    return;
-  }
-
-  // Rate calculation elements
-  const durationInput = document.getElementById('hoursDuration');
-  const rateInput = document.getElementById('hoursRate');
-  const amountDisplay = document.getElementById('hoursAmount');
-
-  console.log('🔍 Hours form elements:', {
-    durationInput: !!durationInput,
-    rateInput: !!rateInput,
-    amountDisplay: !!amountDisplay
-  });
-
-  // Check if all required elements exist
-  if (!durationInput || !rateInput || !amountDisplay) {
-    console.warn('⚠️ Some hours form elements not found');
-    console.log('🔍 Available elements in hours form:');
-    hoursForm.querySelectorAll('*').forEach(el => {
-      console.log('  -', el.tagName, el.id || el.className);
-    });
-    return;
-  }
-
-  function calculateAmount() {
-    const duration = safeNumber(durationInput.value);
-    const rate = safeNumber(rateInput.value);
-    const amount = duration * rate;
-    amountDisplay.textContent = fmtMoney(amount);
-  }
-
-  durationInput.addEventListener('input', calculateAmount);
-  rateInput.addEventListener('input', calculateAmount);
-
-  // Form submission
-  hoursForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const formData = new FormData(hoursForm);
-    const studentId = formData.get('studentId');
-    const studentSelect = document.getElementById('hoursStudent');
-    const studentName = studentSelect ? studentSelect.selectedOptions[0]?.text || 'Unknown' : 'Unknown';
-    
-    const hoursData = {
-      studentId: studentId,
-      studentName: studentName,
-      date: formData.get('date') || getLocalISODate(),
-      dateIso: fmtDateISO(formData.get('date')),
-      duration: safeNumber(formData.get('duration')),
-      rate: safeNumber(formData.get('rate')),
-      amount: safeNumber(formData.get('duration')) * safeNumber(formData.get('rate')),
-      notes: formData.get('notes') || '',
-      createdAt: new Date().toISOString()
-    };
-
-    try {
-      if (currentEditHoursId) {
-        // Update existing hours using 3-layer system
-        await enhancedUpdateOperation('hours', currentEditHoursId, hoursData, 'Hours updated successfully!');
-        currentEditHoursId = null;
-        
-        // Reset form
-        const submitBtn = hoursForm.querySelector('button[type="submit"]');
-        if (submitBtn) submitBtn.textContent = 'Log Hours';
-        hoursForm.reset();
-        amountDisplay.textContent = '0.00';
-      } else {
-        // Add new hours using 3-layer system
-        await enhancedCreateOperation('hours', hoursData, 'Hours logged successfully!');
-        hoursForm.reset();
-        amountDisplay.textContent = '0.00';
-      }
-      
-      await renderRecentHours();
-      
-      // Update student totals
-      if (studentId) {
-        await updateStudentTotals(studentId);
-      }
-      
-    } catch (error) {
-      console.error('Error saving hours:', error);
-    }
-  });
-
-  // Set default date to today
-  const dateInput = document.getElementById('hoursDate');
-  if (dateInput) {
-    dateInput.value = getLocalISODate();
-  }
-
-  console.log('✅ Hours form setup completed');
-}
-
-async function editHours(hoursId) {
-  try {
-    // Try to get from local storage first
-    const localKey = `worklog_hours_${hoursId}`;
-    const localItem = localStorage.getItem(localKey);
-    
-    if (localItem) {
-      const hours = JSON.parse(localItem);
-      
-      // Fill form with hours data
-      const studentSelect = document.getElementById('hoursStudent');
-      const dateInput = document.getElementById('hoursDate');
-      const durationInput = document.getElementById('hoursDuration');
-      const rateInput = document.getElementById('hoursRate');
-      const notesInput = document.getElementById('hoursNotes');
-      
-      if (studentSelect) studentSelect.value = hours.studentId || '';
-      if (dateInput) dateInput.value = formatDateForInput(hours.date);
-      if (durationInput) durationInput.value = hours.duration || '';
-      if (rateInput) rateInput.value = hours.rate || '';
-      if (notesInput) notesInput.value = hours.notes || '';
-      
-      // Update amount display
-      const amountDisplay = document.getElementById('hoursAmount');
-      if (amountDisplay) amountDisplay.textContent = fmtMoney(hours.amount || 0);
-      
-      // Change form to edit mode
-      currentEditHoursId = hoursId;
-      const submitBtn = document.getElementById('hoursForm')?.querySelector('button[type="submit"]');
-      if (submitBtn) submitBtn.textContent = 'Update Hours';
-      
-      // Scroll to form
-      const hoursForm = document.getElementById('hoursForm');
-      if (hoursForm) hoursForm.scrollIntoView({ behavior: 'smooth' });
-      return;
-    }
-    
-    // Fallback to Firestore
-    const user = auth.currentUser;
-    if (!user) return;
-
-    const hoursDoc = await getDoc(doc(db, "users", user.uid, "hours", hoursId));
-    if (hoursDoc.exists()) {
-      const hours = hoursDoc.data();
-      
-      // Fill form with hours data
-      const studentSelect = document.getElementById('hoursStudent');
-      const dateInput = document.getElementById('hoursDate');
-      const durationInput = document.getElementById('hoursDuration');
-      const rateInput = document.getElementById('hoursRate');
-      const notesInput = document.getElementById('hoursNotes');
-      
-      if (studentSelect) studentSelect.value = hours.studentId || '';
-      if (dateInput) dateInput.value = formatDateForInput(hours.date);
-      if (durationInput) durationInput.value = hours.duration || '';
-      if (rateInput) rateInput.value = hours.rate || '';
-      if (notesInput) notesInput.value = hours.notes || '';
-      
-      // Update amount display
-      const amountDisplay = document.getElementById('hoursAmount');
-      if (amountDisplay) amountDisplay.textContent = fmtMoney(hours.amount || 0);
-      
-      // Change form to edit mode
-      currentEditHoursId = hoursId;
-      const submitBtn = document.getElementById('hoursForm')?.querySelector('button[type="submit"]');
-      if (submitBtn) submitBtn.textContent = 'Update Hours';
-      
-      // Scroll to form
-      const hoursForm = document.getElementById('hoursForm');
-      if (hoursForm) hoursForm.scrollIntoView({ behavior: 'smooth' });
-    }
-  } catch (error) {
-    console.error('Error loading hours for edit:', error);
-    showNotification('Failed to load hours data', 'error');
-  }
-}
-
-async function deleteHours(hoursId) {
-  if (!confirm('Are you sure you want to delete these hours?')) {
-    return;
-  }
-
-  try {
-    // Get hours data first to update student totals
-    let studentId = null;
-    
-    // Try local storage first
-    const localKey = `worklog_hours_${hoursId}`;
-    const localItem = localStorage.getItem(localKey);
-    if (localItem) {
-      const hours = JSON.parse(localItem);
-      studentId = hours.studentId;
-    } else {
-      // Fallback to Firestore
-      const user = auth.currentUser;
-      if (user) {
-        const hoursDoc = await getDoc(doc(db, "users", user.uid, "hours", hoursId));
-        if (hoursDoc.exists()) {
-          const hours = hoursDoc.data();
-          studentId = hours.studentId;
-        }
-      }
-    }
-    
-    // Delete using 3-layer system
-    await enhancedDeleteOperation('hours', hoursId, 'Hours deleted successfully');
-    
-    // Update student totals
-    if (studentId) {
-      await updateStudentTotals(studentId);
-    }
-    
-  } catch (error) {
-    console.error('Error deleting hours:', error);
-    showNotification('Failed to delete hours', 'error');
-  }
-}
-
-async function updateStudentTotals(studentId) {
-  try {
-    // Get all hours for this student from both local and cloud
-    const localHours = StorageSystem.getFromLocal('hours').filter(hour => hour.studentId === studentId);
-    let cloudHours = [];
-    
-    const user = auth.currentUser;
-    if (user) {
-      const hoursQuery = query(collection(db, "users", user.uid, "hours"), where("studentId", "==", studentId));
-      const hoursSnap = await getDocs(hoursQuery);
-      cloudHours = hoursSnap.docs.map(doc => doc.data());
-    }
-    
-    // Combine and deduplicate
-    const allHours = [...cloudHours];
-    const cloudIds = new Set(cloudHours.map(hour => hour.id));
-    
-    localHours.forEach(localHour => {
-      if (!cloudIds.has(localHour.id) && !localHour._synced) {
-        allHours.push(localHour);
-      }
-    });
-    
-    // Calculate totals
-    const totalHours = allHours.reduce((sum, hour) => sum + safeNumber(hour.duration), 0);
-    const totalEarned = allHours.reduce((sum, hour) => sum + safeNumber(hour.amount), 0);
-    
-    // Update student using 3-layer system
-    const updateData = {
-      totalHours: totalHours,
-      totalEarned: totalEarned
-    };
-    
-    await enhancedUpdateOperation('students', studentId, updateData, 'Student totals updated');
-    
-  } catch (error) {
-    console.error('Error updating student totals:', error);
-  }
-}
-
-// ===========================
-// MARKS/GRADES TRACKING WITH 3-LAYER SYSTEM
-// ===========================
-
-async function renderRecentMarks() {
-  await renderWithLocalAndCloud('recentMarksList', 'marks', renderMarksList, 'No marks recorded yet', 10);
-}
-
-function renderMarksList(marks) {
-  if (!marks || marks.length === 0) {
-    return '<div class="empty-state"><h3>No marks recorded yet</h3><p>Record test scores and grades to see them here</p></div>';
-  }
-
-  return `
-    <div class="marks-list">
-      ${marks.map(mark => {
-        const percentage = safeNumber(mark.percentage);
-        const grade = calculateGrade(percentage);
-        const gradeClass = `grade-${grade.toLowerCase()}`;
-        const isLocal = mark._local && !mark._synced;
-        const syncBadge = isLocal ? '<span class="sync-badge local" title="Local only - not synced">💾</span>' : '';
-        
-        return `
-        <div class="mark-item" data-mark-id="${mark.id}">
-          <div class="mark-header">
-            <div class="mark-student">${mark.studentName || 'Unknown Student'} ${syncBadge}</div>
-            <div class="mark-percentage ${gradeClass}">${percentage}%</div>
-          </div>
-          <div class="mark-details">
-            <div class="mark-test">${mark.testName || 'Unnamed Test'}</div>
-            <div class="mark-grade ${gradeClass}">${grade}</div>
-            <div class="mark-date">${formatDate(mark.date)}</div>
-          </div>
-          ${mark.notes ? `<div class="mark-notes">${mark.notes}</div>` : ''}
-          <div class="mark-actions">
-            <button class="btn-small edit-mark">Edit</button>
-            <button class="btn-small btn-danger delete-mark">Delete</button>
-          </div>
-        </div>
-        `;
-      }).join('')}
-    </div>
-  `;
-}
-
-function setupMarksEventListeners() {
-  document.querySelectorAll('.edit-mark').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const markItem = e.target.closest('.mark-item');
-      const markId = markItem.dataset.markId;
-      editMarks(markId);
-    });
-  });
-
-  document.querySelectorAll('.delete-mark').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const markItem = e.target.closest('.mark-item');
-      const markId = markItem.dataset.markId;
-      deleteMarks(markId);
-    });
-  });
-}
-
-function setupMarksForm() {
-  const marksForm = document.getElementById('marksForm');
-  if (!marksForm) {
-    console.warn('⚠️ Marks form not found in DOM');
-    return;
-  }
-
-  // Grade calculation elements
-  const scoreInput = document.getElementById('marksScore');
-  const maxScoreInput = document.getElementById('marksMaxScore');
-  const percentageDisplay = document.getElementById('marksPercentage');
-  const gradeDisplay = document.getElementById('marksGrade');
-
-  // Check if all required elements exist
-  if (!scoreInput || !maxScoreInput || !percentageDisplay || !gradeDisplay) {
-    console.warn('⚠️ Some marks form elements not found');
-    return;
-  }
-
-  function calculateGradeDisplay() {
-    const score = safeNumber(scoreInput.value);
-    const maxScore = safeNumber(maxScoreInput.value);
-    
-    if (maxScore > 0) {
-      const percentage = (score / maxScore) * 100;
-      const grade = calculateGrade(percentage);
-      
-      percentageDisplay.textContent = percentage.toFixed(1) + '%';
-      gradeDisplay.textContent = grade;
-      gradeDisplay.className = `grade-display grade-${grade.toLowerCase()}`;
-    } else {
-      percentageDisplay.textContent = '0%';
-      gradeDisplay.textContent = 'N/A';
-      gradeDisplay.className = 'grade-display';
-    }
-  }
-
-  scoreInput.addEventListener('input', calculateGradeDisplay);
-  maxScoreInput.addEventListener('input', calculateGradeDisplay);
-
-  // Form submission
-  marksForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const formData = new FormData(marksForm);
-    const studentId = formData.get('studentId');
-    const studentSelect = document.getElementById('marksStudent');
-    const studentName = studentSelect ? studentSelect.selectedOptions[0]?.text || 'Unknown' : 'Unknown';
-    const score = safeNumber(formData.get('score'));
-    const maxScore = safeNumber(formData.get('maxScore'));
-    const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
-    
-    const marksData = {
-      studentId: studentId,
-      studentName: studentName,
-      testName: formData.get('testName') || '',
-      date: formData.get('date') || getLocalISODate(),
-      dateIso: fmtDateISO(formData.get('date')),
-      score: score,
-      maxScore: maxScore,
-      percentage: percentage,
-      grade: calculateGrade(percentage),
-      notes: formData.get('notes') || '',
-      createdAt: new Date().toISOString()
-    };
-
-    try {
-      if (currentEditMarksId) {
-        // Update existing marks using 3-layer system
-        await enhancedUpdateOperation('marks', currentEditMarksId, marksData, 'Marks updated successfully!');
-        currentEditMarksId = null;
-        
-        // Reset form
-        const submitBtn = marksForm.querySelector('button[type="submit"]');
-        if (submitBtn) submitBtn.textContent = 'Record Marks';
-        marksForm.reset();
-        percentageDisplay.textContent = '0%';
-        gradeDisplay.textContent = 'N/A';
-        gradeDisplay.className = 'grade-display';
-      } else {
-        // Add new marks using 3-layer system
-        await enhancedCreateOperation('marks', marksData, 'Marks recorded successfully!');
-        marksForm.reset();
-        percentageDisplay.textContent = '0%';
-        gradeDisplay.textContent = 'N/A';
-        gradeDisplay.className = 'grade-display';
-      }
-      
-      await renderRecentMarks();
-      
-    } catch (error) {
-      console.error('Error saving marks:', error);
-    }
-  });
-
-  // Set default date to today
-  const dateInput = document.getElementById('marksDate');
-  if (dateInput) {
-    dateInput.value = getLocalISODate();
-  }
-
-  console.log('✅ Marks form setup completed');
-}
-
-async function editMarks(markId) {
-  try {
-    // Try to get from local storage first
-    const localKey = `worklog_marks_${markId}`;
-    const localItem = localStorage.getItem(localKey);
-    
-    if (localItem) {
-      const mark = JSON.parse(localItem);
-      
-      // Fill form with mark data
-      const studentSelect = document.getElementById('marksStudent');
-      const testNameInput = document.getElementById('marksTestName');
-      const dateInput = document.getElementById('marksDate');
-      const scoreInput = document.getElementById('marksScore');
-      const maxScoreInput = document.getElementById('marksMaxScore');
-      const notesInput = document.getElementById('marksNotes');
-      
-      if (studentSelect) studentSelect.value = mark.studentId || '';
-      if (testNameInput) testNameInput.value = mark.testName || '';
-      if (dateInput) dateInput.value = formatDateForInput(mark.date);
-      if (scoreInput) scoreInput.value = mark.score || '';
-      if (maxScoreInput) maxScoreInput.value = mark.maxScore || '';
-      if (notesInput) notesInput.value = mark.notes || '';
-      
-      // Update grade display
-      const percentageDisplay = document.getElementById('marksPercentage');
-      const gradeDisplay = document.getElementById('marksGrade');
-      if (percentageDisplay && gradeDisplay) {
-        percentageDisplay.textContent = (mark.percentage || 0).toFixed(1) + '%';
-        gradeDisplay.textContent = mark.grade || 'N/A';
-        gradeDisplay.className = `grade-display grade-${(mark.grade || 'n/a').toLowerCase()}`;
-      }
-      
-      // Change form to edit mode
-      currentEditMarksId = markId;
-      const submitBtn = document.getElementById('marksForm')?.querySelector('button[type="submit"]');
-      if (submitBtn) submitBtn.textContent = 'Update Marks';
-      
-      // Scroll to form
-      const marksForm = document.getElementById('marksForm');
-      if (marksForm) marksForm.scrollIntoView({ behavior: 'smooth' });
-      return;
-    }
-    
-    // Fallback to Firestore
-    const user = auth.currentUser;
-    if (!user) return;
-
-    const markDoc = await getDoc(doc(db, "users", user.uid, "marks", markId));
-    if (markDoc.exists()) {
-      const mark = markDoc.data();
-      
-      // Fill form with mark data
-      const studentSelect = document.getElementById('marksStudent');
-      const testNameInput = document.getElementById('marksTestName');
-      const dateInput = document.getElementById('marksDate');
-      const scoreInput = document.getElementById('marksScore');
-      const maxScoreInput = document.getElementById('marksMaxScore');
-      const notesInput = document.getElementById('marksNotes');
-      
-      if (studentSelect) studentSelect.value = mark.studentId || '';
-      if (testNameInput) testNameInput.value = mark.testName || '';
-      if (dateInput) dateInput.value = formatDateForInput(mark.date);
-      if (scoreInput) scoreInput.value = mark.score || '';
-      if (maxScoreInput) maxScoreInput.value = mark.maxScore || '';
-      if (notesInput) notesInput.value = mark.notes || '';
-      
-      // Update grade display
-      const percentageDisplay = document.getElementById('marksPercentage');
-      const gradeDisplay = document.getElementById('marksGrade');
-      if (percentageDisplay && gradeDisplay) {
-        percentageDisplay.textContent = (mark.percentage || 0).toFixed(1) + '%';
-        gradeDisplay.textContent = mark.grade || 'N/A';
-        gradeDisplay.className = `grade-display grade-${(mark.grade || 'n/a').toLowerCase()}`;
-      }
-      
-      // Change form to edit mode
-      currentEditMarksId = markId;
-      const submitBtn = document.getElementById('marksForm')?.querySelector('button[type="submit"]');
-      if (submitBtn) submitBtn.textContent = 'Update Marks';
-      
-      // Scroll to form
-      const marksForm = document.getElementById('marksForm');
-      if (marksForm) marksForm.scrollIntoView({ behavior: 'smooth' });
-    }
-  } catch (error) {
-    console.error('Error loading marks for edit:', error);
-    showNotification('Failed to load marks data', 'error');
-  }
-}
-
-async function deleteMarks(markId) {
-  if (!confirm('Are you sure you want to delete these marks?')) {
-    return;
-  }
-
-  try {
-    await enhancedDeleteOperation('marks', markId, 'Marks deleted successfully');
-    await renderRecentMarks();
-  } catch (error) {
-    console.error('Error deleting marks:', error);
-    showNotification('Failed to delete marks', 'error');
-  }
-}
-
-// ===========================
-// ATTENDANCE TRACKING WITH 3-LAYER SYSTEM
-// ===========================
-
-async function renderAttendanceRecent() {
-  await renderWithLocalAndCloud('attendanceRecentList', 'attendance', renderAttendanceList, 'No attendance records yet', 10);
-}
-
-function renderAttendanceList(attendance) {
-  if (!attendance || attendance.length === 0) {
-    return '<div class="empty-state"><h3>No attendance records yet</h3><p>Record student attendance to see them here</p></div>';
-  }
-
-  return `
-    <div class="attendance-list">
-      ${attendance.map(record => {
-        const statusClass = `attendance-${record.status || 'present'}`;
-        const statusIcon = record.status === 'absent' ? '❌' : record.status === 'late' ? '⚠️' : '✅';
-        const isLocal = record._local && !record._synced;
-        const syncBadge = isLocal ? '<span class="sync-badge local" title="Local only - not synced">💾</span>' : '';
-        
-        return `
-        <div class="attendance-item" data-attendance-id="${record.id}">
-          <div class="attendance-header">
-            <div class="attendance-student">${record.studentName || 'Unknown Student'} ${syncBadge}</div>
-            <div class="attendance-status ${statusClass}">${statusIcon} ${record.status || 'present'}</div>
-          </div>
-          <div class="attendance-details">
-            <div class="attendance-date">${formatDate(record.date)}</div>
-            ${record.duration ? `<div class="attendance-duration">${record.duration} hours</div>` : ''}
-          </div>
-          ${record.notes ? `<div class="attendance-notes">${record.notes}</div>` : ''}
-          <div class="attendance-actions">
-            <button class="btn-small edit-attendance">Edit</button>
-            <button class="btn-small btn-danger delete-attendance">Delete</button>
-          </div>
-        </div>
-        `;
-      }).join('')}
-    </div>
-  `;
-}
-
-function setupAttendanceEventListeners() {
-  document.querySelectorAll('.edit-attendance').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const attendanceItem = e.target.closest('.attendance-item');
-      const attendanceId = attendanceItem.dataset.attendanceId;
-      editAttendance(attendanceId);
-    });
-  });
-
-  document.querySelectorAll('.delete-attendance').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const attendanceItem = e.target.closest('.attendance-item');
-      const attendanceId = attendanceItem.dataset.attendanceId;
-      deleteAttendance(attendanceId);
-    });
-  });
-}
-
-function setupAttendanceForm() {
-  const attendanceForm = document.getElementById('attendanceForm');
-  if (!attendanceForm) {
-    console.warn('⚠️ Attendance form not found in DOM');
-    return;
-  }
-
-  // Form submission
-  attendanceForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const formData = new FormData(attendanceForm);
-    const studentId = formData.get('studentId');
-    const studentSelect = document.getElementById('attendanceStudent');
-    const studentName = studentSelect ? studentSelect.selectedOptions[0]?.text || 'Unknown' : 'Unknown';
-    
-    const attendanceData = {
-      studentId: studentId,
-      studentName: studentName,
-      date: formData.get('date') || getLocalISODate(),
-      dateIso: fmtDateISO(formData.get('date')),
-      status: formData.get('status') || 'present',
-      duration: safeNumber(formData.get('duration')),
-      notes: formData.get('notes') || '',
-      createdAt: new Date().toISOString()
-    };
-
-    try {
-      if (currentEditAttendanceId) {
-        // Update existing attendance using 3-layer system
-        await enhancedUpdateOperation('attendance', currentEditAttendanceId, attendanceData, 'Attendance updated successfully!');
-        currentEditAttendanceId = null;
-        
-        // Reset form
-        const submitBtn = attendanceForm.querySelector('button[type="submit"]');
-        if (submitBtn) submitBtn.textContent = 'Record Attendance';
-        attendanceForm.reset();
-      } else {
-        // Add new attendance using 3-layer system
-        await enhancedCreateOperation('attendance', attendanceData, 'Attendance recorded successfully!');
-        attendanceForm.reset();
-      }
-      
-      await renderAttendanceRecent();
-      
-    } catch (error) {
-      console.error('Error saving attendance:', error);
-    }
-  });
-
-  // Set default date to today
-  const dateInput = document.getElementById('attendanceDate');
-  if (dateInput) {
-    dateInput.value = getLocalISODate();
-  }
-
-  console.log('✅ Attendance form setup completed');
-}
-
-async function editAttendance(attendanceId) {
-  try {
-    // Try to get from local storage first
-    const localKey = `worklog_attendance_${attendanceId}`;
-    const localItem = localStorage.getItem(localKey);
-    
-    if (localItem) {
-      const attendance = JSON.parse(localItem);
-      
-      // Fill form with attendance data
-      const studentSelect = document.getElementById('attendanceStudent');
-      const dateInput = document.getElementById('attendanceDate');
-      const statusInput = document.getElementById('attendanceStatus');
-      const durationInput = document.getElementById('attendanceDuration');
-      const notesInput = document.getElementById('attendanceNotes');
-      
-      if (studentSelect) studentSelect.value = attendance.studentId || '';
-      if (dateInput) dateInput.value = formatDateForInput(attendance.date);
-      if (statusInput) statusInput.value = attendance.status || 'present';
-      if (durationInput) durationInput.value = attendance.duration || '';
-      if (notesInput) notesInput.value = attendance.notes || '';
-      
-      // Change form to edit mode
-      currentEditAttendanceId = attendanceId;
-      const submitBtn = document.getElementById('attendanceForm')?.querySelector('button[type="submit"]');
-      if (submitBtn) submitBtn.textContent = 'Update Attendance';
-      
-      // Scroll to form
-      const attendanceForm = document.getElementById('attendanceForm');
-      if (attendanceForm) attendanceForm.scrollIntoView({ behavior: 'smooth' });
-      return;
-    }
-    
-    // Fallback to Firestore
-    const user = auth.currentUser;
-    if (!user) return;
-
-    const attendanceDoc = await getDoc(doc(db, "users", user.uid, "attendance", attendanceId));
-    if (attendanceDoc.exists()) {
-      const attendance = attendanceDoc.data();
-      
-      // Fill form with attendance data
-      const studentSelect = document.getElementById('attendanceStudent');
-      const dateInput = document.getElementById('attendanceDate');
-      const statusInput = document.getElementById('attendanceStatus');
-      const durationInput = document.getElementById('attendanceDuration');
-      const notesInput = document.getElementById('attendanceNotes');
-      
-      if (studentSelect) studentSelect.value = attendance.studentId || '';
-      if (dateInput) dateInput.value = formatDateForInput(attendance.date);
-      if (statusInput) statusInput.value = attendance.status || 'present';
-      if (durationInput) durationInput.value = attendance.duration || '';
-      if (notesInput) notesInput.value = attendance.notes || '';
-      
-      // Change form to edit mode
-      currentEditAttendanceId = attendanceId;
-      const submitBtn = document.getElementById('attendanceForm')?.querySelector('button[type="submit"]');
-      if (submitBtn) submitBtn.textContent = 'Update Attendance';
-      
-      // Scroll to form
-      const attendanceForm = document.getElementById('attendanceForm');
-      if (attendanceForm) attendanceForm.scrollIntoView({ behavior: 'smooth' });
-    }
-  } catch (error) {
-    console.error('Error loading attendance for edit:', error);
-    showNotification('Failed to load attendance data', 'error');
-  }
-}
-
-async function deleteAttendance(attendanceId) {
-  if (!confirm('Are you sure you want to delete this attendance record?')) {
-    return;
-  }
-
-  try {
-    await enhancedDeleteOperation('attendance', attendanceId, 'Attendance record deleted successfully');
-    await renderAttendanceRecent();
-  } catch (error) {
-    console.error('Error deleting attendance:', error);
-    showNotification('Failed to delete attendance record', 'error');
-  }
-}
-
-// ===========================
-// PAYMENTS TRACKING WITH 3-LAYER SYSTEM
-// ===========================
-
-async function renderPaymentActivity() {
-  await renderWithLocalAndCloud('paymentActivityList', 'payments', renderPaymentsList, 'No payments recorded yet', 10);
-}
-
-function renderPaymentsList(payments) {
-  if (!payments || payments.length === 0) {
-    return '<div class="empty-state"><h3>No payments recorded yet</h3><p>Record payment transactions to see them here</p></div>';
-  }
-
-  return `
-    <div class="payments-list">
-      ${payments.map(payment => {
-        const statusClass = `payment-${payment.status || 'pending'}`;
-        const statusIcon = payment.status === 'paid' ? '✅' : payment.status === 'overdue' ? '❌' : '⏳';
-        const isLocal = payment._local && !payment._synced;
-        const syncBadge = isLocal ? '<span class="sync-badge local" title="Local only - not synced">💾</span>' : '';
-        
-        return `
-        <div class="payment-item" data-payment-id="${payment.id}">
-          <div class="payment-header">
-            <div class="payment-student">${payment.studentName || 'Unknown Student'} ${syncBadge}</div>
-            <div class="payment-amount">$${fmtMoney(payment.amount || 0)}</div>
-          </div>
-          <div class="payment-details">
-            <div class="payment-date">${formatDate(payment.date)}</div>
-            <div class="payment-status ${statusClass}">${statusIcon} ${payment.status || 'pending'}</div>
-            <div class="payment-method">${payment.method || 'Not specified'}</div>
-          </div>
-          ${payment.notes ? `<div class="payment-notes">${payment.notes}</div>` : ''}
-          <div class="payment-actions">
-            <button class="btn-small edit-payment">Edit</button>
-            <button class="btn-small btn-danger delete-payment">Delete</button>
-          </div>
-        </div>
-        `;
-      }).join('')}
-    </div>
-  `;
-}
-
-function setupPaymentsEventListeners() {
-  document.querySelectorAll('.edit-payment').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const paymentItem = e.target.closest('.payment-item');
-      const paymentId = paymentItem.dataset.paymentId;
-      editPayment(paymentId);
-    });
-  });
-
-  document.querySelectorAll('.delete-payment').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const paymentItem = e.target.closest('.payment-item');
-      const paymentId = paymentItem.dataset.paymentId;
-      deletePayment(paymentId);
-    });
-  });
-}
-
-function setupPaymentsForm() {
-  const paymentsForm = document.getElementById('paymentsForm');
-  if (!paymentsForm) {
-    console.warn('⚠️ Payments form not found in DOM');
-    return;
-  }
-
-  // Form submission
-  paymentsForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const formData = new FormData(paymentsForm);
-    const studentId = formData.get('studentId');
-    const studentSelect = document.getElementById('paymentStudent');
-    const studentName = studentSelect ? studentSelect.selectedOptions[0]?.text || 'Unknown' : 'Unknown';
-    
-    const paymentData = {
-      studentId: studentId,
-      studentName: studentName,
-      date: formData.get('date') || getLocalISODate(),
-      dateIso: fmtDateISO(formData.get('date')),
-      amount: safeNumber(formData.get('amount')),
-      status: formData.get('status') || 'pending',
-      method: formData.get('method') || '',
-      notes: formData.get('notes') || '',
-      createdAt: new Date().toISOString()
-    };
-
-    try {
-      if (currentEditPaymentId) {
-        // Update existing payment using 3-layer system
-        await enhancedUpdateOperation('payments', currentEditPaymentId, paymentData, 'Payment updated successfully!');
-        currentEditPaymentId = null;
-        
-        // Reset form
-        const submitBtn = paymentsForm.querySelector('button[type="submit"]');
-        if (submitBtn) submitBtn.textContent = 'Record Payment';
-        paymentsForm.reset();
-      } else {
-        // Add new payment using 3-layer system
-        await enhancedCreateOperation('payments', paymentData, 'Payment recorded successfully!');
-        paymentsForm.reset();
-      }
-      
-      await renderPaymentActivity();
-      
-    } catch (error) {
-      console.error('Error saving payment:', error);
-    }
-  });
-
-  // Set default date to today
-  const dateInput = document.getElementById('paymentDate');
-  if (dateInput) {
-    dateInput.value = getLocalISODate();
-  }
-
-  console.log('✅ Payments form setup completed');
-}
-
-async function editPayment(paymentId) {
-  try {
-    // Try to get from local storage first
-    const localKey = `worklog_payments_${paymentId}`;
-    const localItem = localStorage.getItem(localKey);
-    
-    if (localItem) {
-      const payment = JSON.parse(localItem);
-      
-      // Fill form with payment data
-      const studentSelect = document.getElementById('paymentStudent');
-      const dateInput = document.getElementById('paymentDate');
-      const amountInput = document.getElementById('paymentAmount');
-      const statusInput = document.getElementById('paymentStatus');
-      const methodInput = document.getElementById('paymentMethod');
-      const notesInput = document.getElementById('paymentNotes');
-      
-      if (studentSelect) studentSelect.value = payment.studentId || '';
-      if (dateInput) dateInput.value = formatDateForInput(payment.date);
-      if (amountInput) amountInput.value = payment.amount || '';
-      if (statusInput) statusInput.value = payment.status || 'pending';
-      if (methodInput) methodInput.value = payment.method || '';
-      if (notesInput) notesInput.value = payment.notes || '';
-      
-      // Change form to edit mode
-      currentEditPaymentId = paymentId;
-      const submitBtn = document.getElementById('paymentsForm')?.querySelector('button[type="submit"]');
-      if (submitBtn) submitBtn.textContent = 'Update Payment';
-      
-      // Scroll to form
-      const paymentsForm = document.getElementById('paymentsForm');
-      if (paymentsForm) paymentsForm.scrollIntoView({ behavior: 'smooth' });
-      return;
-    }
-    
-    // Fallback to Firestore
-    const user = auth.currentUser;
-    if (!user) return;
-
-    const paymentDoc = await getDoc(doc(db, "users", user.uid, "payments", paymentId));
-    if (paymentDoc.exists()) {
-      const payment = paymentDoc.data();
-      
-      // Fill form with payment data
-      const studentSelect = document.getElementById('paymentStudent');
-      const dateInput = document.getElementById('paymentDate');
-      const amountInput = document.getElementById('paymentAmount');
-      const statusInput = document.getElementById('paymentStatus');
-      const methodInput = document.getElementById('paymentMethod');
-      const notesInput = document.getElementById('paymentNotes');
-      
-      if (studentSelect) studentSelect.value = payment.studentId || '';
-      if (dateInput) dateInput.value = formatDateForInput(payment.date);
-      if (amountInput) amountInput.value = payment.amount || '';
-      if (statusInput) statusInput.value = payment.status || 'pending';
-      if (methodInput) methodInput.value = payment.method || '';
-      if (notesInput) notesInput.value = payment.notes || '';
-      
-      // Change form to edit mode
-      currentEditPaymentId = paymentId;
-      const submitBtn = document.getElementById('paymentsForm')?.querySelector('button[type="submit"]');
-      if (submitBtn) submitBtn.textContent = 'Update Payment';
-      
-      // Scroll to form
-      const paymentsForm = document.getElementById('paymentsForm');
-      if (paymentsForm) paymentsForm.scrollIntoView({ behavior: 'smooth' });
-    }
-  } catch (error) {
-    console.error('Error loading payment for edit:', error);
-    showNotification('Failed to load payment data', 'error');
-  }
-}
-
-async function deletePayment(paymentId) {
-  if (!confirm('Are you sure you want to delete this payment record?')) {
-    return;
-  }
-
-  try {
-    await enhancedDeleteOperation('payments', paymentId, 'Payment record deleted successfully');
-    await renderPaymentActivity();
-  } catch (error) {
-    console.error('Error deleting payment:', error);
-    showNotification('Failed to delete payment record', 'error');
-  }
-}
-
-// ===========================
-// UTILITY FUNCTIONS
-// ===========================
-
-function populateStudentDropdown(dropdownId, students) {
-  const dropdown = document.getElementById(dropdownId);
-  if (!dropdown) return;
-
-  // Clear existing options except the first one
-  while (dropdown.options.length > 1) {
-    dropdown.remove(1);
-  }
-
-  // Add student options
-  students.forEach(student => {
-    const option = document.createElement('option');
-    option.value = student.id;
-    option.textContent = student.name || 'Unnamed Student';
-    dropdown.appendChild(option);
-  });
-}
-
-function initializeDefaultRate(defaultRate = 0) {
-  const defaultRateInput = document.getElementById('defaultRate');
-  if (defaultRateInput) {
-    defaultRateInput.value = defaultRate;
-    
-    defaultRateInput.addEventListener('change', async (e) => {
-      const newRate = safeNumber(e.target.value);
-      const user = auth.currentUser;
-      
-      if (user) {
-        const success = await updateUserDefaultRate(user.uid, newRate);
-        if (success) {
-          showNotification(`Default rate updated to $${fmtMoney(newRate)}/hour`, 'success');
-        }
-      }
-    });
-  }
-}
-
-// ===========================
 // SYNC MANAGEMENT
 // ===========================
 
 function setupSyncManagement() {
   // Manual sync button
+  const syncBtn = document.getElementById('syncBtn');
   if (syncBtn) {
     syncBtn.addEventListener('click', async () => {
       await manualSync();
@@ -2384,6 +1623,9 @@ function setupSyncManagement() {
   }
 
   // Auto-sync toggle
+  const autoSyncCheckbox = document.getElementById('autoSyncCheckbox');
+  const autoSyncText = document.getElementById('autoSyncText');
+  
   if (autoSyncCheckbox) {
     autoSyncCheckbox.addEventListener('change', (e) => {
       toggleAutoSync(e.target.checked);
@@ -2393,51 +1635,6 @@ function setupSyncManagement() {
     const savedAutoSync = localStorage.getItem('autoSyncEnabled') === 'true';
     autoSyncCheckbox.checked = savedAutoSync;
     toggleAutoSync(savedAutoSync);
-  }
-
-  // Export/Import buttons
-  if (exportCloudBtn) {
-    exportCloudBtn.addEventListener('click', exportAllData);
-  }
-
-  if (importCloudBtn) {
-    importCloudBtn.addEventListener('change', (e) => {
-      if (e.target.files[0]) {
-        importAllData(e.target.files[0]);
-        e.target.value = ''; // Reset file input
-      }
-    });
-  }
-
-  if (exportDataBtn) {
-    exportDataBtn.addEventListener('click', exportAllData);
-  }
-
-  if (importDataBtn) {
-    importDataBtn.addEventListener('click', () => {
-      importCloudBtn?.click();
-    });
-  }
-
-  if (clearDataBtn) {
-    clearDataBtn.addEventListener('click', async () => {
-      if (confirm('⚠️ This will permanently delete ALL your data (local and cloud). Continue?')) {
-        const user = auth.currentUser;
-        if (user) {
-          try {
-            await clearAllUserData(user.uid);
-            showNotification('All data cleared successfully', 'success');
-            await renderStudents();
-            await renderRecentHours();
-            await renderRecentMarks();
-            await renderAttendanceRecent();
-            await renderPaymentActivity();
-          } catch (error) {
-            showNotification('Failed to clear data', 'error');
-          }
-        }
-      }
-    });
   }
 
   // Online/offline detection
@@ -2498,6 +1695,9 @@ function setSyncStatus(status, message = '') {
 
   const statusInfo = statusMap[status] || statusMap.offline;
   
+  const syncIndicator = document.getElementById('syncIndicator');
+  const syncSpinner = document.getElementById('syncSpinner');
+  
   if (syncIndicator) {
     syncIndicator.innerHTML = `${statusInfo.icon} ${message}`;
     syncIndicator.className = `sync-status ${statusInfo.class}`;
@@ -2521,6 +1721,7 @@ function toggleAutoSync(enabled) {
       }
     }, 2 * 60 * 1000);
 
+    const autoSyncText = document.getElementById('autoSyncText');
     if (autoSyncText) autoSyncText.textContent = 'Auto-sync: ON';
     showNotification('Auto-sync enabled', 'info');
   } else {
@@ -2528,349 +1729,15 @@ function toggleAutoSync(enabled) {
       clearInterval(autoSyncInterval);
       autoSyncInterval = null;
     }
+    const autoSyncText = document.getElementById('autoSyncText');
     if (autoSyncText) autoSyncText.textContent = 'Auto-sync: OFF';
     showNotification('Auto-sync disabled', 'info');
   }
-
-  updateHeaderStats();
 }
-
-async function exportAllData() {
-  const user = auth.currentUser;
-  if (!user) {
-    showNotification('Please sign in to export data', 'error');
-    return;
-  }
-
-  try {
-    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
-    const exportData = {};
-
-    for (const collectionName of collections) {
-      const localItems = StorageSystem.getFromLocal(collectionName);
-      
-      try {
-        const snap = await getDocs(collection(db, "users", user.uid, collectionName));
-        const cloudItems = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
-        // Merge local and cloud data (cloud takes precedence)
-        const allItems = [...localItems];
-        const cloudIds = new Set(cloudItems.map(item => item.id));
-        
-        cloudItems.forEach(cloudItem => {
-          const existingIndex = allItems.findIndex(item => item.id === cloudItem.id);
-          if (existingIndex >= 0) {
-            allItems[existingIndex] = cloudItem;
-          } else {
-            allItems.push(cloudItem);
-          }
-        });
-
-        exportData[collectionName] = allItems;
-      } catch (error) {
-        console.warn(`⚠️ Could not export ${collectionName} from cloud:`, error);
-        exportData[collectionName] = localItems;
-      }
-    }
-
-    // Add metadata
-    exportData.metadata = {
-      exportedAt: new Date().toISOString(),
-      userId: user.uid,
-      version: '1.0'
-    };
-
-    // Download as JSON file
-    const dataStr = JSON.stringify(exportData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `worklog-backup-${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-
-    showNotification('Data exported successfully', 'success');
-  } catch (error) {
-    console.error('Export failed:', error);
-    showNotification('Export failed', 'error');
-  }
-}
-
-async function importAllData(file) {
-  const user = auth.currentUser;
-  if (!user) {
-    showNotification('Please sign in to import data', 'error');
-    return;
-  }
-
-  if (!confirm('This will replace all your current data. Continue?')) {
-    return;
-  }
-
-  try {
-    const text = await file.text();
-    const importData = JSON.parse(text);
-
-    // Validate import data
-    if (!importData.metadata || !importData.metadata.version) {
-      throw new Error('Invalid backup file format');
-    }
-
-    setSyncStatus('syncing', 'Importing data...');
-
-    // Clear existing data first
-    await clearAllUserData(user.uid);
-
-    // Import each collection
-    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
-    let totalImported = 0;
-
-    for (const collectionName of collections) {
-      if (importData[collectionName]) {
-        for (const item of importData[collectionName]) {
-          try {
-            await enhancedCreateOperation(collectionName, item, `Imported ${collectionName}`);
-            totalImported++;
-          } catch (error) {
-            console.error(`❌ Failed to import ${collectionName} item:`, error);
-          }
-        }
-      }
-    }
-
-    // Clear cache and refresh
-    clearAllCache();
-    await Promise.all([
-      renderStudents(),
-      renderRecentHours(),
-      renderRecentMarks(),
-      renderAttendanceRecent(),
-      renderPaymentActivity()
-    ]);
-
-    setSyncStatus('success', `Imported ${totalImported} items`);
-    showNotification(`Successfully imported ${totalImported} items`, 'success');
-  } catch (error) {
-    console.error('Import failed:', error);
-    setSyncStatus('error', 'Import failed');
-    showNotification('Import failed - invalid file format', 'error');
-  }
-}
-
-async function clearAllUserData(uid) {
-  try {
-    // Clear local storage
-    const keysToRemove = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('worklog_')) {
-        keysToRemove.push(key);
-      }
-    }
-    keysToRemove.forEach(key => localStorage.removeItem(key));
-
-    // Clear cloud data
-    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
-    const batch = writeBatch(db);
-
-    for (const collectionName of collections) {
-      const snap = await getDocs(collection(db, "users", uid, collectionName));
-      snap.docs.forEach(docSnap => {
-        batch.delete(doc(db, "users", uid, collectionName, docSnap.id));
-      });
-    }
-
-    await batch.commit();
-    clearAllCache();
-
-    console.log('✅ All user data cleared');
-  } catch (error) {
-    console.error('❌ Error clearing user data:', error);
-    throw error;
-  }
-}
-
-// ===========================
-// TAB NAVIGATION - DEBUGGING VERSION
-// ===========================
-
-// ===========================
-// TAB NAVIGATION SYSTEM
-// ===========================
-
-function setupTabNavigation() {
-  console.log('🔧 Setting up tab navigation...');
-  
-  const tabButtons = document.querySelectorAll('[data-tab]');
-  const tabContents = document.querySelectorAll('.tab-content');
-
-  console.log(`📊 Found ${tabButtons.length} tab buttons and ${tabContents.length} tab contents`);
-
-  if (tabButtons.length === 0 || tabContents.length === 0) {
-    console.error('❌ No tabs found in DOM! Check your HTML structure');
-    showNotification('Tab navigation not available', 'error');
-    return;
-  }
-
-  // Add click listeners to all tab buttons
-  tabButtons.forEach(button => {
-    const targetTab = button.getAttribute('data-tab');
-    console.log(`📌 Setting up tab button for: ${targetTab}`);
-    
-    button.addEventListener('click', (e) => {
-      e.preventDefault();
-      console.log(`🎯 Clicked tab: ${targetTab}`);
-      switchToTab(targetTab);
-    });
-  });
-
-  // Activate first tab by default
-  const firstTab = tabButtons[0]?.getAttribute('data-tab');
-  if (firstTab) {
-    console.log(`🚀 Activating first tab: ${firstTab}`);
-    switchToTab(firstTab);
-  } else {
-    console.error('❌ No tabs available to activate');
-  }
-}
-
-function switchToTab(tabName) {
-  console.log(`🔄 Switching to tab: ${tabName}`);
-  
-  // Update tab buttons
-  const tabButtons = document.querySelectorAll('[data-tab]');
-  tabButtons.forEach(btn => {
-    btn.classList.remove('active');
-    if (btn.getAttribute('data-tab') === tabName) {
-      btn.classList.add('active');
-      console.log(`✅ Activated button: ${tabName}`);
-    }
-  });
-
-  // Update tab contents
-  const tabContents = document.querySelectorAll('.tab-content');
-  let foundTab = false;
-  
-  tabContents.forEach(content => {
-    content.classList.remove('active');
-    if (content.id === tabName) {
-      content.classList.add('active');
-      foundTab = true;
-      console.log(`✅ Activated content: ${tabName}`);
-    }
-  });
-
-  if (!foundTab) {
-    console.error(`❌ Tab content not found for: ${tabName}`);
-    showNotification(`Tab '${tabName}' not found`, 'error');
-    return;
-  }
-
-  // Load data for the active tab
-  loadTabData(tabName);
-  
-  // Setup forms for the active tab
-  setupTabForms(tabName);
-}
-
-function loadTabData(tabName) {
-  console.log(`📊 Loading data for tab: ${tabName}`);
-  
-  switch(tabName) {
-    case 'students':
-      renderStudents();
-      break;
-    case 'hours':
-      renderRecentHours();
-      break;
-    case 'marks':
-      renderRecentMarks();
-      break;
-    case 'attendance':
-      renderAttendanceRecent();
-      break;
-    case 'payments':
-      renderPaymentActivity();
-      break;
-    default:
-      console.warn(`⚠️ Unknown tab: ${tabName}`);
-  }
-}
-
-function setupTabForms(tabName) {
-  console.log(`🔧 Setting up forms for tab: ${tabName}`);
-  
-  switch(tabName) {
-    case 'students':
-      setupStudentForm();
-      break;
-    case 'hours':
-      setupHoursForm();
-      break;
-    case 'marks':
-      setupMarksForm();
-      break;
-    case 'attendance':
-      setupAttendanceForm();
-      break;
-    case 'payments':
-      setupPaymentsForm();
-      break;
-  }
-}
-
-// ===========================
-// MAIN INITIALIZATION
-// ===========================
-
-// ===========================
-// DOM STRUCTURE CHECKER
-// ===========================
-
-function checkDOMStructure() {
-  console.log('🔍 Checking DOM structure...');
-  
-  // Check tabs
-  const tabButtons = document.querySelectorAll('[data-tab]');
-  const tabContents = document.querySelectorAll('.tab-content');
-  
-  console.log('📋 Tab Buttons:', tabButtons.length);
-  tabButtons.forEach(btn => {
-    console.log(`  - ${btn.getAttribute('data-tab')} (${btn.textContent})`);
-  });
-  
-  console.log('📋 Tab Contents:', tabContents.length);
-  tabContents.forEach(content => {
-    console.log(`  - ${content.id}`);
-  });
-
-  // Check forms
-  const forms = ['studentForm', 'hoursForm', 'marksForm', 'attendanceForm', 'paymentsForm'];
-  console.log('📋 Forms:');
-  forms.forEach(formId => {
-    const form = document.getElementById(formId);
-    console.log(`  - ${formId}: ${form ? 'FOUND' : 'MISSING'}`);
-  });
-
-  // Check lists
-  const lists = ['studentsList', 'recentHoursList', 'recentMarksList', 'attendanceRecentList', 'paymentActivityList'];
-  console.log('📋 Lists:');
-  lists.forEach(listId => {
-    const list = document.getElementById(listId);
-    console.log(`  - ${listId}: ${list ? 'FOUND' : 'MISSING'}`);
-  });
-
-  return tabButtons.length > 0 && tabContents.length > 0;
-}
-
 
 // ===========================
 // MAIN APP INITIALIZATION
 // ===========================
-
-// Flag to prevent duplicate initialization
-let appInitialized = false;
 
 async function initializeApp() {
   // Prevent duplicate initialization
@@ -2916,15 +1783,9 @@ async function initializeApp() {
     
     // Load user profile
     await loadUserProfile(user.uid);
-    updateHeaderStats();
 
     // Setup tab navigation - this is critical
-    const tabsSetup = setupTabNavigation();
-    if (!tabsSetup) {
-      console.error('❌ Tab navigation setup failed');
-      showNotification('Navigation setup failed', 'error');
-      return;
-    }
+    setupTabNavigation();
 
     console.log('✅ WorkLog App initialized successfully');
     showNotification('App loaded successfully', 'success');
@@ -2938,222 +1799,26 @@ async function initializeApp() {
 }
 
 // ===========================
-// EVENT LISTENERS - SINGLE INITIALIZATION
-// ===========================
-
-// Only set up one event listener to prevent duplicates
-let domContentLoadedFired = false;
-
-document.addEventListener('DOMContentLoaded', function() {
-  if (domContentLoadedFired) {
-    console.log('⚠️ DOMContentLoaded already fired, skipping...');
-    return;
-  }
-  
-  domContentLoadedFired = true;
-  console.log('📄 DOM Content Loaded - Starting app initialization');
-  
-  // Small delay to ensure all DOM is ready
-  setTimeout(() => {
-    initializeApp().catch(error => {
-      console.error('Failed to initialize app:', error);
-    });
-  }, 100);
-});
-
-// Also handle window load as a fallback
-window.addEventListener('load', function() {
-  console.log('🔄 Window loaded - checking if app initialized');
-  if (!appInitialized) {
-    console.log('🔄 App not initialized from DOMContentLoaded, initializing now...');
-    setTimeout(() => {
-      initializeApp().catch(console.error);
-    }, 200);
-  }
-});
-
-// ===========================
-// EMERGENCY FALLBACKS
-// ===========================
-
-// Emergency tab creation if none exist
-function createEmergencyTabs() {
-  console.log('🚨 Creating emergency tabs...');
-  
-  const mainContainer = document.querySelector('main') || document.body;
-  const existingTabs = document.querySelector('.tabs');
-  
-  if (existingTabs) {
-    console.log('✅ Tabs already exist, no need for emergency creation');
-    return true;
-  }
-
-  // Create emergency tab structure
-  const tabBar = document.createElement('div');
-  tabBar.className = 'tabs';
-  tabBar.style.cssText = `
-    display: flex;
-    gap: 10px;
-    padding: 10px;
-    background: #f5f5f5;
-    border-bottom: 1px solid #ddd;
-    margin-bottom: 20px;
-  `;
-  
-  tabBar.innerHTML = `
-    <button data-tab="students" class="tab-button" style="padding: 10px 20px; border: 1px solid #ccc; background: white; border-radius: 5px; cursor: pointer;">Students</button>
-    <button data-tab="hours" class="tab-button" style="padding: 10px 20px; border: 1px solid #ccc; background: white; border-radius: 5px; cursor: pointer;">Hours</button>
-    <button data-tab="marks" class="tab-button" style="padding: 10px 20px; border: 1px solid #ccc; background: white; border-radius: 5px; cursor: pointer;">Marks</button>
-    <button data-tab="attendance" class="tab-button" style="padding: 10px 20px; border: 1px solid #ccc; background: white; border-radius: 5px; cursor: pointer;">Attendance</button>
-    <button data-tab="payments" class="tab-button" style="padding: 10px 20px; border: 1px solid #ccc; background: white; border-radius: 5px; cursor: pointer;">Payments</button>
-  `;
-  
-  mainContainer.insertBefore(tabBar, mainContainer.firstChild);
-  console.log('✅ Emergency tabs created');
-  
-  // Create emergency tab contents if they don't exist
-  const tabs = ['students', 'hours', 'marks', 'attendance', 'payments'];
-  tabs.forEach(tabName => {
-    if (!document.getElementById(tabName)) {
-      const tabContent = document.createElement('div');
-      tabContent.id = tabName;
-      tabContent.className = 'tab-content';
-      tabContent.style.cssText = 'display: none; padding: 20px;';
-      tabContent.innerHTML = `<h3>${tabName.charAt(0).toUpperCase() + tabName.slice(1)}</h3><p>Content for ${tabName} will appear here.</p>`;
-      mainContainer.appendChild(tabContent);
-    }
-  });
-  
-  return true;
-}
-
-// Auto-fix if tabs don't exist after 3 seconds
-setTimeout(() => {
-  if (!appInitialized) {
-    console.log('⏰ Auto-fix: Checking if tabs exist...');
-    const hasTabs = document.querySelectorAll('[data-tab]').length > 0;
-    if (!hasTabs) {
-      console.log('🚨 No tabs found, running emergency setup...');
-      createEmergencyTabs();
-      // Retry initialization
-      if (!appInitialized) {
-        initializeApp().catch(console.error);
-      }
-    }
-  }
-}, 3000);
-
-// ===========================
-// EVENT LISTENERS - SINGLE INITIALIZATION
-// ===========================
-
-// Only set up one event listener to prevent duplicates
-let domContentLoadedFired = false;
-
-document.addEventListener('DOMContentLoaded', function() {
-  if (domContentLoadedFired) {
-    console.log('⚠️ DOMContentLoaded already fired, skipping...');
-    return;
-  }
-  
-  domContentLoadedFired = true;
-  console.log('📄 DOM Content Loaded - Starting app initialization');
-  
-  // Small delay to ensure all DOM is ready
-  setTimeout(() => {
-    initializeApp().catch(error => {
-      console.error('Failed to initialize app:', error);
-    });
-  }, 100);
-});
-
-// Also handle window load as a fallback
-window.addEventListener('load', function() {
-  console.log('🔄 Window loaded - checking if app initialized');
-  if (!appInitialized) {
-    console.log('🔄 App not initialized from DOMContentLoaded, initializing now...');
-    setTimeout(() => {
-      initializeApp().catch(console.error);
-    }, 200);
-  }
-});
-
-// ===========================
-// EMERGENCY FALLBACKS
-// ===========================
-
-// Emergency tab creation if none exist
-function createEmergencyTabs() {
-  console.log('🚨 Creating emergency tabs...');
-  
-  const mainContainer = document.querySelector('main') || document.body;
-  const existingTabs = document.querySelector('.tabs');
-  
-  if (existingTabs) {
-    console.log('✅ Tabs already exist, no need for emergency creation');
-    return true;
-  }
-
-  // Create emergency tab structure
-  const tabBar = document.createElement('div');
-  tabBar.className = 'tabs';
-  tabBar.style.cssText = `
-    display: flex;
-    gap: 10px;
-    padding: 10px;
-    background: #f5f5f5;
-    border-bottom: 1px solid #ddd;
-    margin-bottom: 20px;
-  `;
-  
-  tabBar.innerHTML = `
-    <button data-tab="students" class="tab-button" style="padding: 10px 20px; border: 1px solid #ccc; background: white; border-radius: 5px; cursor: pointer;">Students</button>
-    <button data-tab="hours" class="tab-button" style="padding: 10px 20px; border: 1px solid #ccc; background: white; border-radius: 5px; cursor: pointer;">Hours</button>
-    <button data-tab="marks" class="tab-button" style="padding: 10px 20px; border: 1px solid #ccc; background: white; border-radius: 5px; cursor: pointer;">Marks</button>
-    <button data-tab="attendance" class="tab-button" style="padding: 10px 20px; border: 1px solid #ccc; background: white; border-radius: 5px; cursor: pointer;">Attendance</button>
-    <button data-tab="payments" class="tab-button" style="padding: 10px 20px; border: 1px solid #ccc; background: white; border-radius: 5px; cursor: pointer;">Payments</button>
-  `;
-  
-  mainContainer.insertBefore(tabBar, mainContainer.firstChild);
-  console.log('✅ Emergency tabs created');
-  
-  // Create emergency tab contents if they don't exist
-  const tabs = ['students', 'hours', 'marks', 'attendance', 'payments'];
-  tabs.forEach(tabName => {
-    if (!document.getElementById(tabName)) {
-      const tabContent = document.createElement('div');
-      tabContent.id = tabName;
-      tabContent.className = 'tab-content';
-      tabContent.style.cssText = 'display: none; padding: 20px;';
-      tabContent.innerHTML = `<h3>${tabName.charAt(0).toUpperCase() + tabName.slice(1)}</h3><p>Content for ${tabName} will appear here.</p>`;
-      mainContainer.appendChild(tabContent);
-    }
-  });
-  
-  return true;
-}
-
-// Auto-fix if tabs don't exist after 3 seconds
-setTimeout(() => {
-  if (!appInitialized) {
-    console.log('⏰ Auto-fix: Checking if tabs exist...');
-    const hasTabs = document.querySelectorAll('[data-tab]').length > 0;
-    if (!hasTabs) {
-      console.log('🚨 No tabs found, running emergency setup...');
-      createEmergencyTabs();
-      // Retry initialization
-      if (!appInitialized) {
-        initializeApp().catch(console.error);
-      }
-    }
-  }
-}, 3000);
-
-// ===========================
 // START THE APPLICATION
 // ===========================
 
-document.addEventListener('DOMContentLoaded', initializeApp);
+// Only set up one event listener to prevent duplicates
+document.addEventListener('DOMContentLoaded', function() {
+  if (domContentLoadedFired) {
+    console.log('⚠️ DOMContentLoaded already fired, skipping...');
+    return;
+  }
+  
+  domContentLoadedFired = true;
+  console.log('📄 DOM Content Loaded - Starting app initialization');
+  
+  // Small delay to ensure all DOM is ready
+  setTimeout(() => {
+    initializeApp().catch(error => {
+      console.error('Failed to initialize app:', error);
+    });
+  }, 100);
+});
 
 // Export for use in other modules
 window.StorageSystem = StorageSystem;
