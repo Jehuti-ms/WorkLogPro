@@ -3450,7 +3450,7 @@ async function loadInitialData(user) {
     await Promise.allSettled([
       loadUserProfile(user.uid),
       loadStudentsForDropdowns(),
-      recalcSummaryStats(user.uid) // This will update everything
+      recalcSummaryStats(user.uid), // This will update everything
       updateHoursTabStats(),
       populateAttendanceStudentList() // NEW: Populate attendance list
     ]);
