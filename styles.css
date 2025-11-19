@@ -331,7 +331,7 @@ body {
   }
 
   /* Specific positioning for 7 tabs in 2x4 grid */
-/*  .tab:nth-child(1) { grid-column: 1; grid-row: 1; }
+  .tab:nth-child(1) { grid-column: 1; grid-row: 1; }
   .tab:nth-child(2) { grid-column: 2; grid-row: 1; }
   .tab:nth-child(3) { grid-column: 1; grid-row: 2; }
   .tab:nth-child(4) { grid-column: 2; grid-row: 2; }
@@ -2102,4 +2102,3 @@ body {
     gap: 8px;
   }
 }
-
