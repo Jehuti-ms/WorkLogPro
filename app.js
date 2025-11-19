@@ -1949,63 +1949,71 @@ const UIManager = {
     console.log(`🎨 Theme changed to ${newTheme}`);
   },
 
-  // FIXED TAB SYSTEM - ENSURES ONLY ONE TAB IS VISIBLE
-  initTabs() {
-    const tabs = document.querySelectorAll('.tab');
-    const tabContents = document.querySelectorAll('.tabcontent');
+// BULLETPROOF TAB SYSTEM
+initTabs() {
+  console.log('🔧 Initializing BULLETPROOF tab system...');
 
-    console.log('🔧 Initializing fixed tab system...');
+  const tabs = document.querySelectorAll('.tab');
+  const tabContents = document.querySelectorAll('.tabcontent');
 
-    // First, ensure only one tab is visible
-    this.ensureSingleTabVisible();
+  // FIRST: Reset everything to clean state
+  this.resetAllTabs();
 
-    tabs.forEach(tab => {
-      // Remove any existing listeners
-      const newTab = tab.cloneNode(true);
-      tab.parentNode.replaceChild(newTab, tab);
-    });
+  // Add STRONG click handlers that prevent multiple active states
+  tabs.forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const target = tab.getAttribute('data-tab');
+      console.log('🎯 Tab clicked:', target);
 
-    // Add clean click handlers
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', (e) => {
-        e.preventDefault();
-        const target = tab.getAttribute('data-tab');
-        console.log('📑 Switching to tab:', target);
+      // RESET ALL tabs first (important!)
+      this.resetAllTabs();
 
-        // Remove active class from all tabs and contents
-        tabs.forEach(t => t.classList.remove('active'));
-        tabContents.forEach(tc => {
-          tc.classList.remove('active');
-          tc.style.display = 'none';
-        });
-
-        // Add active class to clicked tab and target content
-        tab.classList.add('active');
+      // Activate ONLY the clicked tab
+      tab.classList.add('active');
+      
+      const selected = document.getElementById(target);
+      if (selected) {
+        selected.style.display = 'block';
+        selected.classList.add('active');
+        console.log('✅ Tab activated:', target);
         
-        const selected = document.getElementById(target);
-        if (selected) {
-          selected.classList.add('active');
-          selected.style.display = 'block';
-          console.log('✅ Tab displayed:', target);
-          
-          // Fix grid layout for payments and reports
-          if (target === 'payments' || target === 'reports') {
-            this.fixGridLayout(target);
-          }
-        } else {
-          console.error('❌ Tab content not found:', target);
+        // Fix grid layout for payments/reports
+        if (target === 'payments' || target === 'reports') {
+          this.fixGridLayout(target);
         }
-      });
+      }
     });
+  });
 
-    // Activate first tab by default
-    const firstTab = document.querySelector('.tab.active') || document.querySelector('.tab');
-    if (firstTab) {
-      firstTab.click();
-    }
-    
-    console.log('✅ Fixed tabs initialized');
-  },
+  // Activate first tab
+  const firstTab = tabs[0];
+  if (firstTab) {
+    firstTab.click();
+  }
+  
+  console.log('✅ BULLETPROOF tabs initialized');
+},
+
+// NEW FUNCTION: Reset all tabs to clean state
+resetAllTabs() {
+  console.log('🔄 Resetting all tabs...');
+  
+  // Remove active from ALL tab buttons
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  
+  // Hide ALL tab content
+  document.querySelectorAll('.tabcontent').forEach(tab => {
+    tab.style.display = 'none';
+    tab.classList.remove('active');
+  });
+  
+  console.log('✅ All tabs reset');
+},
 
   // ENSURES ONLY ONE TAB IS VISIBLE AT A TIME
   ensureSingleTabVisible() {
