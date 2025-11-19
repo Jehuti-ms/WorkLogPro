@@ -1949,113 +1949,69 @@ const UIManager = {
     console.log(`🎨 Theme changed to ${newTheme}`);
   },
 
-// BULLETPROOF TAB SYSTEM
+// SIMPLE, RELIABLE TAB SYSTEM
 initTabs() {
-  console.log('🔧 Initializing BULLETPROOF tab system...');
+  console.log('🔧 Setting up simple tab system...');
 
   const tabs = document.querySelectorAll('.tab');
   const tabContents = document.querySelectorAll('.tabcontent');
 
-  // FIRST: Reset everything to clean state
-  this.resetAllTabs();
-
-  // Add STRONG click handlers that prevent multiple active states
-  tabs.forEach(tab => {
-    tab.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      const target = tab.getAttribute('data-tab');
-      console.log('🎯 Tab clicked:', target);
-
-      // RESET ALL tabs first (important!)
-      this.resetAllTabs();
-
-      // Activate ONLY the clicked tab
-      tab.classList.add('active');
-      
-      const selected = document.getElementById(target);
-      if (selected) {
-        selected.style.display = 'block';
-        selected.classList.add('active');
-        console.log('✅ Tab activated:', target);
-        
-        // Fix grid layout for payments/reports
-        if (target === 'payments' || target === 'reports') {
-          this.fixGridLayout(target);
-        }
-      }
-    });
-  });
-
-  // Activate first tab
-  const firstTab = tabs[0];
-  if (firstTab) {
-    firstTab.click();
-  }
-  
-  console.log('✅ BULLETPROOF tabs initialized');
-},
-
-// NEW FUNCTION: Reset all tabs to clean state
-resetAllTabs() {
-  console.log('🔄 Resetting all tabs...');
-  
-  // Remove active from ALL tab buttons
-  document.querySelectorAll('.tab').forEach(tab => {
-    tab.classList.remove('active');
-  });
-  
-  // Hide ALL tab content
-  document.querySelectorAll('.tabcontent').forEach(tab => {
+  // 1. First, hide ALL tab contents
+  tabContents.forEach(tab => {
     tab.style.display = 'none';
+  });
+
+  // 2. Remove active from ALL tabs
+  tabs.forEach(tab => {
     tab.classList.remove('active');
   });
-  
-  console.log('✅ All tabs reset');
-},
 
-  // ENSURES ONLY ONE TAB IS VISIBLE AT A TIME
-  ensureSingleTabVisible() {
-    const tabs = document.querySelectorAll('.tab');
-    const tabContents = document.querySelectorAll('.tabcontent');
-    
-    let activeTabFound = false;
-    
-    // Hide all tabs first
-    tabContents.forEach(tab => {
-      tab.style.display = 'none';
-      tab.classList.remove('active');
-    });
-    
-    // Find the active tab and show only that one
-    tabs.forEach(tab => {
-      if (tab.classList.contains('active')) {
-        const target = tab.getAttribute('data-tab');
-        const content = document.getElementById(target);
-        if (content) {
-          content.style.display = 'block';
-          content.classList.add('active');
-          activeTabFound = true;
-          console.log('✅ Restored active tab:', target);
+  // 3. Simple click handler for ALL tabs
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const targetId = tab.getAttribute('data-tab');
+      console.log('🔄 Switching to tab:', targetId);
+
+      // Hide ALL tab contents
+      tabContents.forEach(content => {
+        content.style.display = 'none';
+      });
+
+      // Remove active from ALL tabs
+      tabs.forEach(t => {
+        t.classList.remove('active');
+      });
+
+      // Show target content and activate tab
+      const targetContent = document.getElementById(targetId);
+      if (targetContent) {
+        targetContent.style.display = 'block';
+        tab.classList.add('active');
+        console.log('✅ Now showing:', targetId);
+        
+        // Fix grid layout if needed
+        if (targetId === 'payments' || targetId === 'reports') {
+          this.fixGridLayout(targetId);
         }
       }
     });
-    
-    // If no active tab found, activate first one
-    if (!activeTabFound && tabs.length > 0) {
-      const firstTab = tabs[0];
-      const firstTarget = firstTab.getAttribute('data-tab');
-      const firstContent = document.getElementById(firstTarget);
-      if (firstContent) {
-        firstTab.classList.add('active');
-        firstContent.style.display = 'block';
-        firstContent.classList.add('active');
-        console.log('✅ Defaulted to first tab:', firstTarget);
-      }
-    }
-  },
+  });
 
+  // 4. Activate first tab by default
+  if (tabs.length > 0) {
+    const firstTabId = tabs[0].getAttribute('data-tab');
+    const firstContent = document.getElementById(firstTabId);
+    
+    if (firstContent) {
+      firstContent.style.display = 'block';
+      tabs[0].classList.add('active');
+      console.log('✅ Default tab activated:', firstTabId);
+    }
+  }
+
+  console.log('✅ Simple tab system ready');
+},
+  
   // FIXES GRID LAYOUT FOR PAYMENTS AND REPORTS TABS
   fixGridLayout(tabId) {
     const tab = document.getElementById(tabId);
@@ -4182,3 +4138,28 @@ document.addEventListener('DOMContentLoaded', function() {
   initializeTheme();
   setupThemeToggle();
 });
+
+// FIX: Make page scrollable
+console.log('🔧 Making page scrollable...');
+
+// Ensure body and html have full height
+document.documentElement.style.height = '100%';
+document.body.style.height = '100%';
+document.body.style.minHeight = '100vh';
+document.body.style.overflowY = 'auto';
+
+// Make container tall enough to scroll
+const container = document.querySelector('.container');
+if (container) {
+  container.style.minHeight = 'calc(100vh - 100px)';
+  container.style.marginTop = '80px'; // Space for fixed header
+  container.style.paddingBottom = '100px'; // Extra space at bottom
+}
+
+// Make sure content is visible
+document.querySelectorAll('.tabcontent').forEach(tab => {
+  tab.style.minHeight = '600px'; // Force tall content
+  tab.style.padding = '20px';
+});
+
+console.log('✅ Page should now be scrollable');
