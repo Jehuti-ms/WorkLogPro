@@ -337,7 +337,7 @@ body {
   .tab:nth-child(4) { grid-column: 2; grid-row: 2; }
   .tab:nth-child(5) { grid-column: 1; grid-row: 3; }
   .tab:nth-child(6) { grid-column: 2; grid-row: 3; }
-  .tab:nth-child(7) { grid-column: 1; grid-row: 4; }
+  
 }
 
 /* Extra small screens optimization */
