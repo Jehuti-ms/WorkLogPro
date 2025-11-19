@@ -4112,3 +4112,7 @@ window.cancelEdit = cancelEdit;
 
 // Sync bar functions for global access
 window.performSync = (mode = 'manual') => SyncBar.performSync(mode);
+
+// Minimal grid fix test
+document.querySelector('#payments .form-grid').style.gridTemplateColumns = '1fr 1fr 1fr';
+document.querySelector('#payments .form-grid').style.gap = '20px';
