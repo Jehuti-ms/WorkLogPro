@@ -350,23 +350,7 @@ body {
 
 
 
-/* =========================== */
-/* TAB CONTENT */
-/* =========================== */
-.tabcontent {
-  display: none;
-  padding: 24px 20px;
-  animation: fadeIn 0.3s ease;
-}
 
-.tabcontent.active {
-  display: block;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
 
 /* =========================== */
 /* BUTTON STYLES */
