@@ -1906,6 +1906,233 @@ const SyncBar = {
 };
 
 // ===========================
+// SIMPLE, RELIABLE TAB SYSTEM
+// ===========================
+
+const TabSystem = {
+  // Initialize the tab system
+  init() {
+    console.log('🔧 Initializing simple tab system...');
+    
+    // Remove any existing event listeners
+    this.cleanup();
+    
+    // Set up the tab system
+    this.setupTabs();
+    
+    // Activate first tab
+    this.activateTab('students');
+    
+    console.log('✅ Tab system ready');
+  },
+  
+  // Clean up any existing listeners
+  cleanup() {
+    // Remove all click listeners by cloning elements
+    const tabsContainer = document.querySelector('.tabs');
+    if (tabsContainer) {
+      const newTabs = tabsContainer.cloneNode(true);
+      tabsContainer.parentNode.replaceChild(newTabs, tabsContainer);
+    }
+    
+    // Remove all inline styles from tab content
+    document.querySelectorAll('.tabcontent').forEach(tab => {
+      tab.removeAttribute('style');
+    });
+  },
+  
+  // Set up tab click handlers
+  setupTabs() {
+    const tabs = document.querySelectorAll('.tab');
+    
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const targetTab = tab.getAttribute('data-tab');
+        console.log('🎯 Tab clicked:', targetTab);
+        this.activateTab(targetTab);
+      });
+    });
+    
+    console.log('✅ Tab click handlers installed');
+  },
+  
+  // Activate a specific tab
+  activateTab(tabName) {
+    console.log('🔄 Activating tab:', tabName);
+    
+    // 1. Hide ALL tab content
+    document.querySelectorAll('.tabcontent').forEach(tab => {
+      tab.style.display = 'none';
+      tab.classList.remove('active');
+    });
+    
+    // 2. Remove active class from ALL tab buttons
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.classList.remove('active');
+    });
+    
+    // 3. Show the target tab content
+    const targetContent = document.getElementById(tabName);
+    if (targetContent) {
+      targetContent.style.display = 'block';
+      targetContent.classList.add('active');
+      
+      // Fix layout for specific tabs
+      this.fixTabLayout(tabName);
+    }
+    
+    // 4. Activate the target tab button
+    const targetButton = document.querySelector(`[data-tab="${tabName}"]`);
+    if (targetButton) {
+      targetButton.classList.add('active');
+    }
+    
+    console.log('✅ Tab activated:', tabName);
+  },
+  
+  // Fix layout for specific tabs
+  fixTabLayout(tabName) {
+    if (tabName === 'payments' || tabName === 'reports') {
+      const tab = document.getElementById(tabName);
+      const formGrid = tab?.querySelector('.form-grid');
+      
+      if (formGrid) {
+        formGrid.style.gridTemplateColumns = '1fr 1fr 1fr';
+        formGrid.style.gap = '20px';
+        formGrid.style.minHeight = '400px';
+        console.log('✅ Grid layout fixed for:', tabName);
+      }
+    }
+  }
+};
+
+// ===========================
+// UPDATE YOUR UI MANAGER
+// ===========================
+
+const UIManager = {
+  init() {
+    this.initializeTheme();
+    this.initTabs();  // Use the new simple tab system
+    this.bindUiEvents();
+    setupThemeToggle();
+    console.log('✅ UI Manager initialized');
+  },
+
+  // SIMPLE TAB INIT - JUST CALL THE TAB SYSTEM
+  initTabs() {
+    TabSystem.init();
+  },
+
+  // ... keep the rest of your UIManager code the same ...
+  initializeTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    updateThemeIcon();
+    console.log(`🎨 Theme initialized to ${savedTheme}`);
+  },
+
+  toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    console.log(`🎨 Theme changed to ${newTheme}`);
+  },
+
+  bindUiEvents() {
+    console.log('🔧 Binding UI events...');
+    
+    const themeToggle = document.querySelector('.theme-toggle button');
+    if (themeToggle) {
+      themeToggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.toggleTheme();
+      });
+    }
+    
+    // ... rest of your bindUiEvents code ...
+  }
+};
+
+// ===========================
+// GLOBAL TAB FUNCTIONS
+// ===========================
+
+// Make tab switching available globally
+window.switchTab = (tabName) => {
+  TabSystem.activateTab(tabName);
+};
+
+// FAB actions should use the new tab system
+function setupFabActions(closeFabMenu) {
+  const quickActions = {
+    'fabAddStudent': () => {
+      console.log('🎯 FAB: Add Student clicked');
+      TabSystem.activateTab('students');
+      closeFabMenu();
+      // ... scroll logic ...
+    },
+    'fabAddHours': () => {
+      console.log('🎯 FAB: Add Hours clicked');
+      TabSystem.activateTab('hours');
+      closeFabMenu();
+      // ... scroll logic ...
+    },
+    'fabAddMark': () => {
+      console.log('🎯 FAB: Add Mark clicked');
+      TabSystem.activateTab('marks');
+      closeFabMenu();
+      // ... scroll logic ...
+    },
+    'fabAddAttendance': () => {
+      console.log('🎯 FAB: Add Attendance clicked');
+      TabSystem.activateTab('attendance');
+      closeFabMenu();
+      // ... scroll logic ...
+    },
+    'fabAddPayment': () => {
+      console.log('💳 FAB: Add Payment clicked');
+      TabSystem.activateTab('payments');
+      closeFabMenu();
+      // ... scroll logic ...
+    },
+    'fabGenerateReport': () => {
+      console.log('📊 FAB: Generate Report clicked');
+      TabSystem.activateTab('reports');
+      closeFabMenu();
+      // ... scroll logic ...
+    }
+  };
+  
+  // ... rest of your FAB setup code ...
+}
+
+// ===========================
+// TEST THE NEW SYSTEM
+// ===========================
+
+function testAllTabs() {
+  console.log('🧪 TESTING ALL TABS...');
+  
+  const testTabs = ['students', 'hours', 'marks', 'attendance', 'payments', 'reports'];
+  
+  testTabs.forEach((tab, index) => {
+    setTimeout(() => {
+      console.log(`--- Testing: ${tab} ---`);
+      TabSystem.activateTab(tab);
+    }, index * 1000);
+  });
+}
+
+// Initialize when ready
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('✅ DOM loaded - initializing tab system');
+  TabSystem.init();
+});
+
+// ===========================
 // MARKS CALCULATION FUNCTION
 // ===========================
 
@@ -1947,98 +2174,6 @@ const UIManager = {
     document.documentElement.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
     console.log(`🎨 Theme changed to ${newTheme}`);
-  },
-
-// SIMPLE, RELIABLE TAB SYSTEM
-initTabs() {
-  console.log('🔧 Setting up simple tab system...');
-
-  const tabs = document.querySelectorAll('.tab');
-  const tabContents = document.querySelectorAll('.tabcontent');
-
-  // 1. First, hide ALL tab contents
-  tabContents.forEach(tab => {
-    tab.style.display = 'none';
-  });
-
-  // 2. Remove active from ALL tabs
-  tabs.forEach(tab => {
-    tab.classList.remove('active');
-  });
-
-  // 3. Simple click handler for ALL tabs
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const targetId = tab.getAttribute('data-tab');
-      console.log('🔄 Switching to tab:', targetId);
-
-      // Hide ALL tab contents
-      tabContents.forEach(content => {
-        content.style.display = 'none';
-      });
-
-      // Remove active from ALL tabs
-      tabs.forEach(t => {
-        t.classList.remove('active');
-      });
-
-      // Show target content and activate tab
-      const targetContent = document.getElementById(targetId);
-      if (targetContent) {
-        targetContent.style.display = 'block';
-        tab.classList.add('active');
-        console.log('✅ Now showing:', targetId);
-        
-        // Fix grid layout if needed
-        if (targetId === 'payments' || targetId === 'reports') {
-          this.fixGridLayout(targetId);
-        }
-      }
-    });
-  });
-
-  // 4. Activate first tab by default
-  if (tabs.length > 0) {
-    const firstTabId = tabs[0].getAttribute('data-tab');
-    const firstContent = document.getElementById(firstTabId);
-    
-    if (firstContent) {
-      firstContent.style.display = 'block';
-      tabs[0].classList.add('active');
-      console.log('✅ Default tab activated:', firstTabId);
-    }
-  }
-
-  console.log('✅ Simple tab system ready');
-},
-  
-  // FIXES GRID LAYOUT FOR PAYMENTS AND REPORTS TABS
-  fixGridLayout(tabId) {
-    const tab = document.getElementById(tabId);
-    if (!tab) return;
-
-    // Fix form-grid layout
-    const formGrid = tab.querySelector('.form-grid');
-    if (formGrid) {
-      formGrid.style.gridTemplateColumns = '1fr 1fr 1fr';
-      formGrid.style.gap = '20px';
-      formGrid.style.minHeight = '400px';
-    }
-
-    // Fix section-header
-    const sectionHeader = tab.querySelector('.section-header');
-    if (sectionHeader) {
-      sectionHeader.style.minHeight = '60px';
-      sectionHeader.style.alignItems = 'center';
-    }
-
-    // Ensure section cards have minimum height
-    const sectionCards = tab.querySelectorAll('.section-card');
-    sectionCards.forEach(card => {
-      card.style.minHeight = '200px';
-    });
-
-    console.log(`✅ Fixed grid layout for: ${tabId}`);
   },
 
   bindUiEvents() {
