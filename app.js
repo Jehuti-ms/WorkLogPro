@@ -581,6 +581,36 @@ function setupFabActions(closeFabMenu) {
           }
         }, 300);
       }
+    },
+    'fabAddPayment': () => {
+      console.log('💳 FAB: Add Payment clicked');
+      const paymentsTab = document.querySelector('[data-tab="payments"]');
+      if (paymentsTab) {
+        paymentsTab.click();
+        setTimeout(() => {
+          const paymentForm = document.querySelector('#payments .section-card:first-child');
+          if (paymentForm) {
+            paymentForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const firstInput = paymentForm.querySelector('input');
+            if (firstInput) firstInput.focus();
+          }
+        }, 300);
+      }
+    },
+    'fabGenerateReport': () => {
+      console.log('📊 FAB: Generate Report clicked');
+      const reportsTab = document.querySelector('[data-tab="reports"]');
+      if (reportsTab) {
+        reportsTab.click();
+        setTimeout(() => {
+          const reportForm = document.querySelector('#reports .section-card:first-child');
+          if (reportForm) {
+            reportForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const firstInput = reportForm.querySelector('input');
+            if (firstInput) firstInput.focus();
+          }
+        }, 300);
+      }
     }
   };
 
@@ -645,12 +675,6 @@ function initializeTheme() {
     document.documentElement.setAttribute('data-theme', savedTheme);
     updateThemeIcon(savedTheme);
 }
-
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-    initializeTheme();
-    setupThemeToggle();
-});
 
 // ===========================
 // HEADER STATS
@@ -1925,44 +1949,133 @@ const UIManager = {
     console.log(`🎨 Theme changed to ${newTheme}`);
   },
 
- initTabs() {
-  const tabs = document.querySelectorAll('.tab');
-  const tabContents = document.querySelectorAll('.tabcontent');
+  // FIXED TAB SYSTEM - ENSURES ONLY ONE TAB IS VISIBLE
+  initTabs() {
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tabcontent');
 
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const target = tab.getAttribute('data-tab');
-      console.log('📑 Switching to tab:', target);
+    console.log('🔧 Initializing fixed tab system...');
 
-      // Remove active class from all tabs and contents
-      tabs.forEach(t => t.classList.remove('active'));
-      tabContents.forEach(tc => {
-        tc.classList.remove('active');
-        tc.style.display = 'none';
+    // First, ensure only one tab is visible
+    this.ensureSingleTabVisible();
+
+    tabs.forEach(tab => {
+      // Remove any existing listeners
+      const newTab = tab.cloneNode(true);
+      tab.parentNode.replaceChild(newTab, tab);
+    });
+
+    // Add clean click handlers
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', (e) => {
+        e.preventDefault();
+        const target = tab.getAttribute('data-tab');
+        console.log('📑 Switching to tab:', target);
+
+        // Remove active class from all tabs and contents
+        tabs.forEach(t => t.classList.remove('active'));
+        tabContents.forEach(tc => {
+          tc.classList.remove('active');
+          tc.style.display = 'none';
+        });
+
+        // Add active class to clicked tab and target content
+        tab.classList.add('active');
+        
+        const selected = document.getElementById(target);
+        if (selected) {
+          selected.classList.add('active');
+          selected.style.display = 'block';
+          console.log('✅ Tab displayed:', target);
+          
+          // Fix grid layout for payments and reports
+          if (target === 'payments' || target === 'reports') {
+            this.fixGridLayout(target);
+          }
+        } else {
+          console.error('❌ Tab content not found:', target);
+        }
       });
+    });
 
-      // Add active class to clicked tab and target content
-      tab.classList.add('active');
-      
-      const selected = document.getElementById(target);
-      if (selected) {
-        selected.classList.add('active');
-        selected.style.display = 'block';
-        console.log('✅ Tab displayed:', target);
-      } else {
-        console.error('❌ Tab content not found:', target);
+    // Activate first tab by default
+    const firstTab = document.querySelector('.tab.active') || document.querySelector('.tab');
+    if (firstTab) {
+      firstTab.click();
+    }
+    
+    console.log('✅ Fixed tabs initialized');
+  },
+
+  // ENSURES ONLY ONE TAB IS VISIBLE AT A TIME
+  ensureSingleTabVisible() {
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tabcontent');
+    
+    let activeTabFound = false;
+    
+    // Hide all tabs first
+    tabContents.forEach(tab => {
+      tab.style.display = 'none';
+      tab.classList.remove('active');
+    });
+    
+    // Find the active tab and show only that one
+    tabs.forEach(tab => {
+      if (tab.classList.contains('active')) {
+        const target = tab.getAttribute('data-tab');
+        const content = document.getElementById(target);
+        if (content) {
+          content.style.display = 'block';
+          content.classList.add('active');
+          activeTabFound = true;
+          console.log('✅ Restored active tab:', target);
+        }
       }
     });
-  });
+    
+    // If no active tab found, activate first one
+    if (!activeTabFound && tabs.length > 0) {
+      const firstTab = tabs[0];
+      const firstTarget = firstTab.getAttribute('data-tab');
+      const firstContent = document.getElementById(firstTarget);
+      if (firstContent) {
+        firstTab.classList.add('active');
+        firstContent.style.display = 'block';
+        firstContent.classList.add('active');
+        console.log('✅ Defaulted to first tab:', firstTarget);
+      }
+    }
+  },
 
-  // Activate first tab by default
-  const firstTab = document.querySelector('.tab.active') || document.querySelector('.tab');
-  if (firstTab) {
-    firstTab.click();
-  }
-  
-  console.log('✅ Tabs initialized');
-},
+  // FIXES GRID LAYOUT FOR PAYMENTS AND REPORTS TABS
+  fixGridLayout(tabId) {
+    const tab = document.getElementById(tabId);
+    if (!tab) return;
+
+    // Fix form-grid layout
+    const formGrid = tab.querySelector('.form-grid');
+    if (formGrid) {
+      formGrid.style.gridTemplateColumns = '1fr 1fr 1fr';
+      formGrid.style.gap = '20px';
+      formGrid.style.minHeight = '400px';
+    }
+
+    // Fix section-header
+    const sectionHeader = tab.querySelector('.section-header');
+    if (sectionHeader) {
+      sectionHeader.style.minHeight = '60px';
+      sectionHeader.style.alignItems = 'center';
+    }
+
+    // Ensure section cards have minimum height
+    const sectionCards = tab.querySelectorAll('.section-card');
+    sectionCards.forEach(card => {
+      card.style.minHeight = '200px';
+    });
+
+    console.log(`✅ Fixed grid layout for: ${tabId}`);
+  },
 
   bindUiEvents() {
     console.log('🔧 Binding UI events...');
@@ -2029,14 +2142,14 @@ const UIManager = {
     if (hoursInput) hoursInput.addEventListener('input', calculateTotal);
     if (rateInput) rateInput.addEventListener('input', calculateTotal);
     if (workTypeSelect) workTypeSelect.addEventListener('change', calculateTotal);
-  }, // ← MAKE SURE THIS COMMA IS HERE
+  },
 
   setupMarksFormCalculations() {
     const scoreInput = document.getElementById('marksScore');
     const maxInput = document.getElementById('marksMax');
     if (scoreInput) scoreInput.addEventListener('input', updateMarksPercentage);
     if (maxInput) maxInput.addEventListener('input', updateMarksPercentage);
-  }, // ← AND THIS COMMA
+  },
 
   initEventListeners() {
     console.log('🔧 Initializing event listeners...');
@@ -4002,63 +4115,6 @@ async function showSubjectBreakdown() {
 }
 
 // ===========================
-// EMERGENCY TAB FIX
-// ===========================
-function emergencyTabFix() {
-  console.log('🚨 Initializing emergency tab fix...');
-  
-  const tabs = document.querySelectorAll('.tab');
-  const tabContents = document.querySelectorAll('.tabcontent');
-  
-  if (tabs.length === 0) {
-    console.log('❌ No tabs found');
-    return;
-  }
-
-  tabs.forEach(tab => {
-    // Remove any existing event listeners
-    const newTab = tab.cloneNode(true);
-    tab.parentNode.replaceChild(newTab, tab);
-    
-    newTab.addEventListener('click', function(e) {
-      e.preventDefault();
-      const target = this.getAttribute('data-tab');
-      console.log('🎯 Tab clicked:', target);
-      
-      // Remove active from all
-      tabs.forEach(t => t.classList.remove('active'));
-      tabContents.forEach(tc => {
-        tc.classList.remove('active');
-        tc.style.display = 'none';
-      });
-      
-      // Add active to clicked
-      this.classList.add('active');
-      const content = document.getElementById(target);
-      if (content) {
-        content.classList.add('active');
-        content.style.display = 'block';
-        console.log('✅ Switched to tab:', target);
-      }
-    });
-  });
-
-  // Activate first tab
-  const activeTab = document.querySelector('.tab.active') || document.querySelector('.tab');
-  if (activeTab) {
-    activeTab.click();
-  }
-  
-  console.log('✅ Emergency tabs initialized');
-}
-
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('🏠 DOM loaded - starting emergency tab init');
-  setTimeout(emergencyTabFix, 100);
-});
-
-// ===========================
 // GLOBAL FUNCTION EXPORTS
 // ===========================
 
@@ -4113,6 +4169,8 @@ window.cancelEdit = cancelEdit;
 // Sync bar functions for global access
 window.performSync = (mode = 'manual') => SyncBar.performSync(mode);
 
-// Minimal grid fix test
-document.querySelector('#payments .form-grid').style.gridTemplateColumns = '1fr 1fr 1fr';
-document.querySelector('#payments .form-grid').style.gap = '20px';
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+  initializeTheme();
+  setupThemeToggle();
+});
