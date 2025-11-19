@@ -51,6 +51,10 @@ let autoSyncInterval = null;
 let isAutoSyncEnabled = false;
 let currentUserData = null;
 let currentEditStudentId = null;
+let currentEditHoursId = null;
+let currentEditMarksId = null;
+let currentEditAttendanceId = null;
+let currentEditPaymentId = null;
 
 // DOM Elements
 const syncIndicator = document.getElementById("syncIndicator");
@@ -81,7 +85,7 @@ function fmtMoney(n) {
   return safeNumber(n).toFixed(2);
 }
 
-// Update the fmtDateISO function to handle timezone correctly
+// Enhanced timezone handling functions
 function fmtDateISO(yyyyMmDd) {
   if (!yyyyMmDd) return new Date().toISOString();
   try {
@@ -94,7 +98,6 @@ function fmtDateISO(yyyyMmDd) {
   }
 }
 
-// Also update formatDate to be timezone aware
 function formatDate(dateString) {
   if (!dateString) return 'Never';
   try {
@@ -150,7 +153,11 @@ function formatDateForInput(dateString) {
     if (isNaN(date.getTime())) {
       return new Date().toISOString().split('T')[0];
     }
-    return date.toISOString().split('T')[0];
+    // Convert to local date string to avoid timezone shift
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   } catch {
     return new Date().toISOString().split('T')[0];
   }
@@ -238,7 +245,7 @@ async function updateUserDefaultRate(uid, newRate) {
     const userRef = doc(db, "users", uid);
     await updateDoc(userRef, {
       defaultRate: newRate,
-      updatedAt: new Date().toISOString()
+      updatedAt: getLocalISODate()
     });
     
     if (currentUserData) {
@@ -906,7 +913,7 @@ async function renderRecentHours(limit = 10) {
     rows.slice(0, limit).forEach(entry => {
       const item = document.createElement("div");
       item.className = "hours-entry";
-     item.innerHTML = `
+      item.innerHTML = `
           <div class="hours-header">
             <strong>${entry.organization}</strong>
             <span class="hours-type">${entry.workType}</span>
@@ -965,7 +972,13 @@ async function renderRecentMarks(limit = 10) {
       const item = document.createElement("div");
       item.className = "mark-entry";
       item.innerHTML = `
-        <div><strong>${entry.student}</strong> — ${entry.subject} (${entry.topic})</div>
+        <div class="mark-header">
+          <strong>${entry.student}</strong> — ${entry.subject} (${entry.topic})
+          <div class="student-actions">
+            <button class="btn-icon" onclick="editMark('${entry.id}')" title="Edit">✏️</button>
+            <button class="btn-icon" onclick="deleteMark('${entry.id}')" title="Delete">🗑️</button>
+          </div>
+        </div>
         <div class="muted">${formatDate(entry.date)}</div>
         <div>Score: ${safeNumber(entry.score)}/${safeNumber(entry.max)} — ${safeNumber(entry.percentage).toFixed(2)}% — Grade: ${entry.grade}</div>
       `;
@@ -1020,7 +1033,13 @@ async function renderAttendanceRecent(limit = 10) {
       const item = document.createElement("div");
       item.className = "attendance-entry";
       item.innerHTML = `
-        <div><strong>${entry.subject}</strong> — ${entry.topic || "—"}</div>
+        <div class="attendance-header">
+          <strong>${entry.subject}</strong> — ${entry.topic || "—"}
+          <div class="student-actions">
+            <button class="btn-icon" onclick="editAttendance('${entry.id}')" title="Edit">✏️</button>
+            <button class="btn-icon" onclick="deleteAttendance('${entry.id}')" title="Delete">🗑️</button>
+          </div>
+        </div>
         <div class="muted">${formatDate(entry.date)}</div>
         <div>Present: ${Array.isArray(entry.present) ? entry.present.length : 0} students</div>
       `;
@@ -1072,7 +1091,13 @@ async function renderPaymentActivity(limit = 10) {
       const item = document.createElement("div");
       item.className = "activity-item";
       item.innerHTML = `
-        <div><strong>$${fmtMoney(entry.amount)}</strong> — ${entry.student}</div>
+        <div class="payment-header">
+          <strong>$${fmtMoney(entry.amount)}</strong> — ${entry.student}
+          <div class="student-actions">
+            <button class="btn-icon" onclick="editPayment('${entry.id}')" title="Edit">✏️</button>
+            <button class="btn-icon" onclick="deletePayment('${entry.id}')" title="Delete">🗑️</button>
+          </div>
+        </div>
         <div class="muted">${formatDate(entry.date)} | ${entry.method}</div>
         <div>${entry.notes || ""}</div>
       `;
@@ -1580,7 +1605,7 @@ const SyncBar = {
           
           await setDoc(backupRef, {
             ...backupData,
-            exportedAt: new Date().toISOString(),
+            exportedAt: getLocalISODate(),
             version: '1.0',
             user: user.uid
           });
@@ -1772,7 +1797,7 @@ const SyncBar = {
 
     return {
       metadata: {
-        exportedAt: new Date().toISOString(),
+        exportedAt: getLocalISODate(),
         version: '1.0',
         user: uid,
         recordCounts: {
@@ -2101,7 +2126,6 @@ function updateStudentDropdowns(students) {
   });
 }
 
-
 // ===========================
 // FORM MANAGEMENT FUNCTIONS
 // ===========================
@@ -2232,7 +2256,7 @@ async function updateHours(hoursId) {
       hours: workType === "hourly" ? hours : 0,
       rate,
       total,
-      updatedAt: new Date().toISOString()
+      updatedAt: getLocalISODate()
     };
 
     console.log('✏️ Updating hours:', hoursId, hoursData);
@@ -2346,7 +2370,7 @@ async function editHours(hoursId) {
     document.getElementById('organization').value = hours.organization || '';
     document.getElementById('workSubject').value = hours.subject || '';
     document.getElementById('workType').value = hours.workType || 'hourly';
-    document.getElementById('workDate').value = hours.date || '';
+    document.getElementById('workDate').value = formatDateForInput(hours.date) || '';
     document.getElementById('hoursWorked').value = hours.hours || '';
     document.getElementById('baseRate').value = hours.rate || '';
     
@@ -2586,7 +2610,7 @@ async function addStudent() {
       email, 
       phone, 
       rate,
-      createdAt: new Date().toISOString()
+      createdAt: getLocalISODate()
     };
 
     console.log('💾 Adding student to cache immediately...');
@@ -2762,7 +2786,7 @@ async function logHours() {
       hours: workType === "hourly" ? hours : 0,
       rate,
       total,
-      loggedAt: new Date().toISOString()
+      loggedAt: getLocalISODate()
     };
 
     console.log('💾 Saving hours:', hoursData);
@@ -2832,7 +2856,7 @@ async function addMark() {
     grade,
     date,
     dateIso: fmtDateISO(date),
-    recordedAt: new Date().toISOString()
+    recordedAt: getLocalISODate()
   };
 
   const user = auth.currentUser;
@@ -2878,7 +2902,7 @@ async function saveAttendance() {
     subject,
     topic: topic || "General",
     present: presentStudents,
-    recordedAt: new Date().toISOString()
+    recordedAt: getLocalISODate()
   };
 
   const user = auth.currentUser;
@@ -2917,7 +2941,7 @@ async function recordPayment() {
     date,
     dateIso: fmtDateISO(date),
     method,
-    recordedAt: new Date().toISOString()
+    recordedAt: getLocalISODate()
   };
 
   const user = auth.currentUser;
@@ -3188,6 +3212,533 @@ function removeStudentFromCache(studentId) {
   // Update cache
   cache.students = null;
   cache.lastSync = Date.now();
+}
+
+// ===========================
+// MARKS EDIT/DELETE FUNCTIONS
+// ===========================
+
+async function editMark(markId) {
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to edit marks');
+    return;
+  }
+
+  try {
+    const markDoc = await getDoc(doc(db, "users", user.uid, "marks", markId));
+    
+    if (!markDoc.exists()) {
+      NotificationSystem.notifyError('Mark entry not found');
+      return;
+    }
+
+    const mark = markDoc.data();
+    
+    // Fill the form with mark data
+    document.getElementById('marksStudent').value = mark.student || '';
+    document.getElementById('marksSubject').value = mark.subject || '';
+    document.getElementById('marksTopic').value = mark.topic || '';
+    document.getElementById('marksScore').value = mark.score || '';
+    document.getElementById('marksMax').value = mark.max || '';
+    document.getElementById('marksDate').value = formatDateForInput(mark.date) || '';
+    
+    // Update percentage and grade
+    updateMarksPercentage();
+    
+    // Set edit mode
+    currentEditMarksId = markId;
+    
+    // Change button to update mode
+    const addMarkBtn = document.getElementById('addMarkBtn');
+    if (addMarkBtn) {
+      addMarkBtn.textContent = '💾 Update Mark';
+      addMarkBtn.onclick = () => updateMark(markId);
+    }
+    
+    // Show cancel button
+    const cancelMarkBtn = document.getElementById('cancelMarkBtn');
+    if (cancelMarkBtn) {
+      cancelMarkBtn.style.display = 'inline-flex';
+    }
+    
+    // Show delete button
+    const deleteMarkBtn = document.getElementById('deleteMarkBtn');
+    if (deleteMarkBtn) {
+      deleteMarkBtn.style.display = 'inline-flex';
+      deleteMarkBtn.onclick = () => deleteMark(markId);
+    }
+    
+    // Scroll to form
+    const marksForm = document.getElementById('marksForm');
+    if (marksForm) {
+      marksForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    
+    NotificationSystem.notifyInfo(`Editing mark for ${mark.student}`);
+    
+  } catch (error) {
+    console.error('Error loading mark for edit:', error);
+    NotificationSystem.notifyError('Failed to load mark data');
+  }
+}
+
+async function updateMark(markId) {
+  const studentEl = document.getElementById("marksStudent");
+  const subjectEl = document.getElementById("marksSubject");
+  const topicEl = document.getElementById("marksTopic");
+  const scoreEl = document.getElementById("marksScore");
+  const maxEl = document.getElementById("marksMax");
+  const dateEl = document.getElementById("marksDate");
+
+  const student = studentEl?.value;
+  const subject = subjectEl?.value.trim();
+  const topic = topicEl?.value.trim();
+  const score = parseFloat(scoreEl?.value);
+  const maxScore = parseFloat(maxEl?.value);
+  const date = dateEl?.value;
+
+  if (!student || !subject || !Number.isFinite(score) || !Number.isFinite(maxScore) || !date) {
+    NotificationSystem.notifyError("Please fill required fields: Student, Subject, Score, Max Score, Date");
+    return;
+  }
+
+  if (score > maxScore) {
+    NotificationSystem.notifyError("Score cannot be greater than maximum score");
+    return;
+  }
+
+  const percentage = (score / maxScore) * 100;
+  const grade = calculateGrade(percentage);
+
+  const markData = {
+    student,
+    subject,
+    topic: topic || "General",
+    score,
+    max: maxScore,
+    percentage,
+    grade,
+    date,
+    dateIso: fmtDateISO(date),
+    updatedAt: getLocalISODate()
+  };
+
+  const user = auth.currentUser;
+  if (user) {
+    try {
+      const markRef = doc(db, "users", user.uid, "marks", markId);
+      await updateDoc(markRef, markData);
+      
+      NotificationSystem.notifySuccess("Mark updated successfully");
+      
+      // Reset form to add mode
+      resetMarksFormToAddMode();
+      
+      // Refresh data
+      await renderRecentMarks();
+      
+    } catch (err) {
+      console.error("Error updating mark:", err);
+      NotificationSystem.notifyError("Failed to update mark");
+    }
+  }
+}
+
+async function deleteMark(markId) {
+  if (confirm("Are you sure you want to delete this mark entry?")) {
+    const user = auth.currentUser;
+    if (user) {
+      try {
+        await deleteDoc(doc(db, "users", user.uid, "marks", markId));
+        NotificationSystem.notifySuccess("Mark entry deleted successfully");
+        await renderRecentMarks();
+      } catch (error) {
+        console.error("Error deleting mark:", error);
+        NotificationSystem.notifyError("Failed to delete mark entry");
+      }
+    }
+  }
+}
+
+function resetMarksFormToAddMode() {
+  resetMarksForm();
+  
+  // Reset button to add mode
+  const addMarkBtn = document.getElementById('addMarkBtn');
+  if (addMarkBtn) {
+    addMarkBtn.textContent = '➕ Add Mark';
+    addMarkBtn.onclick = addMark;
+  }
+  
+  // Hide cancel and delete buttons
+  const cancelMarkBtn = document.getElementById('cancelMarkBtn');
+  const deleteMarkBtn = document.getElementById('deleteMarkBtn');
+  
+  if (cancelMarkBtn) cancelMarkBtn.style.display = 'none';
+  if (deleteMarkBtn) deleteMarkBtn.style.display = 'none';
+  
+  currentEditMarksId = null;
+}
+
+function cancelMarkEdit() {
+  resetMarksFormToAddMode();
+  NotificationSystem.notifyInfo('Mark edit cancelled');
+}
+
+// ===========================
+// ATTENDANCE EDIT/DELETE FUNCTIONS
+// ===========================
+
+async function editAttendance(attendanceId) {
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to edit attendance');
+    return;
+  }
+
+  try {
+    const attendanceDoc = await getDoc(doc(db, "users", user.uid, "attendance", attendanceId));
+    
+    if (!attendanceDoc.exists()) {
+      NotificationSystem.notifyError('Attendance record not found');
+      return;
+    }
+
+    const attendance = attendanceDoc.data();
+    
+    // Fill the form with attendance data
+    document.getElementById('attendanceDate').value = formatDateForInput(attendance.date) || '';
+    document.getElementById('attendanceSubject').value = attendance.subject || '';
+    document.getElementById('attendanceTopic').value = attendance.topic || '';
+    
+    // Load students for attendance list
+    await loadStudentsForAttendanceList(attendance.present || []);
+    
+    // Set edit mode
+    currentEditAttendanceId = attendanceId;
+    
+    // Change button to update mode
+    const saveAttendanceBtn = document.getElementById('saveAttendanceBtn');
+    if (saveAttendanceBtn) {
+      saveAttendanceBtn.textContent = '💾 Update Attendance';
+      saveAttendanceBtn.onclick = () => updateAttendance(attendanceId);
+    }
+    
+    // Show cancel button
+    const cancelAttendanceBtn = document.getElementById('cancelAttendanceBtn');
+    if (cancelAttendanceBtn) {
+      cancelAttendanceBtn.style.display = 'inline-flex';
+    }
+    
+    // Show delete button
+    const deleteAttendanceBtn = document.getElementById('deleteAttendanceBtn');
+    if (deleteAttendanceBtn) {
+      deleteAttendanceBtn.style.display = 'inline-flex';
+      deleteAttendanceBtn.onclick = () => deleteAttendance(attendanceId);
+    }
+    
+    // Scroll to form
+    const attendanceForm = document.querySelector('#attendance .section-card:first-child');
+    if (attendanceForm) {
+      attendanceForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    
+    NotificationSystem.notifyInfo(`Editing attendance for ${attendance.subject}`);
+    
+  } catch (error) {
+    console.error('Error loading attendance for edit:', error);
+    NotificationSystem.notifyError('Failed to load attendance data');
+  }
+}
+
+async function loadStudentsForAttendanceList(presentStudents = []) {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    const studentsSnap = await getDocs(collection(db, "users", user.uid, "students"));
+    const attendanceList = document.getElementById('attendanceList');
+    
+    if (attendanceList) {
+      attendanceList.innerHTML = '';
+      
+      studentsSnap.forEach(docSnap => {
+        const student = docSnap.data();
+        const isPresent = presentStudents.includes(student.id);
+        
+        const checkbox = document.createElement('div');
+        checkbox.className = 'checkbox-item';
+        checkbox.innerHTML = `
+          <label>
+            <input type="checkbox" value="${student.id}" ${isPresent ? 'checked' : ''}>
+            ${student.name} (${student.id})
+          </label>
+        `;
+        attendanceList.appendChild(checkbox);
+      });
+    }
+  } catch (error) {
+    console.error('Error loading students for attendance:', error);
+  }
+}
+
+async function updateAttendance(attendanceId) {
+  const dateEl = document.getElementById("attendanceDate");
+  const subjectEl = document.getElementById("attendanceSubject");
+  const topicEl = document.getElementById("attendanceTopic");
+
+  const date = dateEl?.value;
+  const subject = subjectEl?.value.trim();
+  const topic = topicEl?.value.trim();
+
+  if (!date || !subject) {
+    NotificationSystem.notifyError("Please fill required fields: Date and Subject");
+    return;
+  }
+
+  const presentStudents = [];
+  document.querySelectorAll("#attendanceList input[type=checkbox]:checked")
+    .forEach(cb => presentStudents.push(cb.value));
+
+  if (presentStudents.length === 0) {
+    NotificationSystem.notifyError("Please select at least one student");
+    return;
+  }
+
+  const attendanceData = {
+    date,
+    dateIso: fmtDateISO(date),
+    subject,
+    topic: topic || "General",
+    present: presentStudents,
+    updatedAt: getLocalISODate()
+  };
+
+  const user = auth.currentUser;
+  if (user) {
+    try {
+      const attendanceRef = doc(db, "users", user.uid, "attendance", attendanceId);
+      await updateDoc(attendanceRef, attendanceData);
+      
+      NotificationSystem.notifySuccess("Attendance updated successfully");
+      
+      // Reset form to add mode
+      resetAttendanceFormToAddMode();
+      
+      // Refresh data
+      await renderAttendanceRecent();
+      
+    } catch (err) {
+      console.error("Error updating attendance:", err);
+      NotificationSystem.notifyError("Failed to update attendance");
+    }
+  }
+}
+
+async function deleteAttendance(attendanceId) {
+  if (confirm("Are you sure you want to delete this attendance record?")) {
+    const user = auth.currentUser;
+    if (user) {
+      try {
+        await deleteDoc(doc(db, "users", user.uid, "attendance", attendanceId));
+        NotificationSystem.notifySuccess("Attendance record deleted successfully");
+        await renderAttendanceRecent();
+      } catch (error) {
+        console.error("Error deleting attendance:", error);
+        NotificationSystem.notifyError("Failed to delete attendance record");
+      }
+    }
+  }
+}
+
+function resetAttendanceFormToAddMode() {
+  clearAttendanceForm();
+  
+  // Reset button to add mode
+  const saveAttendanceBtn = document.getElementById('saveAttendanceBtn');
+  if (saveAttendanceBtn) {
+    saveAttendanceBtn.textContent = '💾 Save Attendance';
+    saveAttendanceBtn.onclick = saveAttendance;
+  }
+  
+  // Hide cancel and delete buttons
+  const cancelAttendanceBtn = document.getElementById('cancelAttendanceBtn');
+  const deleteAttendanceBtn = document.getElementById('deleteAttendanceBtn');
+  
+  if (cancelAttendanceBtn) cancelAttendanceBtn.style.display = 'none';
+  if (deleteAttendanceBtn) deleteAttendanceBtn.style.display = 'none';
+  
+  currentEditAttendanceId = null;
+  
+  // Reload students for fresh attendance list
+  loadStudentsForAttendanceList();
+}
+
+function cancelAttendanceEdit() {
+  resetAttendanceFormToAddMode();
+  NotificationSystem.notifyInfo('Attendance edit cancelled');
+}
+
+// ===========================
+// PAYMENT EDIT/DELETE FUNCTIONS
+// ===========================
+
+async function editPayment(paymentId) {
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to edit payments');
+    return;
+  }
+
+  try {
+    const paymentDoc = await getDoc(doc(db, "users", user.uid, "payments", paymentId));
+    
+    if (!paymentDoc.exists()) {
+      NotificationSystem.notifyError('Payment record not found');
+      return;
+    }
+
+    const payment = paymentDoc.data();
+    
+    // Fill the form with payment data
+    document.getElementById('paymentStudent').value = payment.student || '';
+    document.getElementById('paymentAmount').value = payment.amount || '';
+    document.getElementById('paymentDate').value = formatDateForInput(payment.date) || '';
+    document.getElementById('paymentMethod').value = payment.method || '';
+    document.getElementById('paymentNotes').value = payment.notes || '';
+    
+    // Set edit mode
+    currentEditPaymentId = paymentId;
+    
+    // Change button to update mode
+    const recordPaymentBtn = document.getElementById('recordPaymentBtn');
+    if (recordPaymentBtn) {
+      recordPaymentBtn.textContent = '💾 Update Payment';
+      recordPaymentBtn.onclick = () => updatePayment(paymentId);
+    }
+    
+    // Show cancel button
+    const cancelPaymentBtn = document.getElementById('cancelPaymentBtn');
+    if (cancelPaymentBtn) {
+      cancelPaymentBtn.style.display = 'inline-flex';
+    }
+    
+    // Show delete button
+    const deletePaymentBtn = document.getElementById('deletePaymentBtn');
+    if (deletePaymentBtn) {
+      deletePaymentBtn.style.display = 'inline-flex';
+      deletePaymentBtn.onclick = () => deletePayment(paymentId);
+    }
+    
+    // Scroll to form
+    const paymentForm = document.querySelector('#payments .section-card:first-child');
+    if (paymentForm) {
+      paymentForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    
+    NotificationSystem.notifyInfo(`Editing payment for ${payment.student}`);
+    
+  } catch (error) {
+    console.error('Error loading payment for edit:', error);
+    NotificationSystem.notifyError('Failed to load payment data');
+  }
+}
+
+async function updatePayment(paymentId) {
+  const studentEl = document.getElementById("paymentStudent");
+  const amountEl = document.getElementById("paymentAmount");
+  const dateEl = document.getElementById("paymentDate");
+  const methodEl = document.getElementById("paymentMethod");
+  const notesEl = document.getElementById("paymentNotes");
+
+  const student = studentEl?.value;
+  const amount = parseFloat(amountEl?.value);
+  const date = dateEl?.value;
+  const method = methodEl?.value;
+  const notes = notesEl?.value.trim();
+
+  if (!student || !Number.isFinite(amount) || amount <= 0 || !date || !method) {
+    NotificationSystem.notifyError("Please fill required fields: Student, Amount, Date, Method");
+    return;
+  }
+
+  const paymentData = {
+    student,
+    amount,
+    date,
+    dateIso: fmtDateISO(date),
+    method,
+    notes: notes || '',
+    updatedAt: getLocalISODate()
+  };
+
+  const user = auth.currentUser;
+  if (user) {
+    try {
+      const paymentRef = doc(db, "users", user.uid, "payments", paymentId);
+      await updateDoc(paymentRef, paymentData);
+      
+      NotificationSystem.notifySuccess("Payment updated successfully");
+      
+      // Reset form to add mode
+      resetPaymentFormToAddMode();
+      
+      // Refresh data
+      await Promise.all([
+        renderPaymentActivity(),
+        renderStudentBalances()
+      ]);
+      
+    } catch (err) {
+      console.error("Error updating payment:", err);
+      NotificationSystem.notifyError("Failed to update payment");
+    }
+  }
+}
+
+async function deletePayment(paymentId) {
+  if (confirm("Are you sure you want to delete this payment record?")) {
+    const user = auth.currentUser;
+    if (user) {
+      try {
+        await deleteDoc(doc(db, "users", user.uid, "payments", paymentId));
+        NotificationSystem.notifySuccess("Payment record deleted successfully");
+        await Promise.all([
+          renderPaymentActivity(),
+          renderStudentBalances()
+        ]);
+      } catch (error) {
+        console.error("Error deleting payment:", error);
+        NotificationSystem.notifyError("Failed to delete payment record");
+      }
+    }
+  }
+}
+
+function resetPaymentFormToAddMode() {
+  resetPaymentForm();
+  
+  // Reset button to add mode
+  const recordPaymentBtn = document.getElementById('recordPaymentBtn');
+  if (recordPaymentBtn) {
+    recordPaymentBtn.textContent = '💾 Record Payment';
+    recordPaymentBtn.onclick = recordPayment;
+  }
+  
+  // Hide cancel and delete buttons
+  const cancelPaymentBtn = document.getElementById('cancelPaymentBtn');
+  const deletePaymentBtn = document.getElementById('deletePaymentBtn');
+  
+  if (cancelPaymentBtn) cancelPaymentBtn.style.display = 'none';
+  if (deletePaymentBtn) deletePaymentBtn.style.display = 'none';
+  
+  currentEditPaymentId = null;
+}
+
+function cancelPaymentEdit() {
+  resetPaymentFormToAddMode();
+  NotificationSystem.notifyInfo('Payment edit cancelled');
 }
 
 // ===========================
@@ -3520,18 +4071,30 @@ window.useDefaultRate = useDefaultRate;
 window.logHours = logHours;
 window.resetHoursForm = resetHoursForm;
 window.useDefaultRateInHours = useDefaultRateInHours;
+window.editHours = editHours;
+window.deleteHours = deleteHours;
+window.cancelHoursEdit = cancelHoursEdit;
 
 window.addMark = addMark;
 window.resetMarksForm = resetMarksForm;
 window.updateMarksPercentage = updateMarksPercentage;
+window.editMark = editMark;
+window.deleteMark = deleteMark;
+window.cancelMarkEdit = cancelMarkEdit;
 
 window.saveAttendance = saveAttendance;
 window.clearAttendanceForm = clearAttendanceForm;
 window.selectAllStudents = selectAllStudents;
 window.deselectAllStudents = deselectAllStudents;
+window.editAttendance = editAttendance;
+window.deleteAttendance = deleteAttendance;
+window.cancelAttendanceEdit = cancelAttendanceEdit;
 
 window.recordPayment = recordPayment;
 window.resetPaymentForm = resetPaymentForm;
+window.editPayment = editPayment;
+window.deletePayment = deletePayment;
+window.cancelPaymentEdit = cancelPaymentEdit;
 
 window.showWeeklyBreakdown = showWeeklyBreakdown;
 window.showBiWeeklyBreakdown = showBiWeeklyBreakdown;
@@ -3545,11 +4108,7 @@ window.NotificationSystem = NotificationSystem;
 // Student actions
 window.editStudent = editStudent;
 window.deleteStudent = deleteStudent;
+window.cancelEdit = cancelEdit;
 
 // Sync bar functions for global access
 window.performSync = (mode = 'manual') => SyncBar.performSync(mode);
-
-/*=========================
-  DEBUG 
-=========================*/
-
