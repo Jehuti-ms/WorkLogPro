@@ -1790,20 +1790,3 @@ body {
   font-size: 0.85em;
 }
 
-/* ================== */
-/* Temporary debug styles */
-#payments {
-  border: 2px solid blue !important;
-}
-
-#reports {
-  border: 2px solid green !important;
-}
-
-.tab[data-tab="payments"] {
-  border: 1px solid blue !important;
-}
-
-.tab[data-tab="reports"] {
-  border: 1px solid green !important;
-}
