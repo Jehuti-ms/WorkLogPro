@@ -1703,3 +1703,403 @@ body {
   background: #eab308;
   border-color: #eab308;
 }
+
+/* =========================== */
+/* PAYMENTS TAB SPECIFIC STYLES */
+/* =========================== */
+
+/* Form grid layout for payments */
+#payments .form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  #payments .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Student balances section */
+.student-balances {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Payment activity section */
+.payment-activity {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Payment form specific styles */
+#paymentAmount {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+#paymentMethod {
+  text-transform: capitalize;
+}
+
+/* Payment activity items */
+.activity-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+}
+
+.activity-item:hover {
+  box-shadow: var(--shadow);
+  border-color: var(--border-dark);
+}
+
+.activity-item:last-child {
+  margin-bottom: 0;
+}
+
+/* Payment header with actions */
+.payment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+  gap: 12px;
+}
+
+.payment-header strong {
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Student balances styling */
+.student-balance-item {
+  display: flex;
+  justify-content: between;
+  align-items: center;
+  padding: 12px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.student-balance-item:last-child {
+  border-bottom: none;
+}
+
+.student-balance-info {
+  flex: 1;
+}
+
+.student-balance-amounts {
+  display: flex;
+  gap: 16px;
+  font-size: 0.9rem;
+}
+
+.balance-owed {
+  color: var(--error);
+  font-weight: 600;
+}
+
+.balance-paid {
+  color: var(--success);
+}
+
+.balance-earned {
+  color: var(--text-light);
+}
+
+/* =========================== */
+/* REPORTS TAB SPECIFIC STYLES */
+/* =========================== */
+
+/* Overview list styling */
+#reports ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+#reports li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 0.95rem;
+}
+
+#reports li:last-child {
+  border-bottom: none;
+}
+
+#reports li span {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+/* Report tables */
+#reports .table {
+  margin-top: 16px;
+  font-size: 0.9rem;
+}
+
+#reports .table th {
+  background: var(--border-light);
+  font-weight: 600;
+  padding: 12px;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+#reports .table td {
+  padding: 12px;
+  vertical-align: middle;
+}
+
+/* Report controls */
+.report-controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+/* Breakdown section */
+.breakdown-section {
+  margin-top: 24px;
+}
+
+.breakdown-section h4 {
+  margin-bottom: 16px;
+  color: var(--text);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* Empty state for reports */
+#reports .empty-message {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-light);
+  font-style: italic;
+}
+
+/* =========================== */
+/* FORM ACTION BUTTON FIXES */
+/* =========================== */
+
+/* Ensure form action buttons are visible */
+.form-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+.form-actions .button {
+  flex: 1;
+  min-width: 140px;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .form-actions .button {
+    flex: none;
+    width: 100%;
+  }
+}
+
+/* =========================== */
+/* TAB CONTENT VISIBILITY FIXES */
+/* =========================== */
+
+/* Ensure tab content is properly displayed */
+.tabcontent {
+  display: none;
+  padding: 24px 20px;
+  animation: fadeIn 0.3s ease;
+  min-height: 60vh;
+}
+
+.tabcontent.active {
+  display: block;
+}
+
+/* Specific height for payments and reports */
+#payments.tabcontent,
+#reports.tabcontent {
+  min-height: 70vh;
+}
+
+/* =========================== */
+/* SECTION CARD ENHANCEMENTS */
+/* =========================== */
+
+.section-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin-bottom: 0; /* Remove bottom margin since grid has gap */
+  box-shadow: var(--shadow);
+  height: fit-content;
+  min-height: 200px;
+}
+
+.section-card h3 {
+  margin: 0 0 20px 0;
+  color: var(--text);
+  font-size: 1.2rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* =========================== */
+/* STUDENT STATS ENHANCEMENT */
+/* =========================== */
+
+.student-stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.9rem;
+  color: var(--text-light);
+  font-weight: 500;
+  flex-wrap: wrap;
+}
+
+.stat-text {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stat-text span {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.stat-divider {
+  color: var(--border);
+}
+
+/* =========================== */
+/* EMPTY STATE IMPROVEMENTS */
+/* =========================== */
+
+.empty-message {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-light);
+  font-style: italic;
+  margin: 0;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 40px;
+  color: var(--text-light);
+}
+
+.empty-state h3 {
+  margin-bottom: 8px;
+  color: var(--text-light);
+  font-weight: 500;
+}
+
+.empty-state p {
+  margin: 0;
+  color: var(--text-light);
+}
+
+/* =========================== */
+/* LOADING STATES */
+/* =========================== */
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: var(--text-light);
+  gap: 12px;
+}
+
+.loading::after {
+  content: "";
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border);
+  border-top: 2px solid var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* =========================== */
+/* RESPONSIVE FIXES */
+/* =========================== */
+
+@media (max-width: 768px) {
+  #payments .form-grid,
+  #reports .form-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .section-card {
+    padding: 20px;
+  }
+  
+  .student-stats {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .stat-divider {
+    display: none;
+  }
+  
+  .payment-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .report-controls {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .tabcontent {
+    padding: 16px 12px;
+  }
+  
+  .section-card {
+    padding: 16px;
+  }
+  
+  .form-actions {
+    gap: 8px;
+  }
+}
+
