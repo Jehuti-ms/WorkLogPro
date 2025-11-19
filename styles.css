@@ -291,11 +291,12 @@ body {
 }
 
 /* Mobile Grid Layout - 2 columns, 4 rows */
+/* Mobile Grid Layout - auto placement for any number of tabs */
 @media (max-width: 768px) {
   .tabs {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: repeat(4, auto);
+    grid-template-columns: 1fr 1fr; /* 2 columns */
+    grid-auto-rows: auto;          /* rows adjust automatically */
     gap: 1px;
     background: var(--border);
     border: 1px solid var(--border);
@@ -329,16 +330,8 @@ body {
     border-bottom-color: transparent;
     font-weight: 600;
   }
-
-  /* Specific positioning for 7 tabs in 2x4 grid */
-  .tab:nth-child(1) { grid-column: 1; grid-row: 1; }
-  .tab:nth-child(2) { grid-column: 2; grid-row: 1; }
-  .tab:nth-child(3) { grid-column: 1; grid-row: 2; }
-  .tab:nth-child(4) { grid-column: 2; grid-row: 2; }
-  .tab:nth-child(5) { grid-column: 1; grid-row: 3; }
-  .tab:nth-child(6) { grid-column: 2; grid-row: 3; }
-  .tab:nth-child(7) { grid-column: 1; grid-row: 4; }
 }
+
 
 /* Extra small screens optimization */
 @media (max-width: 480px) {
