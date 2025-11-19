@@ -1742,3 +1742,32 @@ button, .button, .tab, .fab, .fab-item {
   padding: 20px;
   border: 1px solid var(--border);
 }
+
+/* PREVENT MULTIPLE ACTIVE TABS */
+.tab {
+  cursor: pointer;
+}
+
+.tab.active {
+  background: var(--primary);
+  color: white;
+}
+
+.tabcontent {
+  display: none;
+}
+
+.tabcontent.active {
+  display: block;
+}
+
+/* EMERGENCY OVERRIDE - Ensure only one tab shows */
+#students:not(.active),
+#hours:not(.active),
+#marks:not(.active),
+#attendance:not(.active), 
+#payments:not(.active),
+#reports:not(.active) {
+  display: none !important;
+}
+
