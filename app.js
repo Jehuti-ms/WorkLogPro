@@ -646,12 +646,6 @@ function initializeTheme() {
     updateThemeIcon(savedTheme);
 }
 
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-    initializeTheme();
-    setupThemeToggle();
-});
-
 // ===========================
 // HEADER STATS
 // ===========================
@@ -1901,6 +1895,10 @@ function updateMarksPercentage() {
   }
 }
 
+// ===========================
+// UI MANAGER - COMPLETELY REWRITTEN
+// ===========================
+
 const UIManager = {
   init() {
     this.initializeTheme();
@@ -1913,8 +1911,20 @@ const UIManager = {
   initializeTheme() {
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
-    updateThemeIcon();
+    this.updateThemeIcon();
     console.log(`🎨 Theme initialized to ${savedTheme}`);
+  },
+
+  updateThemeIcon() {
+    const themeButton = document.querySelector('.theme-toggle button');
+    if (!themeButton) return;
+    
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    if (currentTheme === 'dark') {
+        themeButton.setAttribute('title', 'Switch to light mode');
+    } else {
+        themeButton.setAttribute('title', 'Switch to dark mode');
+    }
   },
 
   toggleTheme() {
@@ -1922,47 +1932,78 @@ const UIManager = {
     const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
+    this.updateThemeIcon();
     console.log(`🎨 Theme changed to ${newTheme}`);
   },
 
- initTabs() {
-  const tabs = document.querySelectorAll('.tab');
-  const tabContents = document.querySelectorAll('.tabcontent');
+  initTabs() {
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tabcontent');
 
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const target = tab.getAttribute('data-tab');
-      console.log('📑 Switching to tab:', target);
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.getAttribute('data-tab');
+        console.log('📑 Switching to tab:', target);
 
-      // Remove active class from all tabs and contents
-      tabs.forEach(t => t.classList.remove('active'));
-      tabContents.forEach(tc => {
-        tc.classList.remove('active');
-        tc.style.display = 'none';
+        // Remove active class from all tabs and contents
+        tabs.forEach(t => t.classList.remove('active'));
+        tabContents.forEach(tc => {
+          tc.classList.remove('active');
+          tc.style.display = 'none';
+        });
+
+        // Add active class to clicked tab and target content
+        tab.classList.add('active');
+        
+        const selected = document.getElementById(target);
+        if (selected) {
+          selected.classList.add('active');
+          selected.style.display = 'block';
+          console.log('✅ Tab displayed:', target);
+          
+          // Load tab-specific data when tab is activated
+          this.loadTabData(target);
+        } else {
+          console.error('❌ Tab content not found:', target);
+        }
       });
-
-      // Add active class to clicked tab and target content
-      tab.classList.add('active');
-      
-      const selected = document.getElementById(target);
-      if (selected) {
-        selected.classList.add('active');
-        selected.style.display = 'block';
-        console.log('✅ Tab displayed:', target);
-      } else {
-        console.error('❌ Tab content not found:', target);
-      }
     });
-  });
 
-  // Activate first tab by default
-  const firstTab = document.querySelector('.tab.active') || document.querySelector('.tab');
-  if (firstTab) {
-    firstTab.click();
-  }
-  
-  console.log('✅ Tabs initialized');
-},
+    // Activate first tab by default
+    const firstTab = document.querySelector('.tab.active') || document.querySelector('.tab');
+    if (firstTab) {
+      firstTab.click();
+    }
+    
+    console.log('✅ Tabs initialized');
+  },
+
+  loadTabData(tabName) {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    switch(tabName) {
+      case 'students':
+        renderStudents();
+        break;
+      case 'hours':
+        renderRecentHours();
+        break;
+      case 'marks':
+        renderRecentMarks();
+        break;
+      case 'attendance':
+        renderAttendanceRecent();
+        break;
+      case 'payments':
+        renderPaymentActivity();
+        renderStudentBalances();
+        break;
+      case 'reports':
+        renderOverviewReports();
+        break;
+    }
+  },
 
   bindUiEvents() {
     console.log('🔧 Binding UI events...');
@@ -2029,14 +2070,17 @@ const UIManager = {
     if (hoursInput) hoursInput.addEventListener('input', calculateTotal);
     if (rateInput) rateInput.addEventListener('input', calculateTotal);
     if (workTypeSelect) workTypeSelect.addEventListener('change', calculateTotal);
-  }, // ← MAKE SURE THIS COMMA IS HERE
+    
+    // Initial calculation
+    calculateTotal();
+  },
 
   setupMarksFormCalculations() {
     const scoreInput = document.getElementById('marksScore');
     const maxInput = document.getElementById('marksMax');
     if (scoreInput) scoreInput.addEventListener('input', updateMarksPercentage);
     if (maxInput) maxInput.addEventListener('input', updateMarksPercentage);
-  }, // ← AND THIS COMMA
+  },
 
   initEventListeners() {
     console.log('🔧 Initializing event listeners...');
@@ -2056,7 +2100,7 @@ const UIManager = {
 };
 
 // ===========================
-// STUDENT FORM EVENT LISTENERS
+// FORM INITIALIZATION FUNCTIONS - NEWLY ADDED
 // ===========================
 
 function setupStudentFormListeners() {
@@ -2077,6 +2121,125 @@ function setupStudentFormListeners() {
   }
 
   console.log('✅ Student form event listeners setup');
+}
+
+function setupPaymentFormListeners() {
+  const recordPaymentBtn = document.getElementById('recordPaymentBtn');
+  const cancelPaymentBtn = document.getElementById('cancelPaymentBtn');
+  const deletePaymentBtn = document.getElementById('deletePaymentBtn');
+
+  if (recordPaymentBtn) {
+    recordPaymentBtn.addEventListener('click', recordPayment);
+  }
+
+  if (cancelPaymentBtn) {
+    cancelPaymentBtn.addEventListener('click', cancelPaymentEdit);
+  }
+
+  if (deletePaymentBtn) {
+    deletePaymentBtn.addEventListener('click', () => {
+      if (currentEditPaymentId) {
+        deletePayment(currentEditPaymentId);
+      }
+    });
+  }
+
+  console.log('✅ Payment form event listeners setup');
+}
+
+function setupAttendanceFormListeners() {
+  const saveAttendanceBtn = document.getElementById('saveAttendanceBtn');
+  const cancelAttendanceBtn = document.getElementById('cancelAttendanceBtn');
+  const deleteAttendanceBtn = document.getElementById('deleteAttendanceBtn');
+
+  if (saveAttendanceBtn) {
+    saveAttendanceBtn.addEventListener('click', saveAttendance);
+  }
+
+  if (cancelAttendanceBtn) {
+    cancelAttendanceBtn.addEventListener('click', cancelAttendanceEdit);
+  }
+
+  if (deleteAttendanceBtn) {
+    deleteAttendanceBtn.addEventListener('click', () => {
+      if (currentEditAttendanceId) {
+        deleteAttendance(currentEditAttendanceId);
+      }
+    });
+  }
+
+  console.log('✅ Attendance form event listeners setup');
+}
+
+function setupHoursFormListeners() {
+  const logHoursBtn = document.getElementById('logHoursBtn');
+  const hoursCancelBtn = document.getElementById('cancelHoursEdit');
+  const deleteHoursBtn = document.getElementById('deleteHoursBtn');
+
+  if (logHoursBtn) {
+    logHoursBtn.addEventListener('click', logHours);
+  }
+
+  if (hoursCancelBtn) {
+    hoursCancelBtn.addEventListener('click', cancelHoursEdit);
+  }
+
+  if (deleteHoursBtn) {
+    deleteHoursBtn.addEventListener('click', () => {
+      if (currentEditHoursId) {
+        deleteHours(currentEditHoursId);
+      }
+    });
+  }
+
+  console.log('✅ Hours form event listeners setup');
+}
+
+function setupMarksFormListeners() {
+  const addMarkBtn = document.getElementById('addMarkBtn');
+  const cancelMarkBtn = document.getElementById('cancelMarkBtn');
+  const deleteMarkBtn = document.getElementById('deleteMarkBtn');
+
+  if (addMarkBtn) {
+    addMarkBtn.addEventListener('click', addMark);
+  }
+
+  if (cancelMarkBtn) {
+    cancelMarkBtn.addEventListener('click', cancelMarkEdit);
+  }
+
+  if (deleteMarkBtn) {
+    deleteMarkBtn.addEventListener('click', () => {
+      if (currentEditMarksId) {
+        deleteMark(currentEditMarksId);
+      }
+    });
+  }
+
+  console.log('✅ Marks form event listeners setup');
+}
+
+function setupReportTabListeners() {
+  // Add event listeners for report buttons
+  const weeklyBtn = document.querySelector('button[onclick="showWeeklyBreakdown()"]');
+  const biWeeklyBtn = document.querySelector('button[onclick="showBiWeeklyBreakdown()"]');
+  const monthlyBtn = document.querySelector('button[onclick="showMonthlyBreakdown()"]');
+  const subjectBtn = document.querySelector('button[onclick="showSubjectBreakdown()"]');
+
+  if (weeklyBtn) {
+    weeklyBtn.addEventListener('click', showWeeklyBreakdown);
+  }
+  if (biWeeklyBtn) {
+    biWeeklyBtn.addEventListener('click', showBiWeeklyBreakdown);
+  }
+  if (monthlyBtn) {
+    monthlyBtn.addEventListener('click', showMonthlyBreakdown);
+  }
+  if (subjectBtn) {
+    subjectBtn.addEventListener('click', showSubjectBreakdown);
+  }
+
+  console.log('✅ Report tab listeners setup');
 }
 
 // ===========================
@@ -2112,10 +2275,12 @@ function updateStudentDropdowns(students) {
   dropdowns.forEach(dropdownId => {
     const select = document.getElementById(dropdownId);
     if (select) {
+      // Clear existing options except the first one
       while (select.options.length > 1) {
         select.remove(1);
       }
       
+      // Add student options
       students.forEach(student => {
         const option = document.createElement('option');
         option.value = student.id;
@@ -2194,247 +2359,6 @@ function resetHoursForm() {
     }
     
     console.log("✅ Hours form reset");
-  }
-}
-
-async function updateHours(hoursId) {
-  const studentEl = document.getElementById("hoursStudent");
-  const orgEl = document.getElementById("organization");
-  const subjectEl = document.getElementById("workSubject");
-  const typeEl = document.getElementById("workType");
-  const dateEl = document.getElementById("workDate");
-  const hoursEl = document.getElementById("hoursWorked");
-  const rateEl = document.getElementById("baseRate");
-
-  const studentId = studentEl?.value;
-  const organization = orgEl?.value.trim();
-  const subject = subjectEl?.value.trim();
-  const workType = typeEl?.value || "hourly";
-  const workDate = dateEl?.value;
-  const hours = parseFloat(hoursEl?.value);
-  const rate = parseFloat(rateEl?.value);
-
-  if (!organization || !workDate || !Number.isFinite(hours) || hours <= 0 || !Number.isFinite(rate) || rate <= 0) {
-    NotificationSystem.notifyError("Please fill required fields: Organization, Date, Hours, Rate");
-    return;
-  }
-
-  // Calculate total based on work type
-  let total = 0;
-  if (workType === "hourly") {
-    total = hours * rate;
-  } else {
-    total = rate; // Flat rate for session/contract/project/etc.
-  }
-
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError("Please log in to update hours");
-    return;
-  }
-
-  try {
-    // Show loading state
-    const logHoursBtn = document.getElementById('logHoursBtn');
-    const logHoursText = document.getElementById('logHoursText');
-    const logHoursSpinner = document.getElementById('logHoursSpinner');
-    
-    if (logHoursBtn) logHoursBtn.disabled = true;
-    if (logHoursText) logHoursText.style.display = 'none';
-    if (logHoursSpinner) {
-      logHoursSpinner.textContent = '⏳ Updating...';
-      logHoursSpinner.style.display = 'inline';
-    }
-
-    const hoursData = {
-      student: studentId || null,
-      organization,
-      subject: subject || 'General',
-      workType,
-      date: workDate,
-      dateIso: fmtDateISO(workDate),
-      hours: workType === "hourly" ? hours : 0,
-      rate,
-      total,
-      updatedAt: getLocalISODate()
-    };
-
-    console.log('✏️ Updating hours:', hoursId, hoursData);
-    
-    // Update in Firestore
-    const hoursRef = doc(db, "users", user.uid, "hours", hoursId);
-    await updateDoc(hoursRef, hoursData);
-    
-    NotificationSystem.notifySuccess("Hours updated successfully!");
-    
-    // Reset form to add mode
-    resetHoursFormToAddMode();
-    
-    // Refresh data
-    await Promise.all([
-      recalcSummaryStats(user.uid),
-      renderRecentHours()
-    ]);
-    
-  } catch (err) {
-    console.error("Error updating hours:", err);
-    NotificationSystem.notifyError("Failed to update hours: " + err.message);
-  } finally {
-    // Reset button state
-    const logHoursBtn = document.getElementById('logHoursBtn');
-    const logHoursText = document.getElementById('logHoursText');
-    const logHoursSpinner = document.getElementById('logHoursSpinner');
-    
-    if (logHoursBtn) logHoursBtn.disabled = false;
-    if (logHoursText) logHoursText.style.display = 'inline';
-    if (logHoursSpinner) logHoursSpinner.style.display = 'none';
-  }
-}
-
-async function deleteHours(hoursId) {
-  console.log("deleteHours defined:", typeof deleteHours);
-  
-  if (confirm("Are you sure you want to delete this hours entry?")) {
-    const user = auth.currentUser;
-    if (user) {
-      try {
-        await deleteDoc(doc(db, "users", user.uid, "hours", hoursId));
-        NotificationSystem.notifySuccess("Hours entry deleted successfully");
-        await renderRecentHours();
-        await recalcSummaryStats(user.uid);
-      } catch (error) {
-        console.error("Error deleting hours:", error);
-        NotificationSystem.notifyError("Failed to delete hours entry");
-      }
-    }
-  }
-}
-
-function cancelHoursEdit() {
-  resetHoursFormToAddMode();
-  NotificationSystem.notifyInfo('Hours edit cancelled');
-  
-  // Hide delete button when canceling
-  const deleteHoursBtn = document.getElementById('deleteHoursBtn');
-  if (deleteHoursBtn) {
-    deleteHoursBtn.style.display = 'none';
-  }
-}
-
-// Update the resetHoursFormToAddMode function to handle cancel button:
-function resetHoursFormToAddMode() {
-  resetHoursForm();
-  
-  // Reset button to add mode
-  const logHoursBtn = document.getElementById('logHoursBtn');
-  if (logHoursBtn) {
-    logHoursBtn.onclick = logHours;
-    logHoursBtn.innerHTML = '<span id="logHoursText">💾 Log Work</span><span id="logHoursSpinner" style="display: none;">⏳ Saving...</span>';
-  }
-  
-  // Hide cancel button
-  const hoursCancelBtn = document.getElementById('cancelHoursEdit');
-  if (hoursCancelBtn) {
-    hoursCancelBtn.style.display = 'none';
-  }
-  
-  console.log("✅ Hours form reset to add mode");
-}
-
-// Update editHours to show cancel button
-async function editHours(hoursId) {
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError('Please log in to edit hours');
-    return;
-  }
-
-  try {
-    // Show loading state
-    const logHoursBtn = document.getElementById('logHoursBtn');
-    if (logHoursBtn) {
-      logHoursBtn.disabled = true;
-      logHoursBtn.innerHTML = '<span id="logHoursText">⏳ Loading...</span>';
-    }
-
-    const hoursDoc = await getDoc(doc(db, "users", user.uid, "hours", hoursId));
-    
-    if (!hoursDoc.exists()) {
-      NotificationSystem.notifyError('Hours entry not found');
-      return;
-    }
-
-    const hours = hoursDoc.data();
-    
-    // Fill the form with hours data
-    document.getElementById('organization').value = hours.organization || '';
-    document.getElementById('workSubject').value = hours.subject || '';
-    document.getElementById('workType').value = hours.workType || 'hourly';
-    document.getElementById('workDate').value = formatDateForInput(hours.date) || '';
-    document.getElementById('hoursWorked').value = hours.hours || '';
-    document.getElementById('baseRate').value = hours.rate || '';
-    
-    // Update student dropdown if exists
-    const studentEl = document.getElementById('hoursStudent');
-    if (studentEl && hours.student) {
-      studentEl.value = hours.student;
-    }
-    
-    // Update total display
-    const totalEl = document.getElementById('totalPay');
-    if (totalEl) {
-      if ("value" in totalEl) {
-        totalEl.value = fmtMoney(hours.total);
-      } else {
-        totalEl.textContent = fmtMoney(hours.total);
-      }
-    }
-    
-    // Show and setup delete button
-    const deleteHoursBtn = document.getElementById('deleteHoursBtn');
-    if (deleteHoursBtn) {
-      deleteHoursBtn.style.display = 'inline-flex';
-      deleteHoursBtn.onclick = () => deleteHours(hoursId);
-    }
-    
-    // Change button to update mode and show cancel button
-    if (logHoursBtn) {
-      logHoursBtn.disabled = false;
-      logHoursBtn.onclick = () => updateHours(hoursId);
-      logHoursBtn.innerHTML = '<span id="logHoursText">💾 Update Hours</span><span id="logHoursSpinner" style="display: none;">⏳ Updating...</span>';
-    }
-    
-    // Show cancel button
-    const hoursCancelBtn = document.getElementById('cancelHoursEdit');
-    if (hoursCancelBtn) {
-      hoursCancelBtn.style.display = 'inline-flex';
-    }
-    
-    // Scroll to form
-    const hoursForm = document.querySelector('#hours .section-card:first-child');
-    if (hoursForm) {
-      hoursForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-    
-    NotificationSystem.notifyInfo(`Editing hours entry from ${formatDate(hours.date)}`);
-    
-  } catch (error) {
-    console.error('Error loading hours for edit:', error);
-    NotificationSystem.notifyError('Failed to load hours data');
-    
-    // Reset button on error
-    const logHoursBtn = document.getElementById('logHoursBtn');
-    if (logHoursBtn) {
-      logHoursBtn.disabled = false;
-      logHoursBtn.onclick = logHours;
-      logHoursBtn.innerHTML = '<span id="logHoursText">💾 Log Work</span><span id="logHoursSpinner" style="display: none;">⏳ Saving...</span>';
-    }
-    
-    // Hide delete button on error
-    const deleteHoursBtn = document.getElementById('deleteHoursBtn');
-    if (deleteHoursBtn) {
-      deleteHoursBtn.style.display = 'none';
-    }
   }
 }
 
@@ -2960,49 +2884,6 @@ async function recordPayment() {
 }
 
 // ===========================
-// STUDENT HELPER FILES
-// ===========================
-// Fast cache update without full re-render
-function updateStudentCache(newStudent) {
-  if (cache.students && cache.students !== '<div class="loading">Loading students...</div>') {
-    // Add new student to existing cache instead of clearing it
-    const studentCard = `
-      <div class="student-card">
-        <div class="student-card-header">
-          <div>
-            <strong>${newStudent.name}</strong>
-            <span class="student-id">${newStudent.id}</span>
-          </div>
-          <div class="student-actions">
-            <button class="btn-icon" onclick="editStudent('${newStudent.id}')" title="Edit">✏️</button>
-            <button class="btn-icon" onclick="deleteStudent('${newStudent.id}')" title="Delete">🗑️</button>
-          </div>
-        </div>
-        <div class="student-details">
-          <div class="muted">${newStudent.gender} • ${newStudent.email || 'No email'} • ${newStudent.phone || 'No phone'}</div>
-          <div class="student-rate">Rate: $${fmtMoney(newStudent.rate)}/session</div>
-          <div class="student-meta">Added: Just now</div>
-        </div>
-      </div>
-    `;
-    
-    const container = document.getElementById('studentsContainer');
-    if (container) {
-      // Remove empty state if it exists
-      const emptyState = container.querySelector('.empty-state, .empty-message');
-      if (emptyState) {
-        emptyState.remove();
-      }
-      // Prepend new student (shows at top)
-      container.insertAdjacentHTML('afterbegin', studentCard);
-    }
-  } else {
-    // If no cache, just clear it so next render is fresh
-    cache.students = null;
-  }
-}
-
-// ===========================
 // STUDENT EDITING FUNCTIONS
 // ===========================
 
@@ -3212,6 +3093,255 @@ function removeStudentFromCache(studentId) {
   // Update cache
   cache.students = null;
   cache.lastSync = Date.now();
+}
+
+// ===========================
+// HOURS EDIT/DELETE FUNCTIONS
+// ===========================
+
+async function editHours(hoursId) {
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to edit hours');
+    return;
+  }
+
+  try {
+    // Show loading state
+    const logHoursBtn = document.getElementById('logHoursBtn');
+    if (logHoursBtn) {
+      logHoursBtn.disabled = true;
+      logHoursBtn.innerHTML = '<span id="logHoursText">⏳ Loading...</span>';
+    }
+
+    const hoursDoc = await getDoc(doc(db, "users", user.uid, "hours", hoursId));
+    
+    if (!hoursDoc.exists()) {
+      NotificationSystem.notifyError('Hours entry not found');
+      return;
+    }
+
+    const hours = hoursDoc.data();
+    
+    // Fill the form with hours data
+    document.getElementById('organization').value = hours.organization || '';
+    document.getElementById('workSubject').value = hours.subject || '';
+    document.getElementById('workType').value = hours.workType || 'hourly';
+    document.getElementById('workDate').value = formatDateForInput(hours.date) || '';
+    document.getElementById('hoursWorked').value = hours.hours || '';
+    document.getElementById('baseRate').value = hours.rate || '';
+    
+    // Update student dropdown if exists
+    const studentEl = document.getElementById('hoursStudent');
+    if (studentEl && hours.student) {
+      studentEl.value = hours.student;
+    }
+    
+    // Update total display
+    const totalEl = document.getElementById('totalPay');
+    if (totalEl) {
+      if ("value" in totalEl) {
+        totalEl.value = fmtMoney(hours.total);
+      } else {
+        totalEl.textContent = fmtMoney(hours.total);
+      }
+    }
+    
+    // Show and setup delete button
+    const deleteHoursBtn = document.getElementById('deleteHoursBtn');
+    if (deleteHoursBtn) {
+      deleteHoursBtn.style.display = 'inline-flex';
+      deleteHoursBtn.onclick = () => deleteHours(hoursId);
+    }
+    
+    // Change button to update mode and show cancel button
+    if (logHoursBtn) {
+      logHoursBtn.disabled = false;
+      logHoursBtn.onclick = () => updateHours(hoursId);
+      logHoursBtn.innerHTML = '<span id="logHoursText">💾 Update Hours</span><span id="logHoursSpinner" style="display: none;">⏳ Updating...</span>';
+    }
+    
+    // Show cancel button
+    const hoursCancelBtn = document.getElementById('cancelHoursEdit');
+    if (hoursCancelBtn) {
+      hoursCancelBtn.style.display = 'inline-flex';
+    }
+    
+    // Scroll to form
+    const hoursForm = document.querySelector('#hours .section-card:first-child');
+    if (hoursForm) {
+      hoursForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    
+    NotificationSystem.notifyInfo(`Editing hours entry from ${formatDate(hours.date)}`);
+    
+  } catch (error) {
+    console.error('Error loading hours for edit:', error);
+    NotificationSystem.notifyError('Failed to load hours data');
+    
+    // Reset button on error
+    const logHoursBtn = document.getElementById('logHoursBtn');
+    if (logHoursBtn) {
+      logHoursBtn.disabled = false;
+      logHoursBtn.onclick = logHours;
+      logHoursBtn.innerHTML = '<span id="logHoursText">💾 Log Work</span><span id="logHoursSpinner" style="display: none;">⏳ Saving...</span>';
+    }
+    
+    // Hide delete button on error
+    const deleteHoursBtn = document.getElementById('deleteHoursBtn');
+    if (deleteHoursBtn) {
+      deleteHoursBtn.style.display = 'none';
+    }
+  }
+}
+
+async function updateHours(hoursId) {
+  const studentEl = document.getElementById("hoursStudent");
+  const orgEl = document.getElementById("organization");
+  const subjectEl = document.getElementById("workSubject");
+  const typeEl = document.getElementById("workType");
+  const dateEl = document.getElementById("workDate");
+  const hoursEl = document.getElementById("hoursWorked");
+  const rateEl = document.getElementById("baseRate");
+
+  const studentId = studentEl?.value;
+  const organization = orgEl?.value.trim();
+  const subject = subjectEl?.value.trim();
+  const workType = typeEl?.value || "hourly";
+  const workDate = dateEl?.value;
+  const hours = parseFloat(hoursEl?.value);
+  const rate = parseFloat(rateEl?.value);
+
+  if (!organization || !workDate || !Number.isFinite(hours) || hours <= 0 || !Number.isFinite(rate) || rate <= 0) {
+    NotificationSystem.notifyError("Please fill required fields: Organization, Date, Hours, Rate");
+    return;
+  }
+
+  // Calculate total based on work type
+  let total = 0;
+  if (workType === "hourly") {
+    total = hours * rate;
+  } else {
+    total = rate; // Flat rate for session/contract/project/etc.
+  }
+
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError("Please log in to update hours");
+    return;
+  }
+
+  try {
+    // Show loading state
+    const logHoursBtn = document.getElementById('logHoursBtn');
+    const logHoursText = document.getElementById('logHoursText');
+    const logHoursSpinner = document.getElementById('logHoursSpinner');
+    
+    if (logHoursBtn) logHoursBtn.disabled = true;
+    if (logHoursText) logHoursText.style.display = 'none';
+    if (logHoursSpinner) {
+      logHoursSpinner.textContent = '⏳ Updating...';
+      logHoursSpinner.style.display = 'inline';
+    }
+
+    const hoursData = {
+      student: studentId || null,
+      organization,
+      subject: subject || 'General',
+      workType,
+      date: workDate,
+      dateIso: fmtDateISO(workDate),
+      hours: workType === "hourly" ? hours : 0,
+      rate,
+      total,
+      updatedAt: getLocalISODate()
+    };
+
+    console.log('✏️ Updating hours:', hoursId, hoursData);
+    
+    // Update in Firestore
+    const hoursRef = doc(db, "users", user.uid, "hours", hoursId);
+    await updateDoc(hoursRef, hoursData);
+    
+    NotificationSystem.notifySuccess("Hours updated successfully!");
+    
+    // Reset form to add mode
+    resetHoursFormToAddMode();
+    
+    // Refresh data
+    await Promise.all([
+      recalcSummaryStats(user.uid),
+      renderRecentHours()
+    ]);
+    
+  } catch (err) {
+    console.error("Error updating hours:", err);
+    NotificationSystem.notifyError("Failed to update hours: " + err.message);
+  } finally {
+    // Reset button state
+    const logHoursBtn = document.getElementById('logHoursBtn');
+    const logHoursText = document.getElementById('logHoursText');
+    const logHoursSpinner = document.getElementById('logHoursSpinner');
+    
+    if (logHoursBtn) logHoursBtn.disabled = false;
+    if (logHoursText) logHoursText.style.display = 'inline';
+    if (logHoursSpinner) logHoursSpinner.style.display = 'none';
+  }
+}
+
+async function deleteHours(hoursId) {
+  console.log("deleteHours defined:", typeof deleteHours);
+  
+  if (confirm("Are you sure you want to delete this hours entry?")) {
+    const user = auth.currentUser;
+    if (user) {
+      try {
+        await deleteDoc(doc(db, "users", user.uid, "hours", hoursId));
+        NotificationSystem.notifySuccess("Hours entry deleted successfully");
+        await renderRecentHours();
+        await recalcSummaryStats(user.uid);
+      } catch (error) {
+        console.error("Error deleting hours:", error);
+        NotificationSystem.notifyError("Failed to delete hours entry");
+      }
+    }
+  }
+}
+
+function cancelHoursEdit() {
+  resetHoursFormToAddMode();
+  NotificationSystem.notifyInfo('Hours edit cancelled');
+  
+  // Hide delete button when canceling
+  const deleteHoursBtn = document.getElementById('deleteHoursBtn');
+  if (deleteHoursBtn) {
+    deleteHoursBtn.style.display = 'none';
+  }
+}
+
+function resetHoursFormToAddMode() {
+  resetHoursForm();
+  
+  // Reset button to add mode
+  const logHoursBtn = document.getElementById('logHoursBtn');
+  if (logHoursBtn) {
+    logHoursBtn.onclick = logHours;
+    logHoursBtn.innerHTML = '<span id="logHoursText">💾 Log Work</span><span id="logHoursSpinner" style="display: none;">⏳ Saving...</span>';
+  }
+  
+  // Hide cancel button
+  const hoursCancelBtn = document.getElementById('cancelHoursEdit');
+  if (hoursCancelBtn) {
+    hoursCancelBtn.style.display = 'none';
+  }
+  
+  // Hide delete button
+  const deleteHoursBtn = document.getElementById('deleteHoursBtn');
+  if (deleteHoursBtn) {
+    deleteHoursBtn.style.display = 'none';
+  }
+  
+  console.log("✅ Hours form reset to add mode");
 }
 
 // ===========================
@@ -3742,91 +3872,6 @@ function cancelPaymentEdit() {
 }
 
 // ===========================
-// APP INITIALIZATION
-// ===========================
-
-function initializeApp() {
-  console.log('🚀 Initializing WorkLog App...');
-  
-  UIManager.init();
-  SyncBar.init();
-  setupProfileModal();
-  setupFloatingAddButton();
-  setupStudentFormListeners();
-  updateHeaderStats();
-  
-  if (syncMessage) syncMessage.textContent = "Cloud Sync: Ready";
-  if (syncMessageLine) syncMessageLine.textContent = "Status: Connected";
-  
-  const user = auth.currentUser;
-  if (user) {
-    console.log('👤 User authenticated, loading data...');
-    loadInitialData(user);
-  }
-  
-  console.log('✅ WorkLog App Fully Initialized');
-}
-
-async function loadInitialData(user) {
-  try {
-    console.log('📥 Loading initial data for user:', user.uid);
-    
-    // Load critical data first
-    await Promise.allSettled([
-      loadUserProfile(user.uid),
-      loadStudentsForDropdowns(),
-      recalcSummaryStats(user.uid) // This will update everything
-    ]);
-    
-    // Then load visible content
-    await renderStudents();
-    
-    // Force header stats update
-    updateHeaderStats();
-    
-    console.log('✅ Initial data loaded successfully');
-    
-  } catch (error) {
-    console.error('❌ Error loading initial data:', error);
-  }
-}
-
-// ===========================
-// AUTH STATE MANAGEMENT
-// ===========================
-
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('✅ DOM fully loaded, setting up auth listener');
-  
-  onAuthStateChanged(auth, user => {
-    if (user) {
-      console.log("✅ User authenticated:", user.email);
-      
-      // Safe container access with null check
-      const container = document.querySelector(".container");
-      if (container && container.style) {
-        container.style.display = "block";
-        console.log('✅ Container displayed');
-      } else {
-        console.warn('⚠️ Container element not found or inaccessible');
-      }
-      
-      // Safely initialize app
-      if (typeof initializeApp === 'function') {
-        try {
-          initializeApp();
-        } catch (error) {
-          console.error('❌ Error initializing app:', error);
-        }
-      }
-    } else {
-      console.log("🚫 No user authenticated - redirecting to login");
-      window.location.href = "auth.html";
-    }
-  });
-});
-
-// ===========================
 // REPORT FUNCTIONS
 // ===========================
 
@@ -4002,6 +4047,108 @@ async function showSubjectBreakdown() {
 }
 
 // ===========================
+// APP INITIALIZATION - COMPLETELY REWRITTEN
+// ===========================
+
+function initializeApp() {
+  console.log('🚀 Initializing WorkLog App...');
+  
+  // Initialize all systems
+  UIManager.init();
+  SyncBar.init();
+  setupProfileModal();
+  setupFloatingAddButton();
+  
+  // Initialize all form listeners
+  setupStudentFormListeners();
+  setupPaymentFormListeners();
+  setupAttendanceFormListeners();
+  setupHoursFormListeners();
+  setupMarksFormListeners();
+  setupReportTabListeners();
+  
+  updateHeaderStats();
+  
+  if (syncMessage) syncMessage.textContent = "Cloud Sync: Ready";
+  if (syncMessageLine) syncMessageLine.textContent = "Status: Connected";
+  
+  const user = auth.currentUser;
+  if (user) {
+    console.log('👤 User authenticated, loading data...');
+    loadInitialData(user);
+  }
+  
+  console.log('✅ WorkLog App Fully Initialized');
+}
+
+async function loadInitialData(user) {
+  try {
+    console.log('📥 Loading initial data for user:', user.uid);
+    
+    // Load critical data first
+    await Promise.allSettled([
+      loadUserProfile(user.uid),
+      loadStudentsForDropdowns(),
+      recalcSummaryStats(user.uid)
+    ]);
+    
+    // Then load all visible content
+    await Promise.allSettled([
+      renderStudents(),
+      renderRecentHours(),
+      renderRecentMarks(),
+      renderAttendanceRecent(),
+      renderPaymentActivity(),
+      renderStudentBalances(),
+      renderOverviewReports()
+    ]);
+    
+    // Force header stats update
+    updateHeaderStats();
+    
+    console.log('✅ Initial data loaded successfully');
+    
+  } catch (error) {
+    console.error('❌ Error loading initial data:', error);
+  }
+}
+
+// ===========================
+// AUTH STATE MANAGEMENT
+// ===========================
+
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('✅ DOM fully loaded, setting up auth listener');
+  
+  onAuthStateChanged(auth, user => {
+    if (user) {
+      console.log("✅ User authenticated:", user.email);
+      
+      // Safe container access with null check
+      const container = document.querySelector(".container");
+      if (container && container.style) {
+        container.style.display = "block";
+        console.log('✅ Container displayed');
+      } else {
+        console.warn('⚠️ Container element not found or inaccessible');
+      }
+      
+      // Safely initialize app
+      if (typeof initializeApp === 'function') {
+        try {
+          initializeApp();
+        } catch (error) {
+          console.error('❌ Error initializing app:', error);
+        }
+      }
+    } else {
+      console.log("🚫 No user authenticated - redirecting to login");
+      window.location.href = "auth.html";
+    }
+  });
+});
+
+// ===========================
 // EMERGENCY TAB FIX
 // ===========================
 function emergencyTabFix() {
@@ -4102,13 +4249,13 @@ window.showMonthlyBreakdown = showMonthlyBreakdown;
 window.showSubjectBreakdown = showSubjectBreakdown;
 window.renderOverviewReports = renderOverviewReports;
 
-// Expose NotificationSystem for global access
-window.NotificationSystem = NotificationSystem;
-
 // Student actions
 window.editStudent = editStudent;
 window.deleteStudent = deleteStudent;
 window.cancelEdit = cancelEdit;
+
+// Expose NotificationSystem for global access
+window.NotificationSystem = NotificationSystem;
 
 // Sync bar functions for global access
 window.performSync = (mode = 'manual') => SyncBar.performSync(mode);
