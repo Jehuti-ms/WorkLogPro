@@ -4802,7 +4802,7 @@ async function showSubjectBreakdown() {
 // APP INITIALIZATION - COMPLETELY REWRITTEN
 // ===========================
 
-function initializeApp() {
+/*function initializeApp() {
   console.log('🚀 Initializing WorkLog App...');
 
   // Load cached data immediately
@@ -4867,7 +4867,7 @@ async function loadInitialData(user) {
   } catch (error) {
     console.error('❌ Error loading initial data:', error);
   }
-}
+} */
 
 // ===========================
 // AUTH STATE MANAGEMENT
