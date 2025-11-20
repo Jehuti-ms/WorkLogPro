@@ -22,7 +22,7 @@ function isCacheValid(key) {
 // ENHANCED CACHE & BACKGROUND SYNC SYSTEM
 // ===========================
 
-const EnhancedCache = {
+/*const EnhancedCache = {
   // Save data to localStorage immediately, then sync to Firebase in background
   async saveWithBackgroundSync(collection, data, id = null) {
     const user = auth.currentUser;
@@ -235,7 +235,7 @@ const EnhancedCache = {
   
   console.log('✅ WorkLog App Fully Initialized');
 }
-*/
+
 function updateCacheStatusDisplay() {
   const status = EnhancedCache.getCacheStatus();
   const cacheStatusElement = document.getElementById('cacheStatus') || createCacheStatusElement();
@@ -265,13 +265,13 @@ function createCacheStatusElement() {
 }
 
 // Update cache status every 10 seconds
-setInterval(updateCacheStatusDisplay, 10000);
+setInterval(updateCacheStatusDisplay, 10000); */
 
 // ===========================
 // ENHANCED REAL-TIME STATS SYSTEM
 // ===========================
 
-const EnhancedStats = {
+/*const EnhancedStats = {
   // Initialize stats system
   init() {
     this.setupStatsUpdaters();
@@ -765,7 +765,7 @@ async function addStudent() {
     submitBtn.textContent = '➕ Add Student';
     submitBtn.disabled = false;
   }
-}
+}*/
   
 // Update other form submission functions similarly...
 // (You'll want to update logHours, addMark, saveAttendance, recordPayment in the same way)
