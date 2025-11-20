@@ -2918,4 +2918,3 @@ window.deleteStudent = deleteStudent;
 
 // Sync bar functions for global access
 window.performSync = (mode = 'manual') => SyncBar.performSync(mode);
-
