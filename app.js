@@ -2293,94 +2293,358 @@ async function deletePayment(id) {
 }
 
 // ===========================
-// TAB NAVIGATION SYSTEM
+// TAB NAVIGATION SYSTEM - FIXED VERSION
 // ===========================
 
 function setupTabNavigation() {
   console.log('🔧 Setting up tab navigation...');
   
-  // Try multiple selectors for tab buttons
-  const selectors = ['.tab-btn', '[data-tab]', 'button[data-tab]', '.tab-button', '.nav-btn'];
+  // Debug: Check what elements exist
+  console.log('🔍 Searching for navigation elements...');
+  
+  // Check for main navigation container
+  const navContainers = [
+    '.tab-nav',
+    '.navigation',
+    '.nav-tabs',
+    '.tabs',
+    'nav',
+    '.main-nav'
+  ];
+  
+  let navContainer = null;
+  for (const selector of navContainers) {
+    const container = document.querySelector(selector);
+    if (container) {
+      navContainer = container;
+      console.log(`✅ Found navigation container: ${selector}`);
+      break;
+    }
+  }
+  
+  if (!navContainer) {
+    console.log('🔍 No specific nav container found, searching for buttons in main content...');
+  }
+  
+  // Look for tab buttons with various selectors
+  const buttonSelectors = [
+    '.tab-btn',
+    '[data-tab]',
+    'button[data-tab]',
+    '.tab-button',
+    '.nav-btn',
+    '.tab',
+    '.nav-tabs button',
+    '.tabs button',
+    'nav button'
+  ];
+  
   let tabButtons = [];
   let foundSelector = '';
   
-  for (const selector of selectors) {
+  for (const selector of buttonSelectors) {
     const elements = document.querySelectorAll(selector);
     console.log(`Selector "${selector}": found ${elements.length} elements`);
     
     if (elements.length > 0) {
-      tabButtons = elements;
+      tabButtons = Array.from(elements);
       foundSelector = selector;
+      
+      // Log what we found
+      tabButtons.forEach((btn, index) => {
+        console.log(`Tab button ${index}:`, {
+          text: btn.textContent?.trim(),
+          classes: btn.className,
+          id: btn.id,
+          'data-tab': btn.getAttribute('data-tab'),
+          tag: btn.tagName
+        });
+      });
       break;
     }
   }
   
   if (tabButtons.length === 0) {
-    console.warn('⚠️ No tab buttons found with standard selectors');
-    return;
+    console.error('❌ No tab buttons found with any selector');
+    
+    // Last resort: look for any buttons that might be tabs
+    const allButtons = document.querySelectorAll('button');
+    console.log(`Found ${allButtons.length} total buttons on page`);
+    
+    const potentialTabs = Array.from(allButtons).filter(btn => {
+      const text = btn.textContent?.toLowerCase().trim();
+      const commonTabNames = ['overview', 'students', 'hours', 'marks', 'attendance', 'payments', 'reports'];
+      return commonTabNames.some(tabName => text?.includes(tabName));
+    });
+    
+    if (potentialTabs.length > 0) {
+      tabButtons = potentialTabs;
+      console.log(`✅ Found ${tabButtons.length} potential tab buttons by text content`);
+    } else {
+      console.error('❌ Could not find any tab buttons');
+      createFallbackNavigation();
+      return;
+    }
   }
   
   console.log(`✅ Found ${tabButtons.length} tab buttons with selector: ${foundSelector}`);
   
+  // Set up click handlers for tab buttons
   tabButtons.forEach(button => {
-    const tabName = button.getAttribute('data-tab');
-    console.log(`📝 Setting up tab button: ${tabName}`);
+    // Determine tab name
+    let tabName = button.getAttribute('data-tab');
+    if (!tabName) {
+      // Try to infer from text content
+      const text = button.textContent?.toLowerCase().trim();
+      const tabMap = {
+        'overview': 'overview',
+        'students': 'students', 
+        'hours': 'hours',
+        'marks': 'marks',
+        'attendance': 'attendance',
+        'payments': 'payments',
+        'reports': 'overview'
+      };
+      
+      for (const [key, value] of Object.entries(tabMap)) {
+        if (text?.includes(key)) {
+          tabName = value;
+          break;
+        }
+      }
+      
+      if (!tabName) {
+        tabName = text?.replace(/\s+/g, '-').toLowerCase() || 'unknown';
+      }
+      
+      // Set the data-tab attribute for future use
+      button.setAttribute('data-tab', tabName);
+    }
+    
+    console.log(`📝 Setting up tab button: "${button.textContent?.trim()}" -> ${tabName}`);
     
     button.addEventListener('click', (e) => {
       e.preventDefault();
-      console.log(`🎯 Tab clicked: ${tabName}`);
+      console.log(`🎯 Tab clicked: ${tabName} (from: "${button.textContent?.trim()}")`);
       switchTab(tabName);
     });
   });
   
-  // Set initial tab
+  // Set initial active tab
   const initialTab = getInitialTab();
   console.log(`📑 Setting initial tab to: ${initialTab}`);
   switchTab(initialTab);
 }
 
 function getInitialTab() {
-  // Try overview first
+  // Check if there's already an active tab
+  const activeTabButton = document.querySelector('.tab-btn.active, [data-tab].active, button.active');
+  if (activeTabButton) {
+    const tabName = activeTabButton.getAttribute('data-tab');
+    if (tabName) return tabName;
+  }
+  
+  // Check if overview tab exists and is accessible
   if (document.getElementById('overview')) {
     return 'overview';
   }
   
-  // Otherwise get first available tab
+  // Check other common tab names
+  const commonTabs = ['students', 'hours', 'marks', 'attendance', 'payments'];
+  for (const tabName of commonTabs) {
+    if (document.getElementById(tabName)) {
+      return tabName;
+    }
+  }
+  
+  // Get first available tab from buttons
   const firstTabButton = document.querySelector('[data-tab]');
   if (firstTabButton) {
     return firstTabButton.getAttribute('data-tab');
   }
   
-  return 'overview';
+  return 'overview'; // fallback
 }
 
 function switchTab(tabName) {
   console.log(`🔄 Switching to tab: ${tabName}`);
   
-  // Update tab buttons
-  const tabButtons = document.querySelectorAll('[data-tab]');
-  tabButtons.forEach(btn => {
+  if (!tabName) {
+    console.error('❌ No tab name provided for switchTab');
+    return;
+  }
+  
+  // Update tab buttons - remove active class from all
+  const allTabButtons = document.querySelectorAll('.tab-btn, [data-tab], button');
+  allTabButtons.forEach(btn => {
     btn.classList.remove('active');
   });
   
-  const activeButton = document.querySelector(`[data-tab="${tabName}"]`);
-  if (activeButton) {
-    activeButton.classList.add('active');
+  // Add active class to clicked tab button
+  const activeButtons = document.querySelectorAll(`[data-tab="${tabName}"]`);
+  if (activeButtons.length > 0) {
+    activeButtons.forEach(btn => {
+      btn.classList.add('active');
+    });
+    console.log(`✅ Activated ${activeButtons.length} button(s) for: ${tabName}`);
+  } else {
+    console.warn(`⚠️ No button found with data-tab="${tabName}"`);
+    
+    // Try to find by text content as fallback
+    const allButtons = document.querySelectorAll('button');
+    const matchingButtons = Array.from(allButtons).filter(btn => {
+      const text = btn.textContent?.toLowerCase().trim();
+      return text?.includes(tabName.toLowerCase());
+    });
+    
+    if (matchingButtons.length > 0) {
+      matchingButtons.forEach(btn => {
+        btn.classList.add('active');
+        // Set data-tab for future use
+        btn.setAttribute('data-tab', tabName);
+      });
+      console.log(`✅ Found ${matchingButtons.length} button(s) by text content for: ${tabName}`);
+    }
   }
   
-  // Update tab content
-  const tabContents = document.querySelectorAll('.tab-content');
-  tabContents.forEach(content => {
+  // Hide all tab content
+  const tabContentSelectors = [
+    '.tab-content',
+    '.tab-panel', 
+    '.tab-page',
+    '.page',
+    '.section',
+    'main > div',
+    '#overview, #students, #hours, #marks, #attendance, #payments'
+  ];
+  
+  let allTabContents = [];
+  tabContentSelectors.forEach(selector => {
+    const elements = document.querySelectorAll(selector);
+    elements.forEach(el => {
+      if (!allTabContents.includes(el)) {
+        allTabContents.push(el);
+      }
+    });
+  });
+  
+  // Also get elements by ID for common tabs
+  const commonTabIds = ['overview', 'students', 'hours', 'marks', 'attendance', 'payments'];
+  commonTabIds.forEach(id => {
+    const element = document.getElementById(id);
+    if (element && !allTabContents.includes(element)) {
+      allTabContents.push(element);
+    }
+  });
+  
+  console.log(`📊 Found ${allTabContents.length} potential tab content elements`);
+  
+  // Hide all content
+  allTabContents.forEach(content => {
+    content.style.display = 'none';
     content.classList.remove('active');
   });
   
-  const activeContent = document.getElementById(tabName);
+  // Show active tab content
+  let activeContent = document.getElementById(tabName);
+  
   if (activeContent) {
+    activeContent.style.display = 'block';
     activeContent.classList.add('active');
-    console.log(`✅ Switched to tab: ${tabName}`);
+    console.log(`✅ Activated content for: ${tabName}`);
   } else {
-    console.warn(`⚠️ Tab content not found: ${tabName}`);
+    console.warn(`⚠️ No content found with ID: ${tabName}`);
+    
+    // Try alternative content selectors
+    const alternativeSelectors = [
+      `#${tabName}-tab`,
+      `#${tabName}-panel`,
+      `#${tabName}-content`,
+      `.${tabName}-tab`,
+      `.${tabName}-content`,
+      `.${tabName}-panel`,
+      `[data-tab-content="${tabName}"]`
+    ];
+    
+    for (const selector of alternativeSelectors) {
+      activeContent = document.querySelector(selector);
+      if (activeContent) {
+        activeContent.style.display = 'block';
+        activeContent.classList.add('active');
+        console.log(`✅ Found content with alternative selector: ${selector}`);
+        break;
+      }
+    }
+    
+    // Last resort: show any element that might be related to this tab
+    if (!activeContent) {
+      const possibleContent = document.querySelector(`[data-tab="${tabName}"]`)?.closest('.tab-content') || 
+                             document.querySelector(`[data-tab="${tabName}"]`)?.nextElementSibling;
+      if (possibleContent) {
+        possibleContent.style.display = 'block';
+        possibleContent.classList.add('active');
+        console.log(`✅ Found content near tab button for: ${tabName}`);
+      }
+    }
   }
+  
+  // If we still haven't found content, try to show the first available content
+  if (!activeContent && allTabContents.length > 0) {
+    allTabContents[0].style.display = 'block';
+    allTabContents[0].classList.add('active');
+    console.log(`⚠️ Showing first available content as fallback`);
+  }
+  
+  console.log(`✅ Tab switch completed: ${tabName}`);
+}
+
+function createFallbackNavigation() {
+  console.log('🆘 Creating fallback navigation...');
+  
+  // Create a simple navigation bar at the top
+  const fallbackNav = document.createElement('div');
+  fallbackNav.className = 'fallback-nav';
+  fallbackNav.style.cssText = `
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  `;
+  
+  const tabs = [
+    { id: 'overview', name: '📊 Overview' },
+    { id: 'students', name: '👥 Students' },
+    { id: 'hours', name: '⏰ Hours' },
+    { id: 'marks', name: '📝 Marks' },
+    { id: 'attendance', name: '✅ Attendance' },
+    { id: 'payments', name: '💰 Payments' }
+  ];
+  
+  tabs.forEach(tab => {
+    if (document.getElementById(tab.id)) {
+      const button = document.createElement('button');
+      button.textContent = tab.name;
+      button.setAttribute('data-tab', tab.id);
+      button.style.cssText = `
+        padding: 0.5rem 1rem;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        border-radius: 6px;
+        cursor: pointer;
+      `;
+      
+      button.addEventListener('click', () => switchTab(tab.id));
+      fallbackNav.appendChild(button);
+    }
+  });
+  
+  // Insert at the top of the main content
+  const mainContent = document.querySelector('main') || document.body;
+  mainContent.insertBefore(fallbackNav, mainContent.firstChild);
+  
+  console.log('✅ Fallback navigation created');
 }
 
 // ===========================
