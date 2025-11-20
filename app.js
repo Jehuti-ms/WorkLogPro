@@ -1,777 +1,5 @@
 // ===========================
-// CACHE SYSTEM FOR PERFORMANCE
-// ===========================
-
-const cache = {
-  students: null,
-  hours: null,
-  marks: null,
-  attendance: null,
-  payments: null,
-  lastSync: null
-};
-
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-
-function isCacheValid(key) {
-  if (!cache[key] || !cache.lastSync) return false;
-  return (Date.now() - cache.lastSync) < CACHE_DURATION;
-}
-
-// ===========================
-// ENHANCED CACHE & BACKGROUND SYNC SYSTEM
-// ===========================
-
-/*const EnhancedCache = {
-  // Save data to localStorage immediately, then sync to Firebase in background
-  async saveWithBackgroundSync(collection, data, id = null) {
-    const user = auth.currentUser;
-    if (!user) {
-      console.error('❌ No user authenticated for cache save');
-      return false;
-    }
-
-    try {
-      // 1. Generate ID if not provided
-      const itemId = id || this.generateId();
-      
-      // 2. Create cache item with timestamp
-      const cacheItem = {
-        ...data,
-        _id: itemId,
-        _cachedAt: Date.now(),
-        _synced: false
-      };
-
-      // 3. Save to localStorage immediately
-      this.saveToLocalStorage(collection, cacheItem);
-      
-      // 4. Update UI cache immediately
-      this.updateUICache(collection, cacheItem);
-      
-      // 5. Sync to Firebase in background (non-blocking)
-      this.backgroundFirebaseSync(collection, cacheItem, user.uid);
-      
-      console.log(`✅ ${collection} saved to cache immediately`);
-      return itemId;
-      
-    } catch (error) {
-      console.error(`❌ Cache save failed for ${collection}:`, error);
-      return false;
-    }
-  },
-
-  generateId() {
-    return 'cache_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-  },
-
-  saveToLocalStorage(collection, item) {
-    try {
-      const key = `worklog_${collection}`;
-      const existing = JSON.parse(localStorage.getItem(key) || '[]');
-      
-      // Remove existing item with same ID if present
-      const filtered = existing.filter(i => i._id !== item._id);
-      filtered.push(item);
-      
-      localStorage.setItem(key, JSON.stringify(filtered));
-      console.log(`💾 Saved to localStorage: ${collection} - ${item._id}`);
-    } catch (error) {
-      console.error('❌ localStorage save failed:', error);
-    }
-  },
-
-  updateUICache(collection, item) {
-    // Update the in-memory cache for immediate UI updates
-    if (cache[collection] === null) {
-      cache[collection] = [];
-    }
-    
-    if (Array.isArray(cache[collection])) {
-      const index = cache[collection].findIndex(i => i._id === item._id);
-      if (index >= 0) {
-        cache[collection][index] = item;
-      } else {
-        cache[collection].push(item);
-      }
-    }
-    
-    cache.lastSync = Date.now();
-  },
-
-  async backgroundFirebaseSync(collection, item, uid) {
-    try {
-      // Remove cache metadata before saving to Firebase
-      const { _id, _cachedAt, _synced, ...firebaseData } = item;
-      
-      let result;
-      if (item._id.startsWith('cache_')) {
-        // New item - add to Firestore
-        const docRef = await addDoc(collection(db, "users", uid, collection), firebaseData);
-        result = docRef.id;
-      } else {
-        // Existing item - update in Firestore
-        await updateDoc(doc(db, "users", uid, collection, item._id), firebaseData);
-        result = item._id;
-      }
-      
-      // Mark as synced in cache
-      this.markAsSynced(collection, item._id, result);
-      console.log(`☁️ Background sync successful: ${collection} - ${item._id}`);
-      
-    } catch (error) {
-      console.error(`❌ Background sync failed for ${collection}:`, error);
-      // Item remains in cache as unsynced, will retry later
-    }
-  },
-
-  markAsSynced(collection, cacheId, firebaseId) {
-    // Update localStorage
-    const key = `worklog_${collection}`;
-    const existing = JSON.parse(localStorage.getItem(key) || '[]');
-    const updated = existing.map(item => {
-      if (item._id === cacheId) {
-        return { ...item, _synced: true, _firebaseId: firebaseId };
-      }
-      return item;
-    });
-    localStorage.setItem(key, JSON.stringify(updated));
-    
-    // Update UI cache
-    if (cache[collection]) {
-      cache[collection] = cache[collection].map(item => {
-        if (item._id === cacheId) {
-          return { ...item, _synced: true, _firebaseId: firebaseId };
-        }
-        return item;
-      });
-    }
-  },
-
-  // Load cached data on app start
-  loadCachedData() {
-    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
-    collections.forEach(collection => {
-      const key = `worklog_${collection}`;
-      const cached = JSON.parse(localStorage.getItem(key) || '[]');
-      if (cached.length > 0) {
-        cache[collection] = cached;
-        console.log(`📁 Loaded ${cached.length} cached ${collection} from localStorage`);
-      }
-    });
-    
-    // Retry syncing any unsynced items
-    this.retryUnsyncedItems();
-  },
-
-  async retryUnsyncedItems() {
-    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
-    const user = auth.currentUser;
-    if (!user) return;
-
-    collections.forEach(collection => {
-      const key = `worklog_${collection}`;
-      const cached = JSON.parse(localStorage.getItem(key) || '[]');
-      const unsynced = cached.filter(item => !item._synced);
-      
-      unsynced.forEach(item => {
-        console.log(`🔄 Retrying sync for ${collection}: ${item._id}`);
-        this.backgroundFirebaseSync(collection, item, user.uid);
-      });
-    });
-  },
-
-  // Get cache status for UI
-  getCacheStatus() {
-    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
-    let total = 0;
-    let unsynced = 0;
-
-    collections.forEach(collection => {
-      const key = `worklog_${collection}`;
-      const cached = JSON.parse(localStorage.getItem(key) || '[]');
-      total += cached.length;
-      unsynced += cached.filter(item => !item._synced).length;
-    });
-
-    return { total, unsynced };
-  }
-};
-
-// Update the initializeApp function to load cached data
-/*function initializeApp() {
-  console.log('🚀 Initializing WorkLog App...');
-  
-  // Load cached data immediately
-  EnhancedCache.loadCachedData();
-  
-  // Initialize all systems
-  UIManager.init();
-  SyncBar.init();
-  setupProfileModal();
-  setupFloatingAddButton();
-  
-  // Initialize all form listeners
-  setupStudentFormListeners();
-  setupPaymentFormListeners();
-  setupAttendanceFormListeners();
-  setupHoursFormListeners();
-  setupMarksFormListeners();
-  setupReportTabListeners();
-  
-  updateHeaderStats();
-  
-  // Update sync status display
-  updateCacheStatusDisplay();
-  
-  if (syncMessage) syncMessage.textContent = "Cloud Sync: Ready";
-  if (syncMessageLine) syncMessageLine.textContent = "Status: Connected";
-  
-  const user = auth.currentUser;
-  if (user) {
-    console.log('👤 User authenticated, loading data...');
-    loadInitialData(user);
-  }
-  
-  console.log('✅ WorkLog App Fully Initialized');
-}
-
-function updateCacheStatusDisplay() {
-  const status = EnhancedCache.getCacheStatus();
-  const cacheStatusElement = document.getElementById('cacheStatus') || createCacheStatusElement();
-  
-  if (status.unsynced > 0) {
-    cacheStatusElement.innerHTML = `💾 ${status.total} items (${status.unsynced} syncing...)`;
-    cacheStatusElement.style.color = 'var(--warning)';
-  } else {
-    cacheStatusElement.innerHTML = `💾 ${status.total} items (synced)`;
-    cacheStatusElement.style.color = 'var(--success)';
-  }
-}
-
-function createCacheStatusElement() {
-  const statusElement = document.createElement('span');
-  statusElement.id = 'cacheStatus';
-  statusElement.style.marginLeft = '12px';
-  statusElement.style.fontSize = '0.8rem';
-  statusElement.style.fontWeight = '500';
-  
-  const storageStatus = document.querySelector('.storage-status');
-  if (storageStatus) {
-    storageStatus.appendChild(statusElement);
-  }
-  
-  return statusElement;
-}
-
-// Update cache status every 10 seconds
-setInterval(updateCacheStatusDisplay, 10000); */
-
-// ===========================
-// ENHANCED REAL-TIME STATS SYSTEM
-// ===========================
-
-/*const EnhancedStats = {
-  // Initialize stats system
-  init() {
-    this.setupStatsUpdaters();
-    this.startStatsRefresh();
-    console.log('✅ Enhanced stats system initialized');
-  },
-
-  // Set up functions to update stats when data changes
-  setupStatsUpdaters() {
-    // These will be called whenever data is added/updated
-    this.updateStudentStats = this.debounce(() => this.calculateStudentStats(), 500);
-    this.updateHoursStats = this.debounce(() => this.calculateHoursStats(), 500);
-    this.updateMarksStats = this.debounce(() => this.calculateMarksStats(), 500);
-    this.updateAttendanceStats = this.debounce(() => this.calculateAttendanceStats(), 500);
-    this.updatePaymentStats = this.debounce(() => this.calculatePaymentStats(), 500);
-    this.updateOverviewStats = this.debounce(() => this.calculateOverviewStats(), 1000);
-  },
-
-  // Debounce function to prevent too frequent updates
-  debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-      const later = () => {
-        clearTimeout(timeout);
-        func(...args);
-      };
-      clearTimeout(timeout);
-      timeout = setTimeout(later, wait);
-    };
-  },
-
-  // Start periodic stats refresh
-  startStatsRefresh() {
-    // Refresh stats every 30 seconds
-    setInterval(() => {
-      this.refreshAllStats();
-    }, 30000);
-  },
-
-  // Refresh all stats
-  async refreshAllStats() {
-    try {
-      await Promise.all([
-        this.calculateStudentStats(),
-        this.calculateHoursStats(),
-        this.calculateMarksStats(),
-        this.calculateAttendanceStats(),
-        this.calculatePaymentStats(),
-        this.calculateOverviewStats()
-      ]);
-      console.log('✅ All stats refreshed');
-    } catch (error) {
-      console.error('❌ Error refreshing stats:', error);
-    }
-  },
-
-  // Calculate and update student stats
-  async calculateStudentStats() {
-    try {
-      const students = cache.students || [];
-      const studentCount = students.length;
-      
-      // Calculate average rate
-      const totalRate = students.reduce((sum, student) => sum + (student.rate || 0), 0);
-      const averageRate = studentCount > 0 ? totalRate / studentCount : 0;
-      
-      // Update DOM
-      this.updateElement('studentCount', studentCount);
-      this.updateElement('averageRate', fmtMoney(averageRate));
-      this.updateElement('totalStudentsCount', studentCount);
-      this.updateElement('totalStudentsReport', studentCount);
-      
-    } catch (error) {
-      console.error('Error calculating student stats:', error);
-    }
-  },
-
-  // Calculate and update hours stats
-  async calculateHoursStats() {
-    try {
-      const hours = cache.hours || [];
-      const now = new Date();
-      
-      // This week
-      const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() - now.getDay());
-      weekStart.setHours(0, 0, 0, 0);
-      
-      // This month
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      
-      const weeklyData = hours.filter(entry => {
-        const entryDate = new Date(entry.date || entry.dateIso);
-        return entryDate >= weekStart;
-      });
-      
-      const monthlyData = hours.filter(entry => {
-        const entryDate = new Date(entry.date || entry.dateIso);
-        return entryDate >= monthStart;
-      });
-      
-      const weeklyHours = weeklyData.reduce((sum, entry) => sum + (entry.hours || 0), 0);
-      const weeklyTotal = weeklyData.reduce((sum, entry) => sum + (entry.total || 0), 0);
-      const monthlyHours = monthlyData.reduce((sum, entry) => sum + (entry.hours || 0), 0);
-      const monthlyTotal = monthlyData.reduce((sum, entry) => sum + (entry.total || 0), 0);
-      
-      // Update DOM
-      this.updateElement('weeklyHours', weeklyHours.toFixed(1));
-      this.updateElement('weeklyTotal', fmtMoney(weeklyTotal));
-      this.updateElement('monthlyHours', monthlyHours.toFixed(1));
-      this.updateElement('monthlyTotal', fmtMoney(monthlyTotal));
-      this.updateElement('totalHoursReport', (cache.hours?.reduce((sum, entry) => sum + (entry.hours || 0), 0) || 0).toFixed(1));
-      this.updateElement('totalEarningsReport', `$${fmtMoney(cache.hours?.reduce((sum, entry) => sum + (entry.total || 0), 0) || 0)}`);
-      
-    } catch (error) {
-      console.error('Error calculating hours stats:', error);
-    }
-  },
-
-  // Calculate and update marks stats
-  async calculateMarksStats() {
-    try {
-      const marks = cache.marks || [];
-      const marksCount = marks.length;
-      
-      // Calculate average percentage
-      const totalPercentage = marks.reduce((sum, mark) => sum + (mark.percentage || 0), 0);
-      const avgPercentage = marksCount > 0 ? totalPercentage / marksCount : 0;
-      
-      // Grade distribution
-      const gradeDistribution = { A: 0, B: 0, C: 0, D: 0, F: 0 };
-      marks.forEach(mark => {
-        const grade = mark.grade || 'F';
-        if (gradeDistribution[grade] !== undefined) {
-          gradeDistribution[grade]++;
-        }
-      });
-      
-      // Update DOM
-      this.updateElement('marksCount', marksCount);
-      this.updateElement('avgMarks', avgPercentage.toFixed(1));
-      this.updateElement('avgMarkReport', `${avgPercentage.toFixed(1)}%`);
-      
-    } catch (error) {
-      console.error('Error calculating marks stats:', error);
-    }
-  },
-
-  // Calculate and update attendance stats
-  async calculateAttendanceStats() {
-    try {
-      const attendance = cache.attendance || [];
-      const attendanceCount = attendance.length;
-      
-      // Last session date
-      const lastSession = attendance.length > 0 
-        ? attendance.reduce((latest, session) => {
-            const sessionDate = new Date(session.date || session.dateIso);
-            const latestDate = new Date(latest.date || latest.dateIso);
-            return sessionDate > latestDate ? session : latest;
-          })
-        : null;
-      
-      // Update DOM
-      this.updateElement('attendanceCount', attendanceCount);
-      this.updateElement('lastSessionDate', lastSession ? formatDate(lastSession.date) : 'Never');
-      
-    } catch (error) {
-      console.error('Error calculating attendance stats:', error);
-    }
-  },
-
-  // Calculate and update payment stats
-  async calculatePaymentStats() {
-    try {
-      const payments = cache.payments || [];
-      const now = new Date();
-      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      
-      // Monthly payments
-      const monthlyPayments = payments
-        .filter(payment => (payment.date || '').startsWith(currentMonth))
-        .reduce((sum, payment) => sum + (payment.amount || 0), 0);
-      
-      // Total payments
-      const totalPayments = payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
-      
-      // Update DOM
-      this.updateElement('monthlyPayments', `$${fmtMoney(monthlyPayments)}`);
-      this.updateElement('totalPaymentsReport', `$${fmtMoney(totalPayments)}`);
-      
-      // Calculate outstanding balance
-      await this.calculateOutstandingBalance();
-      
-    } catch (error) {
-      console.error('Error calculating payment stats:', error);
-    }
-  },
-
-  // Calculate outstanding balance
-  async calculateOutstandingBalance() {
-    try {
-      const students = cache.students || [];
-      const hours = cache.hours || [];
-      const payments = cache.payments || [];
-      
-      const earningsByStudent = {};
-      hours.forEach(entry => {
-        const studentId = entry.student;
-        if (studentId) {
-          earningsByStudent[studentId] = (earningsByStudent[studentId] || 0) + (entry.total || 0);
-        }
-      });
-      
-      const paymentsByStudent = {};
-      payments.forEach(payment => {
-        const studentId = payment.student;
-        if (studentId) {
-          paymentsByStudent[studentId] = (paymentsByStudent[studentId] || 0) + (payment.amount || 0);
-        }
-      });
-      
-      let totalOwed = 0;
-      students.forEach(student => {
-        const earned = earningsByStudent[student.id] || 0;
-        const paid = paymentsByStudent[student.id] || 0;
-        const owed = Math.max(earned - paid, 0);
-        totalOwed += owed;
-      });
-      
-      // Update DOM
-      this.updateElement('totalOwed', `$${fmtMoney(totalOwed)}`);
-      this.updateElement('outstandingBalance', `$${fmtMoney(totalOwed)}`);
-      
-    } catch (error) {
-      console.error('Error calculating outstanding balance:', error);
-    }
-  },
-
-  // Calculate overview stats
-  async calculateOverviewStats() {
-    // This aggregates all the main stats for the overview/reports tab
-    // Most calculations are already done in the individual stat functions
-    console.log('📊 Overview stats calculated');
-  },
-
-  // Helper function to update DOM elements
-  updateElement(id, value) {
-    const element = document.getElementById(id);
-    if (element) {
-      element.textContent = value;
-    }
-  },
-
-  // Force refresh all stats (call this when new data is added)
-  forceRefresh() {
-    this.refreshAllStats();
-  }
-};
-
-// Update the initializeApp function to include stats system
-function initializeApp() {
-  console.log('🚀 Initializing WorkLog App...');
-  
-  // Load cached data immediately
-  EnhancedCache.loadCachedData();
-  
-  // Initialize all systems
-  UIManager.init();
-  SyncBar.init();
-  EnhancedStats.init(); // ← ADD THIS LINE
-  setupProfileModal();
-  setupFloatingAddButton();
-  
-  // Initialize all form listeners
-  setupStudentFormListeners();
-  setupPaymentFormListeners();
-  setupAttendanceFormListeners();
-  setupHoursFormListeners();
-  setupMarksFormListeners();
-  setupReportTabListeners();
-  
-  updateHeaderStats();
-  
-  // Update sync status display
-  updateCacheStatusDisplay();
-  
-  if (syncMessage) syncMessage.textContent = "Cloud Sync: Ready";
-  if (syncMessageLine) syncMessageLine.textContent = "Status: Connected";
-  
-  const user = auth.currentUser;
-  if (user) {
-    console.log('👤 User authenticated, loading data...');
-    loadInitialData(user);
-  }
-  
-  console.log('✅ WorkLog App Fully Initialized');
-}
-
-// Update cache functions to trigger stats refresh
-// In the EnhancedCache.backgroundFirebaseSync function, add this after successful sync:
-// EnhancedStats.forceRefresh(); // Refresh stats when new data is synced
-
-// ===========================
-// ENHANCED FORM AUTO-CLEARING SYSTEM
-// ===========================
-
-const FormAutoClear = {
-  // Configure which forms should auto-clear and their conditions
-  config: {
-    'studentForm': {
-      clearOnSuccess: true,
-      preserveFields: [], // Fields to preserve (none for student form)
-      successMessage: 'Student added successfully! Form cleared.',
-      focusField: 'studentName' // Field to focus after clear
-    },
-    'hoursForm': {
-      clearOnSuccess: true,
-      preserveFields: ['baseRate'], // Keep rate for quick entry
-      successMessage: 'Hours logged successfully! Form cleared.',
-      focusField: 'organization'
-    },
-    'marksForm': {
-      clearOnSuccess: true,
-      preserveFields: ['marksStudent', 'marksSubject'], // Keep student/subject for multiple marks
-      successMessage: 'Mark added successfully! Form cleared.',
-      focusField: 'marksScore'
-    },
-    'attendanceForm': {
-      clearOnSuccess: false, // Don't clear attendance - user might want multiple entries
-      preserveFields: [],
-      successMessage: 'Attendance recorded successfully!',
-      focusField: 'attendanceDate'
-    },
-    'paymentForm': {
-      clearOnSuccess: true,
-      preserveFields: ['paymentStudent'], // Keep student for multiple payments
-      successMessage: 'Payment recorded successfully! Form cleared.',
-      focusField: 'paymentAmount'
-    }
-  },
-
-  // Clear form based on configuration
-  clearForm(formId, preservedData = {}) {
-    const form = document.getElementById(formId);
-    if (!form) {
-      console.warn(`Form ${formId} not found for auto-clear`);
-      return;
-    }
-
-    const config = this.config[formId];
-    if (!config) {
-      console.warn(`No config found for form ${formId}`);
-      return;
-    }
-
-    // Get all form elements
-    const elements = form.elements;
-    
-    // Store preserved values
-    const preserveValues = {};
-    config.preserveFields.forEach(field => {
-      if (preservedData[field]) {
-        preserveValues[field] = preservedData[field];
-      } else {
-        const element = elements[field];
-        if (element) preserveValues[field] = element.value;
-      }
-    });
-
-    // Reset form
-    form.reset();
-
-    // Restore preserved values
-    Object.keys(preserveValues).forEach(field => {
-      const element = elements[field];
-      if (element) {
-        element.value = preserveValues[field];
-      }
-    });
-
-    // Set today's date for date fields if they're empty
-    this.setDefaultDates(form);
-
-    // Focus on specified field
-    if (config.focusField) {
-      const focusElement = elements[config.focusField];
-      if (focusElement) {
-        setTimeout(() => focusElement.focus(), 100);
-      }
-    }
-
-    console.log(`✅ Form ${formId} auto-cleared`);
-  },
-
-  setDefaultDates(form) {
-    const dateFields = form.querySelectorAll('input[type="date"]');
-    const today = new Date().toISOString().split('T')[0];
-    
-    dateFields.forEach(field => {
-      if (!field.value) {
-        field.value = today;
-      }
-    });
-  },
-
-  // Enhanced success handler for form submissions
-  handleSuccess(formId, customData = {}) {
-    const config = this.config[formId];
-    if (!config) return;
-
-    if (config.clearOnSuccess) {
-      this.clearForm(formId, customData);
-    }
-    
-    // Show success message
-    if (config.successMessage) {
-      NotificationSystem.notifySuccess(config.successMessage);
-    }
-  }
-};
-
-// Update form submission functions to use auto-clear
-async function addStudent() {
-  console.log('🎯 Starting addStudent...');
-  
-  const name = document.getElementById("studentName")?.value.trim();
-  const id = document.getElementById("studentId")?.value.trim();
-  const gender = document.getElementById("studentGender")?.value;
-  const email = document.getElementById("studentEmail")?.value.trim();
-  const phone = document.getElementById("studentPhone")?.value.trim();
-  const rate = parseFloat(document.getElementById("studentBaseRate")?.value) || 0;
-
-  if (!name || !id || !gender) {
-    NotificationSystem.notifyError("Please fill required fields: Name, ID, Gender");
-    return;
-  }
-
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError("Please log in to add students");
-    return;
-  }
-
- try {
-  // Show loading state
-  const submitBtn = document.getElementById('studentSubmitBtn');
-  if (submitBtn) {
-    submitBtn.textContent = 'Saving...';
-    submitBtn.disabled = true;
-  }
-
-  const student = { 
-    name, 
-    id, 
-    gender, 
-    email, 
-    phone, 
-    rate,
-    createdAt: getLocalISODate()
-  };
-
-  // ENHANCED: Save with cache system and background sync
-  const cacheId = await EnhancedCache.saveWithBackgroundSync('students', student);
-  
-  if (cacheId) {
-    // ENHANCED: Handle success with auto-clear
-    FormAutoClear.handleSuccess('studentForm');
-    
-    // Update UI immediately
-    addStudentToCache(student);
-    
-    // ENHANCED: Refresh stats
-    EnhancedStats.forceRefresh();
-    
-    // Update stats in background
-    incrementStudentCount(user.uid).catch(console.error);
-    loadStudentsForDropdowns().catch(console.error);
-    
-    console.log('✅ Student saved with enhanced system');
-  } else {
-    throw new Error('Cache save failed');
-  }
-} catch (err) {
-  console.error("❌ Error adding student:", err);
-  NotificationSystem.notifyError("Failed to add student: " + err.message);
-  
-  // Re-enable button
-  const submitBtn = document.getElementById('studentSubmitBtn');
-  if (submitBtn) {
-    submitBtn.textContent = '➕ Add Student';
-    submitBtn.disabled = false;
-  }
-}*/
-  
-// Update other form submission functions similarly...
-// (You'll want to update logHours, addMark, saveAttendance, recordPayment in the same way)
-
-// ===========================
-// IMPORTS
+// IMPORTS & INITIALIZATION
 // ===========================
 
 import { 
@@ -824,1180 +52,679 @@ const importDataBtn = document.getElementById("importDataBtn");
 const clearDataBtn = document.getElementById("clearDataBtn");
 
 // ===========================
-// UTILITY FUNCTIONS
+// CORE SYSTEMS INITIALIZATION
 // ===========================
 
-function safeNumber(n, fallback = 0) {
-  if (n === null || n === undefined || n === '') return fallback;
-  const v = Number(n);
-  return Number.isFinite(v) ? v : fallback;
-}
-
-function fmtMoney(n) {
-  return safeNumber(n).toFixed(2);
-}
-
-// Enhanced timezone handling functions
-function fmtDateISO(yyyyMmDd) {
-  if (!yyyyMmDd) return new Date().toISOString();
-  try {
-    // Create date in local timezone, set to noon to avoid timezone issues
-    const [year, month, day] = yyyyMmDd.split('-');
-    const d = new Date(year, month - 1, day, 12, 0, 0); // Noon to avoid DST issues
-    return d.toISOString();
-  } catch {
-    return new Date().toISOString();
-  }
-}
-
-function formatDate(dateString) {
-  if (!dateString) return 'Never';
-  try {
-    const date = new Date(dateString);
-    // Use toLocaleDateString to respect local timezone
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      timeZone: 'UTC' // Use UTC to avoid day shift
-    });
-  } catch {
-    return dateString;
-  }
-}
-
-function refreshTimestamp() {
-  const now = new Date().toLocaleString();
-  if (syncMessageLine) syncMessageLine.textContent = "Status: Last synced at " + now;
-  if (document.getElementById('statUpdated')) {
-    document.getElementById('statUpdated').textContent = now;
-  }
-}
-
-function calculateGrade(percentage) {
-  if (percentage >= 90) return 'A';
-  if (percentage >= 80) return 'B';
-  if (percentage >= 70) return 'C';
-  if (percentage >= 60) return 'D';
-  return 'F';
-}
-
-// Timezone utility functions
-function getLocalISODate() {
-  const now = new Date();
-  const tzOffset = -now.getTimezoneOffset();
-  const diff = tzOffset >= 0 ? '+' : '-';
-  const pad = n => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
-  return now.getFullYear() +
-    '-' + pad(now.getMonth() + 1) +
-    '-' + pad(now.getDate()) +
-    'T' + pad(now.getHours()) +
-    ':' + pad(now.getMinutes()) +
-    ':' + pad(now.getSeconds()) +
-    diff + pad(tzOffset / 60) +
-    ':' + pad(tzOffset % 60);
-}
-
-function formatDateForInput(dateString) {
-  if (!dateString) return new Date().toISOString().split('T')[0];
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) {
-      return new Date().toISOString().split('T')[0];
+class WorklogApp {
+  static async init() {
+    console.log('🚀 Initializing Worklog App...');
+    
+    try {
+      // Initialize core systems in order
+      NotificationSystem.initNotificationStyles();
+      initializeTheme();
+      setupThemeToggle();
+      EnhancedCache.loadCachedData();
+      EnhancedStats.init();
+      
+      // Wait for authentication
+      await this.setupAuth();
+      
+      // Setup UI components
+      this.setupUI();
+      
+      console.log('✅ Worklog App initialized successfully');
+    } catch (error) {
+      console.error('❌ App initialization failed:', error);
+      NotificationSystem.notifyError('App initialization failed');
     }
-    // Convert to local date string to avoid timezone shift
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  } catch {
-    return new Date().toISOString().split('T')[0];
-  }
-}
-
-// ===========================
-// USER PROFILE & AUTHENTICATION
-// ===========================
-
-async function loadUserProfile(uid) {
-  console.log('👤 Loading user profile for:', uid);
-  
-  // Set immediate fallback profile for instant UI update
-  const user = auth.currentUser;
-  const fallbackProfile = {
-    email: user?.email || '',
-    createdAt: new Date().toISOString(),
-    defaultRate: parseFloat(localStorage.getItem('userDefaultRate')) || 0
-  };
-  
-  // Update UI IMMEDIATELY with basic info
-  updateProfileButton(fallbackProfile);
-  initializeDefaultRate(fallbackProfile.defaultRate);
-  
-  try {
-    const userRef = doc(db, "users", uid);
-    const userSnap = await getDoc(userRef);
-    
-    if (userSnap.exists()) {
-      currentUserData = { uid, ...userSnap.data() };
-      console.log('✅ User profile loaded from Firestore');
-      
-      // Update with full profile data
-      updateProfileButton(currentUserData);
-      
-      if (currentUserData.defaultRate !== undefined) {
-        initializeDefaultRate(currentUserData.defaultRate);
-        localStorage.setItem('userDefaultRate', currentUserData.defaultRate.toString());
-      }
-      
-      return currentUserData;
-    } else {
-      // Create profile in background
-      const profileToCreate = {
-        ...fallbackProfile,
-        lastLogin: new Date().toISOString()
-      };
-      
-      setDoc(userRef, profileToCreate).catch(console.error);
-      
-      currentUserData = { uid, ...profileToCreate };
-      return currentUserData;
-    }
-  } catch (err) {
-    console.error("❌ Error loading user profile:", err);
-    console.log('🔄 Using cached profile data');
-    return fallbackProfile;
-  }
-}
-
-function updateProfileButton(userData) {
-  const profileBtn = document.getElementById('profileBtn');
-  const userName = document.getElementById('userName');
-  
-  if (profileBtn || userName) {
-    const email = userData?.email || auth.currentUser?.email || 'User';
-    const displayName = email.split('@')[0];
-    
-    // Update both button and span immediately
-    if (profileBtn) {
-      profileBtn.innerHTML = `👤 ${displayName}`;
-      profileBtn.title = `Logged in as ${email}`;
-    }
-    
-    if (userName) {
-      userName.textContent = displayName;
-    }
-    
-    console.log('✅ Profile updated:', displayName);
-  }
-}
-
-async function updateUserDefaultRate(uid, newRate) {
-  try {
-    const userRef = doc(db, "users", uid);
-    await updateDoc(userRef, {
-      defaultRate: newRate,
-      updatedAt: getLocalISODate()
-    });
-    
-    if (currentUserData) {
-      currentUserData.defaultRate = newRate;
-    }
-    
-    console.log('✅ Default rate updated:', newRate);
-    return true;
-  } catch (err) {
-    console.error("❌ Error updating default rate:", err);
-    return false;
-  }
-}
-
-async function applyDefaultRateToAllStudents(uid, newRate) {
-  try {
-    const studentsSnap = await getDocs(collection(db, "users", uid, "students"));
-    const batch = writeBatch(db);
-    let updateCount = 0;
-
-    studentsSnap.forEach((docSnap) => {
-      const studentRef = doc(db, "users", uid, "students", docSnap.id);
-      batch.update(studentRef, { rate: newRate });
-      updateCount++;
-    });
-
-    if (updateCount > 0) {
-      await batch.commit();
-      NotificationSystem.notifySuccess(`Default rate applied to ${updateCount} students`);
-      await renderStudents(); // Refresh the display
-    } else {
-      NotificationSystem.notifyInfo("No students found to update");
-    }
-    
-    return updateCount;
-  } catch (err) {
-    console.error("❌ Error applying rate to all students:", err);
-    NotificationSystem.notifyError("Failed to apply rate to all students");
-    return 0;
-  }
-}
-
-function setupProfileModal() {
-  const profileBtn = document.getElementById('profileBtn');
-  const profileModal = document.getElementById('profileModal');
-  const closeProfileModal = document.getElementById('closeProfileModal');
-  const logoutBtn = document.getElementById('logoutBtn');
-
-  console.log('🔧 Setting up profile modal...');
-
-  // Check if modal elements exist
-  if (!profileModal) {
-    console.error('❌ Profile modal not found in DOM');
-    return;
   }
 
-  // Open modal
-  if (profileBtn && profileModal) {
-    profileBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      console.log('👤 Profile button clicked');
-      
-      // Update modal content with latest data
-      updateProfileModal();
-      
-      profileModal.style.display = 'flex';
-      document.body.classList.add('modal-open');
-    });
-  } else {
-    console.error('❌ Profile button or modal not found');
-  }
-
-  // Close modal with X button
-  if (closeProfileModal) {
-    closeProfileModal.addEventListener('click', () => {
-      closeModal();
-    });
-  }
-
-  // Logout functionality
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', async () => {
-      if (confirm('Are you sure you want to logout?')) {
-        try {
-          await signOut(auth);
+  static setupAuth() {
+    return new Promise((resolve) => {
+      onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          console.log('👤 User authenticated:', user.email);
+          await this.handleUserLogin(user);
+          resolve();
+        } else {
+          console.log('👤 No user, redirecting to auth...');
           window.location.href = "auth.html";
-        } catch (error) {
-          console.error('Logout error:', error);
-          NotificationSystem.notifyError('Logout failed');
         }
+      });
+    });
+  }
+
+  static async handleUserLogin(user) {
+    try {
+      // Load user profile and data in parallel
+      await Promise.all([
+        loadUserProfile(user.uid),
+        this.loadInitialData(user.uid)
+      ]);
+      
+      // Initialize systems that depend on user data
+      SyncBar.init();
+      setupProfileModal();
+      setupFloatingAddButton();
+      updateHeaderStats();
+      
+      NotificationSystem.notifySuccess(`Welcome back, ${user.email.split('@')[0]}!`);
+    } catch (error) {
+      console.error('❌ Error during user login:', error);
+      NotificationSystem.notifyError('Error loading user data');
+    }
+  }
+
+  static async loadInitialData(uid) {
+    console.log('📦 Loading initial data...');
+    
+    try {
+      await Promise.all([
+        loadUserStats(uid),
+        renderStudents(),
+        renderRecentHours(),
+        renderRecentMarks(),
+        renderAttendanceRecent(),
+        renderPaymentActivity(),
+        renderStudentBalances(),
+        renderOverviewReports()
+      ]);
+      
+      console.log('✅ Initial data loaded successfully');
+    } catch (error) {
+      console.error('❌ Error loading initial data:', error);
+      throw error;
+    }
+  }
+
+  static setupUI() {
+    // Setup tab navigation
+    this.setupTabNavigation();
+    
+    // Setup form handlers
+    this.setupFormHandlers();
+    
+    // Setup event listeners
+    this.setupGlobalEventListeners();
+    
+    console.log('✅ UI setup completed');
+  }
+
+  static setupTabNavigation() {
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const targetTab = button.getAttribute('data-tab');
+        this.switchTab(targetTab);
+      });
+    });
+    
+    // Set initial tab
+    this.switchTab('overview');
+  }
+
+  static switchTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    
+    // Update tab content
+    document.querySelectorAll('.tab-content').forEach(content => {
+      content.classList.remove('active');
+    });
+    document.getElementById(tabName).classList.add('active');
+    
+    console.log(`📑 Switched to tab: ${tabName}`);
+  }
+
+  static setupFormHandlers() {
+    // Student form
+    const studentForm = document.getElementById('studentForm');
+    if (studentForm) {
+      studentForm.addEventListener('submit', handleStudentSubmit);
+    }
+    
+    // Hours form
+    const hoursForm = document.getElementById('hoursForm');
+    if (hoursForm) {
+      hoursForm.addEventListener('submit', handleHoursSubmit);
+    }
+    
+    // Marks form
+    const marksForm = document.getElementById('marksForm');
+    if (marksForm) {
+      marksForm.addEventListener('submit', handleMarksSubmit);
+    }
+    
+    // Attendance form
+    const attendanceForm = document.getElementById('attendanceForm');
+    if (attendanceForm) {
+      attendanceForm.addEventListener('submit', handleAttendanceSubmit);
+    }
+    
+    // Payment form
+    const paymentForm = document.getElementById('paymentForm');
+    if (paymentForm) {
+      paymentForm.addEventListener('submit', handlePaymentSubmit);
+    }
+  }
+
+  static setupGlobalEventListeners() {
+    // Global keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      // Ctrl/Cmd + S for quick sync
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        SyncBar.performSync('manual');
+      }
+      
+      // Escape key to close modals
+      if (e.key === 'Escape') {
+        this.closeAllModals();
+      }
+    });
+    
+    // Window focus event for auto-refresh
+    window.addEventListener('focus', () => {
+      if (isAutoSyncEnabled) {
+        EnhancedStats.forceRefresh();
       }
     });
   }
 
-  // Close modal when clicking outside
-  window.addEventListener('click', (event) => {
-    if (profileModal && event.target === profileModal) {
-      closeModal();
-    }
-  });
-
-  // Close modal with Escape key
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && profileModal && profileModal.style.display === 'flex') {
-      closeModal();
-    }
-  });
-
-  function closeModal() {
-    profileModal.style.display = 'none';
+  static closeAllModals() {
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+      modal.style.display = 'none';
+    });
     document.body.classList.remove('modal-open');
   }
 }
 
-function updateProfileModal() {
-  const profileUserEmail = document.getElementById('profileUserEmail');
-  const profileUserSince = document.getElementById('profileUserSince');
-  const profileDefaultRate = document.getElementById('profileDefaultRate');
-  const modalStatStudents = document.getElementById('modalStatStudents');
-  const modalStatHours = document.getElementById('modalStatHours');
-  const modalStatEarnings = document.getElementById('modalStatEarnings');
-  const modalStatUpdated = document.getElementById('modalStatUpdated');
+// ===========================
+// ENHANCED CACHE SYSTEM
+// ===========================
 
-  // Update user info
-  if (currentUserData) {
-    const email = currentUserData.email || auth.currentUser?.email || 'Not available';
-    if (profileUserEmail) profileUserEmail.textContent = email;
-    
-    const createdAt = currentUserData.createdAt || currentUserData.lastLogin || new Date().toISOString();
-    if (profileUserSince) profileUserSince.textContent = formatDate(createdAt);
-    
-    if (profileDefaultRate) {
-      profileDefaultRate.textContent = `$${fmtMoney(currentUserData.defaultRate || 0)}/hour`;
-    }
-  }
+const cache = {
+  students: null,
+  hours: null,
+  marks: null,
+  attendance: null,
+  payments: null,
+  lastSync: null
+};
 
-  // Get fresh stats from DOM or calculate
-  const statStudents = document.getElementById('statStudents');
-  const statHours = document.getElementById('statHours');
-  const statEarnings = document.getElementById('statEarnings');
-  const statUpdated = document.getElementById('statUpdated');
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-  if (modalStatStudents && statStudents) modalStatStudents.textContent = statStudents.textContent || '0';
-  if (modalStatHours && statHours) modalStatHours.textContent = statHours.textContent || '0';
-  if (modalStatEarnings && statEarnings) modalStatEarnings.textContent = statEarnings.textContent || '$0.00';
-  if (modalStatUpdated && statUpdated) modalStatUpdated.textContent = statUpdated.textContent || 'Never';
-
-  console.log('✅ Profile modal stats updated');
+function isCacheValid(key) {
+  if (!cache[key] || !cache.lastSync) return false;
+  return (Date.now() - cache.lastSync) < CACHE_DURATION;
 }
 
-// ===========================
-// FLOATING ADD BUTTON - FIXED VERSION
-// ===========================
-
-function setupFloatingAddButton() {
-  const fab = document.getElementById('floatingAddBtn');
-  const fabMenu = document.getElementById('fabMenu');
-  const fabOverlay = document.getElementById('fabOverlay');
-
-  console.log('🔧 Setting up FAB...');
-  console.log('FAB elements:', { fab, fabMenu, fabOverlay });
-
-  if (!fab) {
-    console.error('❌ FAB button not found!');
-    return;
-  }
-
-  let isExpanded = false;
-
-  function openFabMenu() {
-    console.log('🟢 Opening FAB menu');
-    isExpanded = true;
-    
-    // Update FAB button
-    fab.innerHTML = '✕';
-    fab.style.transform = 'rotate(45deg)';
-    
-    // Show menu
-    if (fabMenu) {
-      fabMenu.classList.add('show');
+const EnhancedCache = {
+  async saveWithBackgroundSync(collection, data, id = null) {
+    const user = auth.currentUser;
+    if (!user) {
+      console.error('❌ No user authenticated for cache save');
+      return false;
     }
-    
-    // Show overlay
-    if (fabOverlay) {
-      fabOverlay.style.display = 'block';
-      // Add a small delay for overlay to appear before adding click listener
-      setTimeout(() => {
-        fabOverlay.style.pointerEvents = 'auto';
-      }, 10);
-    }
-    
-    console.log('✅ FAB menu opened');
-  }
 
-  function closeFabMenu() {
-    console.log('🔴 Closing FAB menu');
-    isExpanded = false;
-    
-    // Update FAB button
-    fab.innerHTML = '+';
-    fab.style.transform = 'rotate(0deg)';
-    
-    // Hide menu
-    if (fabMenu) {
-      fabMenu.classList.remove('show');
-    }
-    
-    // Hide overlay
-    if (fabOverlay) {
-      fabOverlay.style.display = 'none';
-      fabOverlay.style.pointerEvents = 'none';
-    }
-    
-    console.log('✅ FAB menu closed');
-  }
+    try {
+      const itemId = id || this.generateId();
+      const cacheItem = {
+        ...data,
+        _id: itemId,
+        _cachedAt: Date.now(),
+        _synced: false
+      };
 
-  // Click handler for main FAB button
-  fab.addEventListener('click', (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    console.log('🎯 FAB clicked, current state:', isExpanded);
-    
-    if (isExpanded) {
-      closeFabMenu();
-    } else {
-      openFabMenu();
-    }
-  });
-
-  // Close menu when clicking on overlay
-  if (fabOverlay) {
-    fabOverlay.addEventListener('click', (e) => {
-      console.log('🎯 Overlay clicked');
-      e.stopPropagation();
-      e.preventDefault();
-      closeFabMenu();
-    });
-  }
-
-  // Close menu when clicking anywhere outside
-  document.addEventListener('click', (e) => {
-    if (isExpanded) {
-      // Check if click is outside FAB and menu
-      const isClickOnFab = fab.contains(e.target);
-      const isClickOnMenu = fabMenu && fabMenu.contains(e.target);
+      this.saveToLocalStorage(collection, cacheItem);
+      this.updateUICache(collection, cacheItem);
+      this.backgroundFirebaseSync(collection, cacheItem, user.uid);
       
-      if (!isClickOnFab && !isClickOnMenu) {
-        console.log('🎯 Click outside FAB, closing menu');
-        closeFabMenu();
+      console.log(`✅ ${collection} saved to cache immediately`);
+      return itemId;
+    } catch (error) {
+      console.error(`❌ Cache save failed for ${collection}:`, error);
+      return false;
+    }
+  },
+
+  generateId() {
+    return 'cache_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  },
+
+  saveToLocalStorage(collection, item) {
+    try {
+      const key = `worklog_${collection}`;
+      const existing = JSON.parse(localStorage.getItem(key) || '[]');
+      const filtered = existing.filter(i => i._id !== item._id);
+      filtered.push(item);
+      localStorage.setItem(key, JSON.stringify(filtered));
+      console.log(`💾 Saved to localStorage: ${collection} - ${item._id}`);
+    } catch (error) {
+      console.error('❌ localStorage save failed:', error);
+    }
+  },
+
+  updateUICache(collection, item) {
+    if (cache[collection] === null) cache[collection] = [];
+    if (Array.isArray(cache[collection])) {
+      const index = cache[collection].findIndex(i => i._id === item._id);
+      if (index >= 0) {
+        cache[collection][index] = item;
+      } else {
+        cache[collection].push(item);
       }
     }
-  });
-
-  // Close with Escape key
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && isExpanded) {
-      console.log('🎯 Escape key pressed, closing FAB');
-      closeFabMenu();
-    }
-  });
-
-  // Setup quick action buttons
-  setupFabActions(closeFabMenu);
-  
-  console.log('✅ FAB setup completed');
-}
-
-// Enhanced FAB actions to open forms directly
-function setupFabActions(closeFabMenu) {
-  const quickActions = {
-    'fabAddStudent': () => {
-      console.log('🎯 FAB: Add Student clicked');
-      const studentTab = document.querySelector('[data-tab="students"]');
-      if (studentTab) {
-        studentTab.click();
-        // Scroll to student form
-        setTimeout(() => {
-          const studentForm = document.getElementById('studentForm');
-          if (studentForm) {
-            studentForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            // Focus on first input
-            const firstInput = studentForm.querySelector('input');
-            if (firstInput) firstInput.focus();
-          }
-        }, 300);
-      }
-    },
-    'fabAddHours': () => {
-      console.log('🎯 FAB: Add Hours clicked');
-      const hoursTab = document.querySelector('[data-tab="hours"]');
-      if (hoursTab) {
-        hoursTab.click();
-        // Scroll to hours form
-        setTimeout(() => {
-          const hoursForm = document.querySelector('#hours .section-card:first-child');
-          if (hoursForm) {
-            hoursForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            const firstInput = hoursForm.querySelector('input');
-            if (firstInput) firstInput.focus();
-          }
-        }, 300);
-      }
-    },
-    'fabAddMark': () => {
-      console.log('🎯 FAB: Add Mark clicked');
-      const marksTab = document.querySelector('[data-tab="marks"]');
-      if (marksTab) {
-        marksTab.click();
-        // Scroll to marks form
-        setTimeout(() => {
-          const marksForm = document.getElementById('marksForm');
-          if (marksForm) {
-            marksForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            const firstInput = marksForm.querySelector('input, select');
-            if (firstInput) firstInput.focus();
-          }
-        }, 300);
-      }
-    },
-    'fabAddAttendance': () => {
-      console.log('🎯 FAB: Add Attendance clicked');
-      const attendanceTab = document.querySelector('[data-tab="attendance"]');
-      if (attendanceTab) {
-        attendanceTab.click();
-        // Scroll to attendance form
-        setTimeout(() => {
-          const attendanceForm = document.querySelector('#attendance .section-card:first-child');
-          if (attendanceForm) {
-            attendanceForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            const firstInput = attendanceForm.querySelector('input');
-            if (firstInput) firstInput.focus();
-          }
-        }, 300);
-      }
-    }
-  };
-
-  // Attach event listeners to quick action buttons
-  Object.keys(quickActions).forEach(btnId => {
-    const btn = document.getElementById(btnId);
-    if (btn) {
-      console.log(`✅ Found FAB action button: ${btnId}`);
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        console.log(`🎯 FAB action triggered: ${btnId}`);
-        quickActions[btnId]();
-        closeFabMenu();
-      });
-    } else {
-      console.warn(`⚠️ FAB action button not found: ${btnId}`);
-    }
-  });
-}
-
-// ===========================
-// THEME MANAGEMENT - SIMPLE VERSION
-// ===========================
-
-function updateThemeIcon(theme) {
-    const themeButton = document.querySelector('.theme-toggle button');
-    if (!themeButton) return;
-    
-    // Keep the same "🌓" icon but update the tooltip
-    if (theme === 'dark') {
-        themeButton.setAttribute('title', 'Switch to light mode');
-    } else {
-        themeButton.setAttribute('title', 'Switch to dark mode');
-    }
-}
-
-function toggleTheme() {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    
-    document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
-    updateThemeIcon(newTheme);
-    
-    console.log(`🎨 Theme changed to ${newTheme}`);
-}
-
-function setupThemeToggle() {
-    const themeToggle = document.querySelector('.theme-toggle button');
-    if (themeToggle) {
-        themeToggle.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleTheme();
-        });
-    }
-}
-
-function initializeTheme() {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    updateThemeIcon(savedTheme);
-}
-
-// ===========================
-// HEADER STATS
-// ===========================
-
-// Enhanced debug version of updateHeaderStats
-function updateHeaderStats() {
-  console.log('🔍 [updateHeaderStats] Starting...');
-  
-  const localStatus = document.getElementById('localStatus');
-  const syncStatus = document.getElementById('syncStatus');
-  const dataStatus = document.getElementById('dataStatus');
-  const statStudents = document.getElementById('statStudents');
-  const statHours = document.getElementById('statHours');
-  
-  if (localStatus) {
-    localStatus.textContent = '💾 Local Storage: Active';
-  }
-  
-  if (syncStatus) {
-    const isAutoSync = localStorage.getItem('autoSyncEnabled') === 'true';
-    syncStatus.textContent = isAutoSync ? '☁️ Cloud Sync: Auto' : '☁️ Cloud Sync: Manual';
-  }
-  
-  // dataStatus will auto-update when statStudents and statHours update
-  console.log('✅ [updateHeaderStats] Header stats structure verified');
-}
-
-// ===========================
-// FIRESTORE DATA FUNCTIONS
-// ===========================
-
-async function loadUserStats(uid) {
-  console.log('📊 Loading user stats for:', uid);
-  try {
-    const statsRef = doc(db, "users", uid);
-    const statsSnap = await getDoc(statsRef);
-
-    console.log('📊 Stats snapshot exists:', statsSnap.exists());
-    
-    if (statsSnap.exists()) {
-      const stats = statsSnap.data();
-      console.log('📊 Stats data loaded:', stats);
-      
-      // Update UI elements
-      if (document.getElementById('statStudents')) {
-        document.getElementById('statStudents').textContent = stats.students ?? 0;
-      }
-      if (document.getElementById('statHours')) {
-        document.getElementById('statHours').textContent = stats.hours ?? 0;
-      }
-      if (document.getElementById('statEarnings')) {
-        const earnings = stats.earnings != null ? fmtMoney(stats.earnings) : "0.00";
-        document.getElementById('statEarnings').textContent = earnings;
-      }
-    } else {
-      console.log('📊 No stats found, creating default stats...');
-      await setDoc(statsRef, { 
-        students: 0, 
-        hours: 0, 
-        earnings: 0,
-        lastSync: new Date().toLocaleString()
-      });
-      
-      // Set UI to 0
-      if (document.getElementById('statStudents')) document.getElementById('statStudents').textContent = 0;
-      if (document.getElementById('statHours')) document.getElementById('statHours').textContent = 0;
-      if (document.getElementById('statEarnings')) document.getElementById('statEarnings').textContent = "0.00";
-    }
-
-    refreshTimestamp();
-    console.log('✅ User stats loaded successfully');
-    
-  } catch (err) {
-    console.error("❌ Error loading stats:", err);
-    if (syncMessageLine) syncMessageLine.textContent = "Status: Offline – stats unavailable";
-  }
-}
-
-async function updateUserStats(uid, newStats) {
-  try {
-    const statsRef = doc(db, "users", uid);
-    await setDoc(statsRef, newStats, { merge: true });
-    console.log("✅ Stats updated:", newStats);
-
-    // Update DOM elements
-    if (newStats.students !== undefined) {
-      const statStudents = document.getElementById('statStudents');
-      if (statStudents) statStudents.textContent = newStats.students;
-    }
-    if (newStats.hours !== undefined) {
-      const statHours = document.getElementById('statHours');
-      if (statHours) statHours.textContent = newStats.hours;
-    }
-    if (newStats.earnings !== undefined) {
-      const statEarnings = document.getElementById('statEarnings');
-      if (statEarnings) statEarnings.textContent = fmtMoney(newStats.earnings);
-    }
-    if (newStats.lastSync !== undefined) {
-      const statUpdated = document.getElementById('statUpdated');
-      if (statUpdated) statUpdated.textContent = newStats.lastSync;
-    }
-
-    // Update header stats after DOM updates
-    updateHeaderStats();
-    refreshTimestamp();
-  } catch (err) {
-    console.error("❌ Error updating stats:", err);
-    if (syncMessageLine) syncMessageLine.textContent = "Status: Failed to update stats";
-  }
-}
-
-async function recalcSummaryStats(uid) {
-  try {
-    console.log('🔄 Recalculating summary stats for:', uid);
-    
-    const [studentsSnap, hoursSnap] = await Promise.all([
-      getDocs(collection(db, "users", uid, "students")),
-      getDocs(collection(db, "users", uid, "hours"))
-    ]);
-
-    const studentsCount = studentsSnap.size;
-    let totalHours = 0;
-    let totalEarnings = 0;
-
-    hoursSnap.forEach(h => {
-      const d = h.data();
-      totalHours += safeNumber(d.hours);
-      totalEarnings += safeNumber(d.total);
-    });
-
-    console.log('📊 Calculated stats:', {
-      students: studentsCount,
-      hours: totalHours,
-      earnings: totalEarnings
-    });
-
-    await updateUserStats(uid, {
-      students: studentsCount,
-      hours: totalHours,
-      earnings: totalEarnings,
-      lastSync: new Date().toLocaleString()
-    });
-
-    // Update header stats AFTER updating user stats
-    updateHeaderStats();
-    
-    console.log('✅ Summary stats recalculated successfully');
-  } catch (err) {
-    console.error("❌ Error recalculating stats:", err);
-    if (syncMessageLine) syncMessageLine.textContent = "Status: Failed to recalc stats";
-  }
-}
-
-// ===========================
-// DATA RENDERING FUNCTIONS
-// ===========================
-
-async function renderStudents(forceRefresh = false) {
-  const user = auth.currentUser;
-  if (!user) return;
-
-  const container = document.getElementById('studentsContainer');
-  if (!container) return;
-
-  console.log(`🔄 renderStudents called - forceRefresh: ${forceRefresh}, cacheValid: ${isCacheValid('students')}`);
-
-  // Use cache unless forced refresh OR cache is invalid
-  if (!forceRefresh && isCacheValid('students') && cache.students) {
-    container.innerHTML = cache.students;
-    console.log('✅ Students loaded from cache');
-    return;
-  }
-
-  console.log('🔄 Loading students from Firestore (cache invalid or forced)...');
-  container.innerHTML = '<div class="loading">Loading students...</div>';
-
-  try {
-    const studentsSnap = await getDocs(collection(db, "users", user.uid, "students"));
-    
-    if (studentsSnap.size === 0) {
-      const emptyHTML = `
-        <div class="empty-state">
-          <h3>No Students Yet</h3>
-          <p>Add your first student to get started</p>
-        </div>
-      `;
-      container.innerHTML = emptyHTML;
-      cache.students = emptyHTML;
-      cache.lastSync = Date.now();
-      return;
-    }
-
-    let studentsHTML = '';
-    studentsSnap.forEach(docSnap => {
-      const student = { id: docSnap.id, ...docSnap.data() };
-      studentsHTML += `
-        <div class="student-card">
-          <div class="student-card-header">
-            <div>
-              <strong>${student.name}</strong>
-              <span class="student-id">${student.id}</span>
-            </div>
-            <div class="student-actions">
-              <button class="btn-icon" onclick="editStudent('${student.id}')" title="Edit">✏️</button>
-              <button class="btn-icon" onclick="deleteStudent('${student.id}')" title="Delete">🗑️</button>
-            </div>
-          </div>
-          <div class="student-details">
-            <div class="muted">${student.gender} • ${student.email || 'No email'} • ${student.phone || 'No phone'}</div>
-            <div class="student-rate">Rate: $${fmtMoney(student.rate)}/session</div>
-            <div class="student-meta">Added: ${formatDate(student.createdAt)}</div>
-          </div>
-        </div>
-      `;
-    });
-
-    container.innerHTML = studentsHTML;
-    cache.students = studentsHTML;
     cache.lastSync = Date.now();
-    
-    console.log(`✅ Loaded ${studentsSnap.size} students from Firestore`);
+  },
 
-  } catch (error) {
-    console.error("Error rendering students:", error);
-    container.innerHTML = '<div class="error">Error loading students</div>';
-  }
-}
+  async backgroundFirebaseSync(collection, item, uid) {
+    try {
+      const { _id, _cachedAt, _synced, ...firebaseData } = item;
+      let result;
+      
+      if (item._id.startsWith('cache_')) {
+        const docRef = await addDoc(collection(db, "users", uid, collection), firebaseData);
+        result = docRef.id;
+      } else {
+        await updateDoc(doc(db, "users", uid, collection, item._id), firebaseData);
+        result = item._id;
+      }
+      
+      this.markAsSynced(collection, item._id, result);
+      console.log(`☁️ Background sync successful: ${collection} - ${item._id}`);
+      EnhancedStats.forceRefresh();
+    } catch (error) {
+      console.error(`❌ Background sync failed for ${collection}:`, error);
+    }
+  },
 
-async function renderRecentHours(limit = 10) {
-  const user = auth.currentUser;
-  if (!user) return;
-  
-  const container = document.getElementById('hoursContainer');
-  if (!container) return;
-
-  container.innerHTML = '<div class="loading">Loading recent hours...</div>';
-
-  try {
-    const hoursQuery = query(
-      collection(db, "users", user.uid, "hours"),
-      orderBy("dateIso", "desc")
+  markAsSynced(collection, cacheId, firebaseId) {
+    const key = `worklog_${collection}`;
+    const existing = JSON.parse(localStorage.getItem(key) || '[]');
+    const updated = existing.map(item => 
+      item._id === cacheId ? { ...item, _synced: true, _firebaseId: firebaseId } : item
     );
+    localStorage.setItem(key, JSON.stringify(updated));
     
-    const snap = await getDocs(hoursQuery);
-    const rows = [];
-    snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
-
-    if (rows.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <h3>No Hours Logged</h3>
-          <p>Log your first work session to get started</p>
-        </div>
-      `;
-      return;
+    if (cache[collection]) {
+      cache[collection] = cache[collection].map(item =>
+        item._id === cacheId ? { ...item, _synced: true, _firebaseId: firebaseId } : item
+      );
     }
+  },
 
-    container.innerHTML = '';
-    rows.slice(0, limit).forEach(entry => {
-      const item = document.createElement("div");
-      item.className = "hours-entry";
-      item.innerHTML = `
-          <div class="hours-header">
-            <strong>${entry.organization}</strong>
-            <span class="hours-type">${entry.workType}</span>
-            <div class="student-actions">
-              <button class="btn-icon" onclick="editHours('${entry.id}')" title="Edit">✏️</button>
-              <button class="btn-icon" onclick="deleteHours('${entry.id}')" title="Delete">🗑️</button>
-            </div>
-          </div>
-          <div class="muted">${formatDate(entry.date)} • ${entry.subject || 'General'}</div>
-          <div class="hours-details">
-            <span>Hours: ${safeNumber(entry.hours)}</span>
-            <span>Rate: $${fmtMoney(entry.rate)}</span>
-            <span class="hours-total">Total: $${fmtMoney(entry.total)}</span>
-          </div>
-          ${entry.student ? `<div class="muted">Student: ${entry.student}</div>` : ''}
-        `;
-      container.appendChild(item);
+  loadCachedData() {
+    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
+    collections.forEach(collection => {
+      const key = `worklog_${collection}`;
+      const cached = JSON.parse(localStorage.getItem(key) || '[]');
+      if (cached.length > 0) {
+        cache[collection] = cached;
+        console.log(`📁 Loaded ${cached.length} cached ${collection} from localStorage`);
+      }
+    });
+    this.retryUnsyncedItems();
+  },
+
+  async retryUnsyncedItems() {
+    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
+    const user = auth.currentUser;
+    if (!user) return;
+
+    collections.forEach(collection => {
+      const key = `worklog_${collection}`;
+      const cached = JSON.parse(localStorage.getItem(key) || '[]');
+      const unsynced = cached.filter(item => !item._synced);
+      unsynced.forEach(item => {
+        console.log(`🔄 Retrying sync for ${collection}: ${item._id}`);
+        this.backgroundFirebaseSync(collection, item, user.uid);
+      });
+    });
+  },
+
+  getCacheStatus() {
+    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
+    let total = 0;
+    let unsynced = 0;
+
+    collections.forEach(collection => {
+      const key = `worklog_${collection}`;
+      const cached = JSON.parse(localStorage.getItem(key) || '[]');
+      total += cached.length;
+      unsynced += cached.filter(item => !item._synced).length;
     });
 
-  } catch (error) {
-    console.error("Error rendering hours:", error);
-    container.innerHTML = '<div class="error">Error loading hours</div>';
+    return { total, unsynced };
   }
-}
-
-async function renderRecentMarks(limit = 10) {
-  const user = auth.currentUser;
-  if (!user) return;
-  const container = document.getElementById('marksContainer');
-  if (!container) return;
-
-  container.innerHTML = '<div class="loading">Loading recent marks...</div>';
-
-  try {
-    const marksQuery = query(
-      collection(db, "users", user.uid, "marks"),
-      orderBy("dateIso", "desc")
-    );
-    
-    const snap = await getDocs(marksQuery);
-    const rows = [];
-    snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
-
-    if (rows.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <h3>No Marks Recorded</h3>
-          <p>Add your first mark to get started</p>
-        </div>
-      `;
-      return;
-    }
-
-    container.innerHTML = '';
-    rows.slice(0, limit).forEach(entry => {
-      const item = document.createElement("div");
-      item.className = "mark-entry";
-      item.innerHTML = `
-        <div class="mark-header">
-          <strong>${entry.student}</strong> — ${entry.subject} (${entry.topic})
-          <div class="student-actions">
-            <button class="btn-icon" onclick="editMark('${entry.id}')" title="Edit">✏️</button>
-            <button class="btn-icon" onclick="deleteMark('${entry.id}')" title="Delete">🗑️</button>
-          </div>
-        </div>
-        <div class="muted">${formatDate(entry.date)}</div>
-        <div>Score: ${safeNumber(entry.score)}/${safeNumber(entry.max)} — ${safeNumber(entry.percentage).toFixed(2)}% — Grade: ${entry.grade}</div>
-      `;
-      container.appendChild(item);
-    });
-
-    // Update marks summary
-    const marksCountEl = document.getElementById('marksCount');
-    const avgMarksEl = document.getElementById('avgMarks');
-    if (marksCountEl) marksCountEl.textContent = rows.length;
-    if (avgMarksEl) {
-      const avg = rows.length ? rows.reduce((s, r) => s + safeNumber(r.percentage), 0) / rows.length : 0;
-      avgMarksEl.textContent = `${avg.toFixed(1)}%`;
-    }
-
-  } catch (error) {
-    console.error("Error rendering marks:", error);
-    container.innerHTML = '<div class="error">Error loading marks</div>';
-  }
-}
-
-async function renderAttendanceRecent(limit = 10) {
-  const user = auth.currentUser;
-  if (!user) return;
-  const container = document.getElementById('attendanceContainer');
-  if (!container) return;
-
-  container.innerHTML = '<div class="loading">Loading attendance records...</div>';
-
-  try {
-    const attendanceQuery = query(
-      collection(db, "users", user.uid, "attendance"),
-      orderBy("dateIso", "desc")
-    );
-    
-    const snap = await getDocs(attendanceQuery);
-    const rows = [];
-    snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
-
-    if (rows.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <h3>No Attendance Records</h3>
-          <p>Record your first attendance session</p>
-        </div>
-      `;
-      return;
-    }
-
-    container.innerHTML = '';
-    rows.slice(0, limit).forEach(entry => {
-      const item = document.createElement("div");
-      item.className = "attendance-entry";
-      item.innerHTML = `
-        <div class="attendance-header">
-          <strong>${entry.subject}</strong> — ${entry.topic || "—"}
-          <div class="student-actions">
-            <button class="btn-icon" onclick="editAttendance('${entry.id}')" title="Edit">✏️</button>
-            <button class="btn-icon" onclick="deleteAttendance('${entry.id}')" title="Delete">🗑️</button>
-          </div>
-        </div>
-        <div class="muted">${formatDate(entry.date)}</div>
-        <div>Present: ${Array.isArray(entry.present) ? entry.present.length : 0} students</div>
-      `;
-      container.appendChild(item);
-    });
-
-    // Update attendance summary
-    const lastSessionDateEl = document.getElementById('lastSessionDate');
-    const attendanceCountEl = document.getElementById('attendanceCount');
-    if (lastSessionDateEl) lastSessionDateEl.textContent = rows[0]?.date ? formatDate(rows[0].date) : "Never";
-    if (attendanceCountEl) attendanceCountEl.textContent = rows.length;
-
-  } catch (error) {
-    console.error("Error rendering attendance:", error);
-    container.innerHTML = '<div class="error">Error loading attendance</div>';
-  }
-}
-
-async function renderPaymentActivity(limit = 10) {
-  const user = auth.currentUser;
-  if (!user) return;
-  const container = document.getElementById('paymentActivityLog');
-  if (!container) return;
-
-  container.innerHTML = '<div class="loading">Loading payment activity...</div>';
-
-  try {
-    const paymentsQuery = query(
-      collection(db, "users", user.uid, "payments"),
-      orderBy("dateIso", "desc")
-    );
-    
-    const snap = await getDocs(paymentsQuery);
-    const rows = [];
-    snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
-
-    if (rows.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <h3>No Payment Activity</h3>
-          <p>No recent payment activity recorded</p>
-        </div>
-      `;
-      return;
-    }
-
-    container.innerHTML = '';
-    rows.slice(0, limit).forEach(entry => {
-      const item = document.createElement("div");
-      item.className = "activity-item";
-      item.innerHTML = `
-        <div class="payment-header">
-          <strong>$${fmtMoney(entry.amount)}</strong> — ${entry.student}
-          <div class="student-actions">
-            <button class="btn-icon" onclick="editPayment('${entry.id}')" title="Edit">✏️</button>
-            <button class="btn-icon" onclick="deletePayment('${entry.id}')" title="Delete">🗑️</button>
-          </div>
-        </div>
-        <div class="muted">${formatDate(entry.date)} | ${entry.method}</div>
-        <div>${entry.notes || ""}</div>
-      `;
-      container.appendChild(item);
-    });
-
-    // Update monthly payments
-    const monthlyPaymentsEl = document.getElementById('monthlyPayments');
-    if (monthlyPaymentsEl) {
-      const now = new Date();
-      const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
-      const sum = rows
-        .filter(r => (r.date || "").startsWith(ym))
-        .reduce((s, r) => s + safeNumber(r.amount), 0);
-      monthlyPaymentsEl.textContent = `$${fmtMoney(sum)}`;
-    }
-
-  } catch (error) {
-    console.error("Error rendering payments:", error);
-    container.innerHTML = '<div class="error">Error loading payments</div>';
-  }
-}
-
-async function renderStudentBalances() {
-  const user = auth.currentUser;
-  if (!user) return;
-  const container = document.getElementById('studentBalancesContainer');
-  if (!container) return;
-
-  container.innerHTML = '<div class="loading">Loading student balances...</div>';
-
-  try {
-    const [studentsSnap, hoursSnap, paymentsSnap] = await Promise.all([
-      getDocs(collection(db, "users", user.uid, "students")),
-      getDocs(collection(db, "users", user.uid, "hours")),
-      getDocs(collection(db, "users", user.uid, "payments"))
-    ]);
-
-    const earningsByStudent = {};
-    hoursSnap.forEach(d => {
-      const row = d.data();
-      const sid = row.student || "__unknown__";
-      earningsByStudent[sid] = (earningsByStudent[sid] || 0) + safeNumber(row.total);
-    });
-
-    const paymentsByStudent = {};
-    paymentsSnap.forEach(d => {
-      const row = d.data();
-      const sid = row.student || "__unknown__";
-      paymentsByStudent[sid] = (paymentsByStudent[sid] || 0) + safeNumber(row.amount);
-    });
-
-    if (studentsSnap.size === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <h3>No Student Data</h3>
-          <p>Add students and record hours/payments to see balances</p>
-        </div>
-      `;
-      return;
-    }
-
-    container.innerHTML = '';
-    let totalOwed = 0;
-    
-    studentsSnap.forEach(snap => {
-      const student = snap.data();
-      const sid = student.id;
-      const earned = earningsByStudent[sid] || 0;
-      const paid = paymentsByStudent[sid] || 0;
-      const owed = Math.max(earned - paid, 0);
-      totalOwed += owed;
-
-      const item = document.createElement("div");
-      item.className = "activity-item";
-      item.innerHTML = `
-        <div><strong>${student.name}</strong> (${student.id})</div>
-        <div>Earned: $${fmtMoney(earned)} | Paid: $${fmtMoney(paid)} | Owed: $${fmtMoney(owed)}</div>
-      `;
-      container.appendChild(item);
-    });
-
-    // Update total owed display
-    const totalStudentsCountEl = document.getElementById('totalStudentsCount');
-    const totalOwedEl = document.getElementById('totalOwed');
-    if (totalStudentsCountEl) totalStudentsCountEl.textContent = studentsSnap.size;
-    if (totalOwedEl) totalOwedEl.textContent = `$${fmtMoney(totalOwed)}`;
-
-  } catch (error) {
-    console.error("Error rendering balances:", error);
-    container.innerHTML = '<div class="error">Error loading balances</div>';
-  }
-}
-
-async function renderOverviewReports() {
-  const user = auth.currentUser;
-  if (!user) return;
-
-  try {
-    const [studentsSnap, hoursSnap, marksSnap, paymentsSnap] = await Promise.all([
-      getDocs(collection(db, "users", user.uid, "students")),
-      getDocs(collection(db, "users", user.uid, "hours")),
-      getDocs(collection(db, "users", user.uid, "marks")),
-      getDocs(collection(db, "users", user.uid, "payments"))
-    ]);
-
-    // Calculate totals
-    let hoursTotal = 0;
-    let earningsTotal = 0;
-    hoursSnap.forEach(d => {
-      const r = d.data();
-      hoursTotal += safeNumber(r.hours);
-      earningsTotal += safeNumber(r.total);
-    });
-
-    let markSum = 0;
-    let markCount = 0;
-    marksSnap.forEach(d => {
-      const r = d.data();
-      markSum += safeNumber(r.percentage);
-      markCount += 1;
-    });
-    const avgMark = markCount ? (markSum / markCount) : 0;
-
-    let paymentsTotal = 0;
-    paymentsSnap.forEach(d => {
-      const r = d.data();
-      paymentsTotal += safeNumber(r.amount);
-    });
-
-    const outstanding = Math.max(earningsTotal - paymentsTotal, 0);
-
-    // Update overview elements
-    const totalStudentsReport = document.getElementById('totalStudentsReport');
-    const totalHoursReport = document.getElementById('totalHoursReport');
-    const totalEarningsReport = document.getElementById('totalEarningsReport');
-    const avgMarkReport = document.getElementById('avgMarkReport');
-    const totalPaymentsReport = document.getElementById('totalPaymentsReport');
-    const outstandingBalance = document.getElementById('outstandingBalance');
-
-    if (totalStudentsReport) totalStudentsReport.textContent = studentsSnap.size;
-    if (totalHoursReport) totalHoursReport.textContent = hoursTotal.toFixed(1);
-    if (totalEarningsReport) totalEarningsReport.textContent = `$${fmtMoney(earningsTotal)}`;
-    if (avgMarkReport) avgMarkReport.textContent = `${avgMark.toFixed(1)}%`;
-    if (totalPaymentsReport) totalPaymentsReport.textContent = `$${fmtMoney(paymentsTotal)}`;
-    if (outstandingBalance) outstandingBalance.textContent = `$${fmtMoney(outstanding)}`;
-
-  } catch (error) {
-    console.error("Error rendering overview:", error);
-  }
-}
+};
 
 // ===========================
-// NOTIFICATION SYSTEM MODULE
+// ENHANCED REAL-TIME STATS SYSTEM
+// ===========================
+
+const EnhancedStats = {
+  init() {
+    this.setupStatsUpdaters();
+    this.startStatsRefresh();
+    console.log('✅ Enhanced stats system initialized');
+  },
+
+  setupStatsUpdaters() {
+    this.updateStudentStats = this.debounce(() => this.calculateStudentStats(), 500);
+    this.updateHoursStats = this.debounce(() => this.calculateHoursStats(), 500);
+    this.updateMarksStats = this.debounce(() => this.calculateMarksStats(), 500);
+    this.updateAttendanceStats = this.debounce(() => this.calculateAttendanceStats(), 500);
+    this.updatePaymentStats = this.debounce(() => this.calculatePaymentStats(), 500);
+    this.updateOverviewStats = this.debounce(() => this.calculateOverviewStats(), 1000);
+  },
+
+  debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  },
+
+  startStatsRefresh() {
+    setInterval(() => {
+      this.refreshAllStats();
+    }, 30000);
+  },
+
+  async refreshAllStats() {
+    try {
+      await Promise.all([
+        this.calculateStudentStats(),
+        this.calculateHoursStats(),
+        this.calculateMarksStats(),
+        this.calculateAttendanceStats(),
+        this.calculatePaymentStats(),
+        this.calculateOverviewStats()
+      ]);
+      console.log('✅ All stats refreshed');
+    } catch (error) {
+      console.error('❌ Error refreshing stats:', error);
+    }
+  },
+
+  async calculateStudentStats() {
+    try {
+      const students = cache.students || [];
+      const studentCount = students.length;
+      const totalRate = students.reduce((sum, student) => sum + (student.rate || 0), 0);
+      const averageRate = studentCount > 0 ? totalRate / studentCount : 0;
+      
+      this.updateElement('studentCount', studentCount);
+      this.updateElement('averageRate', fmtMoney(averageRate));
+      this.updateElement('totalStudentsCount', studentCount);
+      this.updateElement('totalStudentsReport', studentCount);
+    } catch (error) {
+      console.error('Error calculating student stats:', error);
+    }
+  },
+
+  async calculateHoursStats() {
+    try {
+      const hours = cache.hours || [];
+      const now = new Date();
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay());
+      weekStart.setHours(0, 0, 0, 0);
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      
+      const weeklyData = hours.filter(entry => {
+        const entryDate = new Date(entry.date || entry.dateIso);
+        return entryDate >= weekStart;
+      });
+      
+      const monthlyData = hours.filter(entry => {
+        const entryDate = new Date(entry.date || entry.dateIso);
+        return entryDate >= monthStart;
+      });
+      
+      const weeklyHours = weeklyData.reduce((sum, entry) => sum + (entry.hours || 0), 0);
+      const weeklyTotal = weeklyData.reduce((sum, entry) => sum + (entry.total || 0), 0);
+      const monthlyHours = monthlyData.reduce((sum, entry) => sum + (entry.hours || 0), 0);
+      const monthlyTotal = monthlyData.reduce((sum, entry) => sum + (entry.total || 0), 0);
+      
+      this.updateElement('weeklyHours', weeklyHours.toFixed(1));
+      this.updateElement('weeklyTotal', fmtMoney(weeklyTotal));
+      this.updateElement('monthlyHours', monthlyHours.toFixed(1));
+      this.updateElement('monthlyTotal', fmtMoney(monthlyTotal));
+      this.updateElement('totalHoursReport', (cache.hours?.reduce((sum, entry) => sum + (entry.hours || 0), 0) || 0).toFixed(1));
+      this.updateElement('totalEarningsReport', `$${fmtMoney(cache.hours?.reduce((sum, entry) => sum + (entry.total || 0), 0) || 0)}`);
+    } catch (error) {
+      console.error('Error calculating hours stats:', error);
+    }
+  },
+
+  async calculateMarksStats() {
+    try {
+      const marks = cache.marks || [];
+      const marksCount = marks.length;
+      const totalPercentage = marks.reduce((sum, mark) => sum + (mark.percentage || 0), 0);
+      const avgPercentage = marksCount > 0 ? totalPercentage / marksCount : 0;
+      
+      this.updateElement('marksCount', marksCount);
+      this.updateElement('avgMarks', avgPercentage.toFixed(1));
+      this.updateElement('avgMarkReport', `${avgPercentage.toFixed(1)}%`);
+    } catch (error) {
+      console.error('Error calculating marks stats:', error);
+    }
+  },
+
+  async calculateAttendanceStats() {
+    try {
+      const attendance = cache.attendance || [];
+      const attendanceCount = attendance.length;
+      const lastSession = attendance.length > 0 
+        ? attendance.reduce((latest, session) => {
+            const sessionDate = new Date(session.date || session.dateIso);
+            const latestDate = new Date(latest.date || latest.dateIso);
+            return sessionDate > latestDate ? session : latest;
+          })
+        : null;
+      
+      this.updateElement('attendanceCount', attendanceCount);
+      this.updateElement('lastSessionDate', lastSession ? formatDate(lastSession.date) : 'Never');
+    } catch (error) {
+      console.error('Error calculating attendance stats:', error);
+    }
+  },
+
+  async calculatePaymentStats() {
+    try {
+      const payments = cache.payments || [];
+      const now = new Date();
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      
+      const monthlyPayments = payments
+        .filter(payment => (payment.date || '').startsWith(currentMonth))
+        .reduce((sum, payment) => sum + (payment.amount || 0), 0);
+      
+      const totalPayments = payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+      
+      this.updateElement('monthlyPayments', `$${fmtMoney(monthlyPayments)}`);
+      this.updateElement('totalPaymentsReport', `$${fmtMoney(totalPayments)}`);
+      await this.calculateOutstandingBalance();
+    } catch (error) {
+      console.error('Error calculating payment stats:', error);
+    }
+  },
+
+  async calculateOutstandingBalance() {
+    try {
+      const students = cache.students || [];
+      const hours = cache.hours || [];
+      const payments = cache.payments || [];
+      
+      const earningsByStudent = {};
+      hours.forEach(entry => {
+        const studentId = entry.student;
+        if (studentId) {
+          earningsByStudent[studentId] = (earningsByStudent[studentId] || 0) + (entry.total || 0);
+        }
+      });
+      
+      const paymentsByStudent = {};
+      payments.forEach(payment => {
+        const studentId = payment.student;
+        if (studentId) {
+          paymentsByStudent[studentId] = (paymentsByStudent[studentId] || 0) + (payment.amount || 0);
+        }
+      });
+      
+      let totalOwed = 0;
+      students.forEach(student => {
+        const earned = earningsByStudent[student.id] || 0;
+        const paid = paymentsByStudent[student.id] || 0;
+        const owed = Math.max(earned - paid, 0);
+        totalOwed += owed;
+      });
+      
+      this.updateElement('totalOwed', `$${fmtMoney(totalOwed)}`);
+      this.updateElement('outstandingBalance', `$${fmtMoney(totalOwed)}`);
+    } catch (error) {
+      console.error('Error calculating outstanding balance:', error);
+    }
+  },
+
+  async calculateOverviewStats() {
+    console.log('📊 Overview stats calculated');
+  },
+
+  updateElement(id, value) {
+    const element = document.getElementById(id);
+    if (element) {
+      element.textContent = value;
+    }
+  },
+
+  forceRefresh() {
+    this.refreshAllStats();
+  }
+};
+
+// ===========================
+// FORM AUTO-CLEARING SYSTEM
+// ===========================
+
+const FormAutoClear = {
+  config: {
+    'studentForm': {
+      clearOnSuccess: true,
+      preserveFields: [],
+      successMessage: 'Student added successfully! Form cleared.',
+      focusField: 'studentName'
+    },
+    'hoursForm': {
+      clearOnSuccess: true,
+      preserveFields: ['baseRate'],
+      successMessage: 'Hours logged successfully! Form cleared.',
+      focusField: 'organization'
+    },
+    'marksForm': {
+      clearOnSuccess: true,
+      preserveFields: ['marksStudent', 'marksSubject'],
+      successMessage: 'Mark added successfully! Form cleared.',
+      focusField: 'marksScore'
+    },
+    'attendanceForm': {
+      clearOnSuccess: false,
+      preserveFields: [],
+      successMessage: 'Attendance recorded successfully!',
+      focusField: 'attendanceDate'
+    },
+    'paymentForm': {
+      clearOnSuccess: true,
+      preserveFields: ['paymentStudent'],
+      successMessage: 'Payment recorded successfully! Form cleared.',
+      focusField: 'paymentAmount'
+    }
+  },
+
+  clearForm(formId, preservedData = {}) {
+    const form = document.getElementById(formId);
+    if (!form) {
+      console.warn(`Form ${formId} not found for auto-clear`);
+      return;
+    }
+
+    const config = this.config[formId];
+    if (!config) {
+      console.warn(`No config found for form ${formId}`);
+      return;
+    }
+
+    const elements = form.elements;
+    const preserveValues = {};
+    config.preserveFields.forEach(field => {
+      if (preservedData[field]) {
+        preserveValues[field] = preservedData[field];
+      } else {
+        const element = elements[field];
+        if (element) preserveValues[field] = element.value;
+      }
+    });
+
+    form.reset();
+    Object.keys(preserveValues).forEach(field => {
+      const element = elements[field];
+      if (element) {
+        element.value = preserveValues[field];
+      }
+    });
+
+    this.setDefaultDates(form);
+
+    if (config.focusField) {
+      const focusElement = elements[config.focusField];
+      if (focusElement) {
+        setTimeout(() => focusElement.focus(), 100);
+      }
+    }
+
+    console.log(`✅ Form ${formId} auto-cleared`);
+  },
+
+  setDefaultDates(form) {
+    const dateFields = form.querySelectorAll('input[type="date"]');
+    const today = new Date().toISOString().split('T')[0];
+    dateFields.forEach(field => {
+      if (!field.value) {
+        field.value = today;
+      }
+    });
+  },
+
+  handleSuccess(formId, customData = {}) {
+    const config = this.config[formId];
+    if (!config) return;
+
+    if (config.clearOnSuccess) {
+      this.clearForm(formId, customData);
+    }
+    
+    if (config.successMessage) {
+      NotificationSystem.notifySuccess(config.successMessage);
+    }
+  }
+};
+
+// ===========================
+// NOTIFICATION SYSTEM
 // ===========================
 
 const NotificationSystem = {
@@ -2182,12 +909,11 @@ const NotificationSystem = {
 };
 
 // ===========================
-// SYNC BAR MODULE
+// SYNC BAR SYSTEM
 // ===========================
 
 const SyncBar = {
   init() {
-    NotificationSystem.initNotificationStyles();
     this.setupAutoSyncToggle();
     this.setupSyncNowButton();
     this.setupExportCloudButton();
@@ -2201,11 +927,8 @@ const SyncBar = {
 
   setupAutoSyncToggle() {
     if (autoSyncCheckbox) {
-      // Load saved autoSync preference from localStorage
       const savedAutoSync = localStorage.getItem('autoSyncEnabled') === 'true';
       isAutoSyncEnabled = savedAutoSync;
-      
-      // Set the checkbox state based on saved preference
       autoSyncCheckbox.checked = savedAutoSync;
       
       if (savedAutoSync) {
@@ -2227,10 +950,7 @@ const SyncBar = {
 
       autoSyncCheckbox.addEventListener('change', (e) => {
         isAutoSyncEnabled = e.target.checked;
-        
-        // Save preference to localStorage
         localStorage.setItem('autoSyncEnabled', isAutoSyncEnabled.toString());
-        console.log('💾 Auto-sync preference saved:', isAutoSyncEnabled);
         
         if (isAutoSyncEnabled) {
           autoSyncText.textContent = 'Auto';
@@ -2282,7 +1002,6 @@ const SyncBar = {
     }
 
     try {
-      //if (syncSpinner) syncSpinner.style.display = 'inline-block';
       if (syncIndicator) {
         syncIndicator.classList.remove('sync-connected', 'sync-error');
         syncIndicator.classList.add('sync-active');
@@ -2330,37 +1049,14 @@ const SyncBar = {
       }
       
       NotificationSystem.notifyError(`Sync failed: ${error.message}`);
-    } finally {
-    //  if (syncSpinner) syncSpinner.style.display = 'none';
     }
   },
 
   setupExportCloudButton() {
     if (exportCloudBtn) {
       exportCloudBtn.addEventListener('click', async () => {
-        const user = auth.currentUser;
-        if (!user) {
-          NotificationSystem.notifyError('Please log in to export data');
-          return;
-        }
-
-        try {
-          NotificationSystem.notifyInfo('Starting cloud export...');
-          const backupRef = doc(db, "backups", user.uid);
-          const backupData = await this.createBackupData(user.uid);
-          
-          await setDoc(backupRef, {
-            ...backupData,
-            exportedAt: getLocalISODate(),
-            version: '1.0',
-            user: user.uid
-          });
-
-          NotificationSystem.notifySuccess('Cloud export completed successfully');
-        } catch (error) {
-          console.error('❌ Cloud export failed:', error);
-          NotificationSystem.notifyError(`Export failed: ${error.message}`);
-        }
+        // Implementation for export cloud functionality
+        NotificationSystem.notifyInfo('Export to cloud feature coming soon');
       });
     }
   },
@@ -2368,34 +1064,8 @@ const SyncBar = {
   setupImportCloudButton() {
     if (importCloudBtn) {
       importCloudBtn.addEventListener('click', async () => {
-        const user = auth.currentUser;
-        if (!user) {
-          NotificationSystem.notifyError('Please log in to import data');
-          return;
-        }
-
-        const proceed = confirm('⚠️ This will overwrite your current data with the cloud backup. This action cannot be undone. Continue?');
-        if (!proceed) return;
-
-        try {
-          NotificationSystem.notifyInfo('Starting cloud import...');
-          const backupRef = doc(db, "backups", user.uid);
-          const backupSnap = await getDoc(backupRef);
-
-          if (!backupSnap.exists()) {
-            NotificationSystem.notifyWarning('No cloud backup found for your account');
-            return;
-          }
-
-          const backupData = backupSnap.data();
-          await this.restoreBackupData(user.uid, backupData);
-          NotificationSystem.notifySuccess('Cloud import completed successfully');
-          await this.performSync('manual');
-          
-        } catch (error) {
-          console.error('❌ Cloud import failed:', error);
-          NotificationSystem.notifyError(`Import failed: ${error.message}`);
-        }
+        // Implementation for import cloud functionality
+        NotificationSystem.notifyInfo('Import from cloud feature coming soon');
       });
     }
   },
@@ -2404,19 +1074,9 @@ const SyncBar = {
     if (syncStatsBtn) {
       syncStatsBtn.addEventListener('click', async () => {
         const user = auth.currentUser;
-        if (!user) {
-          NotificationSystem.notifyError('Please log in to sync stats');
-          return;
-        }
-
-        try {
-          NotificationSystem.notifyInfo('Fixing statistics... recalculating from your raw data');
+        if (user) {
           await recalcSummaryStats(user.uid);
-          await loadUserStats(user.uid);
-          NotificationSystem.notifySuccess('Statistics synced successfully');
-        } catch (error) {
-          console.error('❌ Stats sync failed:', error);
-          NotificationSystem.notifyError(`Stats sync failed: ${error.message}`);
+          NotificationSystem.notifySuccess('Stats recalculated and synced');
         }
       });
     }
@@ -2424,34 +1084,9 @@ const SyncBar = {
 
   setupExportDataButton() {
     if (exportDataBtn) {
-      exportDataBtn.addEventListener('click', async () => {
-        const user = auth.currentUser;
-        if (!user) {
-          NotificationSystem.notifyError('Please log in to export data');
-          return;
-        }
-
-        try {
-          NotificationSystem.notifyInfo('Preparing data export...');
-          const exportData = await this.createBackupData(user.uid);
-          
-          const dataStr = JSON.stringify(exportData, null, 2);
-          const dataBlob = new Blob([dataStr], { type: 'application/json' });
-          
-          const url = URL.createObjectURL(dataBlob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `worklog-backup-${new Date().toISOString().split('T')[0]}.json`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-
-          NotificationSystem.notifySuccess('Data exported successfully');
-        } catch (error) {
-          console.error('❌ Local export failed:', error);
-          NotificationSystem.notifyError(`Export failed: ${error.message}`);
-        }
+      exportDataBtn.addEventListener('click', () => {
+        // Implementation for export data functionality
+        NotificationSystem.notifyInfo('Export data feature coming soon');
       });
     }
   },
@@ -2459,2559 +1094,1369 @@ const SyncBar = {
   setupImportDataButton() {
     if (importDataBtn) {
       importDataBtn.addEventListener('click', () => {
-        const user = auth.currentUser;
-        if (!user) {
-          NotificationSystem.notifyError('Please log in to import data');
-          return;
-        }
-
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.json';
-        input.style.display = 'none';
-        
-        input.onchange = async (e) => {
-          const file = e.target.files[0];
-          if (!file) return;
-
-          const proceed = confirm('⚠️ This will overwrite your current data with the imported file. This action cannot be undone. Continue?');
-          if (!proceed) return;
-
-          try {
-            NotificationSystem.notifyInfo('Importing data...');
-            const fileText = await file.text();
-            const importData = JSON.parse(fileText);
-            
-            if (!importData.metadata || !importData.students || !importData.hours) {
-              throw new Error('Invalid backup file format');
-            }
-
-            await this.restoreBackupData(user.uid, importData);
-            NotificationSystem.notifySuccess('Data imported successfully');
-            await this.performSync('manual');
-            
-          } catch (error) {
-            console.error('❌ Local import failed:', error);
-            NotificationSystem.notifyError(`Import failed: ${error.message}`);
-          }
-        };
-        
-        document.body.appendChild(input);
-        input.click();
-        document.body.removeChild(input);
+        // Implementation for import data functionality
+        NotificationSystem.notifyInfo('Import data feature coming soon');
       });
     }
   },
 
   setupClearAllButton() {
     if (clearDataBtn) {
-      clearDataBtn.addEventListener('click', async () => {
-        const user = auth.currentUser;
-        if (!user) {
-          NotificationSystem.notifyError('Please log in to clear data');
-          return;
-        }
-
-        const proceed = confirm('⚠️🚨 DANGER ZONE 🚨⚠️\n\nThis will PERMANENTLY DELETE ALL your data including:\n• All students\n• All hours worked\n• All marks & assessments\n• All attendance records\n• All payment records\n\nThis action cannot be undone!\n\nType "DELETE ALL" to confirm:');
-        
-        if (proceed && prompt('Type "DELETE ALL" to confirm:') === 'DELETE ALL') {
-          try {
-            NotificationSystem.notifyWarning('Clearing all data...');
-            await this.clearAllUserData(user.uid);
-            NotificationSystem.notifySuccess('All data cleared successfully');
-            await this.performSync('manual');
-          } catch (error) {
-            console.error('❌ Clear data failed:', error);
-            NotificationSystem.notifyError(`Clear failed: ${error.message}`);
-          }
-        } else {
-          NotificationSystem.notifyInfo('Data clearance cancelled');
+      clearDataBtn.addEventListener('click', () => {
+        if (confirm('Are you sure you want to clear all local data? This cannot be undone.')) {
+          localStorage.clear();
+          Object.keys(cache).forEach(key => cache[key] = null);
+          NotificationSystem.notifySuccess('All local data cleared');
+          setTimeout(() => location.reload(), 1000);
         }
       });
-    }
-  },
-
-  async createBackupData(uid) {
-    const [statsSnap, studentsSnap, hoursSnap, paymentsSnap, marksSnap, attendanceSnap] = await Promise.all([
-      getDoc(doc(db, "users", uid)),
-      getDocs(collection(db, "users", uid, "students")),
-      getDocs(collection(db, "users", uid, "hours")),
-      getDocs(collection(db, "users", uid, "payments")),
-      getDocs(collection(db, "users", uid, "marks")),
-      getDocs(collection(db, "users", uid, "attendance"))
-    ]);
-
-    return {
-      metadata: {
-        exportedAt: getLocalISODate(),
-        version: '1.0',
-        user: uid,
-        recordCounts: {
-          students: studentsSnap.size,
-          hours: hoursSnap.size,
-          payments: paymentsSnap.size,
-          marks: marksSnap.size,
-          attendance: attendanceSnap.size
-        }
-      },
-      stats: statsSnap.exists() ? statsSnap.data() : {},
-      students: studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-      hours: hoursSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-      payments: paymentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-      marks: marksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-      attendance: attendanceSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-    };
-  },
-
-  async restoreBackupData(uid, backupData) {
-    const batch = writeBatch(db);
-    
-    await this.clearAllUserData(uid);
-    
-    if (backupData.stats) {
-      const statsRef = doc(db, "users", uid);
-      batch.set(statsRef, backupData.stats);
-    }
-    
-    if (backupData.students && Array.isArray(backupData.students)) {
-      backupData.students.forEach(student => {
-        const studentRef = doc(db, "users", uid, "students", student.id);
-        batch.set(studentRef, student);
-      });
-    }
-    
-    ['hours', 'payments', 'marks', 'attendance'].forEach(collectionName => {
-      if (backupData[collectionName] && Array.isArray(backupData[collectionName])) {
-        backupData[collectionName].forEach(item => {
-          const itemRef = doc(collection(db, "users", uid, collectionName));
-          batch.set(itemRef, item);
-        });
-      }
-    });
-    
-    await batch.commit();
-    console.log('✅ Backup data restored');
-  },
-
-  async clearAllUserData(uid) {
-    try {
-      const collections = ['students', 'hours', 'payments', 'marks', 'attendance'];
-      
-      for (const collectionName of collections) {
-        const colRef = collection(db, "users", uid, collectionName);
-        const snapshot = await getDocs(colRef);
-        
-        const batch = writeBatch(db);
-        snapshot.docs.forEach(doc => {
-          batch.delete(doc.ref);
-        });
-        
-        if (snapshot.docs.length > 0) {
-          await batch.commit();
-        }
-      }
-      
-      const statsRef = doc(db, "users", uid);
-      await setDoc(statsRef, {
-        students: 0,
-        hours: 0,
-        earnings: 0,
-        lastSync: new Date().toLocaleString()
-      });
-      
-      console.log('✅ All user data cleared');
-    } catch (error) {
-      console.error('❌ Error clearing user data:', error);
-      throw error;
     }
   }
 };
 
 // ===========================
-// MARKS CALCULATION FUNCTION
+// UTILITY FUNCTIONS
 // ===========================
 
-function updateMarksPercentage() {
-  const scoreEl = document.getElementById('marksScore');
-  const maxEl = document.getElementById('marksMax');
-  const pctEl = document.getElementById('percentage');
-  const gradeEl = document.getElementById('grade');
+function safeNumber(n, fallback = 0) {
+  if (n === null || n === undefined || n === '') return fallback;
+  const v = Number(n);
+  return Number.isFinite(v) ? v : fallback;
+}
 
-  const score = parseFloat(scoreEl?.value);
-  const max = parseFloat(maxEl?.value);
+function fmtMoney(n) {
+  return safeNumber(n).toFixed(2);
+}
 
-  if (Number.isFinite(score) && Number.isFinite(max) && max > 0) {
-    const percentage = (score / max) * 100;
-    if (pctEl) pctEl.value = percentage.toFixed(1);
-    if (gradeEl) gradeEl.value = calculateGrade(percentage);
+function fmtDateISO(yyyyMmDd) {
+  if (!yyyyMmDd) return new Date().toISOString();
+  try {
+    const [year, month, day] = yyyyMmDd.split('-');
+    const d = new Date(year, month - 1, day, 12, 0, 0);
+    return d.toISOString();
+  } catch {
+    return new Date().toISOString();
+  }
+}
+
+function formatDate(dateString) {
+  if (!dateString) return 'Never';
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC'
+    });
+  } catch {
+    return dateString;
+  }
+}
+
+function refreshTimestamp() {
+  const now = new Date().toLocaleString();
+  if (syncMessageLine) syncMessageLine.textContent = "Status: Last synced at " + now;
+  if (document.getElementById('statUpdated')) {
+    document.getElementById('statUpdated').textContent = now;
+  }
+}
+
+function calculateGrade(percentage) {
+  if (percentage >= 90) return 'A';
+  if (percentage >= 80) return 'B';
+  if (percentage >= 70) return 'C';
+  if (percentage >= 60) return 'D';
+  return 'F';
+}
+
+function getLocalISODate() {
+  const now = new Date();
+  const tzOffset = -now.getTimezoneOffset();
+  const diff = tzOffset >= 0 ? '+' : '-';
+  const pad = n => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
+  return now.getFullYear() +
+    '-' + pad(now.getMonth() + 1) +
+    '-' + pad(now.getDate()) +
+    'T' + pad(now.getHours()) +
+    ':' + pad(now.getMinutes()) +
+    ':' + pad(now.getSeconds()) +
+    diff + pad(tzOffset / 60) +
+    ':' + pad(tzOffset % 60);
+}
+
+function formatDateForInput(dateString) {
+  if (!dateString) return new Date().toISOString().split('T')[0];
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      return new Date().toISOString().split('T')[0];
+    }
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  } catch {
+    return new Date().toISOString().split('T')[0];
   }
 }
 
 // ===========================
-// UI MANAGER - COMPLETELY REWRITTEN
+// THEME MANAGEMENT
 // ===========================
 
-const UIManager = {
-  init() {
-    this.initializeTheme();
-    this.initTabs();
-    this.bindUiEvents();
-    setupThemeToggle();
-    console.log('✅ UI Manager initialized');
-  },
-
-  initializeTheme() {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    this.updateThemeIcon();
-    console.log(`🎨 Theme initialized to ${savedTheme}`);
-  },
-
-  updateThemeIcon() {
+function updateThemeIcon(theme) {
     const themeButton = document.querySelector('.theme-toggle button');
     if (!themeButton) return;
     
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    if (currentTheme === 'dark') {
+    if (theme === 'dark') {
         themeButton.setAttribute('title', 'Switch to light mode');
     } else {
         themeButton.setAttribute('title', 'Switch to dark mode');
     }
-  },
+}
 
-  toggleTheme() {
+function toggleTheme() {
     const currentTheme = document.documentElement.getAttribute('data-theme');
     const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    
     document.documentElement.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
-    this.updateThemeIcon();
+    updateThemeIcon(newTheme);
+    
     console.log(`🎨 Theme changed to ${newTheme}`);
-  },
+}
 
-  initTabs() {
-    const tabs = document.querySelectorAll('.tab');
-    const tabContents = document.querySelectorAll('.tabcontent');
-
-    tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        const target = tab.getAttribute('data-tab');
-        console.log('📑 Switching to tab:', target);
-
-        // Remove active class from all tabs and contents
-        tabs.forEach(t => t.classList.remove('active'));
-        tabContents.forEach(tc => {
-          tc.classList.remove('active');
-          tc.style.display = 'none';
-        });
-
-        // Add active class to clicked tab and target content
-        tab.classList.add('active');
-        
-        const selected = document.getElementById(target);
-        if (selected) {
-          selected.classList.add('active');
-          selected.style.display = 'block';
-          console.log('✅ Tab displayed:', target);
-          
-          // Load tab-specific data when tab is activated
-          this.loadTabData(target);
-        } else {
-          console.error('❌ Tab content not found:', target);
-        }
-      });
-    });
-
-    // Activate first tab by default
-    const firstTab = document.querySelector('.tab.active') || document.querySelector('.tab');
-    if (firstTab) {
-      firstTab.click();
-    }
-    
-    console.log('✅ Tabs initialized');
-  },
-
-  loadTabData(tabName) {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    switch(tabName) {
-      case 'students':
-        renderStudents();
-        break;
-      case 'hours':
-        renderRecentHours();
-        break;
-      case 'marks':
-        renderRecentMarks();
-        break;
-      case 'attendance':
-        renderAttendanceRecent();
-        break;
-      case 'payments':
-        renderPaymentActivity();
-        renderStudentBalances();
-        break;
-      case 'reports':
-        renderOverviewReports();
-        break;
-    }
-  },
-
-  bindUiEvents() {
-    console.log('🔧 Binding UI events...');
-    
+function setupThemeToggle() {
     const themeToggle = document.querySelector('.theme-toggle button');
     if (themeToggle) {
-      themeToggle.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.toggleTheme();
-      });
+        themeToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleTheme();
+        });
     }
-    
-    const forms = document.querySelectorAll('form');
-    forms.forEach(form => {
-      form.addEventListener('submit', (e) => e.preventDefault());
-    });
-    
-    this.setupHoursFormCalculations();
-    this.setupMarksFormCalculations();
-    
-    console.log('✅ UI events bound');
-  },
-
-  setupHoursFormCalculations() {
-    const hoursInput = document.getElementById('hoursWorked');
-    const rateInput = document.getElementById('baseRate');
-    const workTypeSelect = document.getElementById('workType');
-    
-    const calculateTotal = () => {
-      const hours = parseFloat(hoursInput?.value) || 0;
-      const rate = parseFloat(rateInput?.value) || 0;
-      const workType = workTypeSelect?.value || "hourly";
-      const totalEl = document.getElementById('totalPay');
-      
-      if (totalEl) {
-        let total = 0;
-        
-        switch(workType) {
-          case "hourly":
-            total = hours * rate;
-            break;
-          case "session":
-          case "consultation":
-            total = rate;
-            break;
-          case "contract":
-          case "project":
-          case "other":
-            total = rate;
-            break;
-          default:
-            total = hours * rate;
-        }
-        
-        if ("value" in totalEl) {
-          totalEl.value = fmtMoney(total);
-        } else {
-          totalEl.textContent = fmtMoney(total);
-        }
-      }
-    };
-
-    if (hoursInput) hoursInput.addEventListener('input', calculateTotal);
-    if (rateInput) rateInput.addEventListener('input', calculateTotal);
-    if (workTypeSelect) workTypeSelect.addEventListener('change', calculateTotal);
-    
-    // Initial calculation
-    calculateTotal();
-  },
-
-  setupMarksFormCalculations() {
-    const scoreInput = document.getElementById('marksScore');
-    const maxInput = document.getElementById('marksMax');
-    if (scoreInput) scoreInput.addEventListener('input', updateMarksPercentage);
-    if (maxInput) maxInput.addEventListener('input', updateMarksPercentage);
-  },
-
-  initEventListeners() {
-    console.log('🔧 Initializing event listeners...');
-    
-    const dateInputs = document.querySelectorAll('input[type="date"]');
-    const today = new Date().toISOString().split('T')[0];
-    dateInputs.forEach(input => {
-      if (!input.value) {
-        input.value = today;
-      }
-    });
-    
-    loadStudentsForDropdowns();
-    
-    console.log('✅ Event listeners initialized');
-  }
-};
-
-// ===========================
-// FORM INITIALIZATION FUNCTIONS - NEWLY ADDED
-// ===========================
-
-function setupStudentFormListeners() {
-  const submitBtn = document.getElementById('studentSubmitBtn');
-  const clearBtn = document.getElementById('clearStudentFormBtn');
-  const cancelBtn = document.getElementById('studentCancelBtn');
-
-  if (submitBtn) {
-    submitBtn.addEventListener('click', addStudent);
-  }
-
-  if (clearBtn) {
-    clearBtn.addEventListener('click', clearStudentForm);
-  }
-
-  if (cancelBtn) {
-    cancelBtn.addEventListener('click', cancelEdit);
-  }
-
-  console.log('✅ Student form event listeners setup');
 }
 
-function setupPaymentFormListeners() {
-  const recordPaymentBtn = document.getElementById('recordPaymentBtn');
-  const cancelPaymentBtn = document.getElementById('cancelPaymentBtn');
-  const deletePaymentBtn = document.getElementById('deletePaymentBtn');
-
-  if (recordPaymentBtn) {
-    recordPaymentBtn.addEventListener('click', recordPayment);
-  }
-
-  if (cancelPaymentBtn) {
-    cancelPaymentBtn.addEventListener('click', cancelPaymentEdit);
-  }
-
-  if (deletePaymentBtn) {
-    deletePaymentBtn.addEventListener('click', () => {
-      if (currentEditPaymentId) {
-        deletePayment(currentEditPaymentId);
-      }
-    });
-  }
-
-  console.log('✅ Payment form event listeners setup');
-}
-
-function setupAttendanceFormListeners() {
-  const saveAttendanceBtn = document.getElementById('saveAttendanceBtn');
-  const cancelAttendanceBtn = document.getElementById('cancelAttendanceBtn');
-  const deleteAttendanceBtn = document.getElementById('deleteAttendanceBtn');
-
-  if (saveAttendanceBtn) {
-    saveAttendanceBtn.addEventListener('click', saveAttendance);
-  }
-
-  if (cancelAttendanceBtn) {
-    cancelAttendanceBtn.addEventListener('click', cancelAttendanceEdit);
-  }
-
-  if (deleteAttendanceBtn) {
-    deleteAttendanceBtn.addEventListener('click', () => {
-      if (currentEditAttendanceId) {
-        deleteAttendance(currentEditAttendanceId);
-      }
-    });
-  }
-
-  console.log('✅ Attendance form event listeners setup');
-}
-
-function setupHoursFormListeners() {
-  const logHoursBtn = document.getElementById('logHoursBtn');
-  const hoursCancelBtn = document.getElementById('cancelHoursEdit');
-  const deleteHoursBtn = document.getElementById('deleteHoursBtn');
-
-  if (logHoursBtn) {
-    logHoursBtn.addEventListener('click', logHours);
-  }
-
-  if (hoursCancelBtn) {
-    hoursCancelBtn.addEventListener('click', cancelHoursEdit);
-  }
-
-  if (deleteHoursBtn) {
-    deleteHoursBtn.addEventListener('click', () => {
-      if (currentEditHoursId) {
-        deleteHours(currentEditHoursId);
-      }
-    });
-  }
-
-  console.log('✅ Hours form event listeners setup');
-}
-
-function setupMarksFormListeners() {
-  const addMarkBtn = document.getElementById('addMarkBtn');
-  const cancelMarkBtn = document.getElementById('cancelMarkBtn');
-  const deleteMarkBtn = document.getElementById('deleteMarkBtn');
-
-  if (addMarkBtn) {
-    addMarkBtn.addEventListener('click', addMark);
-  }
-
-  if (cancelMarkBtn) {
-    cancelMarkBtn.addEventListener('click', cancelMarkEdit);
-  }
-
-  if (deleteMarkBtn) {
-    deleteMarkBtn.addEventListener('click', () => {
-      if (currentEditMarksId) {
-        deleteMark(currentEditMarksId);
-      }
-    });
-  }
-
-  console.log('✅ Marks form event listeners setup');
-}
-
-function setupReportTabListeners() {
-  // Add event listeners for report buttons
-  const weeklyBtn = document.querySelector('button[onclick="showWeeklyBreakdown()"]');
-  const biWeeklyBtn = document.querySelector('button[onclick="showBiWeeklyBreakdown()"]');
-  const monthlyBtn = document.querySelector('button[onclick="showMonthlyBreakdown()"]');
-  const subjectBtn = document.querySelector('button[onclick="showSubjectBreakdown()"]');
-
-  if (weeklyBtn) {
-    weeklyBtn.addEventListener('click', showWeeklyBreakdown);
-  }
-  if (biWeeklyBtn) {
-    biWeeklyBtn.addEventListener('click', showBiWeeklyBreakdown);
-  }
-  if (monthlyBtn) {
-    monthlyBtn.addEventListener('click', showMonthlyBreakdown);
-  }
-  if (subjectBtn) {
-    subjectBtn.addEventListener('click', showSubjectBreakdown);
-  }
-
-  console.log('✅ Report tab listeners setup');
+function initializeTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    updateThemeIcon(savedTheme);
 }
 
 // ===========================
-// STUDENT MANAGEMENT MODULE
+// HEADER STATS
 // ===========================
 
-async function loadStudentsForDropdowns() {
+function updateHeaderStats() {
+  console.log('🔍 [updateHeaderStats] Starting...');
+  
+  const localStatus = document.getElementById('localStatus');
+  const syncStatus = document.getElementById('syncStatus');
+  const dataStatus = document.getElementById('dataStatus');
+  
+  if (localStatus) {
+    localStatus.textContent = '💾 Local Storage: Active';
+  }
+  
+  if (syncStatus) {
+    const isAutoSync = localStorage.getItem('autoSyncEnabled') === 'true';
+    syncStatus.textContent = isAutoSync ? '☁️ Cloud Sync: Auto' : '☁️ Cloud Sync: Manual';
+  }
+  
+  console.log('✅ [updateHeaderStats] Header stats structure verified');
+}
+
+// ===========================
+// USER PROFILE & AUTHENTICATION
+// ===========================
+
+async function loadUserProfile(uid) {
+  console.log('👤 Loading user profile for:', uid);
+  
   const user = auth.currentUser;
-  if (!user) return [];
-
+  const fallbackProfile = {
+    email: user?.email || '',
+    createdAt: new Date().toISOString(),
+    defaultRate: parseFloat(localStorage.getItem('userDefaultRate')) || 0
+  };
+  
+  updateProfileButton(fallbackProfile);
+  initializeDefaultRate(fallbackProfile.defaultRate);
+  
   try {
-    const studentsSnap = await getDocs(collection(db, "users", user.uid, "students"));
-    const studentsList = [];
-    studentsSnap.forEach(doc => {
-      studentsList.push({ id: doc.id, ...doc.data() });
-    });
+    const userRef = doc(db, "users", uid);
+    const userSnap = await getDoc(userRef);
     
-    updateStudentDropdowns(studentsList);
-    return studentsList;
-  } catch (error) {
-    console.error("Error loading students:", error);
-    return [];
-  }
-}
-
-function updateStudentDropdowns(students) {
-  const dropdowns = [
-    'marksStudent',
-    'paymentStudent',
-    'hoursStudent'
-  ];
-  
-  dropdowns.forEach(dropdownId => {
-    const select = document.getElementById(dropdownId);
-    if (select) {
-      // Clear existing options except the first one
-      while (select.options.length > 1) {
-        select.remove(1);
+    if (userSnap.exists()) {
+      currentUserData = { uid, ...userSnap.data() };
+      console.log('✅ User profile loaded from Firestore');
+      
+      updateProfileButton(currentUserData);
+      
+      if (currentUserData.defaultRate !== undefined) {
+        initializeDefaultRate(currentUserData.defaultRate);
+        localStorage.setItem('userDefaultRate', currentUserData.defaultRate.toString());
       }
       
-      // Add student options
-      students.forEach(student => {
-        const option = document.createElement('option');
-        option.value = student.id;
-        option.textContent = `${student.name} (${student.id})`;
-        select.appendChild(option);
-      });
+      return currentUserData;
+    } else {
+      const profileToCreate = {
+        ...fallbackProfile,
+        lastLogin: new Date().toISOString()
+      };
+      
+      setDoc(userRef, profileToCreate).catch(console.error);
+      
+      currentUserData = { uid, ...profileToCreate };
+      return currentUserData;
     }
-  });
+  } catch (err) {
+    console.error("❌ Error loading user profile:", err);
+    console.log('🔄 Using cached profile data');
+    return fallbackProfile;
+  }
 }
 
-// ===========================
-// FORM MANAGEMENT FUNCTIONS
-// ===========================
-
-function clearStudentForm() {
-  console.log('🧹 Clearing student form...');
+function updateProfileButton(userData) {
+  const profileBtn = document.getElementById('profileBtn');
+  const userName = document.getElementById('userName');
   
-  // Clear each field individually
-  const fields = [
-    'studentName', 'studentId', 'studentEmail', 'studentPhone', 'studentBaseRate'
-  ];
-  
-  fields.forEach(fieldId => {
-    const field = document.getElementById(fieldId);
-    if (field) {
-      field.value = '';
-      console.log(`✅ Cleared ${fieldId}`);
-    }
-  });
-  
-  // Reset dropdown
-  const genderSelect = document.getElementById('studentGender');
-  if (genderSelect) {
-    genderSelect.selectedIndex = 0;
-    console.log('✅ Reset gender dropdown');
-  }
-  
-  // Reset buttons
-  const submitBtn = document.getElementById('studentSubmitBtn');
-  const cancelBtn = document.getElementById('studentCancelBtn');
-  
-  if (submitBtn) {
-    submitBtn.textContent = '➕ Add Student';
-    submitBtn.disabled = false;
-    submitBtn.onclick = addStudent;
-    console.log('✅ Reset submit button');
-  }
-  
-  if (cancelBtn) {
-    cancelBtn.style.display = 'none';
-    console.log('✅ Hid cancel button');
-  }
-  
-  currentEditStudentId = null;
-  console.log('✅ Form completely reset');
-}
-
-function resetHoursForm() {
-  const form = document.querySelector('#hours form');
-  if (form) {
-    form.reset();
+  if (profileBtn || userName) {
+    const email = userData?.email || auth.currentUser?.email || 'User';
+    const displayName = email.split('@')[0];
     
-    // Set today's date in correct format
-    const today = new Date().toISOString().split('T')[0];
-    const dateEl = document.getElementById("workDate");
-    if (dateEl) dateEl.value = today;
-    
-    // Reset total display
-    const totalEl = document.getElementById("totalPay");
-    if (totalEl) {
-      if ("value" in totalEl) {
-        totalEl.value = '$0.00';
-      } else {
-        totalEl.textContent = '$0.00';
-      }
+    if (profileBtn) {
+      profileBtn.innerHTML = `👤 ${displayName}`;
+      profileBtn.title = `Logged in as ${email}`;
     }
     
-    console.log("✅ Hours form reset");
-  }
-}
-
-function resetMarksForm() {
-  const form = document.getElementById("marksForm");
-  if (form) form.reset();
-
-  const pctEl = document.getElementById("percentage");
-  const gradeEl = document.getElementById("grade");
-  if (pctEl) pctEl.value = "";
-  if (gradeEl) gradeEl.value = "";
-}
-
-function clearAttendanceForm() {
-  const dateEl = document.getElementById("attendanceDate");
-  const subjectEl = document.getElementById("attendanceSubject");
-  const topicEl = document.getElementById("attendanceTopic");
-
-  if (dateEl) dateEl.value = "";
-  if (subjectEl) subjectEl.value = "";
-  if (topicEl) topicEl.value = "";
-
-  document.querySelectorAll("#attendanceList input[type=checkbox]")
-    .forEach(cb => cb.checked = false);
-}
-
-function resetPaymentForm() {
-  const studentEl = document.getElementById("paymentStudent");
-  const amountEl = document.getElementById("paymentAmount");
-  const dateEl = document.getElementById("paymentDate");
-  const methodEl = document.getElementById("paymentMethod");
-  const notesEl = document.getElementById("paymentNotes");
-
-  if (studentEl) studentEl.value = "";
-  if (amountEl) amountEl.value = "";
-  if (dateEl) dateEl.value = "";
-  if (methodEl) methodEl.value = methodEl.options[0]?.value || "";
-  if (notesEl) notesEl.value = "";
-}
-
-function selectAllStudents() {
-  document.querySelectorAll("#attendanceList input[type=checkbox]").forEach(cb => cb.checked = true);
-}
-
-function deselectAllStudents() {
-  document.querySelectorAll("#attendanceList input[type=checkbox]").forEach(cb => cb.checked = false);
-}
-
-// ===========================
-// RATE MANAGEMENT FUNCTIONS
-// ===========================
-
-async function saveDefaultRate() {
-  const input = document.getElementById("defaultBaseRate");
-  const user = auth.currentUser;
-  
-  if (!user) {
-    NotificationSystem.notifyError("Please log in to save default rate");
-    return;
-  }
-
-  const val = parseFloat(input?.value) || 0;
-  
-  const success = await updateUserDefaultRate(user.uid, val);
-  
-  if (success) {
-    const currentDisplay = document.getElementById("currentDefaultRate");
-    const hoursDisplay = document.getElementById("currentDefaultRateDisplay");
+    if (userName) {
+      userName.textContent = displayName;
+    }
     
-    if (currentDisplay) currentDisplay.textContent = fmtMoney(val);
-    if (hoursDisplay) hoursDisplay.textContent = fmtMoney(val);
-    
-    // Save to localStorage as backup and for immediate access
-    localStorage.setItem('userDefaultRate', val.toString());
-    console.log('💾 Default rate saved to localStorage:', val);
-    
-    NotificationSystem.notifySuccess("Default rate saved and synced to cloud");
-  } else {
-    NotificationSystem.notifyError("Failed to save default rate");
+    console.log('✅ Profile updated:', displayName);
   }
 }
 
 function initializeDefaultRate(rate) {
-  const defaultRateInput = document.getElementById("defaultBaseRate");
-  const currentRateDisplay = document.getElementById("currentDefaultRate");
-  const hoursRateDisplay = document.getElementById("currentDefaultRateDisplay");
-  
-  // Priority: 1. Provided rate, 2. localStorage, 3. Default to 0
-  const finalRate = rate !== undefined ? rate : 
-                   parseFloat(localStorage.getItem('userDefaultRate')) || 0;
-  
-  if (defaultRateInput) defaultRateInput.value = finalRate;
-  if (currentRateDisplay) currentRateDisplay.textContent = fmtMoney(finalRate);
-  if (hoursRateDisplay) hoursRateDisplay.textContent = fmtMoney(finalRate);
-  
-  console.log('💰 Default rate initialized:', finalRate, 'from source:', 
-              rate !== undefined ? 'user profile' : 'localStorage');
-}
-
-async function applyDefaultRateToAll() {
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError("Please log in to apply default rate");
-    return;
-  }
-
-  const val = parseFloat(document.getElementById("defaultBaseRate")?.value) || 0;
-  
-  if (val <= 0) {
-    NotificationSystem.notifyError("Please set a valid default rate first");
-    return;
-  }
-
-  const confirmed = confirm(`This will update the rate for ALL students to $${fmtMoney(val)}. This action cannot be undone. Continue?`);
-  
-  if (confirmed) {
-    const updateCount = await applyDefaultRateToAllStudents(user.uid, val);
-    // No need to show notification here - it's handled in the function
+  const baseRateInput = document.getElementById('baseRate');
+  if (baseRateInput && !baseRateInput.value) {
+    baseRateInput.value = rate;
   }
 }
 
-function useDefaultRate() {
-  const val = parseFloat(document.getElementById("defaultBaseRate")?.value) || 0;
-  const input = document.getElementById("studentBaseRate");
-  if (input) input.value = fmtMoney(val);
-}
-
-function useDefaultRateInHours() {
-  const defaultRateDisplay = document.getElementById("currentDefaultRateDisplay");
-  const baseRateInput = document.getElementById("baseRate");
-  if (defaultRateDisplay && baseRateInput) {
-    baseRateInput.value = parseFloat(defaultRateDisplay.textContent) || 0;
-  }
-}
-
-// ===========================
-// FORM SUBMISSION FUNCTIONS
-// ===========================
-
-async function addStudent() {
-  console.log('🎯 Starting addStudent...');
-  
-  const name = document.getElementById("studentName")?.value.trim();
-  const id = document.getElementById("studentId")?.value.trim();
-  const gender = document.getElementById("studentGender")?.value;
-  const email = document.getElementById("studentEmail")?.value.trim();
-  const phone = document.getElementById("studentPhone")?.value.trim();
-  const rate = parseFloat(document.getElementById("studentBaseRate")?.value) || 0;
-
-  if (!name || !id || !gender) {
-    NotificationSystem.notifyError("Please fill required fields: Name, ID, Gender");
-    return;
-  }
-
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError("Please log in to add students");
-    return;
-  }
-
+async function updateUserDefaultRate(uid, newRate) {
   try {
-    // Show loading state
-    const submitBtn = document.getElementById('studentSubmitBtn');
-    if (submitBtn) {
-      submitBtn.textContent = 'Saving...';
-      submitBtn.disabled = true;
-    }
-
-    const student = { 
-      name, 
-      id, 
-      gender, 
-      email, 
-      phone, 
-      rate,
-      createdAt: getLocalISODate()
-    };
-
-    console.log('💾 Adding student to cache immediately...');
-    
-    // 1. UPDATE CACHE IMMEDIATELY (UI feels instant)
-    addStudentToCache(student);
-    
-    // 2. Clear form IMMEDIATELY
-    console.log('🧹 Clearing form...');
-    clearStudentForm();
-    
-    // 3. Show success IMMEDIATELY
-    NotificationSystem.notifySuccess("Student added successfully!");
-    console.log('✅ Student added to UI instantly');
-    
-    // 4. Save to Firestore in BACKGROUND (non-blocking)
-    console.log('☁️ Saving to Firestore in background...');
-    saveStudentToFirestore(user.uid, student).catch(error => {
-      console.error('❌ Background Firestore save failed:', error);
-      // Optional: Show a subtle warning that sync failed
-      NotificationSystem.notifyWarning('Student saved locally but cloud sync failed', 3000);
+    const userRef = doc(db, "users", uid);
+    await updateDoc(userRef, {
+      defaultRate: newRate,
+      updatedAt: getLocalISODate()
     });
     
-    // 5. Update stats in background
-    incrementStudentCount(user.uid).catch(console.error);
-    loadStudentsForDropdowns().catch(console.error);
-
-  } catch (err) {
-    console.error("❌ Error adding student:", err);
-    NotificationSystem.notifyError("Failed to add student: " + err.message);
+    if (currentUserData) {
+      currentUserData.defaultRate = newRate;
+    }
     
-    // Re-enable button
-    const submitBtn = document.getElementById('studentSubmitBtn');
-    if (submitBtn) {
-      submitBtn.textContent = '➕ Add Student';
-      submitBtn.disabled = false;
+    console.log('✅ Default rate updated:', newRate);
+    return true;
+  } catch (err) {
+    console.error("❌ Error updating default rate:", err);
+    return false;
+  }
+}
+
+async function applyDefaultRateToAllStudents(uid, newRate) {
+  try {
+    const studentsSnap = await getDocs(collection(db, "users", uid, "students"));
+    const batch = writeBatch(db);
+    let updateCount = 0;
+
+    studentsSnap.forEach((docSnap) => {
+      const studentRef = doc(db, "users", uid, "students", docSnap.id);
+      batch.update(studentRef, { rate: newRate });
+      updateCount++;
+    });
+
+    if (updateCount > 0) {
+      await batch.commit();
+      NotificationSystem.notifySuccess(`Default rate applied to ${updateCount} students`);
+      await renderStudents();
+    } else {
+      NotificationSystem.notifyInfo("No students found to update");
+    }
+    
+    return updateCount;
+  } catch (err) {
+    console.error("❌ Error applying rate to all students:", err);
+    NotificationSystem.notifyError("Failed to apply rate to all students");
+    return 0;
+  }
+}
+
+function setupProfileModal() {
+  const profileBtn = document.getElementById('profileBtn');
+  const profileModal = document.getElementById('profileModal');
+  const closeProfileModal = document.getElementById('closeProfileModal');
+  const logoutBtn = document.getElementById('logoutBtn');
+
+  console.log('🔧 Setting up profile modal...');
+
+  if (!profileModal) {
+    console.error('❌ Profile modal not found in DOM');
+    return;
+  }
+
+  if (profileBtn && profileModal) {
+    profileBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('👤 Profile button clicked');
+      
+      updateProfileModal();
+      profileModal.style.display = 'flex';
+      document.body.classList.add('modal-open');
+    });
+  } else {
+    console.error('❌ Profile button or modal not found');
+  }
+
+  if (closeProfileModal) {
+    closeProfileModal.addEventListener('click', () => {
+      closeModal();
+    });
+  }
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      if (confirm('Are you sure you want to logout?')) {
+        try {
+          await signOut(auth);
+          window.location.href = "auth.html";
+        } catch (error) {
+          console.error('Logout error:', error);
+          NotificationSystem.notifyError('Logout failed');
+        }
+      }
+    });
+  }
+
+  window.addEventListener('click', (event) => {
+    if (profileModal && event.target === profileModal) {
+      closeModal();
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && profileModal && profileModal.style.display === 'flex') {
+      closeModal();
+    }
+  });
+
+  function closeModal() {
+    profileModal.style.display = 'none';
+    document.body.classList.remove('modal-open');
+  }
+}
+
+function updateProfileModal() {
+  const profileUserEmail = document.getElementById('profileUserEmail');
+  const profileUserSince = document.getElementById('profileUserSince');
+  const profileDefaultRate = document.getElementById('profileDefaultRate');
+  const modalStatStudents = document.getElementById('modalStatStudents');
+  const modalStatHours = document.getElementById('modalStatHours');
+  const modalStatEarnings = document.getElementById('modalStatEarnings');
+  const modalStatUpdated = document.getElementById('modalStatUpdated');
+
+  if (currentUserData) {
+    const email = currentUserData.email || auth.currentUser?.email || 'Not available';
+    if (profileUserEmail) profileUserEmail.textContent = email;
+    
+    const createdAt = currentUserData.createdAt || currentUserData.lastLogin || new Date().toISOString();
+    if (profileUserSince) profileUserSince.textContent = formatDate(createdAt);
+    
+    if (profileDefaultRate) {
+      profileDefaultRate.textContent = `$${fmtMoney(currentUserData.defaultRate || 0)}/hour`;
     }
   }
+
+  const statStudents = document.getElementById('statStudents');
+  const statHours = document.getElementById('statHours');
+  const statEarnings = document.getElementById('statEarnings');
+  const statUpdated = document.getElementById('statUpdated');
+
+  if (modalStatStudents && statStudents) modalStatStudents.textContent = statStudents.textContent || '0';
+  if (modalStatHours && statHours) modalStatHours.textContent = statHours.textContent || '0';
+  if (modalStatEarnings && statEarnings) modalStatEarnings.textContent = statEarnings.textContent || '$0.00';
+  if (modalStatUpdated && statUpdated) modalStatUpdated.textContent = statUpdated.textContent || 'Never';
+
+  console.log('✅ Profile modal stats updated');
 }
 
-// Add student to cache immediately
-function addStudentToCache(newStudent) {
-  const container = document.getElementById('studentsContainer');
-  if (!container) return;
+// ===========================
+// FLOATING ADD BUTTON
+// ===========================
 
-  // Create the student card HTML
-  const studentCard = `
-    <div class="student-card">
-      <div class="student-card-header">
-        <div>
-          <strong>${newStudent.name}</strong>
-          <span class="student-id">${newStudent.id}</span>
-        </div>
-        <div class="student-actions">
-          <button class="btn-icon" onclick="editStudent('${newStudent.id}')" title="Edit">✏️</button>
-          <button class="btn-icon" onclick="deleteStudent('${newStudent.id}')" title="Delete">🗑️</button>
-        </div>
-      </div>
-      <div class="student-details">
-        <div class="muted">${newStudent.gender} • ${newStudent.email || 'No email'} • ${newStudent.phone || 'No phone'}</div>
-        <div class="student-rate">Rate: $${fmtMoney(newStudent.rate)}/session</div>
-        <div class="student-meta">Added: Just now</div>
-      </div>
-    </div>
-  `;
+function setupFloatingAddButton() {
+  const fab = document.getElementById('floatingAddBtn');
+  const fabMenu = document.getElementById('fabMenu');
+  const fabOverlay = document.getElementById('fabOverlay');
 
-  // Remove empty state if it exists
-  const emptyState = container.querySelector('.empty-state, .empty-message, .loading');
-  if (emptyState) {
-    emptyState.remove();
+  console.log('🔧 Setting up FAB...');
+  console.log('FAB elements:', { fab, fabMenu, fabOverlay });
+
+  if (!fab) {
+    console.error('❌ FAB button not found!');
+    return;
   }
 
-  // Add new student to the top of the list
-  container.insertAdjacentHTML('afterbegin', studentCard);
+  let isExpanded = false;
 
-  // Update cache
-  if (cache.students && !cache.students.includes('Loading students...')) {
-    // Add to existing cache
-    cache.students = studentCard + cache.students;
-  } else {
-    // Force cache refresh on next load
-    cache.students = null;
+  function openFabMenu() {
+    console.log('🟢 Opening FAB menu');
+    isExpanded = true;
+    
+    fab.innerHTML = '✕';
+    fab.style.transform = 'rotate(45deg)';
+    
+    if (fabMenu) {
+      fabMenu.classList.add('show');
+    }
+    
+    if (fabOverlay) {
+      fabOverlay.style.display = 'block';
+      setTimeout(() => {
+        fabOverlay.style.pointerEvents = 'auto';
+      }, 10);
+    }
+    
+    console.log('✅ FAB menu opened');
   }
+
+  function closeFabMenu() {
+    console.log('🔴 Closing FAB menu');
+    isExpanded = false;
+    
+    fab.innerHTML = '+';
+    fab.style.transform = 'rotate(0deg)';
+    
+    if (fabMenu) {
+      fabMenu.classList.remove('show');
+    }
+    
+    if (fabOverlay) {
+      fabOverlay.style.display = 'none';
+      fabOverlay.style.pointerEvents = 'none';
+    }
+    
+    console.log('✅ FAB menu closed');
+  }
+
+  fab.addEventListener('click', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    console.log('🎯 FAB clicked, current state:', isExpanded);
+    
+    if (isExpanded) {
+      closeFabMenu();
+    } else {
+      openFabMenu();
+    }
+  });
+
+  if (fabOverlay) {
+    fabOverlay.addEventListener('click', (e) => {
+      console.log('🎯 Overlay clicked');
+      e.stopPropagation();
+      e.preventDefault();
+      closeFabMenu();
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (isExpanded) {
+      const isClickOnFab = fab.contains(e.target);
+      const isClickOnMenu = fabMenu && fabMenu.contains(e.target);
+      
+      if (!isClickOnFab && !isClickOnMenu) {
+        console.log('🎯 Click outside FAB, closing menu');
+        closeFabMenu();
+      }
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isExpanded) {
+      console.log('🎯 Escape key pressed, closing FAB');
+      closeFabMenu();
+    }
+  });
+
+  setupFabActions(closeFabMenu);
   
-  cache.lastSync = Date.now();
+  console.log('✅ FAB setup completed');
 }
 
-// Background Firestore save (non-blocking)
-async function saveStudentToFirestore(uid, student) {
-  const studentRef = doc(db, "users", uid, "students", student.id);
-  await setDoc(studentRef, student);
-  console.log('✅ Student saved to Firestore in background');
+function setupFabActions(closeFabMenu) {
+  const quickActions = {
+    'fabAddStudent': () => {
+      console.log('🎯 FAB: Add Student clicked');
+      const studentTab = document.querySelector('[data-tab="students"]');
+      if (studentTab) {
+        studentTab.click();
+        setTimeout(() => {
+          const studentForm = document.getElementById('studentForm');
+          if (studentForm) {
+            studentForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const firstInput = studentForm.querySelector('input');
+            if (firstInput) firstInput.focus();
+          }
+        }, 300);
+      }
+    },
+    'fabAddHours': () => {
+      console.log('🎯 FAB: Add Hours clicked');
+      const hoursTab = document.querySelector('[data-tab="hours"]');
+      if (hoursTab) {
+        hoursTab.click();
+        setTimeout(() => {
+          const hoursForm = document.querySelector('#hours .section-card:first-child');
+          if (hoursForm) {
+            hoursForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const firstInput = hoursForm.querySelector('input');
+            if (firstInput) firstInput.focus();
+          }
+        }, 300);
+      }
+    },
+    'fabAddMark': () => {
+      console.log('🎯 FAB: Add Mark clicked');
+      const marksTab = document.querySelector('[data-tab="marks"]');
+      if (marksTab) {
+        marksTab.click();
+        setTimeout(() => {
+          const marksForm = document.getElementById('marksForm');
+          if (marksForm) {
+            marksForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const firstInput = marksForm.querySelector('input, select');
+            if (firstInput) firstInput.focus();
+          }
+        }, 300);
+      }
+    },
+    'fabAddAttendance': () => {
+      console.log('🎯 FAB: Add Attendance clicked');
+      const attendanceTab = document.querySelector('[data-tab="attendance"]');
+      if (attendanceTab) {
+        attendanceTab.click();
+        setTimeout(() => {
+          const attendanceForm = document.querySelector('#attendance .section-card:first-child');
+          if (attendanceForm) {
+            attendanceForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const firstInput = attendanceForm.querySelector('input');
+            if (firstInput) firstInput.focus();
+          }
+        }, 300);
+      }
+    }
+  };
+
+  Object.keys(quickActions).forEach(btnId => {
+    const btn = document.getElementById(btnId);
+    if (btn) {
+      console.log(`✅ Found FAB action button: ${btnId}`);
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log(`🎯 FAB action triggered: ${btnId}`);
+        quickActions[btnId]();
+        closeFabMenu();
+      });
+    } else {
+      console.warn(`⚠️ FAB action button not found: ${btnId}`);
+    }
+  });
 }
 
-// Fast student count increment
-async function incrementStudentCount(uid) {
+// ===========================
+// FIRESTORE DATA FUNCTIONS
+// ===========================
+
+async function loadUserStats(uid) {
+  console.log('📊 Loading user stats for:', uid);
   try {
     const statsRef = doc(db, "users", uid);
     const statsSnap = await getDoc(statsRef);
+
+    console.log('📊 Stats snapshot exists:', statsSnap.exists());
     
     if (statsSnap.exists()) {
-      const currentStats = statsSnap.data();
-      const newStudents = (currentStats.students || 0) + 1;
+      const stats = statsSnap.data();
+      console.log('📊 Stats data loaded:', stats);
       
-      await updateDoc(statsRef, {
-        students: newStudents
-      });
-      
-      // Update DOM immediately
-      const statStudents = document.getElementById('statStudents');
-      if (statStudents) statStudents.textContent = newStudents;
-      
-      updateHeaderStats();
-    }
-  } catch (error) {
-    console.log("Background count update failed:", error);
-  }
-}
-
-async function logHours() {
-  const studentEl = document.getElementById("hoursStudent");
-  const orgEl = document.getElementById("organization");
-  const subjectEl = document.getElementById("workSubject");
-  const typeEl = document.getElementById("workType");
-  const dateEl = document.getElementById("workDate");
-  const hoursEl = document.getElementById("hoursWorked");
-  const rateEl = document.getElementById("baseRate");
-
-  const studentId = studentEl?.value;
-  const organization = orgEl?.value.trim();
-  const subject = subjectEl?.value.trim();
-  const workType = typeEl?.value || "hourly";
-  const workDate = dateEl?.value;
-  const hours = parseFloat(hoursEl?.value);
-  const rate = parseFloat(rateEl?.value);
-
-  if (!organization || !workDate || !Number.isFinite(hours) || hours <= 0 || !Number.isFinite(rate) || rate <= 0) {
-    NotificationSystem.notifyError("Please fill required fields: Organization, Date, Hours, Rate");
-    return;
-  }
-
-  // Calculate total based on work type
-  let total = 0;
-  if (workType === "hourly") {
-    total = hours * rate;
-  } else {
-    total = rate; // Flat rate for session/contract/project/etc.
-  }
-
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError("Please log in to log hours");
-    return;
-  }
-
-  try {
-    // Show loading state
-    const logHoursBtn = document.getElementById('logHoursBtn');
-    const logHoursText = document.getElementById('logHoursText');
-    const logHoursSpinner = document.getElementById('logHoursSpinner');
-    
-    if (logHoursBtn) logHoursBtn.disabled = true;
-    if (logHoursText) logHoursText.style.display = 'none';
-    if (logHoursSpinner) logHoursSpinner.style.display = 'inline';
-
-    const hoursData = {
-      student: studentId || null,
-      organization,
-      subject: subject || 'General',
-      workType,
-      date: workDate,
-      dateIso: fmtDateISO(workDate),
-      hours: workType === "hourly" ? hours : 0,
-      rate,
-      total,
-      loggedAt: getLocalISODate()
-    };
-
-    console.log('💾 Saving hours:', hoursData);
-    
-    await addDoc(collection(db, "users", user.uid, "hours"), hoursData);
-    
-    NotificationSystem.notifySuccess("Hours logged successfully!");
-    
-    // Refresh data
-    await Promise.all([
-      recalcSummaryStats(user.uid),
-      renderRecentHours()
-    ]);
-    
-    resetHoursForm();
-    
-  } catch (err) {
-    console.error("Error logging hours:", err);
-    NotificationSystem.notifyError("Failed to log hours: " + err.message);
-  } finally {
-    // Reset button state
-    const logHoursBtn = document.getElementById('logHoursBtn');
-    const logHoursText = document.getElementById('logHoursText');
-    const logHoursSpinner = document.getElementById('logHoursSpinner');
-    
-    if (logHoursBtn) logHoursBtn.disabled = false;
-    if (logHoursText) logHoursText.style.display = 'inline';
-    if (logHoursSpinner) logHoursSpinner.style.display = 'none';
-  }
-}
-
-async function addMark() {
-  const studentEl = document.getElementById("marksStudent");
-  const subjectEl = document.getElementById("marksSubject");
-  const topicEl = document.getElementById("marksTopic");
-  const scoreEl = document.getElementById("marksScore");
-  const maxEl = document.getElementById("marksMax");
-  const dateEl = document.getElementById("marksDate");
-
-  const student = studentEl?.value;
-  const subject = subjectEl?.value.trim();
-  const topic = topicEl?.value.trim();
-  const score = parseFloat(scoreEl?.value);
-  const maxScore = parseFloat(maxEl?.value);
-  const date = dateEl?.value;
-
-  if (!student || !subject || !Number.isFinite(score) || !Number.isFinite(maxScore) || !date) {
-    NotificationSystem.notifyError("Please fill required fields: Student, Subject, Score, Max Score, Date");
-    return;
-  }
-
-  if (score > maxScore) {
-    NotificationSystem.notifyError("Score cannot be greater than maximum score");
-    return;
-  }
-
-  const percentage = (score / maxScore) * 100;
-  const grade = calculateGrade(percentage);
-
-  const markData = {
-    student,
-    subject,
-    topic: topic || "General",
-    score,
-    max: maxScore,
-    percentage,
-    grade,
-    date,
-    dateIso: fmtDateISO(date),
-    recordedAt: getLocalISODate()
-  };
-
-  const user = auth.currentUser;
-  if (user) {
-    try {
-      await addDoc(collection(db, "users", user.uid, "marks"), markData);
-      NotificationSystem.notifySuccess("Mark added successfully");
-      resetMarksForm();
-      await renderRecentMarks();
-    } catch (err) {
-      console.error("Error adding mark:", err);
-      NotificationSystem.notifyError("Failed to add mark");
-    }
-  }
-}
-
-async function saveAttendance() {
-  const dateEl = document.getElementById("attendanceDate");
-  const subjectEl = document.getElementById("attendanceSubject");
-  const topicEl = document.getElementById("attendanceTopic");
-
-  const date = dateEl?.value;
-  const subject = subjectEl?.value.trim();
-  const topic = topicEl?.value.trim();
-
-  if (!date || !subject) {
-    NotificationSystem.notifyError("Please fill required fields: Date and Subject");
-    return;
-  }
-
-  const presentStudents = [];
-  document.querySelectorAll("#attendanceList input[type=checkbox]:checked")
-    .forEach(cb => presentStudents.push(cb.value));
-
-  if (presentStudents.length === 0) {
-    NotificationSystem.notifyError("Please select at least one student");
-    return;
-  }
-
-  const attendanceData = {
-    date,
-    dateIso: fmtDateISO(date),
-    subject,
-    topic: topic || "General",
-    present: presentStudents,
-    recordedAt: getLocalISODate()
-  };
-
-  const user = auth.currentUser;
-  if (user) {
-    try {
-      await addDoc(collection(db, "users", user.uid, "attendance"), attendanceData);
-      NotificationSystem.notifySuccess("Attendance recorded successfully");
-      clearAttendanceForm();
-      await renderAttendanceRecent();
-    } catch (err) {
-      console.error("Error saving attendance:", err);
-      NotificationSystem.notifyError("Failed to save attendance");
-    }
-  }
-}
-
-async function recordPayment() {
-  const studentEl = document.getElementById("paymentStudent");
-  const amountEl = document.getElementById("paymentAmount");
-  const dateEl = document.getElementById("paymentDate");
-  const methodEl = document.getElementById("paymentMethod");
-
-  const student = studentEl?.value;
-  const amount = parseFloat(amountEl?.value);
-  const date = dateEl?.value;
-  const method = methodEl?.value;
-
-  if (!student || !Number.isFinite(amount) || amount <= 0 || !date || !method) {
-    NotificationSystem.notifyError("Please fill required fields: Student, Amount, Date, Method");
-    return;
-  }
-
-  const paymentData = {
-    student,
-    amount,
-    date,
-    dateIso: fmtDateISO(date),
-    method,
-    recordedAt: getLocalISODate()
-  };
-
-  const user = auth.currentUser;
-  if (user) {
-    try {
-      await addDoc(collection(db, "users", user.uid, "payments"), paymentData);
-      NotificationSystem.notifySuccess("Payment recorded successfully");
-      resetPaymentForm();
-      await renderPaymentActivity();
-      await renderStudentBalances();
-    } catch (err) {
-      console.error("Error recording payment:", err);
-      NotificationSystem.notifyError("Failed to record payment");
-    }
-  }
-}
-
-// ===========================
-// STUDENT EDITING FUNCTIONS
-// ===========================
-
-async function editStudent(studentId) {
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError('Please log in to edit students');
-    return;
-  }
-
-  try {
-    console.log('✏️ Editing student:', studentId);
-    
-    // Show loading state immediately
-    const submitBtn = document.getElementById('studentSubmitBtn');
-    const cancelBtn = document.getElementById('studentCancelBtn');
-    if (submitBtn) submitBtn.textContent = 'Loading...';
-    
-    const studentDoc = await getDoc(doc(db, "users", user.uid, "students", studentId));
-    
-    if (!studentDoc.exists()) {
-      NotificationSystem.notifyError('Student not found');
-      return;
-    }
-
-    const student = studentDoc.data();
-    
-    // Fill the form with student data
-    document.getElementById('studentName').value = student.name || '';
-    document.getElementById('studentId').value = student.id || '';
-    document.getElementById('studentGender').value = student.gender || '';
-    document.getElementById('studentEmail').value = student.email || '';
-    document.getElementById('studentPhone').value = student.phone || '';
-    document.getElementById('studentBaseRate').value = student.rate || '';
-
-    // Set edit mode
-    currentEditStudentId = studentId;
-    
-    if (submitBtn) {
-      submitBtn.textContent = '💾 Update Student';
-      submitBtn.onclick = () => updateStudent(studentId);
-    }
-    
-    if (cancelBtn) {
-      cancelBtn.style.display = 'inline-flex';
-    }
-
-    // Scroll to form immediately
-    const studentForm = document.getElementById('studentForm');
-    if (studentForm) {
-      studentForm.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'start' 
-      });
-    }
-    
-    NotificationSystem.notifyInfo(`Editing student: ${student.name}`);
-    
-  } catch (error) {
-    console.error('Error loading student for edit:', error);
-    NotificationSystem.notifyError('Failed to load student data');
-    
-    // Reset button on error
-    const submitBtn = document.getElementById('studentSubmitBtn');
-    if (submitBtn) {
-      submitBtn.textContent = '➕ Add Student';
-      submitBtn.onclick = addStudent;
-    }
-  }
-}
-
-function cancelEdit() {
-  console.log('❌ Canceling edit...');
-  
-  currentEditStudentId = null;
-  
-  const submitBtn = document.getElementById('studentSubmitBtn');
-  const cancelBtn = document.getElementById('studentCancelBtn');
-  
-  if (submitBtn) {
-    submitBtn.textContent = '➕ Add Student';
-    submitBtn.onclick = addStudent;
-  }
-  
-  if (cancelBtn) {
-    cancelBtn.style.display = 'none';
-  }
-  
-  // Clear the form
-  clearStudentForm();
-  
-  NotificationSystem.notifyInfo('Edit canceled');
-}
-
-async function updateStudent(studentId) {
-  const nameEl = document.getElementById("studentName");
-  const idEl = document.getElementById("studentId");
-  const genderEl = document.getElementById("studentGender");
-  const emailEl = document.getElementById("studentEmail");
-  const phoneEl = document.getElementById("studentPhone");
-  const rateEl = document.getElementById("studentBaseRate");
-
-  const name = nameEl?.value.trim();
-  const id = idEl?.value.trim();
-  const gender = genderEl?.value;
-  const email = emailEl?.value.trim();
-  const phone = phoneEl?.value.trim();
-  const rate = parseFloat(rateEl?.value) || 0;
-
-  if (!name || !id || !gender) {
-    NotificationSystem.notifyError("Please fill required fields: Name, ID, Gender");
-    return;
-  }
-
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError("Please log in to update students");
-    return;
-  }
-
-  try {
-    // Show loading state
-    const submitBtn = document.getElementById('studentSubmitBtn');
-    if (submitBtn) {
-      submitBtn.textContent = 'Updating...';
-      submitBtn.disabled = true;
-    }
-
-    const studentData = { 
-      name, 
-      id, 
-      gender, 
-      email, 
-      phone, 
-      rate,
-      updatedAt: getLocalISODate()
-    };
-
-    const studentRef = doc(db, "users", user.uid, "students", studentId);
-    await updateDoc(studentRef, studentData);
-    
-    // Clear cache
-    cache.students = null;
-    cache.lastSync = null;
-    
-    // Reset form to add mode
-    clearStudentForm();
-    
-    NotificationSystem.notifySuccess("Student updated successfully");
-    
-    // Refresh data
-    await Promise.all([
-      renderStudents(),
-      loadStudentsForDropdowns(),
-      recalcSummaryStats(user.uid)
-    ]);
-
-  } catch (err) {
-    console.error("Error updating student:", err);
-    NotificationSystem.notifyError("Failed to update student");
-    
-    // Re-enable button on error
-    const submitBtn = document.getElementById('studentSubmitBtn');
-    if (submitBtn) {
-      submitBtn.textContent = '💾 Update Student';
-      submitBtn.disabled = false;
-    }
-  }
-}
-
-async function deleteStudent(studentId) {
-  if (confirm("Are you sure you want to delete this student? This action cannot be undone.")) {
-    const user = auth.currentUser;
-    if (user) {
-      try {
-        // Remove from cache immediately
-        removeStudentFromCache(studentId);
-        
-        // Delete from Firestore in background
-        deleteDoc(doc(db, "users", user.uid, "students", studentId))
-          .then(() => console.log('✅ Student deleted from Firestore'))
-          .catch(error => console.error('❌ Background delete failed:', error));
-          
-        NotificationSystem.notifySuccess("Student deleted successfully");
-        
-        // Update stats in background
-        recalcSummaryStats(user.uid).catch(console.error);
-        
-      } catch (error) {
-        console.error("Error deleting student:", error);
-        NotificationSystem.notifyError("Failed to delete student");
+      if (document.getElementById('statStudents')) {
+        document.getElementById('statStudents').textContent = stats.students ?? 0;
       }
+      if (document.getElementById('statHours')) {
+        document.getElementById('statHours').textContent = stats.hours ?? 0;
+      }
+      if (document.getElementById('statEarnings')) {
+        const earnings = stats.earnings != null ? fmtMoney(stats.earnings) : "0.00";
+        document.getElementById('statEarnings').textContent = earnings;
+      }
+    } else {
+      console.log('📊 No stats found, creating default stats...');
+      await setDoc(statsRef, { 
+        students: 0, 
+        hours: 0, 
+        earnings: 0,
+        lastSync: new Date().toLocaleString()
+      });
+      
+      if (document.getElementById('statStudents')) document.getElementById('statStudents').textContent = 0;
+      if (document.getElementById('statHours')) document.getElementById('statHours').textContent = 0;
+      if (document.getElementById('statEarnings')) document.getElementById('statEarnings').textContent = "0.00";
     }
+
+    refreshTimestamp();
+    console.log('✅ User stats loaded successfully');
+    
+  } catch (err) {
+    console.error("❌ Error loading stats:", err);
+    if (syncMessageLine) syncMessageLine.textContent = "Status: Offline – stats unavailable";
   }
 }
 
-function removeStudentFromCache(studentId) {
+async function updateUserStats(uid, newStats) {
+  try {
+    const statsRef = doc(db, "users", uid);
+    await setDoc(statsRef, newStats, { merge: true });
+    console.log("✅ Stats updated:", newStats);
+
+    if (newStats.students !== undefined) {
+      const statStudents = document.getElementById('statStudents');
+      if (statStudents) statStudents.textContent = newStats.students;
+    }
+    if (newStats.hours !== undefined) {
+      const statHours = document.getElementById('statHours');
+      if (statHours) statHours.textContent = newStats.hours;
+    }
+    if (newStats.earnings !== undefined) {
+      const statEarnings = document.getElementById('statEarnings');
+      if (statEarnings) statEarnings.textContent = fmtMoney(newStats.earnings);
+    }
+    if (newStats.lastSync !== undefined) {
+      const statUpdated = document.getElementById('statUpdated');
+      if (statUpdated) statUpdated.textContent = newStats.lastSync;
+    }
+
+    updateHeaderStats();
+    refreshTimestamp();
+  } catch (err) {
+    console.error("❌ Error updating stats:", err);
+    if (syncMessageLine) syncMessageLine.textContent = "Status: Failed to update stats";
+  }
+}
+
+async function recalcSummaryStats(uid) {
+  try {
+    console.log('🔄 Recalculating summary stats for:', uid);
+    
+    const [studentsSnap, hoursSnap] = await Promise.all([
+      getDocs(collection(db, "users", uid, "students")),
+      getDocs(collection(db, "users", uid, "hours"))
+    ]);
+
+    const studentsCount = studentsSnap.size;
+    let totalHours = 0;
+    let totalEarnings = 0;
+
+    hoursSnap.forEach(h => {
+      const d = h.data();
+      totalHours += safeNumber(d.hours);
+      totalEarnings += safeNumber(d.total);
+    });
+
+    console.log('📊 Calculated stats:', {
+      students: studentsCount,
+      hours: totalHours,
+      earnings: totalEarnings
+    });
+
+    await updateUserStats(uid, {
+      students: studentsCount,
+      hours: totalHours,
+      earnings: totalEarnings,
+      lastSync: new Date().toLocaleString()
+    });
+
+    updateHeaderStats();
+    
+    console.log('✅ Summary stats recalculated successfully');
+  } catch (err) {
+    console.error("❌ Error recalculating stats:", err);
+    if (syncMessageLine) syncMessageLine.textContent = "Status: Failed to recalc stats";
+  }
+}
+
+// ===========================
+// DATA RENDERING FUNCTIONS
+// ===========================
+
+async function renderStudents(forceRefresh = false) {
+  const user = auth.currentUser;
+  if (!user) return;
+
   const container = document.getElementById('studentsContainer');
   if (!container) return;
 
-  // Remove from DOM
-  const studentCard = container.querySelector(`.student-id:contains('${studentId}')`)?.closest('.student-card');
-  if (studentCard) {
-    studentCard.remove();
-  }
+  console.log(`🔄 renderStudents called - forceRefresh: ${forceRefresh}, cacheValid: ${isCacheValid('students')}`);
 
-  // Update cache
-  cache.students = null;
-  cache.lastSync = Date.now();
-}
-
-// ===========================
-// HOURS EDIT/DELETE FUNCTIONS
-// ===========================
-
-async function editHours(hoursId) {
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError('Please log in to edit hours');
+  if (!forceRefresh && isCacheValid('students') && cache.students) {
+    container.innerHTML = cache.students;
+    console.log('✅ Students loaded from cache');
     return;
   }
 
-  try {
-    // Show loading state
-    const logHoursBtn = document.getElementById('logHoursBtn');
-    if (logHoursBtn) {
-      logHoursBtn.disabled = true;
-      logHoursBtn.innerHTML = '<span id="logHoursText">⏳ Loading...</span>';
-    }
-
-    const hoursDoc = await getDoc(doc(db, "users", user.uid, "hours", hoursId));
-    
-    if (!hoursDoc.exists()) {
-      NotificationSystem.notifyError('Hours entry not found');
-      return;
-    }
-
-    const hours = hoursDoc.data();
-    
-    // Fill the form with hours data
-    document.getElementById('organization').value = hours.organization || '';
-    document.getElementById('workSubject').value = hours.subject || '';
-    document.getElementById('workType').value = hours.workType || 'hourly';
-    document.getElementById('workDate').value = formatDateForInput(hours.date) || '';
-    document.getElementById('hoursWorked').value = hours.hours || '';
-    document.getElementById('baseRate').value = hours.rate || '';
-    
-    // Update student dropdown if exists
-    const studentEl = document.getElementById('hoursStudent');
-    if (studentEl && hours.student) {
-      studentEl.value = hours.student;
-    }
-    
-    // Update total display
-    const totalEl = document.getElementById('totalPay');
-    if (totalEl) {
-      if ("value" in totalEl) {
-        totalEl.value = fmtMoney(hours.total);
-      } else {
-        totalEl.textContent = fmtMoney(hours.total);
-      }
-    }
-    
-    // Show and setup delete button
-    const deleteHoursBtn = document.getElementById('deleteHoursBtn');
-    if (deleteHoursBtn) {
-      deleteHoursBtn.style.display = 'inline-flex';
-      deleteHoursBtn.onclick = () => deleteHours(hoursId);
-    }
-    
-    // Change button to update mode and show cancel button
-    if (logHoursBtn) {
-      logHoursBtn.disabled = false;
-      logHoursBtn.onclick = () => updateHours(hoursId);
-      logHoursBtn.innerHTML = '<span id="logHoursText">💾 Update Hours</span><span id="logHoursSpinner" style="display: none;">⏳ Updating...</span>';
-    }
-    
-    // Show cancel button
-    const hoursCancelBtn = document.getElementById('cancelHoursEdit');
-    if (hoursCancelBtn) {
-      hoursCancelBtn.style.display = 'inline-flex';
-    }
-    
-    // Scroll to form
-    const hoursForm = document.querySelector('#hours .section-card:first-child');
-    if (hoursForm) {
-      hoursForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-    
-    NotificationSystem.notifyInfo(`Editing hours entry from ${formatDate(hours.date)}`);
-    
-  } catch (error) {
-    console.error('Error loading hours for edit:', error);
-    NotificationSystem.notifyError('Failed to load hours data');
-    
-    // Reset button on error
-    const logHoursBtn = document.getElementById('logHoursBtn');
-    if (logHoursBtn) {
-      logHoursBtn.disabled = false;
-      logHoursBtn.onclick = logHours;
-      logHoursBtn.innerHTML = '<span id="logHoursText">💾 Log Work</span><span id="logHoursSpinner" style="display: none;">⏳ Saving...</span>';
-    }
-    
-    // Hide delete button on error
-    const deleteHoursBtn = document.getElementById('deleteHoursBtn');
-    if (deleteHoursBtn) {
-      deleteHoursBtn.style.display = 'none';
-    }
-  }
-}
-
-async function updateHours(hoursId) {
-  const studentEl = document.getElementById("hoursStudent");
-  const orgEl = document.getElementById("organization");
-  const subjectEl = document.getElementById("workSubject");
-  const typeEl = document.getElementById("workType");
-  const dateEl = document.getElementById("workDate");
-  const hoursEl = document.getElementById("hoursWorked");
-  const rateEl = document.getElementById("baseRate");
-
-  const studentId = studentEl?.value;
-  const organization = orgEl?.value.trim();
-  const subject = subjectEl?.value.trim();
-  const workType = typeEl?.value || "hourly";
-  const workDate = dateEl?.value;
-  const hours = parseFloat(hoursEl?.value);
-  const rate = parseFloat(rateEl?.value);
-
-  if (!organization || !workDate || !Number.isFinite(hours) || hours <= 0 || !Number.isFinite(rate) || rate <= 0) {
-    NotificationSystem.notifyError("Please fill required fields: Organization, Date, Hours, Rate");
-    return;
-  }
-
-  // Calculate total based on work type
-  let total = 0;
-  if (workType === "hourly") {
-    total = hours * rate;
-  } else {
-    total = rate; // Flat rate for session/contract/project/etc.
-  }
-
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError("Please log in to update hours");
-    return;
-  }
-
-  try {
-    // Show loading state
-    const logHoursBtn = document.getElementById('logHoursBtn');
-    const logHoursText = document.getElementById('logHoursText');
-    const logHoursSpinner = document.getElementById('logHoursSpinner');
-    
-    if (logHoursBtn) logHoursBtn.disabled = true;
-    if (logHoursText) logHoursText.style.display = 'none';
-    if (logHoursSpinner) {
-      logHoursSpinner.textContent = '⏳ Updating...';
-      logHoursSpinner.style.display = 'inline';
-    }
-
-    const hoursData = {
-      student: studentId || null,
-      organization,
-      subject: subject || 'General',
-      workType,
-      date: workDate,
-      dateIso: fmtDateISO(workDate),
-      hours: workType === "hourly" ? hours : 0,
-      rate,
-      total,
-      updatedAt: getLocalISODate()
-    };
-
-    console.log('✏️ Updating hours:', hoursId, hoursData);
-    
-    // Update in Firestore
-    const hoursRef = doc(db, "users", user.uid, "hours", hoursId);
-    await updateDoc(hoursRef, hoursData);
-    
-    NotificationSystem.notifySuccess("Hours updated successfully!");
-    
-    // Reset form to add mode
-    resetHoursFormToAddMode();
-    
-    // Refresh data
-    await Promise.all([
-      recalcSummaryStats(user.uid),
-      renderRecentHours()
-    ]);
-    
-  } catch (err) {
-    console.error("Error updating hours:", err);
-    NotificationSystem.notifyError("Failed to update hours: " + err.message);
-  } finally {
-    // Reset button state
-    const logHoursBtn = document.getElementById('logHoursBtn');
-    const logHoursText = document.getElementById('logHoursText');
-    const logHoursSpinner = document.getElementById('logHoursSpinner');
-    
-    if (logHoursBtn) logHoursBtn.disabled = false;
-    if (logHoursText) logHoursText.style.display = 'inline';
-    if (logHoursSpinner) logHoursSpinner.style.display = 'none';
-  }
-}
-
-async function deleteHours(hoursId) {
-  console.log("deleteHours defined:", typeof deleteHours);
-  
-  if (confirm("Are you sure you want to delete this hours entry?")) {
-    const user = auth.currentUser;
-    if (user) {
-      try {
-        await deleteDoc(doc(db, "users", user.uid, "hours", hoursId));
-        NotificationSystem.notifySuccess("Hours entry deleted successfully");
-        await renderRecentHours();
-        await recalcSummaryStats(user.uid);
-      } catch (error) {
-        console.error("Error deleting hours:", error);
-        NotificationSystem.notifyError("Failed to delete hours entry");
-      }
-    }
-  }
-}
-
-function cancelHoursEdit() {
-  resetHoursFormToAddMode();
-  NotificationSystem.notifyInfo('Hours edit cancelled');
-  
-  // Hide delete button when canceling
-  const deleteHoursBtn = document.getElementById('deleteHoursBtn');
-  if (deleteHoursBtn) {
-    deleteHoursBtn.style.display = 'none';
-  }
-}
-
-function resetHoursFormToAddMode() {
-  resetHoursForm();
-  
-  // Reset button to add mode
-  const logHoursBtn = document.getElementById('logHoursBtn');
-  if (logHoursBtn) {
-    logHoursBtn.onclick = logHours;
-    logHoursBtn.innerHTML = '<span id="logHoursText">💾 Log Work</span><span id="logHoursSpinner" style="display: none;">⏳ Saving...</span>';
-  }
-  
-  // Hide cancel button
-  const hoursCancelBtn = document.getElementById('cancelHoursEdit');
-  if (hoursCancelBtn) {
-    hoursCancelBtn.style.display = 'none';
-  }
-  
-  // Hide delete button
-  const deleteHoursBtn = document.getElementById('deleteHoursBtn');
-  if (deleteHoursBtn) {
-    deleteHoursBtn.style.display = 'none';
-  }
-  
-  console.log("✅ Hours form reset to add mode");
-}
-
-// ===========================
-// MARKS EDIT/DELETE FUNCTIONS
-// ===========================
-
-async function editMark(markId) {
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError('Please log in to edit marks');
-    return;
-  }
-
-  try {
-    const markDoc = await getDoc(doc(db, "users", user.uid, "marks", markId));
-    
-    if (!markDoc.exists()) {
-      NotificationSystem.notifyError('Mark entry not found');
-      return;
-    }
-
-    const mark = markDoc.data();
-    
-    // Fill the form with mark data
-    document.getElementById('marksStudent').value = mark.student || '';
-    document.getElementById('marksSubject').value = mark.subject || '';
-    document.getElementById('marksTopic').value = mark.topic || '';
-    document.getElementById('marksScore').value = mark.score || '';
-    document.getElementById('marksMax').value = mark.max || '';
-    document.getElementById('marksDate').value = formatDateForInput(mark.date) || '';
-    
-    // Update percentage and grade
-    updateMarksPercentage();
-    
-    // Set edit mode
-    currentEditMarksId = markId;
-    
-    // Change button to update mode
-    const addMarkBtn = document.getElementById('addMarkBtn');
-    if (addMarkBtn) {
-      addMarkBtn.textContent = '💾 Update Mark';
-      addMarkBtn.onclick = () => updateMark(markId);
-    }
-    
-    // Show cancel button
-    const cancelMarkBtn = document.getElementById('cancelMarkBtn');
-    if (cancelMarkBtn) {
-      cancelMarkBtn.style.display = 'inline-flex';
-    }
-    
-    // Show delete button
-    const deleteMarkBtn = document.getElementById('deleteMarkBtn');
-    if (deleteMarkBtn) {
-      deleteMarkBtn.style.display = 'inline-flex';
-      deleteMarkBtn.onclick = () => deleteMark(markId);
-    }
-    
-    // Scroll to form
-    const marksForm = document.getElementById('marksForm');
-    if (marksForm) {
-      marksForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-    
-    NotificationSystem.notifyInfo(`Editing mark for ${mark.student}`);
-    
-  } catch (error) {
-    console.error('Error loading mark for edit:', error);
-    NotificationSystem.notifyError('Failed to load mark data');
-  }
-}
-
-async function updateMark(markId) {
-  const studentEl = document.getElementById("marksStudent");
-  const subjectEl = document.getElementById("marksSubject");
-  const topicEl = document.getElementById("marksTopic");
-  const scoreEl = document.getElementById("marksScore");
-  const maxEl = document.getElementById("marksMax");
-  const dateEl = document.getElementById("marksDate");
-
-  const student = studentEl?.value;
-  const subject = subjectEl?.value.trim();
-  const topic = topicEl?.value.trim();
-  const score = parseFloat(scoreEl?.value);
-  const maxScore = parseFloat(maxEl?.value);
-  const date = dateEl?.value;
-
-  if (!student || !subject || !Number.isFinite(score) || !Number.isFinite(maxScore) || !date) {
-    NotificationSystem.notifyError("Please fill required fields: Student, Subject, Score, Max Score, Date");
-    return;
-  }
-
-  if (score > maxScore) {
-    NotificationSystem.notifyError("Score cannot be greater than maximum score");
-    return;
-  }
-
-  const percentage = (score / maxScore) * 100;
-  const grade = calculateGrade(percentage);
-
-  const markData = {
-    student,
-    subject,
-    topic: topic || "General",
-    score,
-    max: maxScore,
-    percentage,
-    grade,
-    date,
-    dateIso: fmtDateISO(date),
-    updatedAt: getLocalISODate()
-  };
-
-  const user = auth.currentUser;
-  if (user) {
-    try {
-      const markRef = doc(db, "users", user.uid, "marks", markId);
-      await updateDoc(markRef, markData);
-      
-      NotificationSystem.notifySuccess("Mark updated successfully");
-      
-      // Reset form to add mode
-      resetMarksFormToAddMode();
-      
-      // Refresh data
-      await renderRecentMarks();
-      
-    } catch (err) {
-      console.error("Error updating mark:", err);
-      NotificationSystem.notifyError("Failed to update mark");
-    }
-  }
-}
-
-async function deleteMark(markId) {
-  if (confirm("Are you sure you want to delete this mark entry?")) {
-    const user = auth.currentUser;
-    if (user) {
-      try {
-        await deleteDoc(doc(db, "users", user.uid, "marks", markId));
-        NotificationSystem.notifySuccess("Mark entry deleted successfully");
-        await renderRecentMarks();
-      } catch (error) {
-        console.error("Error deleting mark:", error);
-        NotificationSystem.notifyError("Failed to delete mark entry");
-      }
-    }
-  }
-}
-
-function resetMarksFormToAddMode() {
-  resetMarksForm();
-  
-  // Reset button to add mode
-  const addMarkBtn = document.getElementById('addMarkBtn');
-  if (addMarkBtn) {
-    addMarkBtn.textContent = '➕ Add Mark';
-    addMarkBtn.onclick = addMark;
-  }
-  
-  // Hide cancel and delete buttons
-  const cancelMarkBtn = document.getElementById('cancelMarkBtn');
-  const deleteMarkBtn = document.getElementById('deleteMarkBtn');
-  
-  if (cancelMarkBtn) cancelMarkBtn.style.display = 'none';
-  if (deleteMarkBtn) deleteMarkBtn.style.display = 'none';
-  
-  currentEditMarksId = null;
-}
-
-function cancelMarkEdit() {
-  resetMarksFormToAddMode();
-  NotificationSystem.notifyInfo('Mark edit cancelled');
-}
-
-// ===========================
-// ATTENDANCE EDIT/DELETE FUNCTIONS
-// ===========================
-
-async function editAttendance(attendanceId) {
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError('Please log in to edit attendance');
-    return;
-  }
-
-  try {
-    const attendanceDoc = await getDoc(doc(db, "users", user.uid, "attendance", attendanceId));
-    
-    if (!attendanceDoc.exists()) {
-      NotificationSystem.notifyError('Attendance record not found');
-      return;
-    }
-
-    const attendance = attendanceDoc.data();
-    
-    // Fill the form with attendance data
-    document.getElementById('attendanceDate').value = formatDateForInput(attendance.date) || '';
-    document.getElementById('attendanceSubject').value = attendance.subject || '';
-    document.getElementById('attendanceTopic').value = attendance.topic || '';
-    
-    // Load students for attendance list
-    await loadStudentsForAttendanceList(attendance.present || []);
-    
-    // Set edit mode
-    currentEditAttendanceId = attendanceId;
-    
-    // Change button to update mode
-    const saveAttendanceBtn = document.getElementById('saveAttendanceBtn');
-    if (saveAttendanceBtn) {
-      saveAttendanceBtn.textContent = '💾 Update Attendance';
-      saveAttendanceBtn.onclick = () => updateAttendance(attendanceId);
-    }
-    
-    // Show cancel button
-    const cancelAttendanceBtn = document.getElementById('cancelAttendanceBtn');
-    if (cancelAttendanceBtn) {
-      cancelAttendanceBtn.style.display = 'inline-flex';
-    }
-    
-    // Show delete button
-    const deleteAttendanceBtn = document.getElementById('deleteAttendanceBtn');
-    if (deleteAttendanceBtn) {
-      deleteAttendanceBtn.style.display = 'inline-flex';
-      deleteAttendanceBtn.onclick = () => deleteAttendance(attendanceId);
-    }
-    
-    // Scroll to form
-    const attendanceForm = document.querySelector('#attendance .section-card:first-child');
-    if (attendanceForm) {
-      attendanceForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-    
-    NotificationSystem.notifyInfo(`Editing attendance for ${attendance.subject}`);
-    
-  } catch (error) {
-    console.error('Error loading attendance for edit:', error);
-    NotificationSystem.notifyError('Failed to load attendance data');
-  }
-}
-
-async function loadStudentsForAttendanceList(presentStudents = []) {
-  const user = auth.currentUser;
-  if (!user) return;
+  console.log('🔄 Loading students from Firestore (cache invalid or forced)...');
+  container.innerHTML = '<div class="loading">Loading students...</div>';
 
   try {
     const studentsSnap = await getDocs(collection(db, "users", user.uid, "students"));
-    const attendanceList = document.getElementById('attendanceList');
     
-    if (attendanceList) {
-      attendanceList.innerHTML = '';
-      
-      studentsSnap.forEach(docSnap => {
-        const student = docSnap.data();
-        const isPresent = presentStudents.includes(student.id);
-        
-        const checkbox = document.createElement('div');
-        checkbox.className = 'checkbox-item';
-        checkbox.innerHTML = `
-          <label>
-            <input type="checkbox" value="${student.id}" ${isPresent ? 'checked' : ''}>
-            ${student.name} (${student.id})
-          </label>
+    if (studentsSnap.size === 0) {
+      const emptyHTML = `
+        <div class="empty-state">
+          <h3>No Students Yet</h3>
+          <p>Add your first student to get started</p>
+        </div>
+      `;
+      container.innerHTML = emptyHTML;
+      cache.students = emptyHTML;
+      cache.lastSync = Date.now();
+      return;
+    }
+
+    let studentsHTML = '';
+    studentsSnap.forEach(docSnap => {
+      const student = { id: docSnap.id, ...docSnap.data() };
+      studentsHTML += `
+        <div class="student-card">
+          <div class="student-card-header">
+            <div>
+              <strong>${student.name}</strong>
+              <span class="student-id">${student.id}</span>
+            </div>
+            <div class="student-actions">
+              <button class="btn-icon" onclick="editStudent('${student.id}')" title="Edit">✏️</button>
+              <button class="btn-icon" onclick="deleteStudent('${student.id}')" title="Delete">🗑️</button>
+            </div>
+          </div>
+          <div class="student-details">
+            <div class="muted">${student.gender} • ${student.email || 'No email'} • ${student.phone || 'No phone'}</div>
+            <div class="student-rate">Rate: $${fmtMoney(student.rate)}/session</div>
+            <div class="student-meta">Added: ${formatDate(student.createdAt)}</div>
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = studentsHTML;
+    cache.students = studentsHTML;
+    cache.lastSync = Date.now();
+    
+    console.log(`✅ Loaded ${studentsSnap.size} students from Firestore`);
+
+  } catch (error) {
+    console.error("Error rendering students:", error);
+    container.innerHTML = '<div class="error">Error loading students</div>';
+  }
+}
+
+async function renderRecentHours(limit = 10) {
+  const user = auth.currentUser;
+  if (!user) return;
+  
+  const container = document.getElementById('hoursContainer');
+  if (!container) return;
+
+  container.innerHTML = '<div class="loading">Loading recent hours...</div>';
+
+  try {
+    const hoursQuery = query(
+      collection(db, "users", user.uid, "hours"),
+      orderBy("dateIso", "desc")
+    );
+    
+    const snap = await getDocs(hoursQuery);
+    const rows = [];
+    snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+
+    if (rows.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>No Hours Logged</h3>
+          <p>Log your first work session to get started</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+    rows.slice(0, limit).forEach(entry => {
+      const item = document.createElement("div");
+      item.className = "hours-entry";
+      item.innerHTML = `
+          <div class="hours-header">
+            <strong>${entry.organization}</strong>
+            <span class="hours-type">${entry.workType}</span>
+            <div class="student-actions">
+              <button class="btn-icon" onclick="editHours('${entry.id}')" title="Edit">✏️</button>
+              <button class="btn-icon" onclick="deleteHours('${entry.id}')" title="Delete">🗑️</button>
+            </div>
+          </div>
+          <div class="muted">${formatDate(entry.date)} • ${entry.subject || 'General'}</div>
+          <div class="hours-details">
+            <span>Hours: ${safeNumber(entry.hours)}</span>
+            <span>Rate: $${fmtMoney(entry.rate)}</span>
+            <span class="hours-total">Total: $${fmtMoney(entry.total)}</span>
+          </div>
+          ${entry.student ? `<div class="muted">Student: ${entry.student}</div>` : ''}
         `;
-        attendanceList.appendChild(checkbox);
-      });
-    }
+      container.appendChild(item);
+    });
+
   } catch (error) {
-    console.error('Error loading students for attendance:', error);
+    console.error("Error rendering hours:", error);
+    container.innerHTML = '<div class="error">Error loading hours</div>';
   }
 }
 
-async function updateAttendance(attendanceId) {
-  const dateEl = document.getElementById("attendanceDate");
-  const subjectEl = document.getElementById("attendanceSubject");
-  const topicEl = document.getElementById("attendanceTopic");
-
-  const date = dateEl?.value;
-  const subject = subjectEl?.value.trim();
-  const topic = topicEl?.value.trim();
-
-  if (!date || !subject) {
-    NotificationSystem.notifyError("Please fill required fields: Date and Subject");
-    return;
-  }
-
-  const presentStudents = [];
-  document.querySelectorAll("#attendanceList input[type=checkbox]:checked")
-    .forEach(cb => presentStudents.push(cb.value));
-
-  if (presentStudents.length === 0) {
-    NotificationSystem.notifyError("Please select at least one student");
-    return;
-  }
-
-  const attendanceData = {
-    date,
-    dateIso: fmtDateISO(date),
-    subject,
-    topic: topic || "General",
-    present: presentStudents,
-    updatedAt: getLocalISODate()
-  };
-
-  const user = auth.currentUser;
-  if (user) {
-    try {
-      const attendanceRef = doc(db, "users", user.uid, "attendance", attendanceId);
-      await updateDoc(attendanceRef, attendanceData);
-      
-      NotificationSystem.notifySuccess("Attendance updated successfully");
-      
-      // Reset form to add mode
-      resetAttendanceFormToAddMode();
-      
-      // Refresh data
-      await renderAttendanceRecent();
-      
-    } catch (err) {
-      console.error("Error updating attendance:", err);
-      NotificationSystem.notifyError("Failed to update attendance");
-    }
-  }
-}
-
-async function deleteAttendance(attendanceId) {
-  if (confirm("Are you sure you want to delete this attendance record?")) {
-    const user = auth.currentUser;
-    if (user) {
-      try {
-        await deleteDoc(doc(db, "users", user.uid, "attendance", attendanceId));
-        NotificationSystem.notifySuccess("Attendance record deleted successfully");
-        await renderAttendanceRecent();
-      } catch (error) {
-        console.error("Error deleting attendance:", error);
-        NotificationSystem.notifyError("Failed to delete attendance record");
-      }
-    }
-  }
-}
-
-function resetAttendanceFormToAddMode() {
-  clearAttendanceForm();
-  
-  // Reset button to add mode
-  const saveAttendanceBtn = document.getElementById('saveAttendanceBtn');
-  if (saveAttendanceBtn) {
-    saveAttendanceBtn.textContent = '💾 Save Attendance';
-    saveAttendanceBtn.onclick = saveAttendance;
-  }
-  
-  // Hide cancel and delete buttons
-  const cancelAttendanceBtn = document.getElementById('cancelAttendanceBtn');
-  const deleteAttendanceBtn = document.getElementById('deleteAttendanceBtn');
-  
-  if (cancelAttendanceBtn) cancelAttendanceBtn.style.display = 'none';
-  if (deleteAttendanceBtn) deleteAttendanceBtn.style.display = 'none';
-  
-  currentEditAttendanceId = null;
-  
-  // Reload students for fresh attendance list
-  loadStudentsForAttendanceList();
-}
-
-function cancelAttendanceEdit() {
-  resetAttendanceFormToAddMode();
-  NotificationSystem.notifyInfo('Attendance edit cancelled');
-}
-
-// ===========================
-// PAYMENT EDIT/DELETE FUNCTIONS
-// ===========================
-
-async function editPayment(paymentId) {
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError('Please log in to edit payments');
-    return;
-  }
-
-  try {
-    const paymentDoc = await getDoc(doc(db, "users", user.uid, "payments", paymentId));
-    
-    if (!paymentDoc.exists()) {
-      NotificationSystem.notifyError('Payment record not found');
-      return;
-    }
-
-    const payment = paymentDoc.data();
-    
-    // Fill the form with payment data
-    document.getElementById('paymentStudent').value = payment.student || '';
-    document.getElementById('paymentAmount').value = payment.amount || '';
-    document.getElementById('paymentDate').value = formatDateForInput(payment.date) || '';
-    document.getElementById('paymentMethod').value = payment.method || '';
-    document.getElementById('paymentNotes').value = payment.notes || '';
-    
-    // Set edit mode
-    currentEditPaymentId = paymentId;
-    
-    // Change button to update mode
-    const recordPaymentBtn = document.getElementById('recordPaymentBtn');
-    if (recordPaymentBtn) {
-      recordPaymentBtn.textContent = '💾 Update Payment';
-      recordPaymentBtn.onclick = () => updatePayment(paymentId);
-    }
-    
-    // Show cancel button
-    const cancelPaymentBtn = document.getElementById('cancelPaymentBtn');
-    if (cancelPaymentBtn) {
-      cancelPaymentBtn.style.display = 'inline-flex';
-    }
-    
-    // Show delete button
-    const deletePaymentBtn = document.getElementById('deletePaymentBtn');
-    if (deletePaymentBtn) {
-      deletePaymentBtn.style.display = 'inline-flex';
-      deletePaymentBtn.onclick = () => deletePayment(paymentId);
-    }
-    
-    // Scroll to form
-    const paymentForm = document.querySelector('#payments .section-card:first-child');
-    if (paymentForm) {
-      paymentForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-    
-    NotificationSystem.notifyInfo(`Editing payment for ${payment.student}`);
-    
-  } catch (error) {
-    console.error('Error loading payment for edit:', error);
-    NotificationSystem.notifyError('Failed to load payment data');
-  }
-}
-
-async function updatePayment(paymentId) {
-  const studentEl = document.getElementById("paymentStudent");
-  const amountEl = document.getElementById("paymentAmount");
-  const dateEl = document.getElementById("paymentDate");
-  const methodEl = document.getElementById("paymentMethod");
-  const notesEl = document.getElementById("paymentNotes");
-
-  const student = studentEl?.value;
-  const amount = parseFloat(amountEl?.value);
-  const date = dateEl?.value;
-  const method = methodEl?.value;
-  const notes = notesEl?.value.trim();
-
-  if (!student || !Number.isFinite(amount) || amount <= 0 || !date || !method) {
-    NotificationSystem.notifyError("Please fill required fields: Student, Amount, Date, Method");
-    return;
-  }
-
-  const paymentData = {
-    student,
-    amount,
-    date,
-    dateIso: fmtDateISO(date),
-    method,
-    notes: notes || '',
-    updatedAt: getLocalISODate()
-  };
-
-  const user = auth.currentUser;
-  if (user) {
-    try {
-      const paymentRef = doc(db, "users", user.uid, "payments", paymentId);
-      await updateDoc(paymentRef, paymentData);
-      
-      NotificationSystem.notifySuccess("Payment updated successfully");
-      
-      // Reset form to add mode
-      resetPaymentFormToAddMode();
-      
-      // Refresh data
-      await Promise.all([
-        renderPaymentActivity(),
-        renderStudentBalances()
-      ]);
-      
-    } catch (err) {
-      console.error("Error updating payment:", err);
-      NotificationSystem.notifyError("Failed to update payment");
-    }
-  }
-}
-
-async function deletePayment(paymentId) {
-  if (confirm("Are you sure you want to delete this payment record?")) {
-    const user = auth.currentUser;
-    if (user) {
-      try {
-        await deleteDoc(doc(db, "users", user.uid, "payments", paymentId));
-        NotificationSystem.notifySuccess("Payment record deleted successfully");
-        await Promise.all([
-          renderPaymentActivity(),
-          renderStudentBalances()
-        ]);
-      } catch (error) {
-        console.error("Error deleting payment:", error);
-        NotificationSystem.notifyError("Failed to delete payment record");
-      }
-    }
-  }
-}
-
-function resetPaymentFormToAddMode() {
-  resetPaymentForm();
-  
-  // Reset button to add mode
-  const recordPaymentBtn = document.getElementById('recordPaymentBtn');
-  if (recordPaymentBtn) {
-    recordPaymentBtn.textContent = '💾 Record Payment';
-    recordPaymentBtn.onclick = recordPayment;
-  }
-  
-  // Hide cancel and delete buttons
-  const cancelPaymentBtn = document.getElementById('cancelPaymentBtn');
-  const deletePaymentBtn = document.getElementById('deletePaymentBtn');
-  
-  if (cancelPaymentBtn) cancelPaymentBtn.style.display = 'none';
-  if (deletePaymentBtn) deletePaymentBtn.style.display = 'none';
-  
-  currentEditPaymentId = null;
-}
-
-function cancelPaymentEdit() {
-  resetPaymentFormToAddMode();
-  NotificationSystem.notifyInfo('Payment edit cancelled');
-}
-
-// ===========================
-// REPORT FUNCTIONS
-// ===========================
-
-async function showWeeklyBreakdown() {
+async function renderRecentMarks(limit = 10) {
   const user = auth.currentUser;
   if (!user) return;
+  const container = document.getElementById('marksContainer');
+  if (!container) return;
 
-  const weeklyBody = document.getElementById('weeklyBody');
-  if (!weeklyBody) return;
-
-  weeklyBody.innerHTML = "";
+  container.innerHTML = '<div class="loading">Loading recent marks...</div>';
 
   try {
-    const snap = await getDocs(collection(db, "users", user.uid, "hours"));
+    const marksQuery = query(
+      collection(db, "users", user.uid, "marks"),
+      orderBy("dateIso", "desc")
+    );
+    
+    const snap = await getDocs(marksQuery);
     const rows = [];
-    snap.forEach(d => rows.push(d.data()));
+    snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
 
-    // Group by approximate ISO week
-    const groups = {};
-    rows.forEach(r => {
-      const d = new Date(r.date || r.dateIso || new Date().toISOString());
-      const year = d.getFullYear();
-      const tmp = new Date(d);
-      tmp.setHours(0,0,0,0);
-      const oneJan = new Date(year, 0, 1);
-      const week = Math.ceil((((tmp - oneJan) / 86400000) + oneJan.getDay() + 1) / 7);
-      const key = `${year}-W${String(week).padStart(2,"0")}`;
-      if (!groups[key]) groups[key] = { hours: 0, earnings: 0, subjects: new Set() };
-      groups[key].hours += safeNumber(r.hours);
-      groups[key].earnings += safeNumber(r.total);
-      if (r.subject) groups[key].subjects.add(r.subject);
-    });
-
-    const keys = Object.keys(groups).sort((a, b) => {
-      const [ay, aw] = a.split("-W").map(Number);
-      const [by, bw] = b.split("-W").map(Number);
-      return by === ay ? bw - aw : by - ay;
-    });
-
-    if (keys.length === 0) {
-      weeklyBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#666;padding:20px;">No data available</td></tr>`;
+    if (rows.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>No Marks Recorded</h3>
+          <p>Add your first mark to get started</p>
+        </div>
+      `;
       return;
     }
 
-    keys.forEach(k => {
-      const g = groups[k];
-      const subjectsCount = g.subjects.size || 0;
-      const net = g.earnings * 0.8;
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${k}</td>
-        <td>${safeNumber(g.hours).toFixed(1)}</td>
-        <td>$${fmtMoney(g.earnings)}</td>
-        <td>${subjectsCount}</td>
-        <td>$${fmtMoney(net)}</td>
+    container.innerHTML = '';
+    rows.slice(0, limit).forEach(entry => {
+      const item = document.createElement("div");
+      item.className = "mark-entry";
+      item.innerHTML = `
+        <div class="mark-header">
+          <strong>${entry.student}</strong> — ${entry.subject} (${entry.topic})
+          <div class="student-actions">
+            <button class="btn-icon" onclick="editMark('${entry.id}')" title="Edit">✏️</button>
+            <button class="btn-icon" onclick="deleteMark('${entry.id}')" title="Delete">🗑️</button>
+          </div>
+        </div>
+        <div class="muted">${formatDate(entry.date)}</div>
+        <div>Score: ${safeNumber(entry.score)}/${safeNumber(entry.max)} — ${safeNumber(entry.percentage).toFixed(2)}% — Grade: ${entry.grade}</div>
       `;
-      weeklyBody.appendChild(tr);
+      container.appendChild(item);
     });
+
+    const marksCountEl = document.getElementById('marksCount');
+    const avgMarksEl = document.getElementById('avgMarks');
+    if (marksCountEl) marksCountEl.textContent = rows.length;
+    if (avgMarksEl) {
+      const avg = rows.length ? rows.reduce((s, r) => s + safeNumber(r.percentage), 0) / rows.length : 0;
+      avgMarksEl.textContent = `${avg.toFixed(1)}%`;
+    }
+
   } catch (error) {
-    console.error("Error showing weekly breakdown:", error);
-    weeklyBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#666;padding:20px;">Error loading data</td></tr>`;
+    console.error("Error rendering marks:", error);
+    container.innerHTML = '<div class="error">Error loading marks</div>';
   }
 }
 
-async function showBiWeeklyBreakdown() {
-  await showWeeklyBreakdown();
-}
-
-async function showMonthlyBreakdown() {
+async function renderAttendanceRecent(limit = 10) {
   const user = auth.currentUser;
   if (!user) return;
+  const container = document.getElementById('attendanceContainer');
+  if (!container) return;
 
-  const weeklyBody = document.getElementById('weeklyBody');
-  if (!weeklyBody) return;
-
-  weeklyBody.innerHTML = "";
+  container.innerHTML = '<div class="loading">Loading attendance records...</div>';
 
   try {
-    const snap = await getDocs(collection(db, "users", user.uid, "hours"));
+    const attendanceQuery = query(
+      collection(db, "users", user.uid, "attendance"),
+      orderBy("dateIso", "desc")
+    );
+    
+    const snap = await getDocs(attendanceQuery);
     const rows = [];
-    snap.forEach(d => rows.push(d.data()));
+    snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
 
-    const groups = {};
-    rows.forEach(r => {
-      const d = new Date(r.date || r.dateIso || new Date().toISOString());
-      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
-      if (!groups[key]) groups[key] = { hours: 0, earnings: 0, subjects: new Set() };
-      groups[key].hours += safeNumber(r.hours);
-      groups[key].earnings += safeNumber(r.total);
-      if (r.subject) groups[key].subjects.add(r.subject);
-    });
-
-    const keys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
-    if (keys.length === 0) {
-      weeklyBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#666;padding:20px;">No data available</td></tr>`;
+    if (rows.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>No Attendance Records</h3>
+          <p>Record your first attendance session</p>
+        </div>
+      `;
       return;
     }
 
-    keys.forEach(k => {
-      const g = groups[k];
-      const subjectsCount = g.subjects.size || 0;
-      const net = g.earnings * 0.8;
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${k}</td>
-        <td>${safeNumber(g.hours).toFixed(1)}</td>
-        <td>$${fmtMoney(g.earnings)}</td>
-        <td>${subjectsCount}</td>
-        <td>$${fmtMoney(net)}</td>
+    container.innerHTML = '';
+    rows.slice(0, limit).forEach(entry => {
+      const item = document.createElement("div");
+      item.className = "attendance-entry";
+      item.innerHTML = `
+        <div class="attendance-header">
+          <strong>${entry.subject}</strong> — ${entry.topic || "—"}
+          <div class="student-actions">
+            <button class="btn-icon" onclick="editAttendance('${entry.id}')" title="Edit">✏️</button>
+            <button class="btn-icon" onclick="deleteAttendance('${entry.id}')" title="Delete">🗑️</button>
+          </div>
+        </div>
+        <div class="muted">${formatDate(entry.date)}</div>
+        <div>Present: ${Array.isArray(entry.present) ? entry.present.length : 0} students</div>
       `;
-      weeklyBody.appendChild(tr);
+      container.appendChild(item);
     });
+
+    const lastSessionDateEl = document.getElementById('lastSessionDate');
+    const attendanceCountEl = document.getElementById('attendanceCount');
+    if (lastSessionDateEl) lastSessionDateEl.textContent = rows[0]?.date ? formatDate(rows[0].date) : "Never";
+    if (attendanceCountEl) attendanceCountEl.textContent = rows.length;
+
   } catch (error) {
-    console.error("Error showing monthly breakdown:", error);
-    weeklyBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#666;padding:20px;">Error loading data</td></tr>`;
+    console.error("Error rendering attendance:", error);
+    container.innerHTML = '<div class="error">Error loading attendance</div>';
   }
 }
 
-async function showSubjectBreakdown() {
+async function renderPaymentActivity(limit = 10) {
+  const user = auth.currentUser;
+  if (!user) return;
+  const container = document.getElementById('paymentActivityLog');
+  if (!container) return;
+
+  container.innerHTML = '<div class="loading">Loading payment activity...</div>';
+
+  try {
+    const paymentsQuery = query(
+      collection(db, "users", user.uid, "payments"),
+      orderBy("dateIso", "desc")
+    );
+    
+    const snap = await getDocs(paymentsQuery);
+    const rows = [];
+    snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+
+    if (rows.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>No Payment Activity</h3>
+          <p>No recent payment activity recorded</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+    rows.slice(0, limit).forEach(entry => {
+      const item = document.createElement("div");
+      item.className = "activity-item";
+      item.innerHTML = `
+        <div class="payment-header">
+          <strong>$${fmtMoney(entry.amount)}</strong> — ${entry.student}
+          <div class="student-actions">
+            <button class="btn-icon" onclick="editPayment('${entry.id}')" title="Edit">✏️</button>
+            <button class="btn-icon" onclick="deletePayment('${entry.id}')" title="Delete">🗑️</button>
+          </div>
+        </div>
+        <div class="muted">${formatDate(entry.date)} | ${entry.method}</div>
+        <div>${entry.notes || ""}</div>
+      `;
+      container.appendChild(item);
+    });
+
+    const monthlyPaymentsEl = document.getElementById('monthlyPayments');
+    if (monthlyPaymentsEl) {
+      const now = new Date();
+      const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+      const sum = rows
+        .filter(r => (r.date || "").startsWith(ym))
+        .reduce((s, r) => s + safeNumber(r.amount), 0);
+      monthlyPaymentsEl.textContent = `$${fmtMoney(sum)}`;
+    }
+
+  } catch (error) {
+    console.error("Error rendering payments:", error);
+    container.innerHTML = '<div class="error">Error loading payments</div>';
+  }
+}
+
+async function renderStudentBalances() {
+  const user = auth.currentUser;
+  if (!user) return;
+  const container = document.getElementById('studentBalancesContainer');
+  if (!container) return;
+
+  container.innerHTML = '<div class="loading">Loading student balances...</div>';
+
+  try {
+    const [studentsSnap, hoursSnap, paymentsSnap] = await Promise.all([
+      getDocs(collection(db, "users", user.uid, "students")),
+      getDocs(collection(db, "users", user.uid, "hours")),
+      getDocs(collection(db, "users", user.uid, "payments"))
+    ]);
+
+    const earningsByStudent = {};
+    hoursSnap.forEach(d => {
+      const row = d.data();
+      const sid = row.student || "__unknown__";
+      earningsByStudent[sid] = (earningsByStudent[sid] || 0) + safeNumber(row.total);
+    });
+
+    const paymentsByStudent = {};
+    paymentsSnap.forEach(d => {
+      const row = d.data();
+      const sid = row.student || "__unknown__";
+      paymentsByStudent[sid] = (paymentsByStudent[sid] || 0) + safeNumber(row.amount);
+    });
+
+    if (studentsSnap.size === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>No Student Data</h3>
+          <p>Add students and record hours/payments to see balances</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = '';
+    let totalOwed = 0;
+    
+    studentsSnap.forEach(snap => {
+      const student = snap.data();
+      const sid = student.id;
+      const earned = earningsByStudent[sid] || 0;
+      const paid = paymentsByStudent[sid] || 0;
+      const owed = Math.max(earned - paid, 0);
+      totalOwed += owed;
+
+      const item = document.createElement("div");
+      item.className = "activity-item";
+      item.innerHTML = `
+        <div><strong>${student.name}</strong> (${student.id})</div>
+        <div>Earned: $${fmtMoney(earned)} | Paid: $${fmtMoney(paid)} | Owed: $${fmtMoney(owed)}</div>
+      `;
+      container.appendChild(item);
+    });
+
+    const totalStudentsCountEl = document.getElementById('totalStudentsCount');
+    const totalOwedEl = document.getElementById('totalOwed');
+    if (totalStudentsCountEl) totalStudentsCountEl.textContent = studentsSnap.size;
+    if (totalOwedEl) totalOwedEl.textContent = `$${fmtMoney(totalOwed)}`;
+
+  } catch (error) {
+    console.error("Error rendering balances:", error);
+    container.innerHTML = '<div class="error">Error loading balances</div>';
+  }
+}
+
+async function renderOverviewReports() {
   const user = auth.currentUser;
   if (!user) return;
 
-  const subjectBody = document.getElementById('subjectBody');
-  if (!subjectBody) return;
-
-  subjectBody.innerHTML = "";
-
   try {
-    const marksSnap = await getDocs(collection(db, "users", user.uid, "marks"));
-    const hoursSnap = await getDocs(collection(db, "users", user.uid, "hours"));
+    const [studentsSnap, hoursSnap, marksSnap, paymentsSnap] = await Promise.all([
+      getDocs(collection(db, "users", user.uid, "students")),
+      getDocs(collection(db, "users", user.uid, "hours")),
+      getDocs(collection(db, "users", user.uid, "marks")),
+      getDocs(collection(db, "users", user.uid, "payments"))
+    ]);
 
-    const bySubject = {};
-
-    marksSnap.forEach(d => {
-      const r = d.data();
-      const subj = r.subject?.trim() || "Unknown";
-      if (!bySubject[subj]) bySubject[subj] = { marks: [], hours: 0, earnings: 0, sessions: 0 };
-      bySubject[subj].marks.push(safeNumber(r.percentage));
-    });
-
+    let hoursTotal = 0;
+    let earningsTotal = 0;
     hoursSnap.forEach(d => {
       const r = d.data();
-      const subj = r.subject?.trim() || "General";
-      if (!bySubject[subj]) bySubject[subj] = { marks: [], hours: 0, earnings: 0, sessions: 0 };
-      bySubject[subj].hours += safeNumber(r.hours);
-      bySubject[subj].earnings += safeNumber(r.total);
-      bySubject[subj].sessions += 1;
+      hoursTotal += safeNumber(r.hours);
+      earningsTotal += safeNumber(r.total);
     });
 
-    const keys = Object.keys(bySubject).sort();
-    if (keys.length === 0) {
-      subjectBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#666;padding:20px;">No data available</td></tr>`;
-      return;
-    }
-
-    keys.forEach(subj => {
-      const g = bySubject[subj];
-      const avgMark = g.marks.length ? (g.marks.reduce((s, v) => s + v, 0) / g.marks.length) : 0;
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${subj}</td>
-        <td>${avgMark.toFixed(1)}%</td>
-        <td>${safeNumber(g.hours).toFixed(1)}</td>
-        <td>$${fmtMoney(g.earnings)}</td>
-        <td>${g.sessions}</td>
-      `;
-      subjectBody.appendChild(tr);
+    let markSum = 0;
+    let markCount = 0;
+    marksSnap.forEach(d => {
+      const r = d.data();
+      markSum += safeNumber(r.percentage);
+      markCount += 1;
     });
+    const avgMark = markCount ? (markSum / markCount) : 0;
+
+    let paymentsTotal = 0;
+    paymentsSnap.forEach(d => {
+      const r = d.data();
+      paymentsTotal += safeNumber(r.amount);
+    });
+
+    const outstanding = Math.max(earningsTotal - paymentsTotal, 0);
+
+    const totalStudentsReport = document.getElementById('totalStudentsReport');
+    const totalHoursReport = document.getElementById('totalHoursReport');
+    const totalEarningsReport = document.getElementById('totalEarningsReport');
+    const avgMarkReport = document.getElementById('avgMarkReport');
+    const totalPaymentsReport = document.getElementById('totalPaymentsReport');
+    const outstandingBalance = document.getElementById('outstandingBalance');
+
+    if (totalStudentsReport) totalStudentsReport.textContent = studentsSnap.size;
+    if (totalHoursReport) totalHoursReport.textContent = hoursTotal.toFixed(1);
+    if (totalEarningsReport) totalEarningsReport.textContent = `$${fmtMoney(earningsTotal)}`;
+    if (avgMarkReport) avgMarkReport.textContent = `${avgMark.toFixed(1)}%`;
+    if (totalPaymentsReport) totalPaymentsReport.textContent = `$${fmtMoney(paymentsTotal)}`;
+    if (outstandingBalance) outstandingBalance.textContent = `$${fmtMoney(outstanding)}`;
+
   } catch (error) {
-    console.error("Error showing subject breakdown:", error);
-    subjectBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#666;padding:20px;">Error loading data</td></tr>`;
+    console.error("Error rendering overview:", error);
   }
 }
 
 // ===========================
-// APP INITIALIZATION - COMPLETELY REWRITTEN
+// FORM HANDLERS
 // ===========================
 
-/*function initializeApp() {
-  console.log('🚀 Initializing WorkLog App...');
-
-  // Load cached data immediately
-  EnhancedCache.loadCachedData();
-  
-  // Initialize all systems
-  UIManager.init();
-  SyncBar.init();
-  EnhancedStats.init();
-  setupProfileModal();
-  setupFloatingAddButton();
-  
-  // Initialize all form listeners
-  setupStudentFormListeners();
-  setupPaymentFormListeners();
-  setupAttendanceFormListeners();
-  setupHoursFormListeners();
-  setupMarksFormListeners();
-  setupReportTabListeners();
-  
-  updateHeaderStats();
-  
-  if (syncMessage) syncMessage.textContent = "Cloud Sync: Ready";
-  if (syncMessageLine) syncMessageLine.textContent = "Status: Connected";
-  
+async function handleStudentSubmit(e) {
+  e.preventDefault();
   const user = auth.currentUser;
-  if (user) {
-    console.log('👤 User authenticated, loading data...');
-    loadInitialData(user);
-  }
-  
-  console.log('✅ WorkLog App Fully Initialized');
-}
+  if (!user) return;
 
-async function loadInitialData(user) {
+  const formData = new FormData(e.target);
+  const studentData = {
+    name: formData.get('studentName'),
+    email: formData.get('studentEmail'),
+    phone: formData.get('studentPhone'),
+    gender: formData.get('studentGender'),
+    rate: safeNumber(formData.get('studentRate')),
+    createdAt: new Date().toISOString()
+  };
+
   try {
-    console.log('📥 Loading initial data for user:', user.uid);
-    
-    // Load critical data first
-    await Promise.allSettled([
-      loadUserProfile(user.uid),
-      loadStudentsForDropdowns(),
-      recalcSummaryStats(user.uid)
-    ]);
-    
-    // Then load all visible content
-    await Promise.allSettled([
-      renderStudents(),
-      renderRecentHours(),
-      renderRecentMarks(),
-      renderAttendanceRecent(),
-      renderPaymentActivity(),
-      renderStudentBalances(),
-      renderOverviewReports()
-    ]);
-    
-    // Force header stats update
-    updateHeaderStats();
-    
-    console.log('✅ Initial data loaded successfully');
-    
+    await EnhancedCache.saveWithBackgroundSync('students', studentData);
+    FormAutoClear.handleSuccess('studentForm');
+    EnhancedStats.forceRefresh();
   } catch (error) {
-    console.error('❌ Error loading initial data:', error);
+    console.error('Error adding student:', error);
+    NotificationSystem.notifyError('Failed to add student');
   }
-} */
-
-// ===========================
-// AUTH STATE MANAGEMENT
-// ===========================
-
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('✅ DOM fully loaded, setting up auth listener');
-  
-  onAuthStateChanged(auth, user => {
-    if (user) {
-      console.log("✅ User authenticated:", user.email);
-      
-      // Safe container access with null check
-      const container = document.querySelector(".container");
-      if (container && container.style) {
-        container.style.display = "block";
-        console.log('✅ Container displayed');
-      } else {
-        console.warn('⚠️ Container element not found or inaccessible');
-      }
-      
-      // Safely initialize app
-      if (typeof initializeApp === 'function') {
-        try {
-          initializeApp();
-        } catch (error) {
-          console.error('❌ Error initializing app:', error);
-        }
-      }
-    } else {
-      console.log("🚫 No user authenticated - redirecting to login");
-      window.location.href = "auth.html";
-    }
-  });
-});
-
-// ===========================
-// EMERGENCY TAB FIX
-// ===========================
-function emergencyTabFix() {
-  console.log('🚨 Initializing emergency tab fix...');
-  
-  const tabs = document.querySelectorAll('.tab');
-  const tabContents = document.querySelectorAll('.tabcontent');
-  
-  if (tabs.length === 0) {
-    console.log('❌ No tabs found');
-    return;
-  }
-
-  tabs.forEach(tab => {
-    // Remove any existing event listeners
-    const newTab = tab.cloneNode(true);
-    tab.parentNode.replaceChild(newTab, tab);
-    
-    newTab.addEventListener('click', function(e) {
-      e.preventDefault();
-      const target = this.getAttribute('data-tab');
-      console.log('🎯 Tab clicked:', target);
-      
-      // Remove active from all
-      tabs.forEach(t => t.classList.remove('active'));
-      tabContents.forEach(tc => {
-        tc.classList.remove('active');
-        tc.style.display = 'none';
-      });
-      
-      // Add active to clicked
-      this.classList.add('active');
-      const content = document.getElementById(target);
-      if (content) {
-        content.classList.add('active');
-        content.style.display = 'block';
-        console.log('✅ Switched to tab:', target);
-      }
-    });
-  });
-
-  // Activate first tab
-  const activeTab = document.querySelector('.tab.active') || document.querySelector('.tab');
-  if (activeTab) {
-    activeTab.click();
-  }
-  
-  console.log('✅ Emergency tabs initialized');
 }
 
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('🏠 DOM loaded - starting emergency tab init');
-  setTimeout(emergencyTabFix, 100);
+async function handleHoursSubmit(e) {
+  e.preventDefault();
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const formData = new FormData(e.target);
+  const hours = safeNumber(formData.get('hours'));
+  const rate = safeNumber(formData.get('rate'));
+  const total = hours * rate;
+
+  const hoursData = {
+    organization: formData.get('organization'),
+    workType: formData.get('workType'),
+    subject: formData.get('subject'),
+    student: formData.get('student'),
+    hours: hours,
+    rate: rate,
+    total: total,
+    date: formData.get('date'),
+    dateIso: fmtDateISO(formData.get('date')),
+    notes: formData.get('notes')
+  };
+
+  try {
+    await EnhancedCache.saveWithBackgroundSync('hours', hoursData);
+    FormAutoClear.handleSuccess('hoursForm', { baseRate: rate });
+    EnhancedStats.forceRefresh();
+  } catch (error) {
+    console.error('Error adding hours:', error);
+    NotificationSystem.notifyError('Failed to log hours');
+  }
+}
+
+async function handleMarksSubmit(e) {
+  e.preventDefault();
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const formData = new FormData(e.target);
+  const score = safeNumber(formData.get('marksScore'));
+  const max = safeNumber(formData.get('marksMax'));
+  const percentage = max > 0 ? (score / max) * 100 : 0;
+
+  const marksData = {
+    student: formData.get('marksStudent'),
+    subject: formData.get('marksSubject'),
+    topic: formData.get('marksTopic'),
+    score: score,
+    max: max,
+    percentage: percentage,
+    grade: calculateGrade(percentage),
+    date: formData.get('marksDate'),
+    dateIso: fmtDateISO(formData.get('marksDate')),
+    notes: formData.get('marksNotes')
+  };
+
+  try {
+    await EnhancedCache.saveWithBackgroundSync('marks', marksData);
+    FormAutoClear.handleSuccess('marksForm');
+    EnhancedStats.forceRefresh();
+  } catch (error) {
+    console.error('Error adding marks:', error);
+    NotificationSystem.notifyError('Failed to add marks');
+  }
+}
+
+async function handleAttendanceSubmit(e) {
+  e.preventDefault();
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const formData = new FormData(e.target);
+  const presentStudents = formData.getAll('presentStudents');
+
+  const attendanceData = {
+    subject: formData.get('attendanceSubject'),
+    topic: formData.get('attendanceTopic'),
+    present: presentStudents,
+    date: formData.get('attendanceDate'),
+    dateIso: fmtDateISO(formData.get('attendanceDate')),
+    notes: formData.get('attendanceNotes')
+  };
+
+  try {
+    await EnhancedCache.saveWithBackgroundSync('attendance', attendanceData);
+    FormAutoClear.handleSuccess('attendanceForm');
+    EnhancedStats.forceRefresh();
+  } catch (error) {
+    console.error('Error recording attendance:', error);
+    NotificationSystem.notifyError('Failed to record attendance');
+  }
+}
+
+async function handlePaymentSubmit(e) {
+  e.preventDefault();
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const formData = new FormData(e.target);
+  const paymentData = {
+    student: formData.get('paymentStudent'),
+    amount: safeNumber(formData.get('paymentAmount')),
+    method: formData.get('paymentMethod'),
+    date: formData.get('paymentDate'),
+    dateIso: fmtDateISO(formData.get('paymentDate')),
+    notes: formData.get('paymentNotes')
+  };
+
+  try {
+    await EnhancedCache.saveWithBackgroundSync('payments', paymentData);
+    FormAutoClear.handleSuccess('paymentForm');
+    EnhancedStats.forceRefresh();
+  } catch (error) {
+    console.error('Error recording payment:', error);
+    NotificationSystem.notifyError('Failed to record payment');
+  }
+}
+
+// ===========================
+// EDIT & DELETE FUNCTIONS
+// ===========================
+
+// Placeholder functions for edit/delete operations
+async function editStudent(id) {
+  NotificationSystem.notifyInfo(`Edit student ${id} - Feature coming soon`);
+}
+
+async function deleteStudent(id) {
+  if (confirm('Are you sure you want to delete this student?')) {
+    NotificationSystem.notifyInfo(`Delete student ${id} - Feature coming soon`);
+  }
+}
+
+async function editHours(id) {
+  NotificationSystem.notifyInfo(`Edit hours ${id} - Feature coming soon`);
+}
+
+async function deleteHours(id) {
+  if (confirm('Are you sure you want to delete this hours entry?')) {
+    NotificationSystem.notifyInfo(`Delete hours ${id} - Feature coming soon`);
+  }
+}
+
+async function editMark(id) {
+  NotificationSystem.notifyInfo(`Edit mark ${id} - Feature coming soon`);
+}
+
+async function deleteMark(id) {
+  if (confirm('Are you sure you want to delete this mark?')) {
+    NotificationSystem.notifyInfo(`Delete mark ${id} - Feature coming soon`);
+  }
+}
+
+async function editAttendance(id) {
+  NotificationSystem.notifyInfo(`Edit attendance ${id} - Feature coming soon`);
+}
+
+async function deleteAttendance(id) {
+  if (confirm('Are you sure you want to delete this attendance record?')) {
+    NotificationSystem.notifyInfo(`Delete attendance ${id} - Feature coming soon`);
+  }
+}
+
+async function editPayment(id) {
+  NotificationSystem.notifyInfo(`Edit payment ${id} - Feature coming soon`);
+}
+
+async function deletePayment(id) {
+  if (confirm('Are you sure you want to delete this payment?')) {
+    NotificationSystem.notifyInfo(`Delete payment ${id} - Feature coming soon`);
+  }
+}
+
+// ===========================
+// APP INITIALIZATION
+// ===========================
+
+// Start the application when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+  WorklogApp.init();
 });
 
-// ===========================
-// GLOBAL FUNCTION EXPORTS
-// ===========================
-
-window.addStudent = addStudent;
-window.clearStudentForm = clearStudentForm;
-window.saveDefaultRate = saveDefaultRate;
-window.applyDefaultRateToAll = applyDefaultRateToAll;
-window.useDefaultRate = useDefaultRate;
-
-window.logHours = logHours;
-window.resetHoursForm = resetHoursForm;
-window.useDefaultRateInHours = useDefaultRateInHours;
-window.editHours = editHours;
-window.deleteHours = deleteHours;
-window.cancelHoursEdit = cancelHoursEdit;
-
-window.addMark = addMark;
-window.resetMarksForm = resetMarksForm;
-window.updateMarksPercentage = updateMarksPercentage;
-window.editMark = editMark;
-window.deleteMark = deleteMark;
-window.cancelMarkEdit = cancelMarkEdit;
-
-window.saveAttendance = saveAttendance;
-window.clearAttendanceForm = clearAttendanceForm;
-window.selectAllStudents = selectAllStudents;
-window.deselectAllStudents = deselectAllStudents;
-window.editAttendance = editAttendance;
-window.deleteAttendance = deleteAttendance;
-window.cancelAttendanceEdit = cancelAttendanceEdit;
-
-window.recordPayment = recordPayment;
-window.resetPaymentForm = resetPaymentForm;
-window.editPayment = editPayment;
-window.deletePayment = deletePayment;
-window.cancelPaymentEdit = cancelPaymentEdit;
-
-window.showWeeklyBreakdown = showWeeklyBreakdown;
-window.showBiWeeklyBreakdown = showBiWeeklyBreakdown;
-window.showMonthlyBreakdown = showMonthlyBreakdown;
-window.showSubjectBreakdown = showSubjectBreakdown;
-window.renderOverviewReports = renderOverviewReports;
-
-// Student actions
+// Export functions for global access
 window.editStudent = editStudent;
 window.deleteStudent = deleteStudent;
-window.cancelEdit = cancelEdit;
-
-// Expose NotificationSystem for global access
+window.editHours = editHours;
+window.deleteHours = deleteHours;
+window.editMark = editMark;
+window.deleteMark = deleteMark;
+window.editAttendance = editAttendance;
+window.deleteAttendance = deleteAttendance;
+window.editPayment = editPayment;
+window.deletePayment = deletePayment;
 window.NotificationSystem = NotificationSystem;
-
-// Sync bar functions for global access
-window.performSync = (mode = 'manual') => SyncBar.performSync(mode);
