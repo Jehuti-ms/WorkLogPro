@@ -1,5 +1,5 @@
 // ===========================
-// IMPORTS & INITIALIZATION
+// IMPORTS
 // ===========================
 
 import { 
@@ -52,234 +52,7 @@ const importDataBtn = document.getElementById("importDataBtn");
 const clearDataBtn = document.getElementById("clearDataBtn");
 
 // ===========================
-// CORE SYSTEMS INITIALIZATION
-// ===========================
-
-class WorklogApp {
-  static async init() {
-    console.log('🚀 Initializing Worklog App...');
-    
-    try {
-      // Initialize core systems in order
-      NotificationSystem.initNotificationStyles();
-      initializeTheme();
-      setupThemeToggle();
-      EnhancedCache.loadCachedData();
-      EnhancedStats.init();
-      
-      // Wait for authentication
-      await this.setupAuth();
-      
-      // Setup UI components
-      this.setupUI();
-      
-      console.log('✅ Worklog App initialized successfully');
-    } catch (error) {
-      console.error('❌ App initialization failed:', error);
-      NotificationSystem.notifyError('App initialization failed');
-    }
-  }
-
-  static setupAuth() {
-    return new Promise((resolve) => {
-      onAuthStateChanged(auth, async (user) => {
-        if (user) {
-          console.log('👤 User authenticated:', user.email);
-          await this.handleUserLogin(user);
-          resolve();
-        } else {
-          console.log('👤 No user, redirecting to auth...');
-          window.location.href = "auth.html";
-        }
-      });
-    });
-  }
-
-  static async handleUserLogin(user) {
-    try {
-      // Load user profile and data in parallel
-      await Promise.all([
-        loadUserProfile(user.uid),
-        this.loadInitialData(user.uid)
-      ]);
-      
-      // Initialize systems that depend on user data
-      SyncBar.init();
-      setupProfileModal();
-      setupFloatingAddButton();
-      updateHeaderStats();
-      
-      NotificationSystem.notifySuccess(`Welcome back, ${user.email.split('@')[0]}!`);
-    } catch (error) {
-      console.error('❌ Error during user login:', error);
-      NotificationSystem.notifyError('Error loading user data');
-    }
-  }
-
-  static async loadInitialData(uid) {
-    console.log('📦 Loading initial data...');
-    
-    try {
-      await Promise.all([
-        loadUserStats(uid),
-        renderStudents(),
-        renderRecentHours(),
-        renderRecentMarks(),
-        renderAttendanceRecent(),
-        renderPaymentActivity(),
-        renderStudentBalances(),
-        renderOverviewReports()
-      ]);
-      
-      console.log('✅ Initial data loaded successfully');
-    } catch (error) {
-      console.error('❌ Error loading initial data:', error);
-      throw error;
-    }
-  }
-
-  static setupUI() {
-    // Setup tab navigation
-    this.setupTabNavigation();
-    
-    // Setup form handlers
-    this.setupFormHandlers();
-    
-    // Setup event listeners
-    this.setupGlobalEventListeners();
-    
-    console.log('✅ UI setup completed');
-  }
-
-  static setupTabNavigation() {
-    const tabButtons = document.querySelectorAll('.tab-btn');
-    
-    if (tabButtons.length === 0) {
-      console.warn('⚠️ No tab buttons found in DOM');
-      return;
-    }
-    
-    tabButtons.forEach(button => {
-      button.addEventListener('click', () => {
-        const targetTab = button.getAttribute('data-tab');
-        this.switchTab(targetTab);
-      });
-    });
-    
-    // Set initial tab - check if overview tab exists first
-    const overviewTab = document.getElementById('overview');
-    if (overviewTab) {
-      this.switchTab('overview');
-    } else {
-      console.warn('⚠️ Overview tab not found, activating first available tab');
-      // Activate first tab if overview doesn't exist
-      const firstTab = tabButtons[0];
-      if (firstTab) {
-        const firstTabName = firstTab.getAttribute('data-tab');
-        this.switchTab(firstTabName);
-      }
-    }
-  }
-
-  static switchTab(tabName) {
-    console.log(`📑 Switching to tab: ${tabName}`);
-    
-    // Update tab buttons
-    const tabButtons = document.querySelectorAll('.tab-btn');
-    tabButtons.forEach(btn => {
-      if (btn.getAttribute('data-tab') === tabName) {
-        btn.classList.add('active');
-      } else {
-        btn.classList.remove('active');
-      }
-    });
-    
-    // Update tab content
-    const tabContents = document.querySelectorAll('.tab-content');
-    let foundActiveTab = false;
-    
-    tabContents.forEach(content => {
-      if (content.id === tabName) {
-        content.classList.add('active');
-        foundActiveTab = true;
-      } else {
-        content.classList.remove('active');
-      }
-    });
-    
-    if (!foundActiveTab) {
-      console.warn(`⚠️ Tab content not found for: ${tabName}`);
-    }
-    
-    console.log(`✅ Switched to tab: ${tabName}`);
-  }
-
-  static setupFormHandlers() {
-    // Student form
-    const studentForm = document.getElementById('studentForm');
-    if (studentForm) {
-      studentForm.addEventListener('submit', handleStudentSubmit);
-    }
-    
-    // Hours form
-    const hoursForm = document.getElementById('hoursForm');
-    if (hoursForm) {
-      hoursForm.addEventListener('submit', handleHoursSubmit);
-    }
-    
-    // Marks form
-    const marksForm = document.getElementById('marksForm');
-    if (marksForm) {
-      marksForm.addEventListener('submit', handleMarksSubmit);
-    }
-    
-    // Attendance form
-    const attendanceForm = document.getElementById('attendanceForm');
-    if (attendanceForm) {
-      attendanceForm.addEventListener('submit', handleAttendanceSubmit);
-    }
-    
-    // Payment form
-    const paymentForm = document.getElementById('paymentForm');
-    if (paymentForm) {
-      paymentForm.addEventListener('submit', handlePaymentSubmit);
-    }
-  }
-
-  static setupGlobalEventListeners() {
-    // Global keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
-      // Ctrl/Cmd + S for quick sync
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        SyncBar.performSync('manual');
-      }
-      
-      // Escape key to close modals
-      if (e.key === 'Escape') {
-        this.closeAllModals();
-      }
-    });
-    
-    // Window focus event for auto-refresh
-    window.addEventListener('focus', () => {
-      if (isAutoSyncEnabled) {
-        EnhancedStats.forceRefresh();
-      }
-    });
-  }
-
-  static closeAllModals() {
-    const modals = document.querySelectorAll('.modal');
-    modals.forEach(modal => {
-      modal.style.display = 'none';
-    });
-    document.body.classList.remove('modal-open');
-  }
-}
-
-// ===========================
-// ENHANCED CACHE SYSTEM
+// CACHE SYSTEM
 // ===========================
 
 const cache = {
@@ -345,7 +118,6 @@ const EnhancedCache = {
   },
 
   updateUICache(collection, item) {
-    // Ensure cache[collection] is always an array
     if (!Array.isArray(cache[collection])) {
       cache[collection] = [];
     }
@@ -513,15 +285,12 @@ const EnhancedStats = {
 
   async calculateStudentStats() {
     try {
-      // Ensure students is always an array
       const students = Array.isArray(cache.students) ? cache.students : [];
       const studentCount = students.length;
       
-      // Calculate average rate only if we have students
       let averageRate = 0;
       if (studentCount > 0) {
         const totalRate = students.reduce((sum, student) => {
-          // Handle both object structures (from cache and from Firestore)
           const rate = student.rate || student.studentRate || 0;
           return sum + safeNumber(rate);
         }, 0);
@@ -1416,9 +1185,19 @@ function updateProfileButton(userData) {
 
 function initializeDefaultRate(rate) {
   const baseRateInput = document.getElementById('baseRate');
+  const studentRateInput = document.getElementById('studentRate');
+  
+  // Initialize base rate in hours form
   if (baseRateInput && !baseRateInput.value) {
     baseRateInput.value = rate;
   }
+  
+  // Initialize student rate in student form
+  if (studentRateInput && !studentRateInput.value) {
+    studentRateInput.value = rate;
+  }
+  
+  console.log(`💰 Default rate initialized: $${rate}`);
 }
 
 async function updateUserDefaultRate(uid, newRate) {
@@ -2463,7 +2242,6 @@ async function handlePaymentSubmit(e) {
 // EDIT & DELETE FUNCTIONS
 // ===========================
 
-// Placeholder functions for edit/delete operations
 async function editStudent(id) {
   NotificationSystem.notifyInfo(`Edit student ${id} - Feature coming soon`);
 }
@@ -2515,12 +2293,147 @@ async function deletePayment(id) {
 }
 
 // ===========================
+// TAB NAVIGATION SYSTEM
+// ===========================
+
+function setupTabNavigation() {
+  console.log('🔧 Setting up tab navigation...');
+  
+  const tabButtons = document.querySelectorAll('.tab-btn');
+  
+  if (tabButtons.length === 0) {
+    console.warn('⚠️ No tab buttons found with selector .tab-btn');
+    // Try alternative selectors
+    const altButtons = document.querySelectorAll('[data-tab]');
+    if (altButtons.length === 0) {
+      console.error('❌ No tab buttons found in DOM');
+      return;
+    }
+    console.log(`✅ Found ${altButtons.length} tab buttons with alternative selector`);
+    
+    altButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const targetTab = button.getAttribute('data-tab');
+        switchTab(targetTab);
+      });
+    });
+    
+    // Set initial tab
+    const initialTab = document.querySelector('[data-tab].active')?.getAttribute('data-tab') || 'overview';
+    switchTab(initialTab);
+    return;
+  }
+  
+  console.log(`✅ Found ${tabButtons.length} tab buttons`);
+  
+  tabButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const targetTab = button.getAttribute('data-tab');
+      switchTab(targetTab);
+    });
+  });
+  
+  // Set initial tab
+  const initialTab = document.querySelector('.tab-btn.active')?.getAttribute('data-tab') || 'overview';
+  switchTab(initialTab);
+}
+
+function switchTab(tabName) {
+  console.log(`📑 Switching to tab: ${tabName}`);
+  
+  // Update tab buttons
+  const tabButtons = document.querySelectorAll('.tab-btn');
+  tabButtons.forEach(btn => {
+    btn.classList.remove('active');
+  });
+  
+  const activeButton = document.querySelector(`[data-tab="${tabName}"]`);
+  if (activeButton) {
+    activeButton.classList.add('active');
+  }
+  
+  // Update tab content
+  const tabContents = document.querySelectorAll('.tab-content');
+  tabContents.forEach(content => {
+    content.classList.remove('active');
+  });
+  
+  const activeContent = document.getElementById(tabName);
+  if (activeContent) {
+    activeContent.classList.add('active');
+    console.log(`✅ Switched to tab: ${tabName}`);
+  } else {
+    console.warn(`⚠️ Tab content not found: ${tabName}`);
+  }
+}
+
+// ===========================
 // APP INITIALIZATION
 // ===========================
 
-// Start the application when DOM is loaded
+// Start the application when DOM is fully loaded
 document.addEventListener('DOMContentLoaded', () => {
-  WorklogApp.init();
+  console.log('🏠 DOM fully loaded, starting app...');
+  
+  // Initialize core systems
+  NotificationSystem.initNotificationStyles();
+  initializeTheme();
+  setupThemeToggle();
+  EnhancedCache.loadCachedData();
+  EnhancedStats.init();
+  setupTabNavigation();
+  
+  // Wait for authentication
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      console.log('👤 User authenticated:', user.email);
+      try {
+        // Load user profile and data in parallel
+        await Promise.all([
+          loadUserProfile(user.uid),
+          loadUserStats(user.uid),
+          renderStudents(),
+          renderRecentHours(),
+          renderRecentMarks(),
+          renderAttendanceRecent(),
+          renderPaymentActivity(),
+          renderStudentBalances(),
+          renderOverviewReports()
+        ]);
+        
+        // Initialize systems that depend on user data
+        SyncBar.init();
+        setupProfileModal();
+        setupFloatingAddButton();
+        updateHeaderStats();
+        
+        // Setup form handlers
+        const studentForm = document.getElementById('studentForm');
+        if (studentForm) studentForm.addEventListener('submit', handleStudentSubmit);
+        
+        const hoursForm = document.getElementById('hoursForm');
+        if (hoursForm) hoursForm.addEventListener('submit', handleHoursSubmit);
+        
+        const marksForm = document.getElementById('marksForm');
+        if (marksForm) marksForm.addEventListener('submit', handleMarksSubmit);
+        
+        const attendanceForm = document.getElementById('attendanceForm');
+        if (attendanceForm) attendanceForm.addEventListener('submit', handleAttendanceSubmit);
+        
+        const paymentForm = document.getElementById('paymentForm');
+        if (paymentForm) paymentForm.addEventListener('submit', handlePaymentSubmit);
+        
+        NotificationSystem.notifySuccess(`Welcome back, ${user.email.split('@')[0]}!`);
+        console.log('✅ Worklog App initialized successfully');
+      } catch (error) {
+        console.error('❌ Error during user login:', error);
+        NotificationSystem.notifyError('Error loading user data');
+      }
+    } else {
+      console.log('👤 No user, redirecting to auth...');
+      window.location.href = "auth.html";
+    }
+  });
 });
 
 // Export functions for global access
@@ -2535,3 +2448,4 @@ window.deleteAttendance = deleteAttendance;
 window.editPayment = editPayment;
 window.deletePayment = deletePayment;
 window.NotificationSystem = NotificationSystem;
+window.switchTab = switchTab;
