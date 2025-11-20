@@ -238,10 +238,10 @@
         </div>
       </div>
       
-        <div class="user-friendly-stats" style="background: var(--surface); padding: 15px; border-radius: 10px; margin: 15px 0; border: 1px solid var(--border);">
-          <div id="weeklySummary" style="font-weight: 500; margin-bottom: 10px;"></div>
-          <div id="goalProgress" style="font-size: 0.9em; color: var(--muted);"></div>
-        </div>
+      <div class="user-friendly-stats" style="background: var(--surface); padding: 15px; border-radius: 10px; margin: 15px 0; border: 1px solid var(--border);">
+        <div id="weeklySummary" style="font-weight: 500; margin-bottom: 10px;"></div>
+        <div id="goalProgress" style="font-size: 0.9em; color: var(--muted);"></div>
+      </div>
       
       <div class="form-grid">
         <div class="section-card">
@@ -297,9 +297,13 @@
             <div class="total-display" id="totalPay">$0.00</div>
           </div>
           <div class="form-actions">
-            <button type="button" class="button primary" id="hoursSubmitBtn">💾 Log Hours</button>
+            <button type="button" class="button primary" id="logHoursBtn">
+              <span id="logHoursText">💾 Log Work</span>
+              <span id="logHoursSpinner" style="display: none;">⏳ Saving...</span>
+            </button>
             <button type="button" class="button secondary" onclick="resetHoursForm()">🗑️ Clear Form</button>
-            <button type="button" class="button warning" id="hoursCancelBtn" style="display: none;">❌ Cancel Edit</button>
+            <button type="button" class="button warning" id="cancelHoursEdit" style="display: none;">❌ Cancel Edit</button>
+            <button type="button" class="button danger" id="deleteHoursBtn" style="display: none;">🗑️ Delete Hours</button>
           </div>
         </div>
 
@@ -366,8 +370,10 @@
               <textarea id="marksNotes"></textarea>
             </div>
             <div class="form-actions">
-              <button type="button" class="button primary" onclick="addMark()">💾 Save Mark</button>
+              <button type="button" class="button primary" id="addMarkBtn">➕ Add Mark</button>
               <button type="button" class="button secondary" onclick="resetMarksForm()">🗑️ Clear Form</button>
+              <button type="button" class="button warning" id="cancelMarkBtn" style="display: none;">❌ Cancel Edit</button>
+              <button type="button" class="button danger" id="deleteMarkBtn" style="display: none;">🗑️ Delete Mark</button>
             </div>
           </form>
         </div>
@@ -425,9 +431,12 @@
             </div>
           </div>
 
-         <div class="form-actions">
-          <button type="button" class="button primary" id="attendanceSubmitBtn" onclick="saveAttendance()">💾 Save Attendance</button>
-          <button type="button" class="button secondary" id="attendanceClearBtn" onclick="clearAttendanceForm()">🗑️ Clear Form</button>
+          <div class="form-actions">
+            <button type="button" class="button primary" id="saveAttendanceBtn">💾 Save Attendance</button>
+            <button type="button" class="button secondary" onclick="clearAttendanceForm()">🗑️ Clear Form</button>
+            <button type="button" class="button warning" id="cancelAttendanceBtn" style="display: none;">❌ Cancel Edit</button>
+            <button type="button" class="button danger" id="deleteAttendanceBtn" style="display: none;">🗑️ Delete Attendance</button>
+          </div>
         </div>
 
         <div class="section-card">
@@ -484,8 +493,10 @@
             <textarea id="paymentNotes"></textarea>
           </div>
           <div class="form-actions">
-            <button type="button" class="button primary" onclick="recordPayment()">💾 Record Payment</button>
+            <button type="button" class="button primary" id="recordPaymentBtn">💾 Record Payment</button>
             <button type="button" class="button secondary" onclick="resetPaymentForm()">🗑️ Clear Form</button>
+            <button type="button" class="button warning" id="cancelPaymentBtn" style="display: none;">❌ Cancel Edit</button>
+            <button type="button" class="button danger" id="deletePaymentBtn" style="display: none;">🗑️ Delete Payment</button>
           </div>
         </div>
 
