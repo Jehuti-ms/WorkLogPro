@@ -199,7 +199,7 @@ const EnhancedCache = {
 };
 
 // Update the initializeApp function to load cached data
-function initializeApp() {
+/*function initializeApp() {
   console.log('🚀 Initializing WorkLog App...');
   
   // Load cached data immediately
@@ -235,7 +235,7 @@ function initializeApp() {
   
   console.log('✅ WorkLog App Fully Initialized');
 }
-
+*/
 function updateCacheStatusDisplay() {
   const status = EnhancedCache.getCacheStatus();
   const cacheStatusElement = document.getElementById('cacheStatus') || createCacheStatusElement();
