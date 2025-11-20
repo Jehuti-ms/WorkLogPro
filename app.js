@@ -19,6 +19,758 @@ function isCacheValid(key) {
 }
 
 // ===========================
+// ENHANCED CACHE & BACKGROUND SYNC SYSTEM
+// ===========================
+
+const EnhancedCache = {
+  // Save data to localStorage immediately, then sync to Firebase in background
+  async saveWithBackgroundSync(collection, data, id = null) {
+    const user = auth.currentUser;
+    if (!user) {
+      console.error('❌ No user authenticated for cache save');
+      return false;
+    }
+
+    try {
+      // 1. Generate ID if not provided
+      const itemId = id || this.generateId();
+      
+      // 2. Create cache item with timestamp
+      const cacheItem = {
+        ...data,
+        _id: itemId,
+        _cachedAt: Date.now(),
+        _synced: false
+      };
+
+      // 3. Save to localStorage immediately
+      this.saveToLocalStorage(collection, cacheItem);
+      
+      // 4. Update UI cache immediately
+      this.updateUICache(collection, cacheItem);
+      
+      // 5. Sync to Firebase in background (non-blocking)
+      this.backgroundFirebaseSync(collection, cacheItem, user.uid);
+      
+      console.log(`✅ ${collection} saved to cache immediately`);
+      return itemId;
+      
+    } catch (error) {
+      console.error(`❌ Cache save failed for ${collection}:`, error);
+      return false;
+    }
+  },
+
+  generateId() {
+    return 'cache_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  },
+
+  saveToLocalStorage(collection, item) {
+    try {
+      const key = `worklog_${collection}`;
+      const existing = JSON.parse(localStorage.getItem(key) || '[]');
+      
+      // Remove existing item with same ID if present
+      const filtered = existing.filter(i => i._id !== item._id);
+      filtered.push(item);
+      
+      localStorage.setItem(key, JSON.stringify(filtered));
+      console.log(`💾 Saved to localStorage: ${collection} - ${item._id}`);
+    } catch (error) {
+      console.error('❌ localStorage save failed:', error);
+    }
+  },
+
+  updateUICache(collection, item) {
+    // Update the in-memory cache for immediate UI updates
+    if (cache[collection] === null) {
+      cache[collection] = [];
+    }
+    
+    if (Array.isArray(cache[collection])) {
+      const index = cache[collection].findIndex(i => i._id === item._id);
+      if (index >= 0) {
+        cache[collection][index] = item;
+      } else {
+        cache[collection].push(item);
+      }
+    }
+    
+    cache.lastSync = Date.now();
+  },
+
+  async backgroundFirebaseSync(collection, item, uid) {
+    try {
+      // Remove cache metadata before saving to Firebase
+      const { _id, _cachedAt, _synced, ...firebaseData } = item;
+      
+      let result;
+      if (item._id.startsWith('cache_')) {
+        // New item - add to Firestore
+        const docRef = await addDoc(collection(db, "users", uid, collection), firebaseData);
+        result = docRef.id;
+      } else {
+        // Existing item - update in Firestore
+        await updateDoc(doc(db, "users", uid, collection, item._id), firebaseData);
+        result = item._id;
+      }
+      
+      // Mark as synced in cache
+      this.markAsSynced(collection, item._id, result);
+      console.log(`☁️ Background sync successful: ${collection} - ${item._id}`);
+      
+    } catch (error) {
+      console.error(`❌ Background sync failed for ${collection}:`, error);
+      // Item remains in cache as unsynced, will retry later
+    }
+  },
+
+  markAsSynced(collection, cacheId, firebaseId) {
+    // Update localStorage
+    const key = `worklog_${collection}`;
+    const existing = JSON.parse(localStorage.getItem(key) || '[]');
+    const updated = existing.map(item => {
+      if (item._id === cacheId) {
+        return { ...item, _synced: true, _firebaseId: firebaseId };
+      }
+      return item;
+    });
+    localStorage.setItem(key, JSON.stringify(updated));
+    
+    // Update UI cache
+    if (cache[collection]) {
+      cache[collection] = cache[collection].map(item => {
+        if (item._id === cacheId) {
+          return { ...item, _synced: true, _firebaseId: firebaseId };
+        }
+        return item;
+      });
+    }
+  },
+
+  // Load cached data on app start
+  loadCachedData() {
+    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
+    collections.forEach(collection => {
+      const key = `worklog_${collection}`;
+      const cached = JSON.parse(localStorage.getItem(key) || '[]');
+      if (cached.length > 0) {
+        cache[collection] = cached;
+        console.log(`📁 Loaded ${cached.length} cached ${collection} from localStorage`);
+      }
+    });
+    
+    // Retry syncing any unsynced items
+    this.retryUnsyncedItems();
+  },
+
+  async retryUnsyncedItems() {
+    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
+    const user = auth.currentUser;
+    if (!user) return;
+
+    collections.forEach(collection => {
+      const key = `worklog_${collection}`;
+      const cached = JSON.parse(localStorage.getItem(key) || '[]');
+      const unsynced = cached.filter(item => !item._synced);
+      
+      unsynced.forEach(item => {
+        console.log(`🔄 Retrying sync for ${collection}: ${item._id}`);
+        this.backgroundFirebaseSync(collection, item, user.uid);
+      });
+    });
+  },
+
+  // Get cache status for UI
+  getCacheStatus() {
+    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
+    let total = 0;
+    let unsynced = 0;
+
+    collections.forEach(collection => {
+      const key = `worklog_${collection}`;
+      const cached = JSON.parse(localStorage.getItem(key) || '[]');
+      total += cached.length;
+      unsynced += cached.filter(item => !item._synced).length;
+    });
+
+    return { total, unsynced };
+  }
+};
+
+// Update the initializeApp function to load cached data
+function initializeApp() {
+  console.log('🚀 Initializing WorkLog App...');
+  
+  // Load cached data immediately
+  EnhancedCache.loadCachedData();
+  
+  // Initialize all systems
+  UIManager.init();
+  SyncBar.init();
+  setupProfileModal();
+  setupFloatingAddButton();
+  
+  // Initialize all form listeners
+  setupStudentFormListeners();
+  setupPaymentFormListeners();
+  setupAttendanceFormListeners();
+  setupHoursFormListeners();
+  setupMarksFormListeners();
+  setupReportTabListeners();
+  
+  updateHeaderStats();
+  
+  // Update sync status display
+  updateCacheStatusDisplay();
+  
+  if (syncMessage) syncMessage.textContent = "Cloud Sync: Ready";
+  if (syncMessageLine) syncMessageLine.textContent = "Status: Connected";
+  
+  const user = auth.currentUser;
+  if (user) {
+    console.log('👤 User authenticated, loading data...');
+    loadInitialData(user);
+  }
+  
+  console.log('✅ WorkLog App Fully Initialized');
+}
+
+function updateCacheStatusDisplay() {
+  const status = EnhancedCache.getCacheStatus();
+  const cacheStatusElement = document.getElementById('cacheStatus') || createCacheStatusElement();
+  
+  if (status.unsynced > 0) {
+    cacheStatusElement.innerHTML = `💾 ${status.total} items (${status.unsynced} syncing...)`;
+    cacheStatusElement.style.color = 'var(--warning)';
+  } else {
+    cacheStatusElement.innerHTML = `💾 ${status.total} items (synced)`;
+    cacheStatusElement.style.color = 'var(--success)';
+  }
+}
+
+function createCacheStatusElement() {
+  const statusElement = document.createElement('span');
+  statusElement.id = 'cacheStatus';
+  statusElement.style.marginLeft = '12px';
+  statusElement.style.fontSize = '0.8rem';
+  statusElement.style.fontWeight = '500';
+  
+  const storageStatus = document.querySelector('.storage-status');
+  if (storageStatus) {
+    storageStatus.appendChild(statusElement);
+  }
+  
+  return statusElement;
+}
+
+// Update cache status every 10 seconds
+setInterval(updateCacheStatusDisplay, 10000);
+
+// ===========================
+// ENHANCED REAL-TIME STATS SYSTEM
+// ===========================
+
+const EnhancedStats = {
+  // Initialize stats system
+  init() {
+    this.setupStatsUpdaters();
+    this.startStatsRefresh();
+    console.log('✅ Enhanced stats system initialized');
+  },
+
+  // Set up functions to update stats when data changes
+  setupStatsUpdaters() {
+    // These will be called whenever data is added/updated
+    this.updateStudentStats = this.debounce(() => this.calculateStudentStats(), 500);
+    this.updateHoursStats = this.debounce(() => this.calculateHoursStats(), 500);
+    this.updateMarksStats = this.debounce(() => this.calculateMarksStats(), 500);
+    this.updateAttendanceStats = this.debounce(() => this.calculateAttendanceStats(), 500);
+    this.updatePaymentStats = this.debounce(() => this.calculatePaymentStats(), 500);
+    this.updateOverviewStats = this.debounce(() => this.calculateOverviewStats(), 1000);
+  },
+
+  // Debounce function to prevent too frequent updates
+  debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  },
+
+  // Start periodic stats refresh
+  startStatsRefresh() {
+    // Refresh stats every 30 seconds
+    setInterval(() => {
+      this.refreshAllStats();
+    }, 30000);
+  },
+
+  // Refresh all stats
+  async refreshAllStats() {
+    try {
+      await Promise.all([
+        this.calculateStudentStats(),
+        this.calculateHoursStats(),
+        this.calculateMarksStats(),
+        this.calculateAttendanceStats(),
+        this.calculatePaymentStats(),
+        this.calculateOverviewStats()
+      ]);
+      console.log('✅ All stats refreshed');
+    } catch (error) {
+      console.error('❌ Error refreshing stats:', error);
+    }
+  },
+
+  // Calculate and update student stats
+  async calculateStudentStats() {
+    try {
+      const students = cache.students || [];
+      const studentCount = students.length;
+      
+      // Calculate average rate
+      const totalRate = students.reduce((sum, student) => sum + (student.rate || 0), 0);
+      const averageRate = studentCount > 0 ? totalRate / studentCount : 0;
+      
+      // Update DOM
+      this.updateElement('studentCount', studentCount);
+      this.updateElement('averageRate', fmtMoney(averageRate));
+      this.updateElement('totalStudentsCount', studentCount);
+      this.updateElement('totalStudentsReport', studentCount);
+      
+    } catch (error) {
+      console.error('Error calculating student stats:', error);
+    }
+  },
+
+  // Calculate and update hours stats
+  async calculateHoursStats() {
+    try {
+      const hours = cache.hours || [];
+      const now = new Date();
+      
+      // This week
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay());
+      weekStart.setHours(0, 0, 0, 0);
+      
+      // This month
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      
+      const weeklyData = hours.filter(entry => {
+        const entryDate = new Date(entry.date || entry.dateIso);
+        return entryDate >= weekStart;
+      });
+      
+      const monthlyData = hours.filter(entry => {
+        const entryDate = new Date(entry.date || entry.dateIso);
+        return entryDate >= monthStart;
+      });
+      
+      const weeklyHours = weeklyData.reduce((sum, entry) => sum + (entry.hours || 0), 0);
+      const weeklyTotal = weeklyData.reduce((sum, entry) => sum + (entry.total || 0), 0);
+      const monthlyHours = monthlyData.reduce((sum, entry) => sum + (entry.hours || 0), 0);
+      const monthlyTotal = monthlyData.reduce((sum, entry) => sum + (entry.total || 0), 0);
+      
+      // Update DOM
+      this.updateElement('weeklyHours', weeklyHours.toFixed(1));
+      this.updateElement('weeklyTotal', fmtMoney(weeklyTotal));
+      this.updateElement('monthlyHours', monthlyHours.toFixed(1));
+      this.updateElement('monthlyTotal', fmtMoney(monthlyTotal));
+      this.updateElement('totalHoursReport', (cache.hours?.reduce((sum, entry) => sum + (entry.hours || 0), 0) || 0).toFixed(1));
+      this.updateElement('totalEarningsReport', `$${fmtMoney(cache.hours?.reduce((sum, entry) => sum + (entry.total || 0), 0) || 0)}`);
+      
+    } catch (error) {
+      console.error('Error calculating hours stats:', error);
+    }
+  },
+
+  // Calculate and update marks stats
+  async calculateMarksStats() {
+    try {
+      const marks = cache.marks || [];
+      const marksCount = marks.length;
+      
+      // Calculate average percentage
+      const totalPercentage = marks.reduce((sum, mark) => sum + (mark.percentage || 0), 0);
+      const avgPercentage = marksCount > 0 ? totalPercentage / marksCount : 0;
+      
+      // Grade distribution
+      const gradeDistribution = { A: 0, B: 0, C: 0, D: 0, F: 0 };
+      marks.forEach(mark => {
+        const grade = mark.grade || 'F';
+        if (gradeDistribution[grade] !== undefined) {
+          gradeDistribution[grade]++;
+        }
+      });
+      
+      // Update DOM
+      this.updateElement('marksCount', marksCount);
+      this.updateElement('avgMarks', avgPercentage.toFixed(1));
+      this.updateElement('avgMarkReport', `${avgPercentage.toFixed(1)}%`);
+      
+    } catch (error) {
+      console.error('Error calculating marks stats:', error);
+    }
+  },
+
+  // Calculate and update attendance stats
+  async calculateAttendanceStats() {
+    try {
+      const attendance = cache.attendance || [];
+      const attendanceCount = attendance.length;
+      
+      // Last session date
+      const lastSession = attendance.length > 0 
+        ? attendance.reduce((latest, session) => {
+            const sessionDate = new Date(session.date || session.dateIso);
+            const latestDate = new Date(latest.date || latest.dateIso);
+            return sessionDate > latestDate ? session : latest;
+          })
+        : null;
+      
+      // Update DOM
+      this.updateElement('attendanceCount', attendanceCount);
+      this.updateElement('lastSessionDate', lastSession ? formatDate(lastSession.date) : 'Never');
+      
+    } catch (error) {
+      console.error('Error calculating attendance stats:', error);
+    }
+  },
+
+  // Calculate and update payment stats
+  async calculatePaymentStats() {
+    try {
+      const payments = cache.payments || [];
+      const now = new Date();
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      
+      // Monthly payments
+      const monthlyPayments = payments
+        .filter(payment => (payment.date || '').startsWith(currentMonth))
+        .reduce((sum, payment) => sum + (payment.amount || 0), 0);
+      
+      // Total payments
+      const totalPayments = payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+      
+      // Update DOM
+      this.updateElement('monthlyPayments', `$${fmtMoney(monthlyPayments)}`);
+      this.updateElement('totalPaymentsReport', `$${fmtMoney(totalPayments)}`);
+      
+      // Calculate outstanding balance
+      await this.calculateOutstandingBalance();
+      
+    } catch (error) {
+      console.error('Error calculating payment stats:', error);
+    }
+  },
+
+  // Calculate outstanding balance
+  async calculateOutstandingBalance() {
+    try {
+      const students = cache.students || [];
+      const hours = cache.hours || [];
+      const payments = cache.payments || [];
+      
+      const earningsByStudent = {};
+      hours.forEach(entry => {
+        const studentId = entry.student;
+        if (studentId) {
+          earningsByStudent[studentId] = (earningsByStudent[studentId] || 0) + (entry.total || 0);
+        }
+      });
+      
+      const paymentsByStudent = {};
+      payments.forEach(payment => {
+        const studentId = payment.student;
+        if (studentId) {
+          paymentsByStudent[studentId] = (paymentsByStudent[studentId] || 0) + (payment.amount || 0);
+        }
+      });
+      
+      let totalOwed = 0;
+      students.forEach(student => {
+        const earned = earningsByStudent[student.id] || 0;
+        const paid = paymentsByStudent[student.id] || 0;
+        const owed = Math.max(earned - paid, 0);
+        totalOwed += owed;
+      });
+      
+      // Update DOM
+      this.updateElement('totalOwed', `$${fmtMoney(totalOwed)}`);
+      this.updateElement('outstandingBalance', `$${fmtMoney(totalOwed)}`);
+      
+    } catch (error) {
+      console.error('Error calculating outstanding balance:', error);
+    }
+  },
+
+  // Calculate overview stats
+  async calculateOverviewStats() {
+    // This aggregates all the main stats for the overview/reports tab
+    // Most calculations are already done in the individual stat functions
+    console.log('📊 Overview stats calculated');
+  },
+
+  // Helper function to update DOM elements
+  updateElement(id, value) {
+    const element = document.getElementById(id);
+    if (element) {
+      element.textContent = value;
+    }
+  },
+
+  // Force refresh all stats (call this when new data is added)
+  forceRefresh() {
+    this.refreshAllStats();
+  }
+};
+
+// Update the initializeApp function to include stats system
+function initializeApp() {
+  console.log('🚀 Initializing WorkLog App...');
+  
+  // Load cached data immediately
+  EnhancedCache.loadCachedData();
+  
+  // Initialize all systems
+  UIManager.init();
+  SyncBar.init();
+  EnhancedStats.init(); // ← ADD THIS LINE
+  setupProfileModal();
+  setupFloatingAddButton();
+  
+  // Initialize all form listeners
+  setupStudentFormListeners();
+  setupPaymentFormListeners();
+  setupAttendanceFormListeners();
+  setupHoursFormListeners();
+  setupMarksFormListeners();
+  setupReportTabListeners();
+  
+  updateHeaderStats();
+  
+  // Update sync status display
+  updateCacheStatusDisplay();
+  
+  if (syncMessage) syncMessage.textContent = "Cloud Sync: Ready";
+  if (syncMessageLine) syncMessageLine.textContent = "Status: Connected";
+  
+  const user = auth.currentUser;
+  if (user) {
+    console.log('👤 User authenticated, loading data...');
+    loadInitialData(user);
+  }
+  
+  console.log('✅ WorkLog App Fully Initialized');
+}
+
+// Update cache functions to trigger stats refresh
+// In the EnhancedCache.backgroundFirebaseSync function, add this after successful sync:
+// EnhancedStats.forceRefresh(); // Refresh stats when new data is synced
+
+// ===========================
+// ENHANCED FORM AUTO-CLEARING SYSTEM
+// ===========================
+
+const FormAutoClear = {
+  // Configure which forms should auto-clear and their conditions
+  config: {
+    'studentForm': {
+      clearOnSuccess: true,
+      preserveFields: [], // Fields to preserve (none for student form)
+      successMessage: 'Student added successfully! Form cleared.',
+      focusField: 'studentName' // Field to focus after clear
+    },
+    'hoursForm': {
+      clearOnSuccess: true,
+      preserveFields: ['baseRate'], // Keep rate for quick entry
+      successMessage: 'Hours logged successfully! Form cleared.',
+      focusField: 'organization'
+    },
+    'marksForm': {
+      clearOnSuccess: true,
+      preserveFields: ['marksStudent', 'marksSubject'], // Keep student/subject for multiple marks
+      successMessage: 'Mark added successfully! Form cleared.',
+      focusField: 'marksScore'
+    },
+    'attendanceForm': {
+      clearOnSuccess: false, // Don't clear attendance - user might want multiple entries
+      preserveFields: [],
+      successMessage: 'Attendance recorded successfully!',
+      focusField: 'attendanceDate'
+    },
+    'paymentForm': {
+      clearOnSuccess: true,
+      preserveFields: ['paymentStudent'], // Keep student for multiple payments
+      successMessage: 'Payment recorded successfully! Form cleared.',
+      focusField: 'paymentAmount'
+    }
+  },
+
+  // Clear form based on configuration
+  clearForm(formId, preservedData = {}) {
+    const form = document.getElementById(formId);
+    if (!form) {
+      console.warn(`Form ${formId} not found for auto-clear`);
+      return;
+    }
+
+    const config = this.config[formId];
+    if (!config) {
+      console.warn(`No config found for form ${formId}`);
+      return;
+    }
+
+    // Get all form elements
+    const elements = form.elements;
+    
+    // Store preserved values
+    const preserveValues = {};
+    config.preserveFields.forEach(field => {
+      if (preservedData[field]) {
+        preserveValues[field] = preservedData[field];
+      } else {
+        const element = elements[field];
+        if (element) preserveValues[field] = element.value;
+      }
+    });
+
+    // Reset form
+    form.reset();
+
+    // Restore preserved values
+    Object.keys(preserveValues).forEach(field => {
+      const element = elements[field];
+      if (element) {
+        element.value = preserveValues[field];
+      }
+    });
+
+    // Set today's date for date fields if they're empty
+    this.setDefaultDates(form);
+
+    // Focus on specified field
+    if (config.focusField) {
+      const focusElement = elements[config.focusField];
+      if (focusElement) {
+        setTimeout(() => focusElement.focus(), 100);
+      }
+    }
+
+    console.log(`✅ Form ${formId} auto-cleared`);
+  },
+
+  setDefaultDates(form) {
+    const dateFields = form.querySelectorAll('input[type="date"]');
+    const today = new Date().toISOString().split('T')[0];
+    
+    dateFields.forEach(field => {
+      if (!field.value) {
+        field.value = today;
+      }
+    });
+  },
+
+  // Enhanced success handler for form submissions
+  handleSuccess(formId, customData = {}) {
+    const config = this.config[formId];
+    if (!config) return;
+
+    if (config.clearOnSuccess) {
+      this.clearForm(formId, customData);
+    }
+    
+    // Show success message
+    if (config.successMessage) {
+      NotificationSystem.notifySuccess(config.successMessage);
+    }
+  }
+};
+
+// Update form submission functions to use auto-clear
+async function addStudent() {
+  console.log('🎯 Starting addStudent...');
+  
+  const name = document.getElementById("studentName")?.value.trim();
+  const id = document.getElementById("studentId")?.value.trim();
+  const gender = document.getElementById("studentGender")?.value;
+  const email = document.getElementById("studentEmail")?.value.trim();
+  const phone = document.getElementById("studentPhone")?.value.trim();
+  const rate = parseFloat(document.getElementById("studentBaseRate")?.value) || 0;
+
+  if (!name || !id || !gender) {
+    NotificationSystem.notifyError("Please fill required fields: Name, ID, Gender");
+    return;
+  }
+
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError("Please log in to add students");
+    return;
+  }
+
+ try {
+  // Show loading state
+  const submitBtn = document.getElementById('studentSubmitBtn');
+  if (submitBtn) {
+    submitBtn.textContent = 'Saving...';
+    submitBtn.disabled = true;
+  }
+
+  const student = { 
+    name, 
+    id, 
+    gender, 
+    email, 
+    phone, 
+    rate,
+    createdAt: getLocalISODate()
+  };
+
+  // ENHANCED: Save with cache system and background sync
+  const cacheId = await EnhancedCache.saveWithBackgroundSync('students', student);
+  
+  if (cacheId) {
+    // ENHANCED: Handle success with auto-clear
+    FormAutoClear.handleSuccess('studentForm');
+    
+    // Update UI immediately
+    addStudentToCache(student);
+    
+    // ENHANCED: Refresh stats
+    EnhancedStats.forceRefresh();
+    
+    // Update stats in background
+    incrementStudentCount(user.uid).catch(console.error);
+    loadStudentsForDropdowns().catch(console.error);
+    
+    console.log('✅ Student saved with enhanced system');
+  } else {
+    throw new Error('Cache save failed');
+  }
+} catch (err) {
+  console.error("❌ Error adding student:", err);
+  NotificationSystem.notifyError("Failed to add student: " + err.message);
+  
+  // Re-enable button
+  const submitBtn = document.getElementById('studentSubmitBtn');
+  if (submitBtn) {
+    submitBtn.textContent = '➕ Add Student';
+    submitBtn.disabled = false;
+  }
+}
+  
+// Update other form submission functions similarly...
+// (You'll want to update logHours, addMark, saveAttendance, recordPayment in the same way)
+
+// ===========================
 // IMPORTS
 // ===========================
 
@@ -4052,10 +4804,14 @@ async function showSubjectBreakdown() {
 
 function initializeApp() {
   console.log('🚀 Initializing WorkLog App...');
+
+  // Load cached data immediately
+  EnhancedCache.loadCachedData();
   
   // Initialize all systems
   UIManager.init();
   SyncBar.init();
+  EnhancedStats.init();
   setupProfileModal();
   setupFloatingAddButton();
   
