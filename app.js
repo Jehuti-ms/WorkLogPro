@@ -154,6 +154,11 @@ class WorklogApp {
   static setupTabNavigation() {
     const tabButtons = document.querySelectorAll('.tab-btn');
     
+    if (tabButtons.length === 0) {
+      console.warn('⚠️ No tab buttons found in DOM');
+      return;
+    }
+    
     tabButtons.forEach(button => {
       button.addEventListener('click', () => {
         const targetTab = button.getAttribute('data-tab');
@@ -161,24 +166,52 @@ class WorklogApp {
       });
     });
     
-    // Set initial tab
-    this.switchTab('overview');
+    // Set initial tab - check if overview tab exists first
+    const overviewTab = document.getElementById('overview');
+    if (overviewTab) {
+      this.switchTab('overview');
+    } else {
+      console.warn('⚠️ Overview tab not found, activating first available tab');
+      // Activate first tab if overview doesn't exist
+      const firstTab = tabButtons[0];
+      if (firstTab) {
+        const firstTabName = firstTab.getAttribute('data-tab');
+        this.switchTab(firstTabName);
+      }
+    }
   }
 
   static switchTab(tabName) {
+    console.log(`📑 Switching to tab: ${tabName}`);
+    
     // Update tab buttons
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.classList.remove('active');
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    tabButtons.forEach(btn => {
+      if (btn.getAttribute('data-tab') === tabName) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
     });
-    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
     
     // Update tab content
-    document.querySelectorAll('.tab-content').forEach(content => {
-      content.classList.remove('active');
-    });
-    document.getElementById(tabName).classList.add('active');
+    const tabContents = document.querySelectorAll('.tab-content');
+    let foundActiveTab = false;
     
-    console.log(`📑 Switched to tab: ${tabName}`);
+    tabContents.forEach(content => {
+      if (content.id === tabName) {
+        content.classList.add('active');
+        foundActiveTab = true;
+      } else {
+        content.classList.remove('active');
+      }
+    });
+    
+    if (!foundActiveTab) {
+      console.warn(`⚠️ Tab content not found for: ${tabName}`);
+    }
+    
+    console.log(`✅ Switched to tab: ${tabName}`);
   }
 
   static setupFormHandlers() {
@@ -250,11 +283,11 @@ class WorklogApp {
 // ===========================
 
 const cache = {
-  students: null,
-  hours: null,
-  marks: null,
-  attendance: null,
-  payments: null,
+  students: [],
+  hours: [],
+  marks: [],
+  attendance: [],
+  payments: [],
   lastSync: null
 };
 
@@ -312,14 +345,16 @@ const EnhancedCache = {
   },
 
   updateUICache(collection, item) {
-    if (cache[collection] === null) cache[collection] = [];
-    if (Array.isArray(cache[collection])) {
-      const index = cache[collection].findIndex(i => i._id === item._id);
-      if (index >= 0) {
-        cache[collection][index] = item;
-      } else {
-        cache[collection].push(item);
-      }
+    // Ensure cache[collection] is always an array
+    if (!Array.isArray(cache[collection])) {
+      cache[collection] = [];
+    }
+    
+    const index = cache[collection].findIndex(i => i._id === item._id);
+    if (index >= 0) {
+      cache[collection][index] = item;
+    } else {
+      cache[collection].push(item);
     }
     cache.lastSync = Date.now();
   },
@@ -353,7 +388,7 @@ const EnhancedCache = {
     );
     localStorage.setItem(key, JSON.stringify(updated));
     
-    if (cache[collection]) {
+    if (cache[collection] && Array.isArray(cache[collection])) {
       cache[collection] = cache[collection].map(item =>
         item._id === cacheId ? { ...item, _synced: true, _firebaseId: firebaseId } : item
       );
@@ -364,10 +399,15 @@ const EnhancedCache = {
     const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
     collections.forEach(collection => {
       const key = `worklog_${collection}`;
-      const cached = JSON.parse(localStorage.getItem(key) || '[]');
-      if (cached.length > 0) {
-        cache[collection] = cached;
-        console.log(`📁 Loaded ${cached.length} cached ${collection} from localStorage`);
+      try {
+        const cached = JSON.parse(localStorage.getItem(key) || '[]');
+        if (Array.isArray(cached) && cached.length > 0) {
+          cache[collection] = cached;
+          console.log(`📁 Loaded ${cached.length} cached ${collection} from localStorage`);
+        }
+      } catch (error) {
+        console.error(`❌ Error loading cached ${collection}:`, error);
+        cache[collection] = [];
       }
     });
     this.retryUnsyncedItems();
@@ -380,12 +420,18 @@ const EnhancedCache = {
 
     collections.forEach(collection => {
       const key = `worklog_${collection}`;
-      const cached = JSON.parse(localStorage.getItem(key) || '[]');
-      const unsynced = cached.filter(item => !item._synced);
-      unsynced.forEach(item => {
-        console.log(`🔄 Retrying sync for ${collection}: ${item._id}`);
-        this.backgroundFirebaseSync(collection, item, user.uid);
-      });
+      try {
+        const cached = JSON.parse(localStorage.getItem(key) || '[]');
+        if (Array.isArray(cached)) {
+          const unsynced = cached.filter(item => !item._synced);
+          unsynced.forEach(item => {
+            console.log(`🔄 Retrying sync for ${collection}: ${item._id}`);
+            this.backgroundFirebaseSync(collection, item, user.uid);
+          });
+        }
+      } catch (error) {
+        console.error(`❌ Error retrying sync for ${collection}:`, error);
+      }
     });
   },
 
@@ -396,9 +442,15 @@ const EnhancedCache = {
 
     collections.forEach(collection => {
       const key = `worklog_${collection}`;
-      const cached = JSON.parse(localStorage.getItem(key) || '[]');
-      total += cached.length;
-      unsynced += cached.filter(item => !item._synced).length;
+      try {
+        const cached = JSON.parse(localStorage.getItem(key) || '[]');
+        if (Array.isArray(cached)) {
+          total += cached.length;
+          unsynced += cached.filter(item => !item._synced).length;
+        }
+      } catch (error) {
+        console.error(`❌ Error getting cache status for ${collection}:`, error);
+      }
     });
 
     return { total, unsynced };
@@ -461,10 +513,20 @@ const EnhancedStats = {
 
   async calculateStudentStats() {
     try {
-      const students = cache.students || [];
+      // Ensure students is always an array
+      const students = Array.isArray(cache.students) ? cache.students : [];
       const studentCount = students.length;
-      const totalRate = students.reduce((sum, student) => sum + (student.rate || 0), 0);
-      const averageRate = studentCount > 0 ? totalRate / studentCount : 0;
+      
+      // Calculate average rate only if we have students
+      let averageRate = 0;
+      if (studentCount > 0) {
+        const totalRate = students.reduce((sum, student) => {
+          // Handle both object structures (from cache and from Firestore)
+          const rate = student.rate || student.studentRate || 0;
+          return sum + safeNumber(rate);
+        }, 0);
+        averageRate = totalRate / studentCount;
+      }
       
       this.updateElement('studentCount', studentCount);
       this.updateElement('averageRate', fmtMoney(averageRate));
@@ -477,7 +539,7 @@ const EnhancedStats = {
 
   async calculateHoursStats() {
     try {
-      const hours = cache.hours || [];
+      const hours = Array.isArray(cache.hours) ? cache.hours : [];
       const now = new Date();
       const weekStart = new Date(now);
       weekStart.setDate(now.getDate() - now.getDay());
@@ -503,8 +565,12 @@ const EnhancedStats = {
       this.updateElement('weeklyTotal', fmtMoney(weeklyTotal));
       this.updateElement('monthlyHours', monthlyHours.toFixed(1));
       this.updateElement('monthlyTotal', fmtMoney(monthlyTotal));
-      this.updateElement('totalHoursReport', (cache.hours?.reduce((sum, entry) => sum + (entry.hours || 0), 0) || 0).toFixed(1));
-      this.updateElement('totalEarningsReport', `$${fmtMoney(cache.hours?.reduce((sum, entry) => sum + (entry.total || 0), 0) || 0)}`);
+      
+      const totalHours = hours.reduce((sum, entry) => sum + (entry.hours || 0), 0);
+      const totalEarnings = hours.reduce((sum, entry) => sum + (entry.total || 0), 0);
+      
+      this.updateElement('totalHoursReport', totalHours.toFixed(1));
+      this.updateElement('totalEarningsReport', `$${fmtMoney(totalEarnings)}`);
     } catch (error) {
       console.error('Error calculating hours stats:', error);
     }
@@ -512,10 +578,14 @@ const EnhancedStats = {
 
   async calculateMarksStats() {
     try {
-      const marks = cache.marks || [];
+      const marks = Array.isArray(cache.marks) ? cache.marks : [];
       const marksCount = marks.length;
-      const totalPercentage = marks.reduce((sum, mark) => sum + (mark.percentage || 0), 0);
-      const avgPercentage = marksCount > 0 ? totalPercentage / marksCount : 0;
+      
+      let avgPercentage = 0;
+      if (marksCount > 0) {
+        const totalPercentage = marks.reduce((sum, mark) => sum + (mark.percentage || 0), 0);
+        avgPercentage = totalPercentage / marksCount;
+      }
       
       this.updateElement('marksCount', marksCount);
       this.updateElement('avgMarks', avgPercentage.toFixed(1));
@@ -527,15 +597,17 @@ const EnhancedStats = {
 
   async calculateAttendanceStats() {
     try {
-      const attendance = cache.attendance || [];
+      const attendance = Array.isArray(cache.attendance) ? cache.attendance : [];
       const attendanceCount = attendance.length;
-      const lastSession = attendance.length > 0 
-        ? attendance.reduce((latest, session) => {
-            const sessionDate = new Date(session.date || session.dateIso);
-            const latestDate = new Date(latest.date || latest.dateIso);
-            return sessionDate > latestDate ? session : latest;
-          })
-        : null;
+      
+      let lastSession = null;
+      if (attendanceCount > 0) {
+        lastSession = attendance.reduce((latest, session) => {
+          const sessionDate = new Date(session.date || session.dateIso);
+          const latestDate = new Date(latest.date || latest.dateIso);
+          return sessionDate > latestDate ? session : latest;
+        });
+      }
       
       this.updateElement('attendanceCount', attendanceCount);
       this.updateElement('lastSessionDate', lastSession ? formatDate(lastSession.date) : 'Never');
@@ -546,7 +618,7 @@ const EnhancedStats = {
 
   async calculatePaymentStats() {
     try {
-      const payments = cache.payments || [];
+      const payments = Array.isArray(cache.payments) ? cache.payments : [];
       const now = new Date();
       const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       
@@ -566,9 +638,9 @@ const EnhancedStats = {
 
   async calculateOutstandingBalance() {
     try {
-      const students = cache.students || [];
-      const hours = cache.hours || [];
-      const payments = cache.payments || [];
+      const students = Array.isArray(cache.students) ? cache.students : [];
+      const hours = Array.isArray(cache.hours) ? cache.hours : [];
+      const payments = Array.isArray(cache.payments) ? cache.payments : [];
       
       const earningsByStudent = {};
       hours.forEach(entry => {
@@ -588,8 +660,9 @@ const EnhancedStats = {
       
       let totalOwed = 0;
       students.forEach(student => {
-        const earned = earningsByStudent[student.id] || 0;
-        const paid = paymentsByStudent[student.id] || 0;
+        const studentId = student.id || student._id;
+        const earned = earningsByStudent[studentId] || 0;
+        const paid = paymentsByStudent[studentId] || 0;
         const owed = Math.max(earned - paid, 0);
         totalOwed += owed;
       });
@@ -1055,7 +1128,6 @@ const SyncBar = {
   setupExportCloudButton() {
     if (exportCloudBtn) {
       exportCloudBtn.addEventListener('click', async () => {
-        // Implementation for export cloud functionality
         NotificationSystem.notifyInfo('Export to cloud feature coming soon');
       });
     }
@@ -1064,7 +1136,6 @@ const SyncBar = {
   setupImportCloudButton() {
     if (importCloudBtn) {
       importCloudBtn.addEventListener('click', async () => {
-        // Implementation for import cloud functionality
         NotificationSystem.notifyInfo('Import from cloud feature coming soon');
       });
     }
@@ -1085,7 +1156,6 @@ const SyncBar = {
   setupExportDataButton() {
     if (exportDataBtn) {
       exportDataBtn.addEventListener('click', () => {
-        // Implementation for export data functionality
         NotificationSystem.notifyInfo('Export data feature coming soon');
       });
     }
@@ -1094,7 +1164,6 @@ const SyncBar = {
   setupImportDataButton() {
     if (importDataBtn) {
       importDataBtn.addEventListener('click', () => {
-        // Implementation for import data functionality
         NotificationSystem.notifyInfo('Import data feature coming soon');
       });
     }
@@ -1105,7 +1174,13 @@ const SyncBar = {
       clearDataBtn.addEventListener('click', () => {
         if (confirm('Are you sure you want to clear all local data? This cannot be undone.')) {
           localStorage.clear();
-          Object.keys(cache).forEach(key => cache[key] = null);
+          Object.keys(cache).forEach(key => {
+            if (Array.isArray(cache[key])) {
+              cache[key] = [];
+            } else {
+              cache[key] = null;
+            }
+          });
           NotificationSystem.notifySuccess('All local data cleared');
           setTimeout(() => location.reload(), 1000);
         }
@@ -1812,7 +1887,7 @@ async function renderStudents(forceRefresh = false) {
 
   console.log(`🔄 renderStudents called - forceRefresh: ${forceRefresh}, cacheValid: ${isCacheValid('students')}`);
 
-  if (!forceRefresh && isCacheValid('students') && cache.students) {
+  if (!forceRefresh && isCacheValid('students') && cache.students && Array.isArray(cache.students)) {
     container.innerHTML = cache.students;
     console.log('✅ Students loaded from cache');
     return;
