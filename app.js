@@ -2721,8 +2721,43 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+// ===========================
+// REPORT FUNCTIONS
+// ===========================
 
-// Export functions for global access
+function showWeeklyBreakdown() {
+  NotificationSystem.notifyInfo('Weekly breakdown report - coming soon');
+  console.log('📊 Weekly breakdown requested');
+}
+
+function showBiWeeklyBreakdown() {
+  NotificationSystem.notifyInfo('Bi-weekly breakdown report - coming soon');
+  console.log('📊 Bi-weekly breakdown requested');
+}
+
+function showMonthlyBreakdown() {
+  NotificationSystem.notifyInfo('Monthly breakdown report - coming soon');
+  console.log('📊 Monthly breakdown requested');
+}
+
+function showSubjectBreakdown() {
+  NotificationSystem.notifyInfo('Subject breakdown report - coming soon');
+  console.log('📊 Subject breakdown requested');
+}
+
+// ===========================
+// EXPORT FUNCTIONS TO WINDOW
+// ===========================
+
+// Make sure all functions are available globally
+window.showWeeklyBreakdown = showWeeklyBreakdown;
+window.showBiWeeklyBreakdown = showBiWeeklyBreakdown;
+window.showMonthlyBreakdown = showMonthlyBreakdown;
+window.showSubjectBreakdown = showSubjectBreakdown;
+window.saveDefaultRate = saveDefaultRate;
+window.applyDefaultRateToAll = applyDefaultRateToAll;
+window.useDefaultRate = useDefaultRate;
+window.useDefaultRateInHours = useDefaultRateInHours;
 window.editStudent = editStudent;
 window.deleteStudent = deleteStudent;
 window.editHours = editHours;
@@ -2736,7 +2771,4 @@ window.deletePayment = deletePayment;
 window.NotificationSystem = NotificationSystem;
 window.switchTab = switchTab;
 window.emergencySwitchTab = emergencySwitchTab;
-window.saveDefaultRate = saveDefaultRate;
-window.applyDefaultRateToAll = applyDefaultRateToAll;
-window.useDefaultRate = useDefaultRate;
-window.useDefaultRateInHours = useDefaultRateInHours;
+
