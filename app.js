@@ -2722,50 +2722,278 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ===========================
-// REPORT FUNCTIONS
+// REPORT FUNCTIONS WITH DATE SELECTION
 // ===========================
 
 function showWeeklyBreakdown() {
   const user = auth.currentUser;
   if (!user) return;
 
+  // Create date selection modal
+  const modal = createDateSelectionModal('weekly', (selectedDate) => {
+    const startDate = new Date(selectedDate);
+    startDate.setDate(startDate.getDate() - startDate.getDay()); // Start of week (Sunday)
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 6); // End of week (Saturday)
+    
+    generateWeeklyReport(startDate, endDate);
+  });
+  
+  document.body.appendChild(modal);
+}
+
+function showBiWeeklyBreakdown() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const modal = createDateSelectionModal('bi-weekly', (selectedDate) => {
+    const startDate = new Date(selectedDate);
+    startDate.setDate(startDate.getDate() - 14); // Two weeks back
+    const endDate = new Date(selectedDate);
+    
+    generateBiWeeklyReport(startDate, endDate);
+  });
+  
+  document.body.appendChild(modal);
+}
+
+function showMonthlyBreakdown() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const modal = createDateSelectionModal('monthly', (selectedDate) => {
+    const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+    const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+    
+    generateMonthlyReport(startDate, endDate);
+  }, true); // true for month selection
+  
+  document.body.appendChild(modal);
+}
+
+function showSubjectBreakdown() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const modal = createDateRangeModal('subject', (startDate, endDate) => {
+    generateSubjectReport(startDate, endDate);
+  });
+  
+  document.body.appendChild(modal);
+}
+
+// Date Selection Modal
+function createDateSelectionModal(reportType, onConfirm, showMonthPicker = false) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    background: rgba(0,0,0,0.5); display: flex; align-items: center; 
+    justify-content: center; z-index: 10000;
+  `;
+  
+  const modalContent = document.createElement('div');
+  modalContent.className = 'modal-content';
+  modalContent.style.cssText = `
+    background: var(--surface); padding: 20px; border-radius: 12px; 
+    min-width: 300px; max-width: 90vw; max-height: 90vh; overflow-y: auto;
+  `;
+  
+  const title = document.createElement('h3');
+  title.textContent = `Select ${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Period`;
+  
+  const dateInput = document.createElement('input');
+  dateInput.type = showMonthPicker ? 'month' : 'date';
+  dateInput.value = new Date().toISOString().split('T')[0];
+  dateInput.style.cssText = `
+    width: 100%; padding: 10px; margin: 10px 0; border: 1px solid var(--border);
+    border-radius: 6px; background: var(--background); color: var(--text);
+  `;
+  
+  const buttonContainer = document.createElement('div');
+  buttonContainer.style.cssText = 'display: flex; gap: 10px; margin-top: 15px;';
+  
+  const confirmBtn = document.createElement('button');
+  confirmBtn.textContent = 'Generate Report';
+  confirmBtn.style.cssText = `
+    flex: 1; padding: 10px; background: var(--primary); color: white;
+    border: none; border-radius: 6px; cursor: pointer;
+  `;
+  
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.style.cssText = `
+    flex: 1; padding: 10px; background: var(--border); color: var(--text);
+    border: none; border-radius: 6px; cursor: pointer;
+  `;
+  
+  confirmBtn.onclick = () => {
+    const selectedDate = new Date(dateInput.value);
+    onConfirm(selectedDate);
+    document.body.removeChild(modal);
+  };
+  
+  cancelBtn.onclick = () => {
+    document.body.removeChild(modal);
+  };
+  
+  modalContent.appendChild(title);
+  modalContent.appendChild(dateInput);
+  buttonContainer.appendChild(confirmBtn);
+  buttonContainer.appendChild(cancelBtn);
+  modalContent.appendChild(buttonContainer);
+  modal.appendChild(modalContent);
+  
+  // Close modal when clicking outside
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      document.body.removeChild(modal);
+    }
+  };
+  
+  return modal;
+}
+
+// Date Range Modal for custom periods
+function createDateRangeModal(reportType, onConfirm) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    background: rgba(0,0,0,0.5); display: flex; align-items: center; 
+    justify-content: center; z-index: 10000;
+  `;
+  
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = `
+    background: var(--surface); padding: 20px; border-radius: 12px; 
+    min-width: 300px; max-width: 90vw;
+  `;
+  
+  const title = document.createElement('h3');
+  title.textContent = `Select Date Range for ${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`;
+  
+  const startDateInput = document.createElement('input');
+  startDateInput.type = 'date';
+  startDateInput.placeholder = 'Start Date';
+  startDateInput.style.cssText = `
+    width: 100%; padding: 10px; margin: 5px 0; border: 1px solid var(--border);
+    border-radius: 6px; background: var(--background); color: var(--text);
+  `;
+  
+  const endDateInput = document.createElement('input');
+  endDateInput.type = 'date';
+  endDateInput.placeholder = 'End Date';
+  endDateInput.value = new Date().toISOString().split('T')[0];
+  endDateInput.style.cssText = startDateInput.style.cssText;
+  
+  // Set start date to first day of current month by default
+  const firstDay = new Date();
+  firstDay.setDate(1);
+  startDateInput.value = firstDay.toISOString().split('T')[0];
+  
+  const buttonContainer = document.createElement('div');
+  buttonContainer.style.cssText = 'display: flex; gap: 10px; margin-top: 15px;';
+  
+  const confirmBtn = document.createElement('button');
+  confirmBtn.textContent = 'Generate Report';
+  confirmBtn.style.cssText = `
+    flex: 1; padding: 10px; background: var(--primary); color: white;
+    border: none; border-radius: 6px; cursor: pointer;
+  `;
+  
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.style.cssText = `
+    flex: 1; padding: 10px; background: var(--border); color: var(--text);
+    border: none; border-radius: 6px; cursor: pointer;
+  `;
+  
+  confirmBtn.onclick = () => {
+    const startDate = new Date(startDateInput.value);
+    const endDate = new Date(endDateInput.value);
+    
+    if (startDate > endDate) {
+      NotificationSystem.notifyError('Start date cannot be after end date');
+      return;
+    }
+    
+    onConfirm(startDate, endDate);
+    document.body.removeChild(modal);
+  };
+  
+  cancelBtn.onclick = () => {
+    document.body.removeChild(modal);
+  };
+  
+  modalContent.appendChild(title);
+  modalContent.appendChild(createLabel('Start Date:'));
+  modalContent.appendChild(startDateInput);
+  modalContent.appendChild(createLabel('End Date:'));
+  modalContent.appendChild(endDateInput);
+  buttonContainer.appendChild(confirmBtn);
+  buttonContainer.appendChild(cancelBtn);
+  modalContent.appendChild(buttonContainer);
+  modal.appendChild(modalContent);
+  
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      document.body.removeChild(modal);
+    }
+  };
+  
+  return modal;
+}
+
+function createLabel(text) {
+  const label = document.createElement('div');
+  label.textContent = text;
+  label.style.cssText = 'margin-top: 10px; font-weight: bold; color: var(--text);';
+  return label;
+}
+
+// Report Generation Functions
+function generateWeeklyReport(startDate, endDate) {
   try {
     const hours = Array.isArray(cache.hours) ? cache.hours : [];
-    const now = new Date();
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - now.getDay());
-    weekStart.setHours(0, 0, 0, 0);
     
     const weeklyData = hours.filter(entry => {
       const entryDate = new Date(entry.date || entry.dateIso);
-      return entryDate >= weekStart;
+      return entryDate >= startDate && entryDate <= endDate;
     });
 
     if (weeklyData.length === 0) {
-      NotificationSystem.notifyInfo('No hours logged this week');
+      NotificationSystem.notifyInfo(`No hours logged for week of ${startDate.toLocaleDateString()}`);
       return;
     }
 
     const weeklyHours = weeklyData.reduce((sum, entry) => sum + (entry.hours || 0), 0);
     const weeklyTotal = weeklyData.reduce((sum, entry) => sum + (entry.total || 0), 0);
     
-    // Group by day
     const byDay = {};
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const dayKey = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      byDay[dayKey] = 0;
+    }
+    
     weeklyData.forEach(entry => {
-      const day = new Date(entry.date || entry.dateIso).toLocaleDateString('en-US', { weekday: 'short' });
-      byDay[day] = (byDay[day] || 0) + (entry.hours || 0);
+      const dayKey = new Date(entry.date || entry.dateIso).toLocaleDateString('en-US', { 
+        weekday: 'short', month: 'short', day: 'numeric' 
+      });
+      byDay[dayKey] = (byDay[dayKey] || 0) + (entry.hours || 0);
     });
 
-    let breakdown = `Week ${getWeekNumber(now)} Breakdown:\n\n`;
+    let breakdown = `Weekly Breakdown (${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}):\n\n`;
     breakdown += `Total Hours: ${weeklyHours.toFixed(1)}\n`;
-    breakdown += `Total Earnings: $${fmtMoney(weeklyTotal)}\n\n`;
+    breakdown += `Total Earnings: $${fmtMoney(weeklyTotal)}\n`;
+    breakdown += `Average Rate: $${fmtMoney(weeklyTotal / weeklyHours)}\n\n`;
     breakdown += 'Daily Breakdown:\n';
     
     Object.entries(byDay).forEach(([day, hours]) => {
       breakdown += `${day}: ${hours.toFixed(1)} hours\n`;
     });
 
-    alert(breakdown);
+    showReportModal('Weekly Breakdown', breakdown);
     console.log('📊 Weekly breakdown generated', { weeklyHours, weeklyTotal, days: byDay });
 
   } catch (error) {
@@ -2774,60 +3002,56 @@ function showWeeklyBreakdown() {
   }
 }
 
-function showBiWeeklyBreakdown() {
-  const user = auth.currentUser;
-  if (!user) return;
-
+function generateBiWeeklyReport(startDate, endDate) {
   try {
     const hours = Array.isArray(cache.hours) ? cache.hours : [];
-    const now = new Date();
-    const twoWeeksAgo = new Date(now);
-    twoWeeksAgo.setDate(now.getDate() - 14);
-    twoWeeksAgo.setHours(0, 0, 0, 0);
     
     const biWeeklyData = hours.filter(entry => {
       const entryDate = new Date(entry.date || entry.dateIso);
-      return entryDate >= twoWeeksAgo;
+      return entryDate >= startDate && entryDate <= endDate;
     });
 
     if (biWeeklyData.length === 0) {
-      NotificationSystem.notifyInfo('No hours logged in the last 2 weeks');
+      NotificationSystem.notifyInfo(`No hours logged for period ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`);
       return;
     }
 
-    const biWeeklyHours = biWeeklyData.reduce((sum, entry) => sum + (entry.hours || 0), 0);
-    const biWeeklyTotal = biWeeklyData.reduce((sum, entry) => sum + (entry.total || 0), 0);
+    const totalHours = biWeeklyData.reduce((sum, entry) => sum + (entry.hours || 0), 0);
+    const totalEarnings = biWeeklyData.reduce((sum, entry) => sum + (entry.total || 0), 0);
     
-    // Group by week
     const byWeek = {};
-    biWeeklyData.forEach(entry => {
-      const entryDate = new Date(entry.date || entry.dateIso);
-      const weekStart = new Date(entryDate);
-      weekStart.setDate(entryDate.getDate() - entryDate.getDay());
-      const weekKey = weekStart.toISOString().split('T')[0];
+    const currentDate = new Date(startDate);
+    
+    while (currentDate <= endDate) {
+      const weekEnd = new Date(currentDate);
+      weekEnd.setDate(currentDate.getDate() + 6);
+      const weekKey = `Week of ${currentDate.toLocaleDateString()}`;
       
-      if (!byWeek[weekKey]) {
-        byWeek[weekKey] = { hours: 0, total: 0, days: [] };
-      }
-      byWeek[weekKey].hours += entry.hours || 0;
-      byWeek[weekKey].total += entry.total || 0;
-      byWeek[weekKey].days.push(new Date(entry.date || entry.dateIso).toLocaleDateString('en-US', { weekday: 'short' }));
-    });
+      const weekData = biWeeklyData.filter(entry => {
+        const entryDate = new Date(entry.date || entry.dateIso);
+        return entryDate >= currentDate && entryDate <= weekEnd;
+      });
+      
+      byWeek[weekKey] = {
+        hours: weekData.reduce((sum, entry) => sum + (entry.hours || 0), 0),
+        earnings: weekData.reduce((sum, entry) => sum + (entry.total || 0), 0),
+        sessions: weekData.length
+      };
+      
+      currentDate.setDate(currentDate.getDate() + 7);
+    }
 
-    let breakdown = `Bi-Weekly Breakdown (Last 2 Weeks):\n\n`;
-    breakdown += `Total Hours: ${biWeeklyHours.toFixed(1)}\n`;
-    breakdown += `Total Earnings: $${fmtMoney(biWeeklyTotal)}\n\n`;
+    let breakdown = `Bi-Weekly Breakdown (${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}):\n\n`;
+    breakdown += `Total Hours: ${totalHours.toFixed(1)}\n`;
+    breakdown += `Total Earnings: $${fmtMoney(totalEarnings)}\n`;
+    breakdown += `Average Weekly: $${fmtMoney(totalEarnings / 2)}\n\n`;
     breakdown += 'Weekly Breakdown:\n';
     
     Object.entries(byWeek).forEach(([week, data]) => {
-      const weekStart = new Date(week);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
-      breakdown += `Week of ${weekStart.toLocaleDateString()}: ${data.hours.toFixed(1)} hours ($${fmtMoney(data.total)})\n`;
+      breakdown += `${week}: ${data.hours.toFixed(1)} hours (${data.sessions} sessions) - $${fmtMoney(data.earnings)}\n`;
     });
 
-    alert(breakdown);
-    console.log('📊 Bi-weekly breakdown generated', { biWeeklyHours, biWeeklyTotal, weeks: byWeek });
+    showReportModal('Bi-Weekly Breakdown', breakdown);
 
   } catch (error) {
     console.error('Error generating bi-weekly breakdown:', error);
@@ -2835,31 +3059,29 @@ function showBiWeeklyBreakdown() {
   }
 }
 
-function showMonthlyBreakdown() {
-  const user = auth.currentUser;
-  if (!user) return;
-
+function generateMonthlyReport(startDate, endDate) {
   try {
     const hours = Array.isArray(cache.hours) ? cache.hours : [];
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     
     const monthlyData = hours.filter(entry => {
       const entryDate = new Date(entry.date || entry.dateIso);
-      return entryDate >= monthStart;
+      return entryDate >= startDate && entryDate <= endDate;
     });
 
     if (monthlyData.length === 0) {
-      NotificationSystem.notifyInfo('No hours logged this month');
+      NotificationSystem.notifyInfo(`No hours logged for ${startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`);
       return;
     }
 
     const monthlyHours = monthlyData.reduce((sum, entry) => sum + (entry.hours || 0), 0);
     const monthlyTotal = monthlyData.reduce((sum, entry) => sum + (entry.total || 0), 0);
     
-    // Group by student
     const byStudent = {};
+    const byWorkType = {};
+    const byWeek = {};
+    
     monthlyData.forEach(entry => {
+      // By student
       const student = entry.student || 'Unknown Student';
       if (!byStudent[student]) {
         byStudent[student] = { hours: 0, total: 0, sessions: 0 };
@@ -2867,31 +3089,45 @@ function showMonthlyBreakdown() {
       byStudent[student].hours += entry.hours || 0;
       byStudent[student].total += entry.total || 0;
       byStudent[student].sessions += 1;
-    });
-
-    // Group by work type
-    const byWorkType = {};
-    monthlyData.forEach(entry => {
+      
+      // By work type
       const workType = entry.workType || 'General';
       byWorkType[workType] = (byWorkType[workType] || 0) + (entry.hours || 0);
+      
+      // By week
+      const entryDate = new Date(entry.date || entry.dateIso);
+      const weekStart = new Date(entryDate);
+      weekStart.setDate(entryDate.getDate() - entryDate.getDay());
+      const weekKey = `Week ${getWeekNumber(entryDate)} (${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`;
+      byWeek[weekKey] = (byWeek[weekKey] || 0) + (entry.hours || 0);
     });
 
-    let breakdown = `Monthly Breakdown (${now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}):\n\n`;
+    let breakdown = `Monthly Breakdown (${startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}):\n\n`;
     breakdown += `Total Hours: ${monthlyHours.toFixed(1)}\n`;
-    breakdown += `Total Earnings: $${fmtMoney(monthlyTotal)}\n\n`;
-    breakdown += 'By Student:\n';
+    breakdown += `Total Earnings: $${fmtMoney(monthlyTotal)}\n`;
+    breakdown += `Average Rate: $${fmtMoney(monthlyTotal / monthlyHours)}\n\n`;
     
-    Object.entries(byStudent).forEach(([student, data]) => {
-      breakdown += `• ${student}: ${data.hours.toFixed(1)} hours (${data.sessions} sessions) - $${fmtMoney(data.total)}\n`;
-    });
+    breakdown += 'By Student:\n';
+    Object.entries(byStudent)
+      .sort((a, b) => b[1].total - a[1].total)
+      .forEach(([student, data]) => {
+        breakdown += `• ${student}: ${data.hours.toFixed(1)} hours (${data.sessions} sessions) - $${fmtMoney(data.total)}\n`;
+      });
 
     breakdown += '\nBy Work Type:\n';
-    Object.entries(byWorkType).forEach(([workType, hours]) => {
-      breakdown += `• ${workType}: ${hours.toFixed(1)} hours\n`;
-    });
+    Object.entries(byWorkType)
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([workType, hours]) => {
+        breakdown += `• ${workType}: ${hours.toFixed(1)} hours\n`;
+      });
 
-    alert(breakdown);
-    console.log('📊 Monthly breakdown generated', { monthlyHours, monthlyTotal, students: byStudent, workTypes: byWorkType });
+    breakdown += '\nBy Week:\n';
+    Object.entries(byWeek)
+      .forEach(([week, hours]) => {
+        breakdown += `• ${week}: ${hours.toFixed(1)} hours\n`;
+      });
+
+    showReportModal('Monthly Breakdown', breakdown);
 
   } catch (error) {
     console.error('Error generating monthly breakdown:', error);
@@ -2899,21 +3135,26 @@ function showMonthlyBreakdown() {
   }
 }
 
-function showSubjectBreakdown() {
-  const user = auth.currentUser;
-  if (!user) return;
-
+function generateSubjectReport(startDate, endDate) {
   try {
     const hours = Array.isArray(cache.hours) ? cache.hours : [];
     
-    if (hours.length === 0) {
-      NotificationSystem.notifyInfo('No hours logged yet');
+    const periodData = hours.filter(entry => {
+      const entryDate = new Date(entry.date || entry.dateIso);
+      return entryDate >= startDate && entryDate <= endDate;
+    });
+
+    if (periodData.length === 0) {
+      NotificationSystem.notifyInfo(`No hours logged for selected period`);
       return;
     }
 
-    // Group by subject
     const bySubject = {};
-    hours.forEach(entry => {
+    const byOrganization = {};
+    const byStudent = {};
+    
+    periodData.forEach(entry => {
+      // By subject
       const subject = entry.subject || 'General';
       if (!bySubject[subject]) {
         bySubject[subject] = { hours: 0, total: 0, sessions: 0, students: new Set() };
@@ -2924,25 +3165,29 @@ function showSubjectBreakdown() {
       if (entry.student) {
         bySubject[subject].students.add(entry.student);
       }
-    });
-
-    // Group by organization
-    const byOrganization = {};
-    hours.forEach(entry => {
+      
+      // By organization
       const org = entry.organization || 'Unknown Organization';
       byOrganization[org] = (byOrganization[org] || 0) + (entry.hours || 0);
+      
+      // By student
+      const student = entry.student || 'Unknown Student';
+      byStudent[student] = (byStudent[student] || 0) + (entry.hours || 0);
     });
 
-    let breakdown = `Subject Breakdown (All Time):\n\n`;
-    breakdown += `Total Hours: ${hours.reduce((sum, entry) => sum + (entry.hours || 0), 0).toFixed(1)}\n`;
-    breakdown += `Total Earnings: $${fmtMoney(hours.reduce((sum, entry) => sum + (entry.total || 0), 0))}\n\n`;
-    breakdown += 'By Subject:\n';
+    let breakdown = `Subject Breakdown (${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}):\n\n`;
+    breakdown += `Total Hours: ${periodData.reduce((sum, entry) => sum + (entry.hours || 0), 0).toFixed(1)}\n`;
+    breakdown += `Total Earnings: $${fmtMoney(periodData.reduce((sum, entry) => sum + (entry.total || 0), 0))}\n\n`;
     
+    breakdown += 'By Subject:\n';
     Object.entries(bySubject)
-      .sort((a, b) => b[1].hours - a[1].hours)
+      .sort((a, b) => b[1].total - a[1].total)
       .forEach(([subject, data]) => {
         breakdown += `• ${subject}: ${data.hours.toFixed(1)} hours (${data.sessions} sessions) - $${fmtMoney(data.total)}\n`;
-        breakdown += `  Students: ${Array.from(data.students).join(', ') || 'None'}\n\n`;
+        if (data.students.size > 0) {
+          breakdown += `  Students: ${Array.from(data.students).join(', ')}\n`;
+        }
+        breakdown += '\n';
       });
 
     breakdown += 'By Organization:\n';
@@ -2952,8 +3197,14 @@ function showSubjectBreakdown() {
         breakdown += `• ${org}: ${hours.toFixed(1)} hours\n`;
       });
 
-    alert(breakdown);
-    console.log('📊 Subject breakdown generated', { subjects: bySubject, organizations: byOrganization });
+    breakdown += '\nBy Student:\n';
+    Object.entries(byStudent)
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([student, hours]) => {
+        breakdown += `• ${student}: ${hours.toFixed(1)} hours\n`;
+      });
+
+    showReportModal('Subject Breakdown', breakdown);
 
   } catch (error) {
     console.error('Error generating subject breakdown:', error);
@@ -2961,7 +3212,54 @@ function showSubjectBreakdown() {
   }
 }
 
-// Helper function for week numbers
+function showReportModal(title, content) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    background: rgba(0,0,0,0.5); display: flex; align-items: center; 
+    justify-content: center; z-index: 10000;
+  `;
+  
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = `
+    background: var(--surface); padding: 20px; border-radius: 12px; 
+    min-width: 300px; max-width: 80vw; max-height: 80vh; overflow-y: auto;
+    white-space: pre-line; font-family: monospace; line-height: 1.4;
+  `;
+  
+  const modalTitle = document.createElement('h3');
+  modalTitle.textContent = title;
+  modalTitle.style.cssText = 'margin-bottom: 15px; color: var(--text);';
+  
+  const reportContent = document.createElement('div');
+  reportContent.textContent = content;
+  reportContent.style.cssText = 'margin-bottom: 15px;';
+  
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = 'Close';
+  closeBtn.style.cssText = `
+    padding: 10px 20px; background: var(--primary); color: white;
+    border: none; border-radius: 6px; cursor: pointer; float: right;
+  `;
+  
+  closeBtn.onclick = () => {
+    document.body.removeChild(modal);
+  };
+  
+  modalContent.appendChild(modalTitle);
+  modalContent.appendChild(reportContent);
+  modalContent.appendChild(closeBtn);
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
+  
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      document.body.removeChild(modal);
+    }
+  };
+}
+
 function getWeekNumber(date) {
   const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
   const pastDaysOfYear = (date - firstDayOfYear) / 86400000;
