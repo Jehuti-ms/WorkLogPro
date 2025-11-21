@@ -493,7 +493,7 @@ const EnhancedCache = {
 };
 
 // ===========================
-// ENHANCED REAL-TIME STATS SYSTEM
+// ENHANCED REAL-TIME STATS SYSTEM - UPDATED
 // ===========================
 
 const EnhancedStats = {
@@ -548,7 +548,8 @@ const EnhancedStats = {
 
   async calculateStudentStats() {
     try {
-      const students = Array.isArray(cache.students) ? cache.students : [];
+      // Ensure we have fresh data
+      const students = await EnhancedCache.loadCollection('students');
       const studentCount = students.length;
       
       let averageRate = 0;
@@ -559,6 +560,8 @@ const EnhancedStats = {
         }, 0);
         averageRate = totalRate / studentCount;
       }
+      
+      console.log(`📊 Student stats: ${studentCount} students, avg rate: $${fmtMoney(averageRate)}`);
       
       this.updateElement('studentCount', studentCount);
       this.updateElement('averageRate', fmtMoney(averageRate));
@@ -571,35 +574,51 @@ const EnhancedStats = {
 
   async calculateHoursStats() {
     try {
-      const hours = Array.isArray(cache.hours) ? cache.hours : [];
+      // Ensure we have fresh data
+      const hours = await EnhancedCache.loadCollection('hours');
+      console.log(`📊 Calculating hours stats from ${hours.length} entries`);
+      
       const now = new Date();
+      const today = getLocalDateString(now);
+      
+      // Get start of current week (Sunday)
       const weekStart = new Date(now);
       weekStart.setDate(now.getDate() - now.getDay());
       weekStart.setHours(0, 0, 0, 0);
+      
+      // Get start of current month
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       
+      // Use fixed date comparison function
       const weeklyData = hours.filter(entry => {
-        const entryDate = new Date(entry.date || entry.dateIso);
-        return entryDate >= weekStart;
+        const entryDate = entry.date || entry.dateIso;
+        return isDateInRange(entryDate, weekStart, now);
       });
       
       const monthlyData = hours.filter(entry => {
-        const entryDate = new Date(entry.date || entry.dateIso);
-        return entryDate >= monthStart;
+        const entryDate = entry.date || entry.dateIso;
+        return isDateInRange(entryDate, monthStart, now);
       });
       
-      const weeklyHours = weeklyData.reduce((sum, entry) => sum + (entry.hours || 0), 0);
-      const weeklyTotal = weeklyData.reduce((sum, entry) => sum + (entry.total || 0), 0);
-      const monthlyHours = monthlyData.reduce((sum, entry) => sum + (entry.hours || 0), 0);
-      const monthlyTotal = monthlyData.reduce((sum, entry) => sum + (entry.total || 0), 0);
+      const weeklyHours = weeklyData.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
+      const weeklyTotal = weeklyData.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
+      
+      const monthlyHours = monthlyData.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
+      const monthlyTotal = monthlyData.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
+      
+      console.log('📈 Hours stats:', {
+        weekly: { hours: weeklyHours, total: weeklyTotal, entries: weeklyData.length },
+        monthly: { hours: monthlyHours, total: monthlyTotal, entries: monthlyData.length },
+        total: hours.length
+      });
       
       this.updateElement('weeklyHours', weeklyHours.toFixed(1));
       this.updateElement('weeklyTotal', fmtMoney(weeklyTotal));
       this.updateElement('monthlyHours', monthlyHours.toFixed(1));
       this.updateElement('monthlyTotal', fmtMoney(monthlyTotal));
       
-      const totalHours = hours.reduce((sum, entry) => sum + (entry.hours || 0), 0);
-      const totalEarnings = hours.reduce((sum, entry) => sum + (entry.total || 0), 0);
+      const totalHours = hours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
+      const totalEarnings = hours.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
       
       this.updateElement('totalHoursReport', totalHours.toFixed(1));
       this.updateElement('totalEarningsReport', `$${fmtMoney(totalEarnings)}`);
@@ -610,14 +629,17 @@ const EnhancedStats = {
 
   async calculateMarksStats() {
     try {
-      const marks = Array.isArray(cache.marks) ? cache.marks : [];
+      // Ensure we have fresh data
+      const marks = await EnhancedCache.loadCollection('marks');
       const marksCount = marks.length;
       
       let avgPercentage = 0;
       if (marksCount > 0) {
-        const totalPercentage = marks.reduce((sum, mark) => sum + (mark.percentage || 0), 0);
+        const totalPercentage = marks.reduce((sum, mark) => sum + safeNumber(mark.percentage), 0);
         avgPercentage = totalPercentage / marksCount;
       }
+      
+      console.log(`📊 Marks stats: ${marksCount} marks, avg: ${avgPercentage.toFixed(1)}%`);
       
       this.updateElement('marksCount', marksCount);
       this.updateElement('avgMarks', avgPercentage.toFixed(1));
@@ -629,20 +651,29 @@ const EnhancedStats = {
 
   async calculateAttendanceStats() {
     try {
-      const attendance = Array.isArray(cache.attendance) ? cache.attendance : [];
+      // Ensure we have fresh data
+      const attendance = await EnhancedCache.loadCollection('attendance');
       const attendanceCount = attendance.length;
       
       let lastSession = null;
+      let lastSessionDate = null;
+      
       if (attendanceCount > 0) {
-        lastSession = attendance.reduce((latest, session) => {
-          const sessionDate = new Date(session.date || session.dateIso);
-          const latestDate = new Date(latest.date || latest.dateIso);
-          return sessionDate > latestDate ? session : latest;
+        // Sort by date to find the most recent
+        const sortedAttendance = attendance.sort((a, b) => {
+          const dateA = new Date(a.date || a.dateIso);
+          const dateB = new Date(b.date || b.dateIso);
+          return dateB - dateA;
         });
+        
+        lastSession = sortedAttendance[0];
+        lastSessionDate = lastSession.date || lastSession.dateIso;
       }
       
+      console.log(`📊 Attendance stats: ${attendanceCount} sessions, last: ${lastSessionDate}`);
+      
       this.updateElement('attendanceCount', attendanceCount);
-      this.updateElement('lastSessionDate', lastSession ? formatDate(lastSession.date) : 'Never');
+      this.updateElement('lastSessionDate', lastSession ? formatDate(lastSessionDate) : 'Never');
     } catch (error) {
       console.error('Error calculating attendance stats:', error);
     }
@@ -650,18 +681,27 @@ const EnhancedStats = {
 
   async calculatePaymentStats() {
     try {
-      const payments = Array.isArray(cache.payments) ? cache.payments : [];
+      // Ensure we have fresh data
+      const payments = await EnhancedCache.loadCollection('payments');
       const now = new Date();
+      
+      // Get current month in YYYY-MM format for comparison
       const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       
       const monthlyPayments = payments
-        .filter(payment => (payment.date || '').startsWith(currentMonth))
-        .reduce((sum, payment) => sum + (payment.amount || 0), 0);
+        .filter(payment => {
+          const paymentDate = payment.date || '';
+          return paymentDate.startsWith(currentMonth);
+        })
+        .reduce((sum, payment) => sum + safeNumber(payment.amount), 0);
       
-      const totalPayments = payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+      const totalPayments = payments.reduce((sum, payment) => sum + safeNumber(payment.amount), 0);
+      
+      console.log(`📊 Payment stats: monthly $${fmtMoney(monthlyPayments)}, total $${fmtMoney(totalPayments)}`);
       
       this.updateElement('monthlyPayments', `$${fmtMoney(monthlyPayments)}`);
       this.updateElement('totalPaymentsReport', `$${fmtMoney(totalPayments)}`);
+      
       await this.calculateOutstandingBalance();
     } catch (error) {
       console.error('Error calculating payment stats:', error);
@@ -670,34 +710,42 @@ const EnhancedStats = {
 
   async calculateOutstandingBalance() {
     try {
-      const students = Array.isArray(cache.students) ? cache.students : [];
-      const hours = Array.isArray(cache.hours) ? cache.hours : [];
-      const payments = Array.isArray(cache.payments) ? cache.payments : [];
+      // Ensure we have fresh data
+      const [students, hours, payments] = await Promise.all([
+        EnhancedCache.loadCollection('students'),
+        EnhancedCache.loadCollection('hours'),
+        EnhancedCache.loadCollection('payments')
+      ]);
       
       const earningsByStudent = {};
       hours.forEach(entry => {
-        const studentId = entry.student;
-        if (studentId) {
-          earningsByStudent[studentId] = (earningsByStudent[studentId] || 0) + (entry.total || 0);
+        const studentName = entry.student;
+        if (studentName) {
+          const earnings = entry.total || (entry.hours || 0) * (entry.rate || 0);
+          earningsByStudent[studentName] = (earningsByStudent[studentName] || 0) + safeNumber(earnings);
         }
       });
       
       const paymentsByStudent = {};
       payments.forEach(payment => {
-        const studentId = payment.student;
-        if (studentId) {
-          paymentsByStudent[studentId] = (paymentsByStudent[studentId] || 0) + (payment.amount || 0);
+        const studentName = payment.student;
+        if (studentName) {
+          paymentsByStudent[studentName] = (paymentsByStudent[studentName] || 0) + safeNumber(payment.amount);
         }
       });
       
       let totalOwed = 0;
       students.forEach(student => {
-        const studentId = student.id || student._id;
-        const earned = earningsByStudent[studentId] || 0;
-        const paid = paymentsByStudent[studentId] || 0;
+        const studentName = student.name || `Student ${student.id}`;
+        const earned = earningsByStudent[studentName] || 0;
+        const paid = paymentsByStudent[studentName] || 0;
         const owed = Math.max(earned - paid, 0);
         totalOwed += owed;
+        
+        console.log(`💰 ${studentName}: Earned $${fmtMoney(earned)}, Paid $${fmtMoney(paid)}, Owed $${fmtMoney(owed)}`);
       });
+      
+      console.log(`📊 Outstanding balance: $${fmtMoney(totalOwed)}`);
       
       this.updateElement('totalOwed', `$${fmtMoney(totalOwed)}`);
       this.updateElement('outstandingBalance', `$${fmtMoney(totalOwed)}`);
@@ -707,20 +755,119 @@ const EnhancedStats = {
   },
 
   async calculateOverviewStats() {
-    console.log('📊 Overview stats calculated');
+    try {
+      // Ensure we have fresh data for all collections
+      const [students, hours, marks, payments] = await Promise.all([
+        EnhancedCache.loadCollection('students'),
+        EnhancedCache.loadCollection('hours'),
+        EnhancedCache.loadCollection('marks'),
+        EnhancedCache.loadCollection('payments')
+      ]);
+      
+      const totalHours = hours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
+      const totalEarnings = hours.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
+      const totalPayments = payments.reduce((sum, payment) => sum + safeNumber(payment.amount), 0);
+      
+      let avgMark = 0;
+      if (marks.length > 0) {
+        const totalPercentage = marks.reduce((sum, mark) => sum + safeNumber(mark.percentage), 0);
+        avgMark = totalPercentage / marks.length;
+      }
+      
+      const outstanding = Math.max(totalEarnings - totalPayments, 0);
+      
+      console.log('📊 Overview stats:', {
+        students: students.length,
+        hours: totalHours,
+        earnings: totalEarnings,
+        payments: totalPayments,
+        marks: avgMark.toFixed(1),
+        outstanding: outstanding
+      });
+      
+      this.updateElement('totalStudentsReport', students.length);
+      this.updateElement('totalHoursReport', totalHours.toFixed(1));
+      this.updateElement('totalEarningsReport', `$${fmtMoney(totalEarnings)}`);
+      this.updateElement('avgMarkReport', `${avgMark.toFixed(1)}%`);
+      this.updateElement('totalPaymentsReport', `$${fmtMoney(totalPayments)}`);
+      this.updateElement('outstandingBalance', `$${fmtMoney(outstanding)}`);
+    } catch (error) {
+      console.error('Error calculating overview stats:', error);
+    }
   },
 
   updateElement(id, value) {
     const element = document.getElementById(id);
     if (element) {
       element.textContent = value;
+      // Add visual feedback for updates
+      element.style.transition = 'all 0.3s ease';
+      element.style.transform = 'scale(1.05)';
+      setTimeout(() => {
+        element.style.transform = 'scale(1)';
+      }, 300);
+    } else {
+      console.warn(`⚠️ Element not found: ${id}`);
     }
   },
 
   forceRefresh() {
+    console.log('🔄 Forcing stats refresh...');
     this.refreshAllStats();
+  },
+
+  // New method to refresh when data changes
+  onDataChanged() {
+    console.log('📈 Data changed, updating stats...');
+    this.forceRefresh();
   }
 };
+
+// ===========================
+// DATE HELPER FUNCTIONS
+// ===========================
+
+function getLocalDateString(date = new Date()) {
+  // Get date in local timezone, not UTC
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function isDateInRange(entryDate, startDate, endDate) {
+  try {
+    const entry = new Date(entryDate);
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    // Compare dates (ignore time)
+    const entryDateOnly = new Date(entry.getFullYear(), entry.getMonth(), entry.getDate());
+    const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const endDateOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    
+    return entryDateOnly >= startDateOnly && entryDateOnly <= endDateOnly;
+  } catch (error) {
+    console.error('Date comparison error:', error);
+    return false;
+  }
+}
+
+function formatDate(dateString) {
+  if (!dateString) return 'Never';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Invalid Date';
+    
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch {
+    return dateString;
+  }
+}
 
 // ===========================
 // FORM AUTO-CLEARING SYSTEM
@@ -1762,10 +1909,6 @@ async function recalcSummaryStats(uid) {
 }
 
 // ===========================
-// DATA RENDERING FUNCTIONS
-// ===========================
-
-// ===========================
 // FIXED DATA RENDERING FUNCTIONS
 // ===========================
 
@@ -2308,87 +2451,224 @@ function useDefaultRateInHours() {
 }
 
 // ===========================
+// FIXED DATA LOADING FUNCTIONS
+// ===========================
+
+async function loadAllData() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  console.log('🔄 Loading all data from Firebase...');
+  
+  try {
+    // Load all collections in parallel
+    const [students, hours, marks, attendance, payments] = await Promise.all([
+      loadCollectionWithRetry('students'),
+      loadCollectionWithRetry('hours'),
+      loadCollectionWithRetry('marks'),
+      loadCollectionWithRetry('attendance'),
+      loadCollectionWithRetry('payments')
+    ]);
+
+    console.log('📊 Data loaded:', {
+      students: students.length,
+      hours: hours.length,
+      marks: marks.length,
+      attendance: attendance.length,
+      payments: payments.length
+    });
+
+    // Update cache
+    cache.students = students;
+    cache.hours = hours;
+    cache.marks = marks;
+    cache.attendance = attendance;
+    cache.payments = payments;
+    cache.lastSync = Date.now();
+
+    // Update UI
+    await refreshAllUI();
+
+    return true;
+  } catch (error) {
+    console.error('❌ Error loading all data:', error);
+    NotificationSystem.notifyError('Failed to load data from server');
+    return false;
+  }
+}
+
+async function loadCollectionWithRetry(collectionName, retries = 3) {
+  const user = auth.currentUser;
+  if (!user) return [];
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`🔄 Loading ${collectionName} (attempt ${attempt})...`);
+      
+      const querySnapshot = await getDocs(collection(db, "users", user.uid, collectionName));
+      const data = [];
+      
+      querySnapshot.forEach((doc) => {
+        data.push({
+          id: doc.id,
+          ...doc.data(),
+          _firebaseId: doc.id,
+          _synced: true
+        });
+      });
+
+      console.log(`✅ Loaded ${data.length} ${collectionName} from Firebase`);
+      return data;
+    } catch (error) {
+      console.error(`❌ Attempt ${attempt} failed for ${collectionName}:`, error);
+      
+      if (attempt === retries) {
+        throw error;
+      }
+      
+      // Wait before retry
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+    }
+  }
+  return [];
+}
+
+async function refreshAllUI() {
+  console.log('🔄 Refreshing all UI components...');
+  
+  await Promise.all([
+    renderStudents(),
+    renderRecentHours(),
+    renderRecentMarks(),
+    renderAttendanceRecent(),
+    renderPaymentActivity(),
+    renderStudentBalances(),
+    renderOverviewReports()
+  ]);
+  
+  await populateStudentDropdowns();
+  EnhancedStats.forceRefresh();
+  
+  console.log('✅ All UI components refreshed');
+}
+
+// ===========================
 // FIXED STUDENT DROPDOWN POPULATION
 // ===========================
 
 async function populateStudentDropdowns() {
-    const user = auth.currentUser;
-    if (!user) return;
+  const user = auth.currentUser;
+  if (!user) {
+    console.log('❌ No user for dropdown population');
+    return;
+  }
 
-    try {
-        // Load students with caching
-        const students = await EnhancedCache.loadCollection('students');
-        console.log('📝 Students for dropdowns:', students.length);
-
-        // Get all student dropdowns
-        const studentDropdowns = [
-            document.getElementById('student'), // Hours form
-            document.getElementById('marksStudent'), // Marks form
-            document.getElementById('paymentStudent'), // Payments form
-            document.querySelector('select[name="student"]'),
-            document.querySelector('select[name="marksStudent"]'),
-            document.querySelector('select[name="paymentStudent"]')
-        ].filter(Boolean);
-
-        console.log('🎯 Found student dropdowns to populate:', studentDropdowns.length);
-
-        studentDropdowns.forEach(dropdown => {
-            // Clear existing options except the first one
-            while (dropdown.options.length > 1) {
-                dropdown.remove(1);
-            }
-
-            // Add students to dropdown
-            students.forEach(student => {
-                const option = document.createElement('option');
-                option.value = student.name || student.id;
-                option.textContent = student.name || `Student ${student.id}`;
-                option.setAttribute('data-student-id', student.id);
-                dropdown.appendChild(option);
-            });
-
-            console.log(`✅ Populated dropdown ${dropdown.id || dropdown.name} with ${students.length} students`);
-        });
-
-        populateAttendanceStudents(students);
-
-    } catch (error) {
-        console.error('❌ Error populating student dropdowns:', error);
+  try {
+    console.log('🔄 Populating student dropdowns...');
+    
+    // Use cached students or load fresh
+    let students = cache.students;
+    if (!Array.isArray(students) || students.length === 0) {
+      console.log('📥 Loading students for dropdowns...');
+      students = await loadCollectionWithRetry('students');
+      cache.students = students;
     }
+
+    console.log(`📝 Found ${students.length} students for dropdowns`);
+
+    // Get all dropdown elements
+    const dropdownSelectors = [
+      '#student', // Hours form
+      '#marksStudent', // Marks form  
+      '#paymentStudent', // Payments form
+      'select[name="student"]',
+      'select[name="marksStudent"]', 
+      'select[name="paymentStudent"]'
+    ];
+
+    const dropdowns = [];
+    dropdownSelectors.forEach(selector => {
+      const elements = document.querySelectorAll(selector);
+      elements.forEach(el => dropdowns.push(el));
+    });
+
+    console.log(`🎯 Found ${dropdowns.length} student dropdowns to populate`);
+
+    dropdowns.forEach(dropdown => {
+      if (!dropdown) return;
+
+      // Store current selection
+      const currentValue = dropdown.value;
+      
+      // Clear existing options except the first placeholder
+      while (dropdown.options.length > 1) {
+        dropdown.remove(1);
+      }
+
+      // Add students to dropdown
+      students.forEach(student => {
+        const studentName = student.name || `Student ${student.id}`;
+        const option = document.createElement('option');
+        option.value = studentName;
+        option.textContent = studentName;
+        option.setAttribute('data-student-id', student.id);
+        dropdown.appendChild(option);
+      });
+
+      // Restore selection if possible
+      if (currentValue && dropdown.querySelector(`option[value="${currentValue}"]`)) {
+        dropdown.value = currentValue;
+      }
+
+      console.log(`✅ Populated ${dropdown.id || dropdown.name} with ${students.length} students`);
+    });
+
+    // Update attendance checkboxes
+    populateAttendanceStudents(students);
+
+  } catch (error) {
+    console.error('❌ Error populating student dropdowns:', error);
+  }
 }
 
 function populateAttendanceStudents(students) {
-    const attendanceContainer = document.getElementById('attendanceStudents');
-    if (!attendanceContainer) {
-        console.log('❌ Attendance container not found');
-        return;
-    }
+  const attendanceContainer = document.getElementById('attendanceStudents');
+  if (!attendanceContainer) {
+    console.log('❌ Attendance container not found');
+    return;
+  }
 
-    attendanceContainer.innerHTML = '';
+  console.log(`👥 Populating attendance with ${students.length} students`);
 
-    if (students.length === 0) {
-        attendanceContainer.innerHTML = '<div class="muted">No students available. Add students first.</div>';
-        return;
-    }
+  attendanceContainer.innerHTML = '';
 
-    students.forEach(student => {
-        const label = document.createElement('label');
-        label.style.cssText = 'display: flex; align-items: center; gap: 8px; margin: 5px 0;';
-        
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.name = 'presentStudents';
-        checkbox.value = student.name || student.id;
-        
-        const span = document.createElement('span');
-        span.textContent = student.name || `Student ${student.id}`;
-        
-        label.appendChild(checkbox);
-        label.appendChild(span);
-        attendanceContainer.appendChild(label);
-    });
+  if (students.length === 0) {
+    attendanceContainer.innerHTML = '<div class="muted">No students available. Add students first.</div>';
+    return;
+  }
 
-    console.log('✅ Populated attendance with', students.length, 'students');
+  students.forEach(student => {
+    const studentName = student.name || `Student ${student.id}`;
+    
+    const label = document.createElement('label');
+    label.style.cssText = 'display: flex; align-items: center; gap: 8px; margin: 8px 0; padding: 8px; border-radius: 4px; background: var(--border-light);';
+    
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.name = 'presentStudents';
+    checkbox.value = studentName;
+    checkbox.id = `attendance-${student.id}`;
+    
+    const span = document.createElement('span');
+    span.textContent = studentName;
+    span.style.cssText = 'flex: 1;';
+    
+    label.appendChild(checkbox);
+    label.appendChild(span);
+    attendanceContainer.appendChild(label);
+  });
+
+  console.log('✅ Attendance students populated');
 }
 
 // ===========================
@@ -3328,61 +3608,109 @@ document.addEventListener('DOMContentLoaded', () => {
     setupTabNavigation();
   }, 100);
   
-  // Wait for authentication
-  onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      console.log('👤 User authenticated:', user.email);
-      try {
-        // Initialize member since date if not set
-        if (!localStorage.getItem('memberSince')) {
-          localStorage.setItem('memberSince', new Date().toISOString());
-        }
-
-        // Load user profile first
-        await loadUserProfile(user.uid);
-        
-        // Then load all data in parallel
-        await Promise.all([
-          EnhancedCache.loadCollection('students', true),
-          EnhancedCache.loadCollection('hours', true),
-          EnhancedCache.loadCollection('marks', true),
-          EnhancedCache.loadCollection('attendance', true),
-          EnhancedCache.loadCollection('payments', true)
-        ]);
-        
-        // Initialize systems that depend on user data
-        SyncBar.init();
-        setupProfileModal(); // Make sure this is called
-        setupFloatingAddButton();
-        updateHeaderStats();
-        
-        // Setup form handlers and populate student dropdowns
-        setupFormHandlers();
-        await populateStudentDropdowns();
-        
-        // Render all data
-        await Promise.all([
-          renderStudents(),
-          renderRecentHours(),
-          renderRecentMarks(),
-          renderAttendanceRecent(),
-          renderPaymentActivity(),
-          renderStudentBalances(),
-          renderOverviewReports()
-        ]);
-
-        NotificationSystem.notifySuccess(`Welcome back, ${user.email.split('@')[0]}!`);
-        console.log('✅ Worklog App initialized successfully');
-      } catch (error) {
-        console.error('❌ Error during user login:', error);
-        NotificationSystem.notifyError('Error loading user data: ' + error.message);
+ // Wait for authentication
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    console.log('👤 User authenticated:', user.email);
+    try {
+      // Initialize member since date if not set
+      if (!localStorage.getItem('memberSince')) {
+        localStorage.setItem('memberSince', new Date().toISOString());
       }
-    } else {
-      console.log('👤 No user, redirecting to auth...');
-      window.location.href = "auth.html";
+
+      // Load user profile first
+      await loadUserProfile(user.uid);
+      
+      // Load ALL data from Firebase
+      const dataLoaded = await loadAllData();
+      
+      if (!dataLoaded) {
+        NotificationSystem.notifyWarning('Using cached data - some features may be limited');
+      }
+      
+      // Initialize UI components
+      SyncBar.init();
+      setupProfileModal();
+      setupFloatingAddButton();
+      updateHeaderStats();
+      setupFormHandlers();
+      
+      // Force refresh stats
+      EnhancedStats.forceRefresh();
+
+      NotificationSystem.notifySuccess(`Welcome back, ${user.email.split('@')[0]}! Data loaded successfully.`);
+      console.log('✅ Worklog App initialized successfully');
+      
+    } catch (error) {
+      console.error('❌ Error during user login:', error);
+      NotificationSystem.notifyError('Error loading app: ' + error.message);
     }
-  });
+  } else {
+    console.log('👤 No user, redirecting to auth...');
+    window.location.href = "auth.html";
+  }
 });
+
+// ===========================
+// FIXED DATE HANDLING FUNCTIONS
+// ===========================
+
+function getLocalDateString(date = new Date()) {
+  // Get date in local timezone, not UTC
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatDate(dateString) {
+  if (!dateString) return 'Never';
+  try {
+    // Parse date in local timezone
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Invalid Date';
+    
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC' // Keep consistent
+    });
+  } catch {
+    return dateString;
+  }
+}
+
+function fmtDateISO(yyyyMmDd) {
+  if (!yyyyMmDd) return new Date().toISOString();
+  try {
+    // Parse as local date, convert to UTC for storage
+    const [year, month, day] = yyyyMmDd.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.toISOString();
+  } catch {
+    return new Date().toISOString();
+  }
+}
+
+function isDateInRange(entryDate, startDate, endDate) {
+  try {
+    const entry = new Date(entryDate);
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    // Compare dates (ignore time)
+    const entryDateOnly = new Date(entry.getFullYear(), entry.getMonth(), entry.getDate());
+    const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const endDateOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    
+    return entryDateOnly >= startDateOnly && entryDateOnly <= endDateOnly;
+  } catch (error) {
+    console.error('Date comparison error:', error);
+    return false;
+  }
+}
+
 
 // ===========================
 // EXPORT FUNCTIONS TO WINDOW OBJECT
