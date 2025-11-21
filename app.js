@@ -1183,22 +1183,6 @@ function updateProfileButton(userData) {
   }
 }
 
-function initializeDefaultRate(rate) {
-  const baseRateInput = document.getElementById('baseRate');
-  const studentRateInput = document.getElementById('studentRate');
-  
-  // Initialize base rate in hours form
-  if (baseRateInput && !baseRateInput.value) {
-    baseRateInput.value = rate;
-  }
-  
-  // Initialize student rate in student form
-  if (studentRateInput && !studentRateInput.value) {
-    studentRateInput.value = rate;
-  }
-  
-  console.log(`💰 Default rate initialized: $${rate}`);
-}
 
 async function updateUserDefaultRate(uid, newRate) {
   try {
