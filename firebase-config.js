@@ -1,34 +1,40 @@
-// firebase-config.js
+// firebase-config.js - Updated version
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { 
+  getFirestore, 
+  enableIndexedDbPersistence,
+  CACHE_SIZE_UNLIMITED 
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// --- Firebase Config ---
 const firebaseConfig = {
-  apiKey: "AIzaSyDdLP_LgiC6EgzC3hUP_mGuNW4_BUEACs8",
-  authDomain: "worklogpro-4284e.firebaseapp.com",
-  projectId: "worklogpro-4284e",
-  storageBucket: "worklogpro-4284e.firebasestorage.app",
-  messagingSenderId: "299567233913",
-  appId: "1:299567233913:web:7232a5a5a8aa9b79948da8",
+  // Your existing config here
+  apiKey: "AIzaSyDq1nEVXqGJ2_6Q8QeCgKiN7e9V4w7n8B4",
+  authDomain: "worklog-app-8d3e7.firebaseapp.com",
+  projectId: "worklog-app-8d3e7",
+  storageBucket: "worklog-app-8d3e7.firebasestorage.app",
+  messagingSenderId: "1098360802985",
+  appId: "1:1098360802985:web:8d3e7a1b5c5f9a8c4e8a9a"
 };
 
-// --- Initialize once ---
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
+
+// Initialize Firestore with persistence
+const db = getFirestore(app);
+
+// Enable offline persistence (updated method)
+enableIndexedDbPersistence(db)
+  .then(() => {
+    console.log("✅ Offline persistence enabled");
+  })
+  .catch((err) => {
+    console.error("❌ Offline persistence error:", err);
+  });
+
+// Initialize Auth
+const auth = getAuth(app);
+
 console.log("✅ Firebase initialized successfully");
 
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-
-// --- Enable offline persistence ---
-enableIndexedDbPersistence(db).catch(err => {
-  if (err.code === "failed-precondition") {
-    // Multiple tabs open, persistence can only be enabled in one tab at a time
-    console.warn("⚠️ Persistence failed: multiple tabs open");
-  } else if (err.code === "unimplemented") {
-    // The current browser does not support all features required to enable persistence
-    console.warn("⚠️ Persistence not supported in this browser");
-  } else {
-    console.error("❌ Persistence error:", err);
-  }
-});
+export { auth, db };
