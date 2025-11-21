@@ -2174,31 +2174,6 @@ async function renderOverviewReports() {
 // FORM SUBMIT HANDLERS - DEFINED FIRST
 // ===========================
 
-async function handleStudentSubmit(e) {
-  e.preventDefault();
-  const user = auth.currentUser;
-  if (!user) return;
-
-  const formData = new FormData(e.target);
-  const studentData = {
-    name: formData.get('studentName'),
-    email: formData.get('studentEmail'),
-    phone: formData.get('studentPhone'),
-    gender: formData.get('studentGender'),
-    rate: safeNumber(formData.get('studentRate')),
-    createdAt: new Date().toISOString()
-  };
-
-  try {
-    await EnhancedCache.saveWithBackgroundSync('students', studentData);
-    FormAutoClear.handleSuccess('studentForm');
-    EnhancedStats.forceRefresh();
-  } catch (error) {
-    console.error('Error adding student:', error);
-    NotificationSystem.notifyError('Failed to add student');
-  }
-}
-
 async function handleHoursSubmit(e) {
   e.preventDefault();
   const user = auth.currentUser;
