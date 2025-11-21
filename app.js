@@ -2722,64 +2722,109 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ===========================
-// REPORT FUNCTIONS WITH DATE SELECTION
+// REPORT FUNCTIONS WITH CURRENT MONTH DEFAULT
 // ===========================
 
 function showWeeklyBreakdown() {
   const user = auth.currentUser;
   if (!user) return;
 
-  // Create date selection modal
-  const modal = createDateSelectionModal('weekly', (selectedDate) => {
-    const startDate = new Date(selectedDate);
-    startDate.setDate(startDate.getDate() - startDate.getDay()); // Start of week (Sunday)
-    const endDate = new Date(startDate);
-    endDate.setDate(startDate.getDate() + 6); // End of week (Saturday)
-    
-    generateWeeklyReport(startDate, endDate);
-  });
+  // Default to current week
+  const today = new Date();
+  const startDate = new Date(today);
+  startDate.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
+  const endDate = new Date(startDate);
+  endDate.setDate(startDate.getDate() + 6); // End of week (Saturday)
   
-  document.body.appendChild(modal);
+  generateWeeklyReport(startDate, endDate);
+  
+  // Add option to choose different week
+  setTimeout(() => {
+    if (confirm('Would you like to generate a report for a different week?')) {
+      const modal = createDateSelectionModal('weekly', (selectedDate) => {
+        const customStartDate = new Date(selectedDate);
+        customStartDate.setDate(customStartDate.getDate() - customStartDate.getDay());
+        const customEndDate = new Date(customStartDate);
+        customEndDate.setDate(customStartDate.getDate() + 6);
+        
+        generateWeeklyReport(customStartDate, customEndDate);
+      });
+      
+      document.body.appendChild(modal);
+    }
+  }, 1000);
 }
 
 function showBiWeeklyBreakdown() {
   const user = auth.currentUser;
   if (!user) return;
 
-  const modal = createDateSelectionModal('bi-weekly', (selectedDate) => {
-    const startDate = new Date(selectedDate);
-    startDate.setDate(startDate.getDate() - 14); // Two weeks back
-    const endDate = new Date(selectedDate);
-    
-    generateBiWeeklyReport(startDate, endDate);
-  });
+  // Default to current bi-weekly period (last 2 weeks)
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(endDate.getDate() - 13); // Last 14 days (2 weeks)
   
-  document.body.appendChild(modal);
+  generateBiWeeklyReport(startDate, endDate);
+  
+  // Add option to choose different period
+  setTimeout(() => {
+    if (confirm('Would you like to generate a report for a different 2-week period?')) {
+      const modal = createDateRangeModal('bi-weekly', (customStartDate, customEndDate) => {
+        generateBiWeeklyReport(customStartDate, customEndDate);
+      });
+      
+      document.body.appendChild(modal);
+    }
+  }, 1000);
 }
 
 function showMonthlyBreakdown() {
   const user = auth.currentUser;
   if (!user) return;
 
-  const modal = createDateSelectionModal('monthly', (selectedDate) => {
-    const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-    const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
-    
-    generateMonthlyReport(startDate, endDate);
-  }, true); // true for month selection
+  // Default to current month
+  const today = new Date();
+  const startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+  const endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
   
-  document.body.appendChild(modal);
+  generateMonthlyReport(startDate, endDate);
+  
+  // Add option to choose different month
+  setTimeout(() => {
+    if (confirm('Would you like to generate a report for a different month?')) {
+      const modal = createDateSelectionModal('monthly', (selectedDate) => {
+        const customStartDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+        const customEndDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+        
+        generateMonthlyReport(customStartDate, customEndDate);
+      }, true); // true for month selection
+      
+      document.body.appendChild(modal);
+    }
+  }, 1000);
 }
 
 function showSubjectBreakdown() {
   const user = auth.currentUser;
   if (!user) return;
 
-  const modal = createDateRangeModal('subject', (startDate, endDate) => {
-    generateSubjectReport(startDate, endDate);
-  });
+  // Default to current month
+  const today = new Date();
+  const startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+  const endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
   
-  document.body.appendChild(modal);
+  generateSubjectReport(startDate, endDate);
+  
+  // Add option to choose custom range
+  setTimeout(() => {
+    if (confirm('Would you like to generate a report for a different period?')) {
+      const modal = createDateRangeModal('subject', (customStartDate, customEndDate) => {
+        generateSubjectReport(customStartDate, customEndDate);
+      });
+      
+      document.body.appendChild(modal);
+    }
+  }, 1000);
 }
 
 // Date Selection Modal
@@ -2804,7 +2849,9 @@ function createDateSelectionModal(reportType, onConfirm, showMonthPicker = false
   
   const dateInput = document.createElement('input');
   dateInput.type = showMonthPicker ? 'month' : 'date';
-  dateInput.value = new Date().toISOString().split('T')[0];
+  dateInput.value = showMonthPicker ? 
+    new Date().toISOString().slice(0, 7) : 
+    new Date().toISOString().split('T')[0];
   dateInput.style.cssText = `
     width: 100%; padding: 10px; margin: 10px 0; border: 1px solid var(--border);
     border-radius: 6px; background: var(--background); color: var(--text);
@@ -2828,7 +2875,9 @@ function createDateSelectionModal(reportType, onConfirm, showMonthPicker = false
   `;
   
   confirmBtn.onclick = () => {
-    const selectedDate = new Date(dateInput.value);
+    const selectedDate = showMonthPicker ? 
+      new Date(dateInput.value + '-01') : 
+      new Date(dateInput.value);
     onConfirm(selectedDate);
     document.body.removeChild(modal);
   };
@@ -2952,7 +3001,7 @@ function createLabel(text) {
   return label;
 }
 
-// Report Generation Functions
+// Report Generation Functions (keep the same as before)
 function generateWeeklyReport(startDate, endDate) {
   try {
     const hours = Array.isArray(cache.hours) ? cache.hours : [];
@@ -2986,8 +3035,10 @@ function generateWeeklyReport(startDate, endDate) {
     let breakdown = `Weekly Breakdown (${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}):\n\n`;
     breakdown += `Total Hours: ${weeklyHours.toFixed(1)}\n`;
     breakdown += `Total Earnings: $${fmtMoney(weeklyTotal)}\n`;
-    breakdown += `Average Rate: $${fmtMoney(weeklyTotal / weeklyHours)}\n\n`;
-    breakdown += 'Daily Breakdown:\n';
+    if (weeklyHours > 0) {
+      breakdown += `Average Rate: $${fmtMoney(weeklyTotal / weeklyHours)}/hour\n`;
+    }
+    breakdown += '\nDaily Breakdown:\n';
     
     Object.entries(byDay).forEach(([day, hours]) => {
       breakdown += `${day}: ${hours.toFixed(1)} hours\n`;
@@ -3025,11 +3076,12 @@ function generateBiWeeklyReport(startDate, endDate) {
     while (currentDate <= endDate) {
       const weekEnd = new Date(currentDate);
       weekEnd.setDate(currentDate.getDate() + 6);
-      const weekKey = `Week of ${currentDate.toLocaleDateString()}`;
+      const actualWeekEnd = weekEnd > endDate ? endDate : weekEnd;
+      const weekKey = `Week of ${currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
       
       const weekData = biWeeklyData.filter(entry => {
         const entryDate = new Date(entry.date || entry.dateIso);
-        return entryDate >= currentDate && entryDate <= weekEnd;
+        return entryDate >= currentDate && entryDate <= actualWeekEnd;
       });
       
       byWeek[weekKey] = {
@@ -3044,8 +3096,10 @@ function generateBiWeeklyReport(startDate, endDate) {
     let breakdown = `Bi-Weekly Breakdown (${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}):\n\n`;
     breakdown += `Total Hours: ${totalHours.toFixed(1)}\n`;
     breakdown += `Total Earnings: $${fmtMoney(totalEarnings)}\n`;
-    breakdown += `Average Weekly: $${fmtMoney(totalEarnings / 2)}\n\n`;
-    breakdown += 'Weekly Breakdown:\n';
+    if (totalHours > 0) {
+      breakdown += `Average Rate: $${fmtMoney(totalEarnings / totalHours)}/hour\n`;
+    }
+    breakdown += '\nWeekly Breakdown:\n';
     
     Object.entries(byWeek).forEach(([week, data]) => {
       breakdown += `${week}: ${data.hours.toFixed(1)} hours (${data.sessions} sessions) - $${fmtMoney(data.earnings)}\n`;
@@ -3105,9 +3159,10 @@ function generateMonthlyReport(startDate, endDate) {
     let breakdown = `Monthly Breakdown (${startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}):\n\n`;
     breakdown += `Total Hours: ${monthlyHours.toFixed(1)}\n`;
     breakdown += `Total Earnings: $${fmtMoney(monthlyTotal)}\n`;
-    breakdown += `Average Rate: $${fmtMoney(monthlyTotal / monthlyHours)}\n\n`;
-    
-    breakdown += 'By Student:\n';
+    if (monthlyHours > 0) {
+      breakdown += `Average Rate: $${fmtMoney(monthlyTotal / monthlyHours)}/hour\n`;
+    }
+    breakdown += '\nBy Student:\n';
     Object.entries(byStudent)
       .sort((a, b) => b[1].total - a[1].total)
       .forEach(([student, data]) => {
@@ -3177,9 +3232,11 @@ function generateSubjectReport(startDate, endDate) {
 
     let breakdown = `Subject Breakdown (${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}):\n\n`;
     breakdown += `Total Hours: ${periodData.reduce((sum, entry) => sum + (entry.hours || 0), 0).toFixed(1)}\n`;
-    breakdown += `Total Earnings: $${fmtMoney(periodData.reduce((sum, entry) => sum + (entry.total || 0), 0))}\n\n`;
-    
-    breakdown += 'By Subject:\n';
+    breakdown += `Total Earnings: $${fmtMoney(periodData.reduce((sum, entry) => sum + (entry.total || 0), 0))}\n`;
+    if (periodData.reduce((sum, entry) => sum + (entry.hours || 0), 0) > 0) {
+      breakdown += `Average Rate: $${fmtMoney(periodData.reduce((sum, entry) => sum + (entry.total || 0), 0) / periodData.reduce((sum, entry) => sum + (entry.hours || 0), 0))}/hour\n`;
+    }
+    breakdown += '\nBy Subject:\n';
     Object.entries(bySubject)
       .sort((a, b) => b[1].total - a[1].total)
       .forEach(([subject, data]) => {
@@ -3212,6 +3269,7 @@ function generateSubjectReport(startDate, endDate) {
   }
 }
 
+// Keep the showReportModal and getWeekNumber functions the same as before
 function showReportModal(title, content) {
   const modal = document.createElement('div');
   modal.className = 'modal';
