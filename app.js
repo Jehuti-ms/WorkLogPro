@@ -827,23 +827,7 @@ const EnhancedStats = {
 // DATE HELPER FUNCTIONS
 // ===========================
 
-function isDateInRange(entryDate, startDate, endDate) {
-  try {
-    const entry = new Date(entryDate);
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    
-    // Compare dates (ignore time)
-    const entryDateOnly = new Date(entry.getFullYear(), entry.getMonth(), entry.getDate());
-    const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-    const endDateOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-    
-    return entryDateOnly >= startDateOnly && entryDateOnly <= endDateOnly;
-  } catch (error) {
-    console.error('Date comparison error:', error);
-    return false;
-  }
-}
+
 
 function formatDate(dateString) {
   if (!dateString) return 'Never';
@@ -3249,19 +3233,8 @@ function getEndOfMonth(date) {
 }
 
 // TIMEZONE-SAFE DATE COMPARISON
-function isDateInRange(entryDate, startDate, endDate) {
-  // Convert all dates to start of day in local timezone for comparison
-  const entry = new Date(entryDate);
-  const entryLocal = new Date(entry.getFullYear(), entry.getMonth(), entry.getDate());
-  
-  const start = new Date(startDate);
-  const startLocal = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-  
-  const end = new Date(endDate);
-  const endLocal = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-  
-  return entryLocal >= startLocal && entryLocal <= endLocal;
-}
+
+
 
 function formatDateForDisplay(date) {
   return date.toLocaleDateString('en-US', {
@@ -4212,23 +4185,7 @@ function fmtDateISO(yyyyMmDd) {
   }
 }
 
-function isDateInRange(entryDate, startDate, endDate) {
-  try {
-    const entry = new Date(entryDate);
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    
-    // Compare dates (ignore time)
-    const entryDateOnly = new Date(entry.getFullYear(), entry.getMonth(), entry.getDate());
-    const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-    const endDateOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-    
-    return entryDateOnly >= startDateOnly && entryDateOnly <= endDateOnly;
-  } catch (error) {
-    console.error('Date comparison error:', error);
-    return false;
-  }
-}
+
 
 
 // ===========================
