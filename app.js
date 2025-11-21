@@ -237,115 +237,8 @@ const NotificationSystem = {
 };
 
 // ===========================
-// ENHANCED CACHE SYSTEM
+// CACHE SYSTEM - FIXED VERSION
 // ===========================
-
-const EnhancedCache = {
-  async saveWithBackgroundSync(collection, data, id = null) {
-    const user = auth.currentUser;
-    if (!user) {
-      console.error('❌ No user authenticated for cache save');
-      return false;
-    }
-
-    try {
-      const itemId = id || this.generateId();
-      const cacheItem = {
-        ...data,
-        _id: itemId,
-        _cachedAt: Date.now(),
-        _synced: false
-      };
-
-      this.saveToLocalStorage(collection, cacheItem);
-      this.updateUICache(collection, cacheItem);
-      this.backgroundFirebaseSync(collection, cacheItem, user.uid);
-      
-      console.log(`✅ ${collection} saved to cache immediately`);
-      return itemId;
-    } catch (error) {
-      console.error(`❌ Cache save failed for ${collection}:`, error);
-      return false;
-    }
-  },
-
-  // Load data with proper caching strategy
-  async loadCollection(collectionName, forceRefresh = false) {
-    const user = auth.currentUser;
-    if (!user) return [];
-
-    console.log(`🔄 Loading ${collectionName} - forceRefresh: ${forceRefresh}`);
-
-    // 1. Check memory cache first
-    if (!forceRefresh && Array.isArray(cache[collectionName]) && cache[collectionName].length > 0) {
-      console.log(`📁 Using memory cache for ${collectionName}: ${cache[collectionName].length} items`);
-      return cache[collectionName];
-    }
-
-    // 2. Check localStorage cache
-    const localStorageData = this.loadFromLocalStorage(collectionName);
-    if (!forceRefresh && localStorageData.length > 0) {
-      console.log(`💾 Using localStorage cache for ${collectionName}: ${localStorageData.length} items`);
-      cache[collectionName] = localStorageData;
-      return localStorageData;
-    }
-
-    // 3. Load from Firestore
-    try {
-      console.log(`☁️ Loading ${collectionName} from Firestore...`);
-      const querySnapshot = await getDocs(collection(db, "users", user.uid, collectionName));
-      const data = [];
-      
-      querySnapshot.forEach((doc) => {
-        data.push({
-          id: doc.id,
-          ...doc.data(),
-          _firebaseId: doc.id,
-          _synced: true
-        });
-      });
-
-      // Update both memory and localStorage cache
-      cache[collectionName] = data;
-      this.saveToLocalStorageBulk(collectionName, data);
-      cache.lastSync = Date.now();
-
-      console.log(`✅ Loaded ${data.length} ${collectionName} from Firestore`);
-      return data;
-    } catch (error) {
-      console.error(`❌ Error loading ${collectionName} from Firestore:`, error);
-      
-      // Fallback to localStorage if available
-      const fallbackData = this.loadFromLocalStorage(collectionName);
-      console.log(`🔄 Using fallback data for ${collectionName}: ${fallbackData.length} items`);
-      return fallbackData;
-    }
-  },
-
-  loadFromLocalStorage(collectionName) {
-    try {
-      const key = `worklog_${collectionName}`;
-      const cached = localStorage.getItem(key);
-      if (cached) {
-        const data = JSON.parse(cached);
-        console.log(`📁 Loaded ${data.length} ${collectionName} from localStorage`);
-        return Array.isArray(data) ? data : [];
-      }
-    } catch (error) {
-      console.error(`❌ Error loading ${collectionName} from localStorage:`, error);
-    }
-    return [];
-  },
-
-  saveToLocalStorageBulk(collectionName, data) {
-    try {
-      const key = `worklog_${collectionName}`;
-      localStorage.setItem(key, JSON.stringify(data));
-      console.log(`💾 Saved ${data.length} ${collectionName} to localStorage`);
-    } catch (error) {
-      console.error(`❌ Error saving ${collectionName} to localStorage:`, error);
-    }
-  },
 
 const cache = {
   students: [],
@@ -518,6 +411,84 @@ const EnhancedCache = {
     });
 
     return { total, unsynced };
+  },
+
+  // NEW: Enhanced data loading with caching
+  async loadCollection(collectionName, forceRefresh = false) {
+    const user = auth.currentUser;
+    if (!user) return [];
+
+    console.log(`🔄 Loading ${collectionName} - forceRefresh: ${forceRefresh}`);
+
+    // 1. Check memory cache first
+    if (!forceRefresh && Array.isArray(cache[collectionName]) && cache[collectionName].length > 0) {
+      console.log(`📁 Using memory cache for ${collectionName}: ${cache[collectionName].length} items`);
+      return cache[collectionName];
+    }
+
+    // 2. Check localStorage cache
+    const localStorageData = this.loadFromLocalStorage(collectionName);
+    if (!forceRefresh && localStorageData.length > 0) {
+      console.log(`💾 Using localStorage cache for ${collectionName}: ${localStorageData.length} items`);
+      cache[collectionName] = localStorageData;
+      return localStorageData;
+    }
+
+    // 3. Load from Firestore
+    try {
+      console.log(`☁️ Loading ${collectionName} from Firestore...`);
+      const querySnapshot = await getDocs(collection(db, "users", user.uid, collectionName));
+      const data = [];
+      
+      querySnapshot.forEach((doc) => {
+        data.push({
+          id: doc.id,
+          ...doc.data(),
+          _firebaseId: doc.id,
+          _synced: true
+        });
+      });
+
+      // Update both memory and localStorage cache
+      cache[collectionName] = data;
+      this.saveToLocalStorageBulk(collectionName, data);
+      cache.lastSync = Date.now();
+
+      console.log(`✅ Loaded ${data.length} ${collectionName} from Firestore`);
+      return data;
+    } catch (error) {
+      console.error(`❌ Error loading ${collectionName} from Firestore:`, error);
+      
+      // Fallback to localStorage if available
+      const fallbackData = this.loadFromLocalStorage(collectionName);
+      console.log(`🔄 Using fallback data for ${collectionName}: ${fallbackData.length} items`);
+      return fallbackData;
+    }
+  },
+
+  loadFromLocalStorage(collectionName) {
+    try {
+      const key = `worklog_${collectionName}`;
+      const cached = localStorage.getItem(key);
+      if (cached) {
+        const data = JSON.parse(cached);
+        console.log(`📁 Loaded ${data.length} ${collectionName} from localStorage`);
+        return Array.isArray(data) ? data : [];
+      }
+    } catch (error) {
+      console.error(`❌ Error loading ${collectionName} from localStorage:`, error);
+    }
+    return [];
+  },
+
+  saveToLocalStorageBulk(collectionName, data) {
+    try {
+      const key = `worklog_${collectionName}`;
+      localStorage.setItem(key, JSON.stringify(data));
+      console.log(`💾 Saved ${data.length} ${collectionName} to localStorage`);
+    } catch (error) {
+      console.error(`❌ Error saving ${collectionName} to localStorage:`, error);
+    }
   }
 };
 
