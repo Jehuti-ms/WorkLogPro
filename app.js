@@ -2508,38 +2508,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// Helper function to setup form handlers
-function setupFormHandlers() {
-  const studentForm = document.getElementById('studentForm');
-  if (studentForm) {
-    studentForm.addEventListener('submit', handleStudentSubmit);
-    console.log('✅ Student form handler attached');
-  }
-  
-  const hoursForm = document.getElementById('hoursForm');
-  if (hoursForm) {
-    hoursForm.addEventListener('submit', handleHoursSubmit);
-    console.log('✅ Hours form handler attached');
-  }
-  
-  const marksForm = document.getElementById('marksForm');
-  if (marksForm) {
-    marksForm.addEventListener('submit', handleMarksSubmit);
-    console.log('✅ Marks form handler attached');
-  }
-  
-  const attendanceForm = document.getElementById('attendanceForm');
-  if (attendanceForm) {
-    attendanceForm.addEventListener('submit', handleAttendanceSubmit);
-    console.log('✅ Attendance form handler attached');
-  }
-  
-  const paymentForm = document.getElementById('paymentForm');
-  if (paymentForm) {
-    paymentForm.addEventListener('submit', handlePaymentSubmit);
-    console.log('✅ Payment form handler attached');
-  }
-}
 
 // Export functions for global access
 window.editStudent = editStudent;
