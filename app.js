@@ -2722,7 +2722,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ===========================
-// REPORT FUNCTIONS WITH CURRENT MONTH DEFAULT
+// REPORT FUNCTIONS WITH TIMEZONE FIXES
 // ===========================
 
 function showWeeklyBreakdown() {
@@ -2731,10 +2731,8 @@ function showWeeklyBreakdown() {
 
   // Default to current week
   const today = new Date();
-  const startDate = new Date(today);
-  startDate.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
-  const endDate = new Date(startDate);
-  endDate.setDate(startDate.getDate() + 6); // End of week (Saturday)
+  const startDate = getStartOfWeek(today);
+  const endDate = getEndOfWeek(today);
   
   generateWeeklyReport(startDate, endDate);
   
@@ -2742,10 +2740,8 @@ function showWeeklyBreakdown() {
   setTimeout(() => {
     if (confirm('Would you like to generate a report for a different week?')) {
       const modal = createDateSelectionModal('weekly', (selectedDate) => {
-        const customStartDate = new Date(selectedDate);
-        customStartDate.setDate(customStartDate.getDate() - customStartDate.getDay());
-        const customEndDate = new Date(customStartDate);
-        customEndDate.setDate(customStartDate.getDate() + 6);
+        const customStartDate = getStartOfWeek(selectedDate);
+        const customEndDate = getEndOfWeek(selectedDate);
         
         generateWeeklyReport(customStartDate, customEndDate);
       });
@@ -2784,8 +2780,8 @@ function showMonthlyBreakdown() {
 
   // Default to current month
   const today = new Date();
-  const startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-  const endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  const startDate = getStartOfMonth(today);
+  const endDate = getEndOfMonth(today);
   
   generateMonthlyReport(startDate, endDate);
   
@@ -2793,8 +2789,8 @@ function showMonthlyBreakdown() {
   setTimeout(() => {
     if (confirm('Would you like to generate a report for a different month?')) {
       const modal = createDateSelectionModal('monthly', (selectedDate) => {
-        const customStartDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-        const customEndDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+        const customStartDate = getStartOfMonth(selectedDate);
+        const customEndDate = getEndOfMonth(selectedDate);
         
         generateMonthlyReport(customStartDate, customEndDate);
       }, true); // true for month selection
@@ -2810,8 +2806,8 @@ function showSubjectBreakdown() {
 
   // Default to current month
   const today = new Date();
-  const startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-  const endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  const startDate = getStartOfMonth(today);
+  const endDate = getEndOfMonth(today);
   
   generateSubjectReport(startDate, endDate);
   
@@ -2825,6 +2821,70 @@ function showSubjectBreakdown() {
       document.body.appendChild(modal);
     }
   }, 1000);
+}
+
+// TIMEZONE-SAFE DATE FUNCTIONS
+function getStartOfWeek(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day;
+  const start = new Date(d.setDate(diff));
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+function getEndOfWeek(date) {
+  const start = getStartOfWeek(date);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+  return end;
+}
+
+function getStartOfMonth(date) {
+  const d = new Date(date);
+  const start = new Date(d.getFullYear(), d.getMonth(), 1);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+function getEndOfMonth(date) {
+  const d = new Date(date);
+  const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  end.setHours(23, 59, 59, 999);
+  return end;
+}
+
+// TIMEZONE-SAFE DATE COMPARISON
+function isDateInRange(entryDate, startDate, endDate) {
+  // Convert all dates to start of day in local timezone for comparison
+  const entry = new Date(entryDate);
+  const entryLocal = new Date(entry.getFullYear(), entry.getMonth(), entry.getDate());
+  
+  const start = new Date(startDate);
+  const startLocal = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  
+  const end = new Date(endDate);
+  const endLocal = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  
+  return entryLocal >= startLocal && entryLocal <= endLocal;
+}
+
+function formatDateForDisplay(date) {
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC'
+  });
+}
+
+function formatDateShort(date) {
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC'
+  });
 }
 
 // Date Selection Modal
@@ -2849,9 +2909,17 @@ function createDateSelectionModal(reportType, onConfirm, showMonthPicker = false
   
   const dateInput = document.createElement('input');
   dateInput.type = showMonthPicker ? 'month' : 'date';
-  dateInput.value = showMonthPicker ? 
-    new Date().toISOString().slice(0, 7) : 
-    new Date().toISOString().split('T')[0];
+  
+  // Fix: Set correct default value for month picker
+  if (showMonthPicker) {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    dateInput.value = `${year}-${month}`;
+  } else {
+    dateInput.value = new Date().toISOString().split('T')[0];
+  }
+  
   dateInput.style.cssText = `
     width: 100%; padding: 10px; margin: 10px 0; border: 1px solid var(--border);
     border-radius: 6px; background: var(--background); color: var(--text);
@@ -2875,9 +2943,14 @@ function createDateSelectionModal(reportType, onConfirm, showMonthPicker = false
   `;
   
   confirmBtn.onclick = () => {
-    const selectedDate = showMonthPicker ? 
-      new Date(dateInput.value + '-01') : 
-      new Date(dateInput.value);
+    let selectedDate;
+    if (showMonthPicker) {
+      // Fix: Properly handle month selection - use the 1st of the month
+      const [year, month] = dateInput.value.split('-');
+      selectedDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+    } else {
+      selectedDate = new Date(dateInput.value);
+    }
     onConfirm(selectedDate);
     document.body.removeChild(modal);
   };
@@ -2937,8 +3010,7 @@ function createDateRangeModal(reportType, onConfirm) {
   endDateInput.style.cssText = startDateInput.style.cssText;
   
   // Set start date to first day of current month by default
-  const firstDay = new Date();
-  firstDay.setDate(1);
+  const firstDay = getStartOfMonth(new Date());
   startDateInput.value = firstDay.toISOString().split('T')[0];
   
   const buttonContainer = document.createElement('div');
@@ -3001,18 +3073,28 @@ function createLabel(text) {
   return label;
 }
 
-// Report Generation Functions (keep the same as before)
+// Report Generation Functions with Timezone Fixes
 function generateWeeklyReport(startDate, endDate) {
   try {
     const hours = Array.isArray(cache.hours) ? cache.hours : [];
     
+    console.log('🔍 Weekly Report - Looking for data between:', formatDateForDisplay(startDate), 'and', formatDateForDisplay(endDate));
+    console.log('📊 Total hours in cache:', hours.length);
+    
     const weeklyData = hours.filter(entry => {
-      const entryDate = new Date(entry.date || entry.dateIso);
-      return entryDate >= startDate && entryDate <= endDate;
+      if (!entry.date && !entry.dateIso) return false;
+      
+      const entryDate = entry.date || entry.dateIso;
+      return isDateInRange(entryDate, startDate, endDate);
+    });
+
+    console.log('✅ Found entries for weekly report:', weeklyData.length);
+    weeklyData.forEach(entry => {
+      console.log('  -', entry.date || entry.dateIso, entry.hours, 'hours');
     });
 
     if (weeklyData.length === 0) {
-      NotificationSystem.notifyInfo(`No hours logged for week of ${startDate.toLocaleDateString()}`);
+      NotificationSystem.notifyInfo(`No hours logged for week of ${formatDateForDisplay(startDate)}`);
       return;
     }
 
@@ -3026,13 +3108,14 @@ function generateWeeklyReport(startDate, endDate) {
     }
     
     weeklyData.forEach(entry => {
-      const dayKey = new Date(entry.date || entry.dateIso).toLocaleDateString('en-US', { 
+      const entryDate = new Date(entry.date || entry.dateIso);
+      const dayKey = entryDate.toLocaleDateString('en-US', { 
         weekday: 'short', month: 'short', day: 'numeric' 
       });
       byDay[dayKey] = (byDay[dayKey] || 0) + (entry.hours || 0);
     });
 
-    let breakdown = `Weekly Breakdown (${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}):\n\n`;
+    let breakdown = `Weekly Breakdown (${formatDateForDisplay(startDate)} - ${formatDateForDisplay(endDate)}):\n\n`;
     breakdown += `Total Hours: ${weeklyHours.toFixed(1)}\n`;
     breakdown += `Total Earnings: $${fmtMoney(weeklyTotal)}\n`;
     if (weeklyHours > 0) {
@@ -3045,7 +3128,6 @@ function generateWeeklyReport(startDate, endDate) {
     });
 
     showReportModal('Weekly Breakdown', breakdown);
-    console.log('📊 Weekly breakdown generated', { weeklyHours, weeklyTotal, days: byDay });
 
   } catch (error) {
     console.error('Error generating weekly breakdown:', error);
@@ -3057,13 +3139,19 @@ function generateBiWeeklyReport(startDate, endDate) {
   try {
     const hours = Array.isArray(cache.hours) ? cache.hours : [];
     
+    console.log('🔍 Bi-Weekly Report - Looking for data between:', formatDateForDisplay(startDate), 'and', formatDateForDisplay(endDate));
+    
     const biWeeklyData = hours.filter(entry => {
-      const entryDate = new Date(entry.date || entry.dateIso);
-      return entryDate >= startDate && entryDate <= endDate;
+      if (!entry.date && !entry.dateIso) return false;
+      
+      const entryDate = entry.date || entry.dateIso;
+      return isDateInRange(entryDate, startDate, endDate);
     });
 
+    console.log('✅ Found entries for bi-weekly report:', biWeeklyData.length);
+
     if (biWeeklyData.length === 0) {
-      NotificationSystem.notifyInfo(`No hours logged for period ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`);
+      NotificationSystem.notifyInfo(`No hours logged for period ${formatDateForDisplay(startDate)} - ${formatDateForDisplay(endDate)}`);
       return;
     }
 
@@ -3077,11 +3165,12 @@ function generateBiWeeklyReport(startDate, endDate) {
       const weekEnd = new Date(currentDate);
       weekEnd.setDate(currentDate.getDate() + 6);
       const actualWeekEnd = weekEnd > endDate ? endDate : weekEnd;
-      const weekKey = `Week of ${currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+      const weekKey = `Week of ${formatDateShort(currentDate)}`;
       
       const weekData = biWeeklyData.filter(entry => {
-        const entryDate = new Date(entry.date || entry.dateIso);
-        return entryDate >= currentDate && entryDate <= actualWeekEnd;
+        if (!entry.date && !entry.dateIso) return false;
+        const entryDate = entry.date || entry.dateIso;
+        return isDateInRange(entryDate, currentDate, actualWeekEnd);
       });
       
       byWeek[weekKey] = {
@@ -3093,7 +3182,7 @@ function generateBiWeeklyReport(startDate, endDate) {
       currentDate.setDate(currentDate.getDate() + 7);
     }
 
-    let breakdown = `Bi-Weekly Breakdown (${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}):\n\n`;
+    let breakdown = `Bi-Weekly Breakdown (${formatDateForDisplay(startDate)} - ${formatDateForDisplay(endDate)}):\n\n`;
     breakdown += `Total Hours: ${totalHours.toFixed(1)}\n`;
     breakdown += `Total Earnings: $${fmtMoney(totalEarnings)}\n`;
     if (totalHours > 0) {
@@ -3117,13 +3206,22 @@ function generateMonthlyReport(startDate, endDate) {
   try {
     const hours = Array.isArray(cache.hours) ? cache.hours : [];
     
+    console.log('🔍 Monthly Report - Looking for data between:', formatDateForDisplay(startDate), 'and', formatDateForDisplay(endDate));
+    
     const monthlyData = hours.filter(entry => {
-      const entryDate = new Date(entry.date || entry.dateIso);
-      return entryDate >= startDate && entryDate <= endDate;
+      if (!entry.date && !entry.dateIso) return false;
+      
+      const entryDate = entry.date || entry.dateIso;
+      return isDateInRange(entryDate, startDate, endDate);
+    });
+
+    console.log('✅ Found entries for monthly report:', monthlyData.length);
+    monthlyData.forEach(entry => {
+      console.log('  -', entry.date || entry.dateIso, entry.hours, 'hours -', entry.student);
     });
 
     if (monthlyData.length === 0) {
-      NotificationSystem.notifyInfo(`No hours logged for ${startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`);
+      NotificationSystem.notifyInfo(`No hours logged for ${formatDateForDisplay(startDate)}`);
       return;
     }
 
@@ -3150,13 +3248,12 @@ function generateMonthlyReport(startDate, endDate) {
       
       // By week
       const entryDate = new Date(entry.date || entry.dateIso);
-      const weekStart = new Date(entryDate);
-      weekStart.setDate(entryDate.getDate() - entryDate.getDay());
-      const weekKey = `Week ${getWeekNumber(entryDate)} (${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`;
+      const weekStart = getStartOfWeek(entryDate);
+      const weekKey = `Week ${getWeekNumber(entryDate)} (${formatDateShort(weekStart)})`;
       byWeek[weekKey] = (byWeek[weekKey] || 0) + (entry.hours || 0);
     });
 
-    let breakdown = `Monthly Breakdown (${startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}):\n\n`;
+    let breakdown = `Monthly Breakdown (${formatDateForDisplay(startDate)}):\n\n`;
     breakdown += `Total Hours: ${monthlyHours.toFixed(1)}\n`;
     breakdown += `Total Earnings: $${fmtMoney(monthlyTotal)}\n`;
     if (monthlyHours > 0) {
@@ -3194,10 +3291,16 @@ function generateSubjectReport(startDate, endDate) {
   try {
     const hours = Array.isArray(cache.hours) ? cache.hours : [];
     
+    console.log('🔍 Subject Report - Looking for data between:', formatDateForDisplay(startDate), 'and', formatDateForDisplay(endDate));
+    
     const periodData = hours.filter(entry => {
-      const entryDate = new Date(entry.date || entry.dateIso);
-      return entryDate >= startDate && entryDate <= endDate;
+      if (!entry.date && !entry.dateIso) return false;
+      
+      const entryDate = entry.date || entry.dateIso;
+      return isDateInRange(entryDate, startDate, endDate);
     });
+
+    console.log('✅ Found entries for subject report:', periodData.length);
 
     if (periodData.length === 0) {
       NotificationSystem.notifyInfo(`No hours logged for selected period`);
@@ -3230,7 +3333,7 @@ function generateSubjectReport(startDate, endDate) {
       byStudent[student] = (byStudent[student] || 0) + (entry.hours || 0);
     });
 
-    let breakdown = `Subject Breakdown (${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}):\n\n`;
+    let breakdown = `Subject Breakdown (${formatDateForDisplay(startDate)} - ${formatDateForDisplay(endDate)}):\n\n`;
     breakdown += `Total Hours: ${periodData.reduce((sum, entry) => sum + (entry.hours || 0), 0).toFixed(1)}\n`;
     breakdown += `Total Earnings: $${fmtMoney(periodData.reduce((sum, entry) => sum + (entry.total || 0), 0))}\n`;
     if (periodData.reduce((sum, entry) => sum + (entry.hours || 0), 0) > 0) {
