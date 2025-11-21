@@ -4220,3 +4220,4 @@ window.NotificationSystem = NotificationSystem;
 window.switchTab = switchTab;
 
 console.log('✅ All functions exported to window object');
+});
