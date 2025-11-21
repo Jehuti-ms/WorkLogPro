@@ -2092,8 +2092,198 @@ async function renderOverviewReports() {
 }
 
 // ===========================
+// BASE RATE MANAGEMENT - FIXED
+// ===========================
+
+function initializeDefaultRate(rate) {
+  const baseRateInput = document.getElementById('baseRate'); // Hours form
+  const studentBaseRateInput = document.getElementById('studentBaseRate'); // Student form
+  const defaultBaseRateInput = document.getElementById('defaultBaseRate'); // Settings panel
+  
+  console.log('💰 Initializing default rate:', rate);
+  
+  // Initialize hours form base rate
+  if (baseRateInput && !baseRateInput.value) {
+    baseRateInput.value = rate;
+  }
+  
+  // Initialize student form base rate  
+  if (studentBaseRateInput && !studentBaseRateInput.value) {
+    studentBaseRateInput.value = rate;
+  }
+  
+  // Initialize settings panel
+  if (defaultBaseRateInput && !defaultBaseRateInput.value) {
+    defaultBaseRateInput.value = rate;
+  }
+  
+  // Update current rate display
+  const currentDefaultRateDisplay = document.getElementById('currentDefaultRateDisplay');
+  if (currentDefaultRateDisplay) {
+    currentDefaultRateDisplay.textContent = fmtMoney(rate);
+  }
+  
+  const currentDefaultRate = document.getElementById('currentDefaultRate');
+  if (currentDefaultRate) {
+    currentDefaultRate.textContent = fmtMoney(rate);
+  }
+}
+
+// Save default rate function
+async function saveDefaultRate() {
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to save default rate');
+    return;
+  }
+  
+  const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+  if (!defaultBaseRateInput) {
+    NotificationSystem.notifyError('Default rate input not found');
+    return;
+  }
+  
+  const newRate = safeNumber(defaultBaseRateInput.value);
+  if (newRate <= 0) {
+    NotificationSystem.notifyError('Please enter a valid rate greater than 0');
+    return;
+  }
+  
+  try {
+    const success = await updateUserDefaultRate(user.uid, newRate);
+    if (success) {
+      NotificationSystem.notifySuccess(`Default rate saved: $${fmtMoney(newRate)}/session`);
+      initializeDefaultRate(newRate);
+    }
+  } catch (error) {
+    console.error('Error saving default rate:', error);
+    NotificationSystem.notifyError('Failed to save default rate');
+  }
+}
+
+// Apply default rate to all students
+async function applyDefaultRateToAll() {
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to apply default rate');
+    return;
+  }
+  
+  if (confirm('Apply the default rate to ALL existing students? This cannot be undone.')) {
+    const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+    const newRate = defaultBaseRateInput ? safeNumber(defaultBaseRateInput.value) : currentUserData?.defaultRate || 0;
+    
+    if (newRate > 0) {
+      await applyDefaultRateToAllStudents(user.uid, newRate);
+    } else {
+      NotificationSystem.notifyError('Please set a valid default rate first');
+    }
+  }
+}
+
+// Use default rate in student form
+function useDefaultRate() {
+  const studentBaseRateInput = document.getElementById('studentBaseRate');
+  const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+  
+  if (studentBaseRateInput && defaultBaseRateInput) {
+    studentBaseRateInput.value = defaultBaseRateInput.value;
+    NotificationSystem.notifyInfo('Default rate applied to student form');
+  }
+}
+
+// Use default rate in hours form
+function useDefaultRateInHours() {
+  const baseRateInput = document.getElementById('baseRate');
+  const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+  
+  if (baseRateInput && defaultBaseRateInput) {
+    baseRateInput.value = defaultBaseRateInput.value;
+    NotificationSystem.notifyInfo('Default rate applied to hours form');
+    
+    // Recalculate total if hours are entered
+    const hoursWorked = document.getElementById('hoursWorked');
+    if (hoursWorked && hoursWorked.value) {
+      calculateTotalPay();
+    }
+  }
+}
+
+// ===========================
 // FORM HANDLERS
 // ===========================
+
+function setupFormHandlers() {
+  // Student form
+  const studentForm = document.getElementById('studentForm');
+  if (studentForm) {
+    studentForm.addEventListener('submit', handleStudentSubmit);
+    
+    // Add base rate auto-fill
+    const studentBaseRateInput = document.getElementById('studentRate');
+    const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+    
+    if (studentBaseRateInput && defaultBaseRateInput && !studentBaseRateInput.value) {
+      studentBaseRateInput.value = defaultBaseRateInput.value || currentUserData?.defaultRate || '0';
+    }
+  }
+  
+  // Hours form
+  const hoursForm = document.getElementById('hoursForm');
+  if (hoursForm) {
+    hoursForm.addEventListener('submit', handleHoursSubmit);
+    
+    // Add base rate auto-fill and calculation
+    const baseRateInput = document.getElementById('rate');
+    const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+    const hoursWorkedInput = document.getElementById('hours');
+    
+    if (baseRateInput && defaultBaseRateInput && !baseRateInput.value) {
+      baseRateInput.value = defaultBaseRateInput.value || currentUserData?.defaultRate || '0';
+    }
+    
+    // Auto-calculate total when hours or rate changes
+    if (hoursWorkedInput) {
+      hoursWorkedInput.addEventListener('input', calculateTotalPay);
+    }
+    if (baseRateInput) {
+      baseRateInput.addEventListener('input', calculateTotalPay);
+    }
+    
+    // Initial calculation
+    calculateTotalPay();
+  }
+  
+  // Marks form
+  const marksForm = document.getElementById('marksForm');
+  if (marksForm) {
+    marksForm.addEventListener('submit', handleMarksSubmit);
+  }
+  
+  // Attendance form
+  const attendanceForm = document.getElementById('attendanceForm');
+  if (attendanceForm) {
+    attendanceForm.addEventListener('submit', handleAttendanceSubmit);
+  }
+  
+  // Payment form
+  const paymentForm = document.getElementById('paymentForm');
+  if (paymentForm) {
+    paymentForm.addEventListener('submit', handlePaymentSubmit);
+  }
+}
+
+// Calculate total pay for hours form
+function calculateTotalPay() {
+  const hours = safeNumber(document.getElementById('hours')?.value);
+  const rate = safeNumber(document.getElementById('rate')?.value);
+  const total = hours * rate;
+  
+  const totalPayElement = document.getElementById('totalPay');
+  if (totalPayElement) {
+    totalPayElement.textContent = `$${fmtMoney(total)}`;
+  }
+}
 
 async function handleStudentSubmit(e) {
   e.preventDefault();
@@ -2624,3 +2814,7 @@ window.deletePayment = deletePayment;
 window.NotificationSystem = NotificationSystem;
 window.switchTab = switchTab;
 window.emergencySwitchTab = emergencySwitchTab;
+window.saveDefaultRate = saveDefaultRate;
+window.applyDefaultRateToAll = applyDefaultRateToAll;
+window.useDefaultRate = useDefaultRate;
+window.useDefaultRateInHours = useDefaultRateInHours;
