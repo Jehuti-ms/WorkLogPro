@@ -1046,46 +1046,146 @@ function formatDateForInput(dateString) {
 }
 
 // ===========================
-// THEME MANAGEMENT
+// THEME MANAGEMENT - FIXED
 // ===========================
-
-function updateThemeIcon(theme) {
-    const themeButton = document.querySelector('.theme-toggle button');
-    if (!themeButton) return;
-    
-    if (theme === 'dark') {
-        themeButton.setAttribute('title', 'Switch to light mode');
-    } else {
-        themeButton.setAttribute('title', 'Switch to dark mode');
-    }
-}
 
 function toggleTheme() {
     const currentTheme = document.documentElement.getAttribute('data-theme');
     const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
     
+    console.log('🔄 Toggling theme from', currentTheme, 'to', newTheme);
+    
+    // Apply the theme
     document.documentElement.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
+    
+    // Update the theme button icon
     updateThemeIcon(newTheme);
     
     console.log(`🎨 Theme changed to ${newTheme}`);
 }
 
+function updateThemeIcon(theme) {
+    const themeButton = document.querySelector('.theme-toggle button');
+    if (!themeButton) return;
+    
+    // Update the button content with appropriate icons
+    if (theme === 'dark') {
+        themeButton.innerHTML = '☀️'; // Sun icon for dark mode
+        themeButton.setAttribute('title', 'Switch to light mode');
+    } else {
+        themeButton.innerHTML = '🌙'; // Moon icon for light mode
+        themeButton.setAttribute('title', 'Switch to dark mode');
+    }
+    
+    // Add some basic styles if not present
+    if (!themeButton.style.cssText) {
+        themeButton.style.cssText = `
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.2em;
+            transition: all 0.3s ease;
+        `;
+    }
+}
+
 function setupThemeToggle() {
     const themeToggle = document.querySelector('.theme-toggle button');
     if (themeToggle) {
-        themeToggle.addEventListener('click', (e) => {
+        console.log('🎯 Found theme toggle button');
+        
+        // Remove any existing event listeners
+        const newButton = themeToggle.cloneNode(true);
+        themeToggle.parentNode.replaceChild(newButton, themeToggle);
+        
+        // Add click event to the new button
+        newButton.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
+            console.log('🎨 Theme button clicked');
             toggleTheme();
         });
+        
+        // Add hover effects
+        newButton.addEventListener('mouseenter', function() {
+            this.style.transform = 'scale(1.1)';
+        });
+        
+        newButton.addEventListener('mouseleave', function() {
+            this.style.transform = 'scale(1)';
+        });
+        
+        // Initialize the button appearance
+        const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+        updateThemeIcon(currentTheme);
+        
+        console.log('✅ Theme toggle setup complete');
+    } else {
+        console.warn('⚠️ Theme toggle button not found');
     }
 }
 
 function initializeTheme() {
     const savedTheme = localStorage.getItem('theme') || 'light';
+    console.log('🎨 Initializing theme:', savedTheme);
+    
+    // Apply the theme
     document.documentElement.setAttribute('data-theme', savedTheme);
-    updateThemeIcon(savedTheme);
+    
+    // Initialize the theme button after a short delay to ensure DOM is ready
+    setTimeout(() => {
+        updateThemeIcon(savedTheme);
+        setupThemeToggle();
+    }, 100);
+}
+
+// Add some CSS for better theme button appearance
+function injectThemeStyles() {
+    if (!document.querySelector('#theme-button-styles')) {
+        const style = document.createElement('style');
+        style.id = 'theme-button-styles';
+        style.textContent = `
+            .theme-toggle button {
+                transition: all 0.3s ease !important;
+                border-radius: 50% !important;
+                width: 40px !important;
+                height: 40px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                cursor: pointer !important;
+                background: var(--surface) !important;
+                border: 1px solid var(--border) !important;
+                font-size: 1.2em !important;
+            }
+            
+            .theme-toggle button:hover {
+                transform: scale(1.1) !important;
+                background: var(--border-light) !important;
+            }
+            
+            .theme-toggle button:active {
+                transform: scale(0.95) !important;
+            }
+            
+            @media (max-width: 768px) {
+                .theme-toggle button {
+                    width: 36px !important;
+                    height: 36px !important;
+                    font-size: 1.1em !important;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+        console.log('✅ Theme button styles injected');
+    }
 }
 
 // ===========================
@@ -2597,11 +2697,15 @@ document.addEventListener('DOMContentLoaded', () => {
     content.style.display = 'none';
     content.style.visibility = 'hidden';
   });
-  
+
+   // Initialize theme system first
+    injectThemeStyles();
+    initializeTheme();
+    
   // Initialize systems
   NotificationSystem.initNotificationStyles();
-  initializeTheme();
-  setupThemeToggle();
+ /* initializeTheme();
+  setupThemeToggle(); */
   EnhancedCache.loadCachedData();
   EnhancedStats.init();
   
