@@ -52,7 +52,7 @@ const importDataBtn = document.getElementById("importDataBtn");
 const clearDataBtn = document.getElementById("clearDataBtn");
 
 // ===========================
-// NOTIFICATION SYSTEM - MOVED TO TOP
+// NOTIFICATION SYSTEM
 // ===========================
 
 const NotificationSystem = {
@@ -1135,7 +1135,7 @@ function initializeTheme() {
     // Apply the theme
     document.documentElement.setAttribute('data-theme', savedTheme);
     
-    // Initialize the theme button
+    // Initialize the theme button after a short delay to ensure DOM is ready
     setTimeout(() => {
         setupThemeToggle();
     }, 100);
@@ -1277,7 +1277,6 @@ function updateProfileButton(userData) {
     console.log('✅ Profile updated:', displayName);
   }
 }
-
 
 async function updateUserDefaultRate(uid, newRate) {
   try {
@@ -2171,8 +2170,39 @@ async function renderOverviewReports() {
 }
 
 // ===========================
-// FORM SUBMIT HANDLERS - DEFINED FIRST
+// FORM SUBMIT HANDLERS
 // ===========================
+
+async function handleStudentSubmit(e) {
+    e.preventDefault();
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const formData = new FormData(e.target);
+    const studentData = {
+        name: formData.get('studentName'),
+        email: formData.get('studentEmail'),
+        phone: formData.get('studentPhone'),
+        gender: formData.get('studentGender'),
+        rate: safeNumber(formData.get('studentRate')),
+        createdAt: new Date().toISOString()
+    };
+
+    try {
+        await EnhancedCache.saveWithBackgroundSync('students', studentData);
+        FormAutoClear.handleSuccess('studentForm');
+        EnhancedStats.forceRefresh();
+        
+        // Refresh student dropdowns after adding new student
+        setTimeout(() => {
+            populateStudentDropdowns();
+        }, 500);
+        
+    } catch (error) {
+        console.error('Error adding student:', error);
+        NotificationSystem.notifyError('Failed to add student');
+    }
+}
 
 async function handleHoursSubmit(e) {
   e.preventDefault();
@@ -2293,7 +2323,7 @@ async function handlePaymentSubmit(e) {
 }
 
 // ===========================
-// FORM SETUP & BASE RATE FUNCTIONS - DEFINED AFTER HANDLERS
+// FORM SETUP & BASE RATE FUNCTIONS
 // ===========================
 
 function calculateTotalPay() {
@@ -2308,6 +2338,8 @@ function calculateTotalPay() {
 }
 
 function setupFormHandlers() {
+  console.log('🔧 Setting up form handlers...');
+  
   const studentForm = document.getElementById('studentForm');
   if (studentForm) {
     studentForm.addEventListener('submit', handleStudentSubmit);
@@ -2346,6 +2378,9 @@ function setupFormHandlers() {
   
   const paymentForm = document.getElementById('paymentForm');
   if (paymentForm) paymentForm.addEventListener('submit', handlePaymentSubmit);
+  
+  // Setup student dropdown population
+  setupFormStudentPopulation();
   
   console.log('✅ All form handlers initialized');
 }
@@ -2450,37 +2485,6 @@ function useDefaultRateInHours() {
     NotificationSystem.notifyInfo('Default rate applied to hours form');
     calculateTotalPay();
   }
-}
-
-async function handleStudentSubmit(e) {
-    e.preventDefault();
-    const user = auth.currentUser;
-    if (!user) return;
-
-    const formData = new FormData(e.target);
-    const studentData = {
-        name: formData.get('studentName'),
-        email: formData.get('studentEmail'),
-        phone: formData.get('studentPhone'),
-        gender: formData.get('studentGender'),
-        rate: safeNumber(formData.get('studentRate')),
-        createdAt: new Date().toISOString()
-    };
-
-    try {
-        await EnhancedCache.saveWithBackgroundSync('students', studentData);
-        FormAutoClear.handleSuccess('studentForm');
-        EnhancedStats.forceRefresh();
-        
-        // Refresh student dropdowns after adding new student
-        setTimeout(() => {
-            populateStudentDropdowns();
-        }, 500);
-        
-    } catch (error) {
-        console.error('Error adding student:', error);
-        NotificationSystem.notifyError('Failed to add student');
-    }
 }
 
 // ===========================
@@ -2643,7 +2647,7 @@ async function deletePayment(id) {
 }
 
 // ===========================
-// TAB NAVIGATION SYSTEM - FIXED FOR YOUR HTML
+// TAB NAVIGATION SYSTEM
 // ===========================
 
 function setupTabNavigation() {
@@ -2793,146 +2797,8 @@ function debugTabState() {
   });
 }
 
-// Update the initialization to use the fixed tab system
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('🏠 DOM fully loaded...');
-  
-  // IMMEDIATELY hide all tab content before anything else
-  const allTabContents = document.querySelectorAll('.tabcontent');
-  allTabContents.forEach(content => {
-    content.style.display = 'none';
-    content.style.visibility = 'hidden';
-  });
-
-   // Initialize theme system first
-    injectThemeStyles();
-    initializeTheme();
-    
-  // Initialize systems
-  NotificationSystem.initNotificationStyles();
- /* initializeTheme();
-  setupThemeToggle(); */
-  EnhancedCache.loadCachedData();
-  EnhancedStats.init();
-  
-  // Setup tabs
-  setupTabNavigation();
-  
-  // Handle auth
-  onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      console.log('👤 User authenticated...');
-      try {
-        await Promise.all([
-          loadUserProfile(user.uid),
-          loadUserStats(user.uid),
-          renderStudents(),
-          renderRecentHours(),
-          renderRecentMarks(),
-          renderAttendanceRecent(),
-          renderPaymentActivity(),
-          renderStudentBalances(),
-          renderOverviewReports()
-        ]);
-        
-        SyncBar.init();
-        setupProfileModal();
-        setupFloatingAddButton();
-        updateHeaderStats();
-        setupFormHandlers();
-        
-        // Refresh current tab after data load
-        const currentTab = document.querySelector('.tab.active')?.getAttribute('data-tab') || 'students';
-        setTimeout(() => switchTab(currentTab), 200);
-        
-        console.log('✅ App initialized');
-      } catch (error) {
-        console.error('❌ Error:', error);
-      }
-    } else {
-      window.location.href = "auth.html";
-    }
-  });
-});
-
-// Add manual override for testing
-window.manualTabSwitch = function(tabName) {
-  console.log(`🔄 MANUAL: Switching to ${tabName}`);
-  
-  // Hide all
-  document.querySelectorAll('.tabcontent').forEach(content => {
-    content.style.display = 'none';
-  });
-  
-  // Show target
-  const target = document.getElementById(tabName);
-  if (target) {
-    target.style.display = 'block';
-  }
-};
-
 // ===========================
-// APP INITIALIZATION
-// ===========================
-
-// Start the application when DOM is fully loaded
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('🏠 DOM fully loaded, starting app...');
-  
-  // Initialize core systems in correct order
-  NotificationSystem.initNotificationStyles();
-  initializeTheme();
-  setupThemeToggle();
-  EnhancedCache.loadCachedData();
-  EnhancedStats.init();
-  
-  // Setup tab navigation with a small delay to ensure DOM is ready
-  setTimeout(() => {
-    setupTabNavigation();
-  }, 100);
-  
-  // Wait for authentication
-  onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      console.log('👤 User authenticated:', user.email);
-      try {
-        // Load user profile and data in parallel
-        await Promise.all([
-          loadUserProfile(user.uid),
-          loadUserStats(user.uid),
-          renderStudents(),
-          renderRecentHours(),
-          renderRecentMarks(),
-          renderAttendanceRecent(),
-          renderPaymentActivity(),
-          renderStudentBalances(),
-          renderOverviewReports()
-        ]);
-        
-        // Initialize systems that depend on user data
-        SyncBar.init();
-        setupProfileModal();
-        setupFloatingAddButton();
-        updateHeaderStats();
-        
-        // Setup form handlers
-        setupFormHandlers();
-        
-        NotificationSystem.notifySuccess(`Welcome back, ${user.email.split('@')[0]}!`);
-        console.log('✅ Worklog App initialized successfully');
-      } catch (error) {
-        console.error('❌ Error during user login:', error);
-        NotificationSystem.notifyError('Error loading user data');
-      }
-    } else {
-      console.log('👤 No user, redirecting to auth...');
-      window.location.href = "auth.html";
-    }
-  });
-});
-
-// ===========================
-// REPORT FUNCTIONS WITH TIMEZONE FIXES
+// REPORT FUNCTIONS
 // ===========================
 
 function showWeeklyBreakdown() {
@@ -3582,7 +3448,6 @@ function generateSubjectReport(startDate, endDate) {
   }
 }
 
-// Keep the showReportModal and getWeekNumber functions the same as before
 function showReportModal(title, content) {
   const modal = document.createElement('div');
   modal.className = 'modal';
@@ -3638,6 +3503,73 @@ function getWeekNumber(date) {
 }
 
 // ===========================
+// APP INITIALIZATION
+// ===========================
+
+// Start the application when DOM is fully loaded
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('🏠 DOM fully loaded, starting app...');
+  
+  // IMMEDIATELY hide all tab content before anything else
+  const allTabContents = document.querySelectorAll('.tabcontent');
+  allTabContents.forEach(content => {
+    content.style.display = 'none';
+    content.style.visibility = 'hidden';
+  });
+  
+  // Initialize core systems in correct order
+  injectThemeStyles();
+  initializeTheme();
+  NotificationSystem.initNotificationStyles();
+  EnhancedCache.loadCachedData();
+  EnhancedStats.init();
+  
+  // Setup tab navigation with a small delay to ensure DOM is ready
+  setTimeout(() => {
+    setupTabNavigation();
+  }, 100);
+  
+  // Wait for authentication
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      console.log('👤 User authenticated:', user.email);
+      try {
+        // Load user profile and data in parallel
+        await Promise.all([
+          loadUserProfile(user.uid),
+          loadUserStats(user.uid),
+          renderStudents(),
+          renderRecentHours(),
+          renderRecentMarks(),
+          renderAttendanceRecent(),
+          renderPaymentActivity(),
+          renderStudentBalances(),
+          renderOverviewReports()
+        ]);
+        
+        // Initialize systems that depend on user data
+        SyncBar.init();
+        setupProfileModal();
+        setupFloatingAddButton();
+        updateHeaderStats();
+        
+        // Setup form handlers and populate student dropdowns
+        setupFormHandlers();
+        
+        NotificationSystem.notifySuccess(`Welcome back, ${user.email.split('@')[0]}!`);
+        console.log('✅ Worklog App initialized successfully');
+      } catch (error) {
+        console.error('❌ Error during user login:', error);
+        NotificationSystem.notifyError('Error loading user data');
+      }
+    } else {
+      console.log('👤 No user, redirecting to auth...');
+      window.location.href = "auth.html";
+    }
+  });
+});
+
+// ===========================
 // EXPORT FUNCTIONS TO WINDOW
 // ===========================
 
@@ -3661,4 +3593,3 @@ window.editPayment = editPayment;
 window.deletePayment = deletePayment;
 window.NotificationSystem = NotificationSystem;
 window.switchTab = switchTab;
-/*window.emergencySwitchTab = emergencySwitchTab;*/
