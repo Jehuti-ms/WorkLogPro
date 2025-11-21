@@ -2726,30 +2726,252 @@ document.addEventListener('DOMContentLoaded', () => {
 // ===========================
 
 function showWeeklyBreakdown() {
-  NotificationSystem.notifyInfo('Weekly breakdown report - coming soon');
-  console.log('📊 Weekly breakdown requested');
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    const hours = Array.isArray(cache.hours) ? cache.hours : [];
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    
+    const weeklyData = hours.filter(entry => {
+      const entryDate = new Date(entry.date || entry.dateIso);
+      return entryDate >= weekStart;
+    });
+
+    if (weeklyData.length === 0) {
+      NotificationSystem.notifyInfo('No hours logged this week');
+      return;
+    }
+
+    const weeklyHours = weeklyData.reduce((sum, entry) => sum + (entry.hours || 0), 0);
+    const weeklyTotal = weeklyData.reduce((sum, entry) => sum + (entry.total || 0), 0);
+    
+    // Group by day
+    const byDay = {};
+    weeklyData.forEach(entry => {
+      const day = new Date(entry.date || entry.dateIso).toLocaleDateString('en-US', { weekday: 'short' });
+      byDay[day] = (byDay[day] || 0) + (entry.hours || 0);
+    });
+
+    let breakdown = `Week ${getWeekNumber(now)} Breakdown:\n\n`;
+    breakdown += `Total Hours: ${weeklyHours.toFixed(1)}\n`;
+    breakdown += `Total Earnings: $${fmtMoney(weeklyTotal)}\n\n`;
+    breakdown += 'Daily Breakdown:\n';
+    
+    Object.entries(byDay).forEach(([day, hours]) => {
+      breakdown += `${day}: ${hours.toFixed(1)} hours\n`;
+    });
+
+    alert(breakdown);
+    console.log('📊 Weekly breakdown generated', { weeklyHours, weeklyTotal, days: byDay });
+
+  } catch (error) {
+    console.error('Error generating weekly breakdown:', error);
+    NotificationSystem.notifyError('Failed to generate weekly report');
+  }
 }
 
 function showBiWeeklyBreakdown() {
-  NotificationSystem.notifyInfo('Bi-weekly breakdown report - coming soon');
-  console.log('📊 Bi-weekly breakdown requested');
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    const hours = Array.isArray(cache.hours) ? cache.hours : [];
+    const now = new Date();
+    const twoWeeksAgo = new Date(now);
+    twoWeeksAgo.setDate(now.getDate() - 14);
+    twoWeeksAgo.setHours(0, 0, 0, 0);
+    
+    const biWeeklyData = hours.filter(entry => {
+      const entryDate = new Date(entry.date || entry.dateIso);
+      return entryDate >= twoWeeksAgo;
+    });
+
+    if (biWeeklyData.length === 0) {
+      NotificationSystem.notifyInfo('No hours logged in the last 2 weeks');
+      return;
+    }
+
+    const biWeeklyHours = biWeeklyData.reduce((sum, entry) => sum + (entry.hours || 0), 0);
+    const biWeeklyTotal = biWeeklyData.reduce((sum, entry) => sum + (entry.total || 0), 0);
+    
+    // Group by week
+    const byWeek = {};
+    biWeeklyData.forEach(entry => {
+      const entryDate = new Date(entry.date || entry.dateIso);
+      const weekStart = new Date(entryDate);
+      weekStart.setDate(entryDate.getDate() - entryDate.getDay());
+      const weekKey = weekStart.toISOString().split('T')[0];
+      
+      if (!byWeek[weekKey]) {
+        byWeek[weekKey] = { hours: 0, total: 0, days: [] };
+      }
+      byWeek[weekKey].hours += entry.hours || 0;
+      byWeek[weekKey].total += entry.total || 0;
+      byWeek[weekKey].days.push(new Date(entry.date || entry.dateIso).toLocaleDateString('en-US', { weekday: 'short' }));
+    });
+
+    let breakdown = `Bi-Weekly Breakdown (Last 2 Weeks):\n\n`;
+    breakdown += `Total Hours: ${biWeeklyHours.toFixed(1)}\n`;
+    breakdown += `Total Earnings: $${fmtMoney(biWeeklyTotal)}\n\n`;
+    breakdown += 'Weekly Breakdown:\n';
+    
+    Object.entries(byWeek).forEach(([week, data]) => {
+      const weekStart = new Date(week);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      breakdown += `Week of ${weekStart.toLocaleDateString()}: ${data.hours.toFixed(1)} hours ($${fmtMoney(data.total)})\n`;
+    });
+
+    alert(breakdown);
+    console.log('📊 Bi-weekly breakdown generated', { biWeeklyHours, biWeeklyTotal, weeks: byWeek });
+
+  } catch (error) {
+    console.error('Error generating bi-weekly breakdown:', error);
+    NotificationSystem.notifyError('Failed to generate bi-weekly report');
+  }
 }
 
 function showMonthlyBreakdown() {
-  NotificationSystem.notifyInfo('Monthly breakdown report - coming soon');
-  console.log('📊 Monthly breakdown requested');
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    const hours = Array.isArray(cache.hours) ? cache.hours : [];
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    const monthlyData = hours.filter(entry => {
+      const entryDate = new Date(entry.date || entry.dateIso);
+      return entryDate >= monthStart;
+    });
+
+    if (monthlyData.length === 0) {
+      NotificationSystem.notifyInfo('No hours logged this month');
+      return;
+    }
+
+    const monthlyHours = monthlyData.reduce((sum, entry) => sum + (entry.hours || 0), 0);
+    const monthlyTotal = monthlyData.reduce((sum, entry) => sum + (entry.total || 0), 0);
+    
+    // Group by student
+    const byStudent = {};
+    monthlyData.forEach(entry => {
+      const student = entry.student || 'Unknown Student';
+      if (!byStudent[student]) {
+        byStudent[student] = { hours: 0, total: 0, sessions: 0 };
+      }
+      byStudent[student].hours += entry.hours || 0;
+      byStudent[student].total += entry.total || 0;
+      byStudent[student].sessions += 1;
+    });
+
+    // Group by work type
+    const byWorkType = {};
+    monthlyData.forEach(entry => {
+      const workType = entry.workType || 'General';
+      byWorkType[workType] = (byWorkType[workType] || 0) + (entry.hours || 0);
+    });
+
+    let breakdown = `Monthly Breakdown (${now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}):\n\n`;
+    breakdown += `Total Hours: ${monthlyHours.toFixed(1)}\n`;
+    breakdown += `Total Earnings: $${fmtMoney(monthlyTotal)}\n\n`;
+    breakdown += 'By Student:\n';
+    
+    Object.entries(byStudent).forEach(([student, data]) => {
+      breakdown += `• ${student}: ${data.hours.toFixed(1)} hours (${data.sessions} sessions) - $${fmtMoney(data.total)}\n`;
+    });
+
+    breakdown += '\nBy Work Type:\n';
+    Object.entries(byWorkType).forEach(([workType, hours]) => {
+      breakdown += `• ${workType}: ${hours.toFixed(1)} hours\n`;
+    });
+
+    alert(breakdown);
+    console.log('📊 Monthly breakdown generated', { monthlyHours, monthlyTotal, students: byStudent, workTypes: byWorkType });
+
+  } catch (error) {
+    console.error('Error generating monthly breakdown:', error);
+    NotificationSystem.notifyError('Failed to generate monthly report');
+  }
 }
 
 function showSubjectBreakdown() {
-  NotificationSystem.notifyInfo('Subject breakdown report - coming soon');
-  console.log('📊 Subject breakdown requested');
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    const hours = Array.isArray(cache.hours) ? cache.hours : [];
+    
+    if (hours.length === 0) {
+      NotificationSystem.notifyInfo('No hours logged yet');
+      return;
+    }
+
+    // Group by subject
+    const bySubject = {};
+    hours.forEach(entry => {
+      const subject = entry.subject || 'General';
+      if (!bySubject[subject]) {
+        bySubject[subject] = { hours: 0, total: 0, sessions: 0, students: new Set() };
+      }
+      bySubject[subject].hours += entry.hours || 0;
+      bySubject[subject].total += entry.total || 0;
+      bySubject[subject].sessions += 1;
+      if (entry.student) {
+        bySubject[subject].students.add(entry.student);
+      }
+    });
+
+    // Group by organization
+    const byOrganization = {};
+    hours.forEach(entry => {
+      const org = entry.organization || 'Unknown Organization';
+      byOrganization[org] = (byOrganization[org] || 0) + (entry.hours || 0);
+    });
+
+    let breakdown = `Subject Breakdown (All Time):\n\n`;
+    breakdown += `Total Hours: ${hours.reduce((sum, entry) => sum + (entry.hours || 0), 0).toFixed(1)}\n`;
+    breakdown += `Total Earnings: $${fmtMoney(hours.reduce((sum, entry) => sum + (entry.total || 0), 0))}\n\n`;
+    breakdown += 'By Subject:\n';
+    
+    Object.entries(bySubject)
+      .sort((a, b) => b[1].hours - a[1].hours)
+      .forEach(([subject, data]) => {
+        breakdown += `• ${subject}: ${data.hours.toFixed(1)} hours (${data.sessions} sessions) - $${fmtMoney(data.total)}\n`;
+        breakdown += `  Students: ${Array.from(data.students).join(', ') || 'None'}\n\n`;
+      });
+
+    breakdown += 'By Organization:\n';
+    Object.entries(byOrganization)
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([org, hours]) => {
+        breakdown += `• ${org}: ${hours.toFixed(1)} hours\n`;
+      });
+
+    alert(breakdown);
+    console.log('📊 Subject breakdown generated', { subjects: bySubject, organizations: byOrganization });
+
+  } catch (error) {
+    console.error('Error generating subject breakdown:', error);
+    NotificationSystem.notifyError('Failed to generate subject report');
+  }
+}
+
+// Helper function for week numbers
+function getWeekNumber(date) {
+  const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+  const pastDaysOfYear = (date - firstDayOfYear) / 86400000;
+  return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
 }
 
 // ===========================
 // EXPORT FUNCTIONS TO WINDOW
 // ===========================
 
-// Make sure all functions are available globally
 window.showWeeklyBreakdown = showWeeklyBreakdown;
 window.showBiWeeklyBreakdown = showBiWeeklyBreakdown;
 window.showMonthlyBreakdown = showMonthlyBreakdown;
@@ -2770,5 +2992,4 @@ window.editPayment = editPayment;
 window.deletePayment = deletePayment;
 window.NotificationSystem = NotificationSystem;
 window.switchTab = switchTab;
-window.emergencySwitchTab = emergencySwitchTab;
-
+/*window.emergencySwitchTab = emergencySwitchTab;*/
