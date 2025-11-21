@@ -237,8 +237,115 @@ const NotificationSystem = {
 };
 
 // ===========================
-// CACHE SYSTEM
+// ENHANCED CACHE SYSTEM
 // ===========================
+
+const EnhancedCache = {
+  async saveWithBackgroundSync(collection, data, id = null) {
+    const user = auth.currentUser;
+    if (!user) {
+      console.error('❌ No user authenticated for cache save');
+      return false;
+    }
+
+    try {
+      const itemId = id || this.generateId();
+      const cacheItem = {
+        ...data,
+        _id: itemId,
+        _cachedAt: Date.now(),
+        _synced: false
+      };
+
+      this.saveToLocalStorage(collection, cacheItem);
+      this.updateUICache(collection, cacheItem);
+      this.backgroundFirebaseSync(collection, cacheItem, user.uid);
+      
+      console.log(`✅ ${collection} saved to cache immediately`);
+      return itemId;
+    } catch (error) {
+      console.error(`❌ Cache save failed for ${collection}:`, error);
+      return false;
+    }
+  },
+
+  // Load data with proper caching strategy
+  async loadCollection(collectionName, forceRefresh = false) {
+    const user = auth.currentUser;
+    if (!user) return [];
+
+    console.log(`🔄 Loading ${collectionName} - forceRefresh: ${forceRefresh}`);
+
+    // 1. Check memory cache first
+    if (!forceRefresh && Array.isArray(cache[collectionName]) && cache[collectionName].length > 0) {
+      console.log(`📁 Using memory cache for ${collectionName}: ${cache[collectionName].length} items`);
+      return cache[collectionName];
+    }
+
+    // 2. Check localStorage cache
+    const localStorageData = this.loadFromLocalStorage(collectionName);
+    if (!forceRefresh && localStorageData.length > 0) {
+      console.log(`💾 Using localStorage cache for ${collectionName}: ${localStorageData.length} items`);
+      cache[collectionName] = localStorageData;
+      return localStorageData;
+    }
+
+    // 3. Load from Firestore
+    try {
+      console.log(`☁️ Loading ${collectionName} from Firestore...`);
+      const querySnapshot = await getDocs(collection(db, "users", user.uid, collectionName));
+      const data = [];
+      
+      querySnapshot.forEach((doc) => {
+        data.push({
+          id: doc.id,
+          ...doc.data(),
+          _firebaseId: doc.id,
+          _synced: true
+        });
+      });
+
+      // Update both memory and localStorage cache
+      cache[collectionName] = data;
+      this.saveToLocalStorageBulk(collectionName, data);
+      cache.lastSync = Date.now();
+
+      console.log(`✅ Loaded ${data.length} ${collectionName} from Firestore`);
+      return data;
+    } catch (error) {
+      console.error(`❌ Error loading ${collectionName} from Firestore:`, error);
+      
+      // Fallback to localStorage if available
+      const fallbackData = this.loadFromLocalStorage(collectionName);
+      console.log(`🔄 Using fallback data for ${collectionName}: ${fallbackData.length} items`);
+      return fallbackData;
+    }
+  },
+
+  loadFromLocalStorage(collectionName) {
+    try {
+      const key = `worklog_${collectionName}`;
+      const cached = localStorage.getItem(key);
+      if (cached) {
+        const data = JSON.parse(cached);
+        console.log(`📁 Loaded ${data.length} ${collectionName} from localStorage`);
+        return Array.isArray(data) ? data : [];
+      }
+    } catch (error) {
+      console.error(`❌ Error loading ${collectionName} from localStorage:`, error);
+    }
+    return [];
+  },
+
+  saveToLocalStorageBulk(collectionName, data) {
+    try {
+      const key = `worklog_${collectionName}`;
+      localStorage.setItem(key, JSON.stringify(data));
+      console.log(`💾 Saved ${data.length} ${collectionName} to localStorage`);
+    } catch (error) {
+      console.error(`❌ Error saving ${collectionName} to localStorage:`, error);
+    }
+  },
 
 const cache = {
   students: [],
@@ -1207,17 +1314,26 @@ function updateHeaderStats() {
 }
 
 // ===========================
-// USER PROFILE & AUTHENTICATION
+// FIXED USER PROFILE FUNCTIONS
 // ===========================
 
 async function loadUserProfile(uid) {
   console.log('👤 Loading user profile for:', uid);
   
   const user = auth.currentUser;
+  
+  // Try to get memberSince from localStorage first (persistent)
+  let memberSince = localStorage.getItem('memberSince');
+  if (!memberSince) {
+    memberSince = new Date().toISOString();
+    localStorage.setItem('memberSince', memberSince);
+  }
+  
   const fallbackProfile = {
     email: user?.email || '',
-    createdAt: new Date().toISOString(),
-    defaultRate: parseFloat(localStorage.getItem('userDefaultRate')) || 0
+    createdAt: memberSince, // Use persistent member since date
+    defaultRate: parseFloat(localStorage.getItem('userDefaultRate')) || 0,
+    memberSince: memberSince
   };
   
   updateProfileButton(fallbackProfile);
@@ -1229,6 +1345,14 @@ async function loadUserProfile(uid) {
     
     if (userSnap.exists()) {
       currentUserData = { uid, ...userSnap.data() };
+      
+      // Ensure memberSince is preserved
+      if (!currentUserData.memberSince) {
+        currentUserData.memberSince = memberSince;
+        // Update Firestore with memberSince
+        await updateDoc(userRef, { memberSince: memberSince });
+      }
+      
       console.log('✅ User profile loaded from Firestore');
       
       updateProfileButton(currentUserData);
@@ -1242,10 +1366,11 @@ async function loadUserProfile(uid) {
     } else {
       const profileToCreate = {
         ...fallbackProfile,
-        lastLogin: new Date().toISOString()
+        lastLogin: new Date().toISOString(),
+        memberSince: memberSince // Ensure it's set
       };
       
-      setDoc(userRef, profileToCreate).catch(console.error);
+      await setDoc(userRef, profileToCreate);
       
       currentUserData = { uid, ...profileToCreate };
       return currentUserData;
@@ -1254,140 +1379,6 @@ async function loadUserProfile(uid) {
     console.error("❌ Error loading user profile:", err);
     console.log('🔄 Using cached profile data');
     return fallbackProfile;
-  }
-}
-
-function updateProfileButton(userData) {
-  const profileBtn = document.getElementById('profileBtn');
-  const userName = document.getElementById('userName');
-  
-  if (profileBtn || userName) {
-    const email = userData?.email || auth.currentUser?.email || 'User';
-    const displayName = email.split('@')[0];
-    
-    if (profileBtn) {
-      profileBtn.innerHTML = `👤 ${displayName}`;
-      profileBtn.title = `Logged in as ${email}`;
-    }
-    
-    if (userName) {
-      userName.textContent = displayName;
-    }
-    
-    console.log('✅ Profile updated:', displayName);
-  }
-}
-
-async function updateUserDefaultRate(uid, newRate) {
-  try {
-    const userRef = doc(db, "users", uid);
-    await updateDoc(userRef, {
-      defaultRate: newRate,
-      updatedAt: getLocalISODate()
-    });
-    
-    if (currentUserData) {
-      currentUserData.defaultRate = newRate;
-    }
-    
-    console.log('✅ Default rate updated:', newRate);
-    return true;
-  } catch (err) {
-    console.error("❌ Error updating default rate:", err);
-    return false;
-  }
-}
-
-async function applyDefaultRateToAllStudents(uid, newRate) {
-  try {
-    const studentsSnap = await getDocs(collection(db, "users", uid, "students"));
-    const batch = writeBatch(db);
-    let updateCount = 0;
-
-    studentsSnap.forEach((docSnap) => {
-      const studentRef = doc(db, "users", uid, "students", docSnap.id);
-      batch.update(studentRef, { rate: newRate });
-      updateCount++;
-    });
-
-    if (updateCount > 0) {
-      await batch.commit();
-      NotificationSystem.notifySuccess(`Default rate applied to ${updateCount} students`);
-      await renderStudents();
-    } else {
-      NotificationSystem.notifyInfo("No students found to update");
-    }
-    
-    return updateCount;
-  } catch (err) {
-    console.error("❌ Error applying rate to all students:", err);
-    NotificationSystem.notifyError("Failed to apply rate to all students");
-    return 0;
-  }
-}
-
-function setupProfileModal() {
-  const profileBtn = document.getElementById('profileBtn');
-  const profileModal = document.getElementById('profileModal');
-  const closeProfileModal = document.getElementById('closeProfileModal');
-  const logoutBtn = document.getElementById('logoutBtn');
-
-  console.log('🔧 Setting up profile modal...');
-
-  if (!profileModal) {
-    console.error('❌ Profile modal not found in DOM');
-    return;
-  }
-
-  if (profileBtn && profileModal) {
-    profileBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      console.log('👤 Profile button clicked');
-      
-      updateProfileModal();
-      profileModal.style.display = 'flex';
-      document.body.classList.add('modal-open');
-    });
-  } else {
-    console.error('❌ Profile button or modal not found');
-  }
-
-  if (closeProfileModal) {
-    closeProfileModal.addEventListener('click', () => {
-      closeModal();
-    });
-  }
-
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', async () => {
-      if (confirm('Are you sure you want to logout?')) {
-        try {
-          await signOut(auth);
-          window.location.href = "auth.html";
-        } catch (error) {
-          console.error('Logout error:', error);
-          NotificationSystem.notifyError('Logout failed');
-        }
-      }
-    });
-  }
-
-  window.addEventListener('click', (event) => {
-    if (profileModal && event.target === profileModal) {
-      closeModal();
-    }
-  });
-
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && profileModal && profileModal.style.display === 'flex') {
-      closeModal();
-    }
-  });
-
-  function closeModal() {
-    profileModal.style.display = 'none';
-    document.body.classList.remove('modal-open');
   }
 }
 
@@ -1404,25 +1395,53 @@ function updateProfileModal() {
     const email = currentUserData.email || auth.currentUser?.email || 'Not available';
     if (profileUserEmail) profileUserEmail.textContent = email;
     
-    const createdAt = currentUserData.createdAt || currentUserData.lastLogin || new Date().toISOString();
-    if (profileUserSince) profileUserSince.textContent = formatDate(createdAt);
+    // FIX: Use persistent member since date
+    const memberSince = currentUserData.memberSince || localStorage.getItem('memberSince') || currentUserData.createdAt || new Date().toISOString();
+    if (profileUserSince) profileUserSince.textContent = formatDate(memberSince);
     
     if (profileDefaultRate) {
       profileDefaultRate.textContent = `$${fmtMoney(currentUserData.defaultRate || 0)}/hour`;
     }
   }
 
+  // Calculate and display actual earnings
+  calculateAndDisplayActualEarnings();
+
   const statStudents = document.getElementById('statStudents');
   const statHours = document.getElementById('statHours');
-  const statEarnings = document.getElementById('statEarnings');
   const statUpdated = document.getElementById('statUpdated');
 
   if (modalStatStudents && statStudents) modalStatStudents.textContent = statStudents.textContent || '0';
   if (modalStatHours && statHours) modalStatHours.textContent = statHours.textContent || '0';
-  if (modalStatEarnings && statEarnings) modalStatEarnings.textContent = statEarnings.textContent || '$0.00';
   if (modalStatUpdated && statUpdated) modalStatUpdated.textContent = statUpdated.textContent || 'Never';
 
   console.log('✅ Profile modal stats updated');
+}
+
+// Calculate actual earnings from hours data
+async function calculateAndDisplayActualEarnings() {
+  const modalStatEarnings = document.getElementById('modalStatEarnings');
+  if (!modalStatEarnings) return;
+
+  try {
+    const hours = await EnhancedCache.loadCollection('hours');
+    
+    const totalEarnings = hours.reduce((sum, entry) => {
+      return sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0));
+    }, 0);
+
+    modalStatEarnings.textContent = `$${fmtMoney(totalEarnings)}`;
+    console.log('💰 Calculated actual earnings:', totalEarnings);
+
+  } catch (error) {
+    console.error('Error calculating earnings:', error);
+    modalStatEarnings.textContent = '$0.00';
+  }
+}
+
+// Helper function to get member since date
+function getMemberSinceDate() {
+  return localStorage.getItem('memberSince') || new Date().toISOString();
 }
 
 // ===========================
@@ -1735,48 +1754,38 @@ async function recalcSummaryStats(uid) {
 // DATA RENDERING FUNCTIONS
 // ===========================
 
-async function renderStudents(forceRefresh = false) {
-  const user = auth.currentUser;
-  if (!user) return;
+// ===========================
+// FIXED DATA RENDERING FUNCTIONS
+// ===========================
 
+async function renderStudents(forceRefresh = false) {
   const container = document.getElementById('studentsContainer');
   if (!container) return;
 
-  console.log(`🔄 renderStudents called - forceRefresh: ${forceRefresh}, cacheValid: ${isCacheValid('students')}`);
+  console.log(`🔄 renderStudents called - forceRefresh: ${forceRefresh}`);
 
-  if (!forceRefresh && isCacheValid('students') && cache.students && Array.isArray(cache.students)) {
-    container.innerHTML = cache.students;
-    console.log('✅ Students loaded from cache');
-    return;
-  }
-
-  console.log('🔄 Loading students from Firestore (cache invalid or forced)...');
   container.innerHTML = '<div class="loading">Loading students...</div>';
 
   try {
-    const studentsSnap = await getDocs(collection(db, "users", user.uid, "students"));
+    const students = await EnhancedCache.loadCollection('students', forceRefresh);
     
-    if (studentsSnap.size === 0) {
-      const emptyHTML = `
+    if (students.length === 0) {
+      container.innerHTML = `
         <div class="empty-state">
           <h3>No Students Yet</h3>
           <p>Add your first student to get started</p>
         </div>
       `;
-      container.innerHTML = emptyHTML;
-      cache.students = emptyHTML;
-      cache.lastSync = Date.now();
       return;
     }
 
     let studentsHTML = '';
-    studentsSnap.forEach(docSnap => {
-      const student = { id: docSnap.id, ...docSnap.data() };
+    students.forEach(student => {
       studentsHTML += `
         <div class="student-card">
           <div class="student-card-header">
             <div>
-              <strong>${student.name}</strong>
+              <strong>${student.name || 'Unnamed Student'}</strong>
               <span class="student-id">${student.id}</span>
             </div>
             <div class="student-actions">
@@ -1785,8 +1794,8 @@ async function renderStudents(forceRefresh = false) {
             </div>
           </div>
           <div class="student-details">
-            <div class="muted">${student.gender} • ${student.email || 'No email'} • ${student.phone || 'No phone'}</div>
-            <div class="student-rate">Rate: $${fmtMoney(student.rate)}/session</div>
+            <div class="muted">${student.gender || 'Not specified'} • ${student.email || 'No email'} • ${student.phone || 'No phone'}</div>
+            <div class="student-rate">Rate: $${fmtMoney(student.rate || 0)}/session</div>
             <div class="student-meta">Added: ${formatDate(student.createdAt)}</div>
           </div>
         </div>
@@ -1794,10 +1803,7 @@ async function renderStudents(forceRefresh = false) {
     });
 
     container.innerHTML = studentsHTML;
-    cache.students = studentsHTML;
-    cache.lastSync = Date.now();
-    
-    console.log(`✅ Loaded ${studentsSnap.size} students from Firestore`);
+    console.log(`✅ Rendered ${students.length} students`);
 
   } catch (error) {
     console.error("Error rendering students:", error);
@@ -1806,25 +1812,15 @@ async function renderStudents(forceRefresh = false) {
 }
 
 async function renderRecentHours(limit = 10) {
-  const user = auth.currentUser;
-  if (!user) return;
-  
   const container = document.getElementById('hoursContainer');
   if (!container) return;
 
   container.innerHTML = '<div class="loading">Loading recent hours...</div>';
 
   try {
-    const hoursQuery = query(
-      collection(db, "users", user.uid, "hours"),
-      orderBy("dateIso", "desc")
-    );
+    const hours = await EnhancedCache.loadCollection('hours');
     
-    const snap = await getDocs(hoursQuery);
-    const rows = [];
-    snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
-
-    if (rows.length === 0) {
+    if (hours.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
           <h3>No Hours Logged</h3>
@@ -1834,27 +1830,34 @@ async function renderRecentHours(limit = 10) {
       return;
     }
 
+    // Sort by date (newest first)
+    const sortedHours = hours.sort((a, b) => {
+      const dateA = new Date(a.date || a.dateIso);
+      const dateB = new Date(b.date || b.dateIso);
+      return dateB - dateA;
+    });
+
     container.innerHTML = '';
-    rows.slice(0, limit).forEach(entry => {
+    sortedHours.slice(0, limit).forEach(entry => {
       const item = document.createElement("div");
       item.className = "hours-entry";
       item.innerHTML = `
-          <div class="hours-header">
-            <strong>${entry.organization}</strong>
-            <span class="hours-type">${entry.workType}</span>
-            <div class="student-actions">
-              <button class="btn-icon" onclick="editHours('${entry.id}')" title="Edit">✏️</button>
-              <button class="btn-icon" onclick="deleteHours('${entry.id}')" title="Delete">🗑️</button>
-            </div>
+        <div class="hours-header">
+          <strong>${entry.organization || 'No organization'}</strong>
+          <span class="hours-type">${entry.workType || 'General'}</span>
+          <div class="student-actions">
+            <button class="btn-icon" onclick="editHours('${entry.id}')" title="Edit">✏️</button>
+            <button class="btn-icon" onclick="deleteHours('${entry.id}')" title="Delete">🗑️</button>
           </div>
-          <div class="muted">${formatDate(entry.date)} • ${entry.subject || 'General'}</div>
-          <div class="hours-details">
-            <span>Hours: ${safeNumber(entry.hours)}</span>
-            <span>Rate: $${fmtMoney(entry.rate)}</span>
-            <span class="hours-total">Total: $${fmtMoney(entry.total)}</span>
-          </div>
-          ${entry.student ? `<div class="muted">Student: ${entry.student}</div>` : ''}
-        `;
+        </div>
+        <div class="muted">${formatDate(entry.date)} • ${entry.subject || 'General'}</div>
+        <div class="hours-details">
+          <span>Hours: ${safeNumber(entry.hours)}</span>
+          <span>Rate: $${fmtMoney(entry.rate)}</span>
+          <span class="hours-total">Total: $${fmtMoney(entry.total)}</span>
+        </div>
+        ${entry.student ? `<div class="muted">Student: ${entry.student}</div>` : ''}
+      `;
       container.appendChild(item);
     });
 
@@ -1865,24 +1868,15 @@ async function renderRecentHours(limit = 10) {
 }
 
 async function renderRecentMarks(limit = 10) {
-  const user = auth.currentUser;
-  if (!user) return;
   const container = document.getElementById('marksContainer');
   if (!container) return;
 
   container.innerHTML = '<div class="loading">Loading recent marks...</div>';
 
   try {
-    const marksQuery = query(
-      collection(db, "users", user.uid, "marks"),
-      orderBy("dateIso", "desc")
-    );
+    const marks = await EnhancedCache.loadCollection('marks');
     
-    const snap = await getDocs(marksQuery);
-    const rows = [];
-    snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
-
-    if (rows.length === 0) {
+    if (marks.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
           <h3>No Marks Recorded</h3>
@@ -1892,31 +1886,39 @@ async function renderRecentMarks(limit = 10) {
       return;
     }
 
+    // Sort by date (newest first) and enhance with student names
+    const sortedMarks = marks.sort((a, b) => {
+      const dateA = new Date(a.date || a.dateIso);
+      const dateB = new Date(b.date || b.dateIso);
+      return dateB - dateA;
+    });
+
+    // Get students for name lookup
+    const students = await EnhancedCache.loadCollection('students');
+    const studentMap = {};
+    students.forEach(student => {
+      studentMap[student.name || student.id] = student.name || `Student ${student.id}`;
+    });
+
     container.innerHTML = '';
-    rows.slice(0, limit).forEach(entry => {
+    sortedMarks.slice(0, limit).forEach(entry => {
+      const studentName = studentMap[entry.student] || entry.student || 'Unknown Student';
+      
       const item = document.createElement("div");
       item.className = "mark-entry";
       item.innerHTML = `
         <div class="mark-header">
-          <strong>${entry.student}</strong> — ${entry.subject} (${entry.topic})
+          <strong>${studentName}</strong> — ${entry.subject || 'No Subject'} (${entry.topic || 'No Topic'})
           <div class="student-actions">
             <button class="btn-icon" onclick="editMark('${entry.id}')" title="Edit">✏️</button>
             <button class="btn-icon" onclick="deleteMark('${entry.id}')" title="Delete">🗑️</button>
           </div>
         </div>
         <div class="muted">${formatDate(entry.date)}</div>
-        <div>Score: ${safeNumber(entry.score)}/${safeNumber(entry.max)} — ${safeNumber(entry.percentage).toFixed(2)}% — Grade: ${entry.grade}</div>
+        <div>Score: ${safeNumber(entry.score)}/${safeNumber(entry.max)} — ${safeNumber(entry.percentage).toFixed(2)}% — Grade: ${entry.grade || 'N/A'}</div>
       `;
       container.appendChild(item);
     });
-
-    const marksCountEl = document.getElementById('marksCount');
-    const avgMarksEl = document.getElementById('avgMarks');
-    if (marksCountEl) marksCountEl.textContent = rows.length;
-    if (avgMarksEl) {
-      const avg = rows.length ? rows.reduce((s, r) => s + safeNumber(r.percentage), 0) / rows.length : 0;
-      avgMarksEl.textContent = `${avg.toFixed(1)}%`;
-    }
 
   } catch (error) {
     console.error("Error rendering marks:", error);
@@ -1925,24 +1927,15 @@ async function renderRecentMarks(limit = 10) {
 }
 
 async function renderAttendanceRecent(limit = 10) {
-  const user = auth.currentUser;
-  if (!user) return;
   const container = document.getElementById('attendanceContainer');
   if (!container) return;
 
   container.innerHTML = '<div class="loading">Loading attendance records...</div>';
 
   try {
-    const attendanceQuery = query(
-      collection(db, "users", user.uid, "attendance"),
-      orderBy("dateIso", "desc")
-    );
+    const attendance = await EnhancedCache.loadCollection('attendance');
     
-    const snap = await getDocs(attendanceQuery);
-    const rows = [];
-    snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
-
-    if (rows.length === 0) {
+    if (attendance.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
           <h3>No Attendance Records</h3>
@@ -1952,220 +1945,36 @@ async function renderAttendanceRecent(limit = 10) {
       return;
     }
 
+    // Sort by date (newest first)
+    const sortedAttendance = attendance.sort((a, b) => {
+      const dateA = new Date(a.date || a.dateIso);
+      const dateB = new Date(b.date || b.dateIso);
+      return dateB - dateA;
+    });
+
     container.innerHTML = '';
-    rows.slice(0, limit).forEach(entry => {
+    sortedAttendance.slice(0, limit).forEach(entry => {
+      const presentCount = Array.isArray(entry.present) ? entry.present.length : 0;
+      
       const item = document.createElement("div");
       item.className = "attendance-entry";
       item.innerHTML = `
         <div class="attendance-header">
-          <strong>${entry.subject}</strong> — ${entry.topic || "—"}
+          <strong>${entry.subject || 'No Subject'}</strong> — ${entry.topic || "—"}
           <div class="student-actions">
             <button class="btn-icon" onclick="editAttendance('${entry.id}')" title="Edit">✏️</button>
             <button class="btn-icon" onclick="deleteAttendance('${entry.id}')" title="Delete">🗑️</button>
           </div>
         </div>
         <div class="muted">${formatDate(entry.date)}</div>
-        <div>Present: ${Array.isArray(entry.present) ? entry.present.length : 0} students</div>
+        <div>Present: ${presentCount} students</div>
       `;
       container.appendChild(item);
     });
-
-    const lastSessionDateEl = document.getElementById('lastSessionDate');
-    const attendanceCountEl = document.getElementById('attendanceCount');
-    if (lastSessionDateEl) lastSessionDateEl.textContent = rows[0]?.date ? formatDate(rows[0].date) : "Never";
-    if (attendanceCountEl) attendanceCountEl.textContent = rows.length;
 
   } catch (error) {
     console.error("Error rendering attendance:", error);
     container.innerHTML = '<div class="error">Error loading attendance</div>';
-  }
-}
-
-async function renderPaymentActivity(limit = 10) {
-  const user = auth.currentUser;
-  if (!user) return;
-  const container = document.getElementById('paymentActivityLog');
-  if (!container) return;
-
-  container.innerHTML = '<div class="loading">Loading payment activity...</div>';
-
-  try {
-    const paymentsQuery = query(
-      collection(db, "users", user.uid, "payments"),
-      orderBy("dateIso", "desc")
-    );
-    
-    const snap = await getDocs(paymentsQuery);
-    const rows = [];
-    snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
-
-    if (rows.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <h3>No Payment Activity</h3>
-          <p>No recent payment activity recorded</p>
-        </div>
-      `;
-      return;
-    }
-
-    container.innerHTML = '';
-    rows.slice(0, limit).forEach(entry => {
-      const item = document.createElement("div");
-      item.className = "activity-item";
-      item.innerHTML = `
-        <div class="payment-header">
-          <strong>$${fmtMoney(entry.amount)}</strong> — ${entry.student}
-          <div class="student-actions">
-            <button class="btn-icon" onclick="editPayment('${entry.id}')" title="Edit">✏️</button>
-            <button class="btn-icon" onclick="deletePayment('${entry.id}')" title="Delete">🗑️</button>
-          </div>
-        </div>
-        <div class="muted">${formatDate(entry.date)} | ${entry.method}</div>
-        <div>${entry.notes || ""}</div>
-      `;
-      container.appendChild(item);
-    });
-
-    const monthlyPaymentsEl = document.getElementById('monthlyPayments');
-    if (monthlyPaymentsEl) {
-      const now = new Date();
-      const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
-      const sum = rows
-        .filter(r => (r.date || "").startsWith(ym))
-        .reduce((s, r) => s + safeNumber(r.amount), 0);
-      monthlyPaymentsEl.textContent = `$${fmtMoney(sum)}`;
-    }
-
-  } catch (error) {
-    console.error("Error rendering payments:", error);
-    container.innerHTML = '<div class="error">Error loading payments</div>';
-  }
-}
-
-async function renderStudentBalances() {
-  const user = auth.currentUser;
-  if (!user) return;
-  const container = document.getElementById('studentBalancesContainer');
-  if (!container) return;
-
-  container.innerHTML = '<div class="loading">Loading student balances...</div>';
-
-  try {
-    const [studentsSnap, hoursSnap, paymentsSnap] = await Promise.all([
-      getDocs(collection(db, "users", user.uid, "students")),
-      getDocs(collection(db, "users", user.uid, "hours")),
-      getDocs(collection(db, "users", user.uid, "payments"))
-    ]);
-
-    const earningsByStudent = {};
-    hoursSnap.forEach(d => {
-      const row = d.data();
-      const sid = row.student || "__unknown__";
-      earningsByStudent[sid] = (earningsByStudent[sid] || 0) + safeNumber(row.total);
-    });
-
-    const paymentsByStudent = {};
-    paymentsSnap.forEach(d => {
-      const row = d.data();
-      const sid = row.student || "__unknown__";
-      paymentsByStudent[sid] = (paymentsByStudent[sid] || 0) + safeNumber(row.amount);
-    });
-
-    if (studentsSnap.size === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <h3>No Student Data</h3>
-          <p>Add students and record hours/payments to see balances</p>
-        </div>
-      `;
-      return;
-    }
-
-    container.innerHTML = '';
-    let totalOwed = 0;
-    
-    studentsSnap.forEach(snap => {
-      const student = snap.data();
-      const sid = student.id;
-      const earned = earningsByStudent[sid] || 0;
-      const paid = paymentsByStudent[sid] || 0;
-      const owed = Math.max(earned - paid, 0);
-      totalOwed += owed;
-
-      const item = document.createElement("div");
-      item.className = "activity-item";
-      item.innerHTML = `
-        <div><strong>${student.name}</strong> (${student.id})</div>
-        <div>Earned: $${fmtMoney(earned)} | Paid: $${fmtMoney(paid)} | Owed: $${fmtMoney(owed)}</div>
-      `;
-      container.appendChild(item);
-    });
-
-    const totalStudentsCountEl = document.getElementById('totalStudentsCount');
-    const totalOwedEl = document.getElementById('totalOwed');
-    if (totalStudentsCountEl) totalStudentsCountEl.textContent = studentsSnap.size;
-    if (totalOwedEl) totalOwedEl.textContent = `$${fmtMoney(totalOwed)}`;
-
-  } catch (error) {
-    console.error("Error rendering balances:", error);
-    container.innerHTML = '<div class="error">Error loading balances</div>';
-  }
-}
-
-async function renderOverviewReports() {
-  const user = auth.currentUser;
-  if (!user) return;
-
-  try {
-    const [studentsSnap, hoursSnap, marksSnap, paymentsSnap] = await Promise.all([
-      getDocs(collection(db, "users", user.uid, "students")),
-      getDocs(collection(db, "users", user.uid, "hours")),
-      getDocs(collection(db, "users", user.uid, "marks")),
-      getDocs(collection(db, "users", user.uid, "payments"))
-    ]);
-
-    let hoursTotal = 0;
-    let earningsTotal = 0;
-    hoursSnap.forEach(d => {
-      const r = d.data();
-      hoursTotal += safeNumber(r.hours);
-      earningsTotal += safeNumber(r.total);
-    });
-
-    let markSum = 0;
-    let markCount = 0;
-    marksSnap.forEach(d => {
-      const r = d.data();
-      markSum += safeNumber(r.percentage);
-      markCount += 1;
-    });
-    const avgMark = markCount ? (markSum / markCount) : 0;
-
-    let paymentsTotal = 0;
-    paymentsSnap.forEach(d => {
-      const r = d.data();
-      paymentsTotal += safeNumber(r.amount);
-    });
-
-    const outstanding = Math.max(earningsTotal - paymentsTotal, 0);
-
-    const totalStudentsReport = document.getElementById('totalStudentsReport');
-    const totalHoursReport = document.getElementById('totalHoursReport');
-    const totalEarningsReport = document.getElementById('totalEarningsReport');
-    const avgMarkReport = document.getElementById('avgMarkReport');
-    const totalPaymentsReport = document.getElementById('totalPaymentsReport');
-    const outstandingBalance = document.getElementById('outstandingBalance');
-
-    if (totalStudentsReport) totalStudentsReport.textContent = studentsSnap.size;
-    if (totalHoursReport) totalHoursReport.textContent = hoursTotal.toFixed(1);
-    if (totalEarningsReport) totalEarningsReport.textContent = `$${fmtMoney(earningsTotal)}`;
-    if (avgMarkReport) avgMarkReport.textContent = `${avgMark.toFixed(1)}%`;
-    if (totalPaymentsReport) totalPaymentsReport.textContent = `$${fmtMoney(paymentsTotal)}`;
-    if (outstandingBalance) outstandingBalance.textContent = `$${fmtMoney(outstanding)}`;
-
-  } catch (error) {
-    console.error("Error rendering overview:", error);
   }
 }
 
@@ -2488,7 +2297,7 @@ function useDefaultRateInHours() {
 }
 
 // ===========================
-// STUDENT DROPDOWN POPULATION
+// FIXED STUDENT DROPDOWN POPULATION
 // ===========================
 
 async function populateStudentDropdowns() {
@@ -2496,17 +2305,9 @@ async function populateStudentDropdowns() {
     if (!user) return;
 
     try {
-        // Get students from cache or Firestore
-        let students = [];
-        
-        if (Array.isArray(cache.students) && cache.students.length > 0) {
-            students = cache.students;
-            console.log('📝 Using cached students for dropdowns:', students.length);
-        } else {
-            const studentsSnap = await getDocs(collection(db, "users", user.uid, "students"));
-            students = studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            console.log('📝 Loaded students from Firestore for dropdowns:', students.length);
-        }
+        // Load students with caching
+        const students = await EnhancedCache.loadCollection('students');
+        console.log('📝 Students for dropdowns:', students.length);
 
         // Get all student dropdowns
         const studentDropdowns = [
@@ -2531,6 +2332,7 @@ async function populateStudentDropdowns() {
                 const option = document.createElement('option');
                 option.value = student.name || student.id;
                 option.textContent = student.name || `Student ${student.id}`;
+                option.setAttribute('data-student-id', student.id);
                 dropdown.appendChild(option);
             });
 
@@ -2546,9 +2348,17 @@ async function populateStudentDropdowns() {
 
 function populateAttendanceStudents(students) {
     const attendanceContainer = document.getElementById('attendanceStudents');
-    if (!attendanceContainer) return;
+    if (!attendanceContainer) {
+        console.log('❌ Attendance container not found');
+        return;
+    }
 
     attendanceContainer.innerHTML = '';
+
+    if (students.length === 0) {
+        attendanceContainer.innerHTML = '<div class="muted">No students available. Add students first.</div>';
+        return;
+    }
 
     students.forEach(student => {
         const label = document.createElement('label');
@@ -2568,28 +2378,6 @@ function populateAttendanceStudents(students) {
     });
 
     console.log('✅ Populated attendance with', students.length, 'students');
-}
-
-function setupFormStudentPopulation() {
-    console.log('🔧 Setting up student form population...');
-    
-    if (Array.isArray(cache.students) && cache.students.length > 0) {
-        populateStudentDropdowns();
-    }
-    
-    const formTabs = ['hours', 'marks', 'attendance', 'payments'];
-    formTabs.forEach(tabName => {
-        const tab = document.querySelector(`[data-tab="${tabName}"]`);
-        if (tab) {
-            tab.addEventListener('click', () => {
-                setTimeout(() => {
-                    if (Array.isArray(cache.students) && cache.students.length > 0) {
-                        populateStudentDropdowns();
-                    }
-                }, 300);
-            });
-        }
-    });
 }
 
 // ===========================
@@ -3503,7 +3291,7 @@ function getWeekNumber(date) {
 }
 
 // ===========================
-// APP INITIALIZATION
+// ENHANCED APP INITIALIZATION
 // ===========================
 
 // Start the application when DOM is fully loaded
@@ -3534,17 +3322,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if (user) {
       console.log('👤 User authenticated:', user.email);
       try {
-        // Load user profile and data in parallel
+        // Initialize member since date if not set
+        if (!localStorage.getItem('memberSince')) {
+          localStorage.setItem('memberSince', new Date().toISOString());
+        }
+
+        // Load all data in parallel with proper caching
         await Promise.all([
           loadUserProfile(user.uid),
-          loadUserStats(user.uid),
-          renderStudents(),
-          renderRecentHours(),
-          renderRecentMarks(),
-          renderAttendanceRecent(),
-          renderPaymentActivity(),
-          renderStudentBalances(),
-          renderOverviewReports()
+          EnhancedCache.loadCollection('students', true), // Force refresh on app start
+          EnhancedCache.loadCollection('hours', true),
+          EnhancedCache.loadCollection('marks', true),
+          EnhancedCache.loadCollection('attendance', true),
+          EnhancedCache.loadCollection('payments', true)
         ]);
         
         // Initialize systems that depend on user data
@@ -3555,9 +3345,21 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Setup form handlers and populate student dropdowns
         setupFormHandlers();
+        await populateStudentDropdowns(); // Ensure dropdowns are populated
         
+        // Render all data
+        await Promise.all([
+          renderStudents(),
+          renderRecentHours(),
+          renderRecentMarks(),
+          renderAttendanceRecent(),
+          renderPaymentActivity(),
+          renderStudentBalances(),
+          renderOverviewReports()
+        ]);
+
         NotificationSystem.notifySuccess(`Welcome back, ${user.email.split('@')[0]}!`);
-        console.log('✅ Worklog App initialized successfully');
+        console.log('✅ Worklog App initialized successfully with cached data');
       } catch (error) {
         console.error('❌ Error during user login:', error);
         NotificationSystem.notifyError('Error loading user data');
