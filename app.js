@@ -2293,359 +2293,284 @@ async function deletePayment(id) {
 }
 
 // ===========================
-// TAB NAVIGATION SYSTEM - FIXED VERSION
+// TAB NAVIGATION SYSTEM - COMPLETELY REWRITTEN
 // ===========================
 
 function setupTabNavigation() {
   console.log('🔧 Setting up tab navigation...');
   
-  // Debug: Check what elements exist
-  console.log('🔍 Searching for navigation elements...');
+  // Ensure CSS is injected
+  ensureTabCSS();
   
-  // Check for main navigation container
-  const navContainers = [
-    '.tab-nav',
-    '.navigation',
-    '.nav-tabs',
-    '.tabs',
-    'nav',
-    '.main-nav'
-  ];
-  
-  let navContainer = null;
-  for (const selector of navContainers) {
-    const container = document.querySelector(selector);
-    if (container) {
-      navContainer = container;
-      console.log(`✅ Found navigation container: ${selector}`);
-      break;
-    }
-  }
-  
-  if (!navContainer) {
-    console.log('🔍 No specific nav container found, searching for buttons in main content...');
-  }
-  
-  // Look for tab buttons with various selectors
-  const buttonSelectors = [
-    '.tab-btn',
-    '[data-tab]',
-    'button[data-tab]',
-    '.tab-button',
-    '.nav-btn',
-    '.tab',
-    '.nav-tabs button',
-    '.tabs button',
-    'nav button'
-  ];
-  
-  let tabButtons = [];
-  let foundSelector = '';
-  
-  for (const selector of buttonSelectors) {
-    const elements = document.querySelectorAll(selector);
-    console.log(`Selector "${selector}": found ${elements.length} elements`);
-    
-    if (elements.length > 0) {
-      tabButtons = Array.from(elements);
-      foundSelector = selector;
-      
-      // Log what we found
-      tabButtons.forEach((btn, index) => {
-        console.log(`Tab button ${index}:`, {
-          text: btn.textContent?.trim(),
-          classes: btn.className,
-          id: btn.id,
-          'data-tab': btn.getAttribute('data-tab'),
-          tag: btn.tagName
-        });
-      });
-      break;
-    }
-  }
+  // Find tab buttons
+  const tabButtons = document.querySelectorAll('[data-tab]');
+  console.log(`✅ Found ${tabButtons.length} tab buttons`);
   
   if (tabButtons.length === 0) {
-    console.error('❌ No tab buttons found with any selector');
-    
-    // Last resort: look for any buttons that might be tabs
-    const allButtons = document.querySelectorAll('button');
-    console.log(`Found ${allButtons.length} total buttons on page`);
-    
-    const potentialTabs = Array.from(allButtons).filter(btn => {
-      const text = btn.textContent?.toLowerCase().trim();
-      const commonTabNames = ['overview', 'students', 'hours', 'marks', 'attendance', 'payments', 'reports'];
-      return commonTabNames.some(tabName => text?.includes(tabName));
-    });
-    
-    if (potentialTabs.length > 0) {
-      tabButtons = potentialTabs;
-      console.log(`✅ Found ${tabButtons.length} potential tab buttons by text content`);
-    } else {
-      console.error('❌ Could not find any tab buttons');
-      createFallbackNavigation();
-      return;
-    }
+    console.error('❌ No tab buttons found');
+    createEmergencyNavigation();
+    return;
   }
   
-  console.log(`✅ Found ${tabButtons.length} tab buttons with selector: ${foundSelector}`);
-  
-  // Set up click handlers for tab buttons
+  // Set up click handlers
   tabButtons.forEach(button => {
-    // Determine tab name
-    let tabName = button.getAttribute('data-tab');
-    if (!tabName) {
-      // Try to infer from text content
-      const text = button.textContent?.toLowerCase().trim();
-      const tabMap = {
-        'overview': 'overview',
-        'students': 'students', 
-        'hours': 'hours',
-        'marks': 'marks',
-        'attendance': 'attendance',
-        'payments': 'payments',
-        'reports': 'overview'
-      };
-      
-      for (const [key, value] of Object.entries(tabMap)) {
-        if (text?.includes(key)) {
-          tabName = value;
-          break;
-        }
-      }
-      
-      if (!tabName) {
-        tabName = text?.replace(/\s+/g, '-').toLowerCase() || 'unknown';
-      }
-      
-      // Set the data-tab attribute for future use
-      button.setAttribute('data-tab', tabName);
-    }
-    
-    console.log(`📝 Setting up tab button: "${button.textContent?.trim()}" -> ${tabName}`);
+    const tabName = button.getAttribute('data-tab');
+    console.log(`📝 Setting up: ${tabName}`);
     
     button.addEventListener('click', (e) => {
       e.preventDefault();
-      console.log(`🎯 Tab clicked: ${tabName} (from: "${button.textContent?.trim()}")`);
       switchTab(tabName);
     });
   });
   
-  // Set initial active tab
+  // Set initial tab
   const initialTab = getInitialTab();
-  console.log(`📑 Setting initial tab to: ${initialTab}`);
+  console.log(`📑 Initial tab: ${initialTab}`);
   switchTab(initialTab);
 }
 
+function ensureTabCSS() {
+  if (!document.querySelector('#tab-css')) {
+    const style = document.createElement('style');
+    style.id = 'tab-css';
+    style.textContent = `
+      /* Force hide all tab content by default */
+      .tab-content {
+        display: none !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        overflow: hidden !important;
+        position: absolute !important;
+        top: -9999px !important;
+        left: -9999px !important;
+      }
+      
+      /* Force show active tab content */
+      .tab-content.active {
+        display: block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        height: auto !important;
+        overflow: visible !important;
+        position: static !important;
+        top: auto !important;
+        left: auto !important;
+      }
+      
+      /* Tab button styles */
+      .tab-btn.active,
+      [data-tab].active {
+        background: var(--primary) !important;
+        color: white !important;
+      }
+    `;
+    document.head.appendChild(style);
+    console.log('✅ Tab CSS injected');
+  }
+}
+
 function getInitialTab() {
-  // Check if there's already an active tab
-  const activeTabButton = document.querySelector('.tab-btn.active, [data-tab].active, button.active');
-  if (activeTabButton) {
-    const tabName = activeTabButton.getAttribute('data-tab');
-    if (tabName) return tabName;
-  }
+  // Try URL hash
+  const hash = window.location.hash.replace('#', '');
+  if (hash && document.getElementById(hash)) return hash;
   
-  // Check if overview tab exists and is accessible
-  if (document.getElementById('overview')) {
-    return 'overview';
-  }
+  // Try active tab
+  const activeTab = document.querySelector('[data-tab].active');
+  if (activeTab) return activeTab.getAttribute('data-tab');
   
-  // Check other common tab names
-  const commonTabs = ['students', 'hours', 'marks', 'attendance', 'payments'];
-  for (const tabName of commonTabs) {
-    if (document.getElementById(tabName)) {
-      return tabName;
-    }
-  }
-  
-  // Get first available tab from buttons
-  const firstTabButton = document.querySelector('[data-tab]');
-  if (firstTabButton) {
-    return firstTabButton.getAttribute('data-tab');
-  }
-  
-  return 'overview'; // fallback
+  // Default to overview
+  return 'overview';
 }
 
 function switchTab(tabName) {
-  console.log(`🔄 Switching to tab: ${tabName}`);
+  console.log(`🔄 Switching to: ${tabName}`);
   
   if (!tabName) {
-    console.error('❌ No tab name provided for switchTab');
+    console.error('❌ No tab name provided');
     return;
   }
   
-  // Update tab buttons - remove active class from all
-  const allTabButtons = document.querySelectorAll('.tab-btn, [data-tab], button');
-  allTabButtons.forEach(btn => {
+  // Update URL
+  window.location.hash = tabName;
+  
+  // 1. Update buttons
+  const allButtons = document.querySelectorAll('[data-tab]');
+  allButtons.forEach(btn => {
     btn.classList.remove('active');
   });
   
-  // Add active class to clicked tab button
   const activeButtons = document.querySelectorAll(`[data-tab="${tabName}"]`);
-  if (activeButtons.length > 0) {
-    activeButtons.forEach(btn => {
-      btn.classList.add('active');
-    });
-    console.log(`✅ Activated ${activeButtons.length} button(s) for: ${tabName}`);
-  } else {
-    console.warn(`⚠️ No button found with data-tab="${tabName}"`);
-    
-    // Try to find by text content as fallback
-    const allButtons = document.querySelectorAll('button');
-    const matchingButtons = Array.from(allButtons).filter(btn => {
-      const text = btn.textContent?.toLowerCase().trim();
-      return text?.includes(tabName.toLowerCase());
-    });
-    
-    if (matchingButtons.length > 0) {
-      matchingButtons.forEach(btn => {
-        btn.classList.add('active');
-        // Set data-tab for future use
-        btn.setAttribute('data-tab', tabName);
-      });
-      console.log(`✅ Found ${matchingButtons.length} button(s) by text content for: ${tabName}`);
-    }
-  }
-  
-  // Hide all tab content
-  const tabContentSelectors = [
-    '.tab-content',
-    '.tab-panel', 
-    '.tab-page',
-    '.page',
-    '.section',
-    'main > div',
-    '#overview, #students, #hours, #marks, #attendance, #payments'
-  ];
-  
-  let allTabContents = [];
-  tabContentSelectors.forEach(selector => {
-    const elements = document.querySelectorAll(selector);
-    elements.forEach(el => {
-      if (!allTabContents.includes(el)) {
-        allTabContents.push(el);
-      }
-    });
+  activeButtons.forEach(btn => {
+    btn.classList.add('active');
   });
   
-  // Also get elements by ID for common tabs
-  const commonTabIds = ['overview', 'students', 'hours', 'marks', 'attendance', 'payments'];
-  commonTabIds.forEach(id => {
-    const element = document.getElementById(id);
-    if (element && !allTabContents.includes(element)) {
-      allTabContents.push(element);
-    }
-  });
+  // 2. Hide ALL content first (brute force)
+  const allContent = document.querySelectorAll('.tab-content');
+  console.log(`📊 Hiding ${allContent.length} content areas`);
   
-  console.log(`📊 Found ${allTabContents.length} potential tab content elements`);
-  
-  // Hide all content
-  allTabContents.forEach(content => {
-    content.style.display = 'none';
+  allContent.forEach(content => {
     content.classList.remove('active');
+    // Force hide with multiple methods
+    content.style.display = 'none';
+    content.style.visibility = 'hidden';
+    content.style.opacity = '0';
+    content.style.height = '0';
+    content.style.overflow = 'hidden';
+    content.style.position = 'absolute';
+    content.style.top = '-9999px';
+    content.style.left = '-9999px';
   });
   
-  // Show active tab content
-  let activeContent = document.getElementById(tabName);
-  
+  // 3. Show active content
+  const activeContent = document.getElementById(tabName);
   if (activeContent) {
-    activeContent.style.display = 'block';
     activeContent.classList.add('active');
-    console.log(`✅ Activated content for: ${tabName}`);
+    // Force show with multiple methods
+    activeContent.style.display = 'block';
+    activeContent.style.visibility = 'visible';
+    activeContent.style.opacity = '1';
+    activeContent.style.height = 'auto';
+    activeContent.style.overflow = 'visible';
+    activeContent.style.position = 'static';
+    activeContent.style.top = 'auto';
+    activeContent.style.left = 'auto';
+    
+    console.log(`✅ Showing: ${tabName}`);
   } else {
-    console.warn(`⚠️ No content found with ID: ${tabName}`);
-    
-    // Try alternative content selectors
-    const alternativeSelectors = [
-      `#${tabName}-tab`,
-      `#${tabName}-panel`,
-      `#${tabName}-content`,
-      `.${tabName}-tab`,
-      `.${tabName}-content`,
-      `.${tabName}-panel`,
-      `[data-tab-content="${tabName}"]`
-    ];
-    
-    for (const selector of alternativeSelectors) {
-      activeContent = document.querySelector(selector);
-      if (activeContent) {
-        activeContent.style.display = 'block';
-        activeContent.classList.add('active');
-        console.log(`✅ Found content with alternative selector: ${selector}`);
-        break;
-      }
-    }
-    
-    // Last resort: show any element that might be related to this tab
-    if (!activeContent) {
-      const possibleContent = document.querySelector(`[data-tab="${tabName}"]`)?.closest('.tab-content') || 
-                             document.querySelector(`[data-tab="${tabName}"]`)?.nextElementSibling;
-      if (possibleContent) {
-        possibleContent.style.display = 'block';
-        possibleContent.classList.add('active');
-        console.log(`✅ Found content near tab button for: ${tabName}`);
-      }
+    console.error(`❌ Content not found: ${tabName}`);
+    // Try to show first available content
+    const firstContent = document.querySelector('.tab-content');
+    if (firstContent) {
+      firstContent.classList.add('active');
+      firstContent.style.display = 'block';
+      console.log('⚠️ Showing first available content as fallback');
     }
   }
   
-  // If we still haven't found content, try to show the first available content
-  if (!activeContent && allTabContents.length > 0) {
-    allTabContents[0].style.display = 'block';
-    allTabContents[0].classList.add('active');
-    console.log(`⚠️ Showing first available content as fallback`);
-  }
-  
-  console.log(`✅ Tab switch completed: ${tabName}`);
+  // Debug current state
+  setTimeout(() => debugTabState(), 100);
 }
 
-function createFallbackNavigation() {
-  console.log('🆘 Creating fallback navigation...');
+function debugTabState() {
+  console.log('=== TAB DEBUG ===');
+  const contents = document.querySelectorAll('.tab-content');
+  contents.forEach((content, i) => {
+    const computed = window.getComputedStyle(content);
+    console.log(`Tab ${i} (${content.id}):`, {
+      active: content.classList.contains('active'),
+      display: computed.display,
+      visibility: computed.visibility,
+      opacity: computed.opacity,
+      position: computed.position
+    });
+  });
+  console.log('=================');
+}
+
+function createEmergencyNavigation() {
+  console.log('🆘 Creating emergency navigation');
   
-  // Create a simple navigation bar at the top
-  const fallbackNav = document.createElement('div');
-  fallbackNav.className = 'fallback-nav';
-  fallbackNav.style.cssText = `
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
+  const nav = document.createElement('div');
+  nav.className = 'emergency-nav';
+  nav.style.cssText = `
+    background: #f8f9fa;
+    border: 2px solid #dc3545;
     padding: 1rem;
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
+    margin: 1rem 0;
+    border-radius: 8px;
   `;
   
-  const tabs = [
-    { id: 'overview', name: '📊 Overview' },
-    { id: 'students', name: '👥 Students' },
-    { id: 'hours', name: '⏰ Hours' },
-    { id: 'marks', name: '📝 Marks' },
-    { id: 'attendance', name: '✅ Attendance' },
-    { id: 'payments', name: '💰 Payments' }
-  ];
+  nav.innerHTML = `
+    <h3 style="margin: 0 0 1rem 0; color: #dc3545;">⚠️ Navigation Issue</h3>
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      <button onclick="emergencySwitchTab('overview')" style="padding: 0.5rem 1rem; border: 1px solid #ccc; background: white; border-radius: 4px; cursor: pointer;">📊 Overview</button>
+      <button onclick="emergencySwitchTab('students')" style="padding: 0.5rem 1rem; border: 1px solid #ccc; background: white; border-radius: 4px; cursor: pointer;">👥 Students</button>
+      <button onclick="emergencySwitchTab('hours')" style="padding: 0.5rem 1rem; border: 1px solid #ccc; background: white; border-radius: 4px; cursor: pointer;">⏰ Hours</button>
+      <button onclick="emergencySwitchTab('marks')" style="padding: 0.5rem 1rem; border: 1px solid #ccc; background: white; border-radius: 4px; cursor: pointer;">📝 Marks</button>
+      <button onclick="emergencySwitchTab('attendance')" style="padding: 0.5rem 1rem; border: 1px solid #ccc; background: white; border-radius: 4px; cursor: pointer;">✅ Attendance</button>
+      <button onclick="emergencySwitchTab('payments')" style="padding: 0.5rem 1rem; border: 1px solid #ccc; background: white; border-radius: 4px; cursor: pointer;">💰 Payments</button>
+    </div>
+  `;
   
-  tabs.forEach(tab => {
-    if (document.getElementById(tab.id)) {
-      const button = document.createElement('button');
-      button.textContent = tab.name;
-      button.setAttribute('data-tab', tab.id);
-      button.style.cssText = `
-        padding: 0.5rem 1rem;
-        border: 1px solid var(--border);
-        background: var(--surface);
-        border-radius: 6px;
-        cursor: pointer;
-      `;
-      
-      button.addEventListener('click', () => switchTab(tab.id));
-      fallbackNav.appendChild(button);
-    }
+  const main = document.querySelector('main') || document.body;
+  main.insertBefore(nav, main.firstChild);
+}
+
+function emergencySwitchTab(tabName) {
+  console.log(`🚨 Emergency switching to: ${tabName}`);
+  
+  // Hide everything
+  const allElements = document.querySelectorAll('#overview, #students, #hours, #marks, #attendance, #payments, .tab-content');
+  allElements.forEach(el => {
+    el.style.display = 'none';
+    el.style.visibility = 'hidden';
+    el.style.opacity = '0';
   });
   
-  // Insert at the top of the main content
-  const mainContent = document.querySelector('main') || document.body;
-  mainContent.insertBefore(fallbackNav, mainContent.firstChild);
-  
-  console.log('✅ Fallback navigation created');
+  // Show target
+  const target = document.getElementById(tabName);
+  if (target) {
+    target.style.display = 'block';
+    target.style.visibility = 'visible';
+    target.style.opacity = '1';
+    console.log(`✅ Emergency show: ${tabName}`);
+  }
 }
+
+// Update the app initialization
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('🏠 DOM fully loaded, starting app...');
+  
+  // Initialize systems
+  NotificationSystem.initNotificationStyles();
+  initializeTheme();
+  setupThemeToggle();
+  EnhancedCache.loadCachedData();
+  EnhancedStats.init();
+  
+  // Setup tabs FIRST
+  setupTabNavigation();
+  
+  // Then handle auth
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      console.log('👤 User authenticated:', user.email);
+      try {
+        await Promise.all([
+          loadUserProfile(user.uid),
+          loadUserStats(user.uid),
+          renderStudents(),
+          renderRecentHours(),
+          renderRecentMarks(),
+          renderAttendanceRecent(),
+          renderPaymentActivity(),
+          renderStudentBalances(),
+          renderOverviewReports()
+        ]);
+        
+        SyncBar.init();
+        setupProfileModal();
+        setupFloatingAddButton();
+        updateHeaderStats();
+        setupFormHandlers();
+        
+        // Refresh current tab after data load
+        const currentTab = document.querySelector('[data-tab].active')?.getAttribute('data-tab') || 'overview';
+        setTimeout(() => switchTab(currentTab), 500);
+        
+        NotificationSystem.notifySuccess(`Welcome back, ${user.email.split('@')[0]}!`);
+        console.log('✅ App initialized');
+      } catch (error) {
+        console.error('❌ Error during login:', error);
+        NotificationSystem.notifyError('Error loading data');
+      }
+    } else {
+      window.location.href = "auth.html";
+    }
+  });
+});
+
 
 // ===========================
 // APP INITIALIZATION
@@ -2753,3 +2678,4 @@ window.editPayment = editPayment;
 window.deletePayment = deletePayment;
 window.NotificationSystem = NotificationSystem;
 window.switchTab = switchTab;
+window.emergencySwitchTab = emergencySwitchTab;
