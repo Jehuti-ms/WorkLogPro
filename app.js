@@ -1046,7 +1046,7 @@ function formatDateForInput(dateString) {
 }
 
 // ===========================
-// THEME MANAGEMENT - FIXED
+// THEME MANAGEMENT - SIMPLE WITH 🌓
 // ===========================
 
 function toggleTheme() {
@@ -1059,28 +1059,35 @@ function toggleTheme() {
     document.documentElement.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
     
-    // Update the theme button icon
-    updateThemeIcon(newTheme);
-    
-    console.log(`🎨 Theme changed to ${newTheme}`);
+    // Add animation to the button
+    animateThemeButton();
 }
 
-function updateThemeIcon(theme) {
+function animateThemeButton() {
     const themeButton = document.querySelector('.theme-toggle button');
     if (!themeButton) return;
     
-    // Update the button content with appropriate icons
-    if (theme === 'dark') {
-        themeButton.innerHTML = '☀️'; // Sun icon for dark mode
-        themeButton.setAttribute('title', 'Switch to light mode');
-    } else {
-        themeButton.innerHTML = '🌙'; // Moon icon for light mode
-        themeButton.setAttribute('title', 'Switch to dark mode');
-    }
+    // Add spin animation
+    themeButton.style.transform = 'rotate(180deg)';
+    themeButton.style.transition = 'transform 0.5s ease';
     
-    // Add some basic styles if not present
-    if (!themeButton.style.cssText) {
-        themeButton.style.cssText = `
+    // Reset animation after it completes
+    setTimeout(() => {
+        themeButton.style.transform = 'rotate(0deg)';
+    }, 500);
+}
+
+function setupThemeToggle() {
+    const themeToggle = document.querySelector('.theme-toggle button');
+    if (themeToggle) {
+        console.log('🎯 Found theme toggle button');
+        
+        // Set the 🌓 symbol
+        themeToggle.innerHTML = '🌓';
+        themeToggle.setAttribute('title', 'Toggle theme');
+        
+        // Add basic styles
+        themeToggle.style.cssText = `
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 50%;
@@ -1093,15 +1100,8 @@ function updateThemeIcon(theme) {
             font-size: 1.2em;
             transition: all 0.3s ease;
         `;
-    }
-}
-
-function setupThemeToggle() {
-    const themeToggle = document.querySelector('.theme-toggle button');
-    if (themeToggle) {
-        console.log('🎯 Found theme toggle button');
         
-        // Remove any existing event listeners
+        // Remove any existing event listeners by cloning
         const newButton = themeToggle.cloneNode(true);
         themeToggle.parentNode.replaceChild(newButton, themeToggle);
         
@@ -1122,10 +1122,6 @@ function setupThemeToggle() {
             this.style.transform = 'scale(1)';
         });
         
-        // Initialize the button appearance
-        const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-        updateThemeIcon(currentTheme);
-        
         console.log('✅ Theme toggle setup complete');
     } else {
         console.warn('⚠️ Theme toggle button not found');
@@ -1139,14 +1135,13 @@ function initializeTheme() {
     // Apply the theme
     document.documentElement.setAttribute('data-theme', savedTheme);
     
-    // Initialize the theme button after a short delay to ensure DOM is ready
+    // Initialize the theme button
     setTimeout(() => {
-        updateThemeIcon(savedTheme);
         setupThemeToggle();
     }, 100);
 }
 
-// Add some CSS for better theme button appearance
+// Add CSS for smooth animations
 function injectThemeStyles() {
     if (!document.querySelector('#theme-button-styles')) {
         const style = document.createElement('style');
