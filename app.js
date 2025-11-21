@@ -2092,12 +2092,12 @@ async function renderOverviewReports() {
 }
 
 // ===========================
-// BASE RATE MANAGEMENT - FIXED
+// BASE RATE MANAGEMENT - FIXED (NO DUPLICATES)
 // ===========================
 
 function initializeDefaultRate(rate) {
   const baseRateInput = document.getElementById('baseRate'); // Hours form
-  const studentBaseRateInput = document.getElementById('studentBaseRate'); // Student form
+  const studentRateInput = document.getElementById('studentRate'); // Student form  
   const defaultBaseRateInput = document.getElementById('defaultBaseRate'); // Settings panel
   
   console.log('💰 Initializing default rate:', rate);
@@ -2105,11 +2105,13 @@ function initializeDefaultRate(rate) {
   // Initialize hours form base rate
   if (baseRateInput && !baseRateInput.value) {
     baseRateInput.value = rate;
+    // Trigger calculation if hours form is visible
+    calculateTotalPay();
   }
   
   // Initialize student form base rate  
-  if (studentBaseRateInput && !studentBaseRateInput.value) {
-    studentBaseRateInput.value = rate;
+  if (studentRateInput && !studentRateInput.value) {
+    studentRateInput.value = rate;
   }
   
   // Initialize settings panel
@@ -2183,18 +2185,18 @@ async function applyDefaultRateToAll() {
 
 // Use default rate in student form
 function useDefaultRate() {
-  const studentBaseRateInput = document.getElementById('studentBaseRate');
+  const studentRateInput = document.getElementById('studentRate');
   const defaultBaseRateInput = document.getElementById('defaultBaseRate');
   
-  if (studentBaseRateInput && defaultBaseRateInput) {
-    studentBaseRateInput.value = defaultBaseRateInput.value;
+  if (studentRateInput && defaultBaseRateInput) {
+    studentRateInput.value = defaultBaseRateInput.value;
     NotificationSystem.notifyInfo('Default rate applied to student form');
   }
 }
 
 // Use default rate in hours form
 function useDefaultRateInHours() {
-  const baseRateInput = document.getElementById('baseRate');
+  const baseRateInput = document.getElementById('rate');
   const defaultBaseRateInput = document.getElementById('defaultBaseRate');
   
   if (baseRateInput && defaultBaseRateInput) {
@@ -2202,10 +2204,7 @@ function useDefaultRateInHours() {
     NotificationSystem.notifyInfo('Default rate applied to hours form');
     
     // Recalculate total if hours are entered
-    const hoursWorked = document.getElementById('hoursWorked');
-    if (hoursWorked && hoursWorked.value) {
-      calculateTotalPay();
-    }
+    calculateTotalPay();
   }
 }
 
