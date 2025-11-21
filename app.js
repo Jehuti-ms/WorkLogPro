@@ -2484,6 +2484,142 @@ async function handleStudentSubmit(e) {
 }
 
 // ===========================
+// STUDENT DROPDOWN POPULATION
+// ===========================
+
+async function populateStudentDropdowns() {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+        // Get students from cache or Firestore
+        let students = [];
+        
+        if (Array.isArray(cache.students) && cache.students.length > 0) {
+            students = cache.students;
+            console.log('📝 Using cached students for dropdowns:', students.length);
+        } else {
+            const studentsSnap = await getDocs(collection(db, "users", user.uid, "students"));
+            students = studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            console.log('📝 Loaded students from Firestore for dropdowns:', students.length);
+        }
+
+        // Get all student dropdowns
+        const studentDropdowns = [
+            document.getElementById('student'), // Hours form
+            document.getElementById('marksStudent'), // Marks form
+            document.getElementById('paymentStudent'), // Payments form
+            document.querySelector('select[name="student"]'),
+            document.querySelector('select[name="marksStudent"]'),
+            document.querySelector('select[name="paymentStudent"]')
+        ].filter(Boolean);
+
+        console.log('🎯 Found student dropdowns to populate:', studentDropdowns.length);
+
+        studentDropdowns.forEach(dropdown => {
+            // Clear existing options except the first one
+            while (dropdown.options.length > 1) {
+                dropdown.remove(1);
+            }
+
+            // Add students to dropdown
+            students.forEach(student => {
+                const option = document.createElement('option');
+                option.value = student.name || student.id;
+                option.textContent = student.name || `Student ${student.id}`;
+                dropdown.appendChild(option);
+            });
+
+            console.log(`✅ Populated dropdown ${dropdown.id || dropdown.name} with ${students.length} students`);
+        });
+
+        populateAttendanceStudents(students);
+
+    } catch (error) {
+        console.error('❌ Error populating student dropdowns:', error);
+    }
+}
+
+function populateAttendanceStudents(students) {
+    const attendanceContainer = document.getElementById('attendanceStudents');
+    if (!attendanceContainer) return;
+
+    attendanceContainer.innerHTML = '';
+
+    students.forEach(student => {
+        const label = document.createElement('label');
+        label.style.cssText = 'display: flex; align-items: center; gap: 8px; margin: 5px 0;';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.name = 'presentStudents';
+        checkbox.value = student.name || student.id;
+        
+        const span = document.createElement('span');
+        span.textContent = student.name || `Student ${student.id}`;
+        
+        label.appendChild(checkbox);
+        label.appendChild(span);
+        attendanceContainer.appendChild(label);
+    });
+
+    console.log('✅ Populated attendance with', students.length, 'students');
+}
+
+function setupFormStudentPopulation() {
+    console.log('🔧 Setting up student form population...');
+    
+    if (Array.isArray(cache.students) && cache.students.length > 0) {
+        populateStudentDropdowns();
+    }
+    
+    const formTabs = ['hours', 'marks', 'attendance', 'payments'];
+    formTabs.forEach(tabName => {
+        const tab = document.querySelector(`[data-tab="${tabName}"]`);
+        if (tab) {
+            tab.addEventListener('click', () => {
+                setTimeout(() => {
+                    if (Array.isArray(cache.students) && cache.students.length > 0) {
+                        populateStudentDropdowns();
+                    }
+                }, 300);
+            });
+        }
+    });
+}
+
+async function handleStudentSubmit(e) {
+    e.preventDefault();
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const formData = new FormData(e.target);
+    const studentData = {
+        name: formData.get('studentName'),
+        email: formData.get('studentEmail'),
+        phone: formData.get('studentPhone'),
+        gender: formData.get('studentGender'),
+        rate: safeNumber(formData.get('studentRate')),
+        createdAt: new Date().toISOString()
+    };
+
+    try {
+        await EnhancedCache.saveWithBackgroundSync('students', studentData);
+        FormAutoClear.handleSuccess('studentForm');
+        EnhancedStats.forceRefresh();
+        
+        // Refresh student dropdowns after adding new student
+        setTimeout(() => {
+            populateStudentDropdowns();
+        }, 500);
+        
+    } catch (error) {
+        console.error('Error adding student:', error);
+        NotificationSystem.notifyError('Failed to add student');
+    }
+}
+
+// ===========================
 // EDIT & DELETE FUNCTIONS
 // ===========================
 
