@@ -2092,7 +2092,7 @@ async function renderOverviewReports() {
 }
 
 // ===========================
-// BASE RATE MANAGEMENT - FIXED (NO DUPLICATES)
+// BASE RATE MANAGEMENT
 // ===========================
 
 function initializeDefaultRate(rate) {
@@ -2208,6 +2208,18 @@ function useDefaultRateInHours() {
   }
 }
 
+// Calculate total pay for hours form
+function calculateTotalPay() {
+  const hours = safeNumber(document.getElementById('hours')?.value);
+  const rate = safeNumber(document.getElementById('rate')?.value);
+  const total = hours * rate;
+  
+  const totalPayElement = document.getElementById('totalPay');
+  if (totalPayElement) {
+    totalPayElement.textContent = `$${fmtMoney(total)}`;
+  }
+}
+
 // ===========================
 // FORM HANDLERS
 // ===========================
@@ -2219,11 +2231,11 @@ function setupFormHandlers() {
     studentForm.addEventListener('submit', handleStudentSubmit);
     
     // Add base rate auto-fill
-    const studentBaseRateInput = document.getElementById('studentRate');
+    const studentRateInput = document.getElementById('studentRate');
     const defaultBaseRateInput = document.getElementById('defaultBaseRate');
     
-    if (studentBaseRateInput && defaultBaseRateInput && !studentBaseRateInput.value) {
-      studentBaseRateInput.value = defaultBaseRateInput.value || currentUserData?.defaultRate || '0';
+    if (studentRateInput && defaultBaseRateInput && !studentRateInput.value) {
+      studentRateInput.value = defaultBaseRateInput.value || currentUserData?.defaultRate || '0';
     }
   }
   
@@ -2235,15 +2247,15 @@ function setupFormHandlers() {
     // Add base rate auto-fill and calculation
     const baseRateInput = document.getElementById('rate');
     const defaultBaseRateInput = document.getElementById('defaultBaseRate');
-    const hoursWorkedInput = document.getElementById('hours');
+    const hoursInput = document.getElementById('hours');
     
     if (baseRateInput && defaultBaseRateInput && !baseRateInput.value) {
       baseRateInput.value = defaultBaseRateInput.value || currentUserData?.defaultRate || '0';
     }
     
     // Auto-calculate total when hours or rate changes
-    if (hoursWorkedInput) {
-      hoursWorkedInput.addEventListener('input', calculateTotalPay);
+    if (hoursInput) {
+      hoursInput.addEventListener('input', calculateTotalPay);
     }
     if (baseRateInput) {
       baseRateInput.addEventListener('input', calculateTotalPay);
@@ -2270,18 +2282,8 @@ function setupFormHandlers() {
   if (paymentForm) {
     paymentForm.addEventListener('submit', handlePaymentSubmit);
   }
-}
-
-// Calculate total pay for hours form
-function calculateTotalPay() {
-  const hours = safeNumber(document.getElementById('hours')?.value);
-  const rate = safeNumber(document.getElementById('rate')?.value);
-  const total = hours * rate;
   
-  const totalPayElement = document.getElementById('totalPay');
-  if (totalPayElement) {
-    totalPayElement.textContent = `$${fmtMoney(total)}`;
-  }
+  console.log('✅ All form handlers initialized');
 }
 
 async function handleStudentSubmit(e) {
