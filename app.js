@@ -1302,12 +1302,15 @@ async function loadUserProfile(uid) {
   
   const fallbackProfile = {
     email: user?.email || '',
-    createdAt: memberSince, // Use persistent member since date
+    createdAt: memberSince,
     defaultRate: parseFloat(localStorage.getItem('userDefaultRate')) || 0,
     memberSince: memberSince
   };
   
-  updateProfileButton(fallbackProfile);
+  // Initialize profile button with fallback data
+  if (typeof updateProfileButton === 'function') {
+    updateProfileButton(fallbackProfile);
+  }
   initializeDefaultRate(fallbackProfile.defaultRate);
   
   try {
@@ -1326,7 +1329,10 @@ async function loadUserProfile(uid) {
       
       console.log('✅ User profile loaded from Firestore');
       
-      updateProfileButton(currentUserData);
+      // Update profile button with actual data
+      if (typeof updateProfileButton === 'function') {
+        updateProfileButton(currentUserData);
+      }
       
       if (currentUserData.defaultRate !== undefined) {
         initializeDefaultRate(currentUserData.defaultRate);
@@ -1338,7 +1344,7 @@ async function loadUserProfile(uid) {
       const profileToCreate = {
         ...fallbackProfile,
         lastLogin: new Date().toISOString(),
-        memberSince: memberSince // Ensure it's set
+        memberSince: memberSince
       };
       
       await setDoc(userRef, profileToCreate);
@@ -1353,66 +1359,100 @@ async function loadUserProfile(uid) {
   }
 }
 
-function updateProfileModal() {
-  const profileUserEmail = document.getElementById('profileUserEmail');
-  const profileUserSince = document.getElementById('profileUserSince');
-  const profileDefaultRate = document.getElementById('profileDefaultRate');
-  const modalStatStudents = document.getElementById('modalStatStudents');
-  const modalStatHours = document.getElementById('modalStatHours');
-  const modalStatEarnings = document.getElementById('modalStatEarnings');
-  const modalStatUpdated = document.getElementById('modalStatUpdated');
+// ===========================
+// PROFILE BUTTON FUNCTIONS - ADD THIS SECTION
+// ===========================
 
-  if (currentUserData) {
-    const email = currentUserData.email || auth.currentUser?.email || 'Not available';
-    if (profileUserEmail) profileUserEmail.textContent = email;
+function updateProfileButton(userData) {
+  const profileBtn = document.getElementById('profileBtn');
+  const userName = document.getElementById('userName');
+  
+  if (profileBtn || userName) {
+    const email = userData?.email || auth.currentUser?.email || 'User';
+    const displayName = email.split('@')[0];
     
-    // FIX: Use persistent member since date
-    const memberSince = currentUserData.memberSince || localStorage.getItem('memberSince') || currentUserData.createdAt || new Date().toISOString();
-    if (profileUserSince) profileUserSince.textContent = formatDate(memberSince);
+    if (profileBtn) {
+      profileBtn.innerHTML = `👤 ${displayName}`;
+      profileBtn.title = `Logged in as ${email}`;
+    }
     
-    if (profileDefaultRate) {
-      profileDefaultRate.textContent = `$${fmtMoney(currentUserData.defaultRate || 0)}/hour`;
+    if (userName) {
+      userName.textContent = displayName;
+    }
+    
+    console.log('✅ Profile updated:', displayName);
+  }
+}
+
+function setupProfileModal() {
+  const profileBtn = document.getElementById('profileBtn');
+  const profileModal = document.getElementById('profileModal');
+  const closeProfileModal = document.getElementById('closeProfileModal');
+  const logoutBtn = document.getElementById('logoutBtn');
+
+  console.log('🔧 Setting up profile modal...');
+
+  if (!profileModal) {
+    console.error('❌ Profile modal not found in DOM');
+    return;
+  }
+
+  if (profileBtn && profileModal) {
+    profileBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('👤 Profile button clicked');
+      
+      updateProfileModal();
+      profileModal.style.display = 'flex';
+      document.body.classList.add('modal-open');
+    });
+  } else {
+    console.error('❌ Profile button or modal not found');
+  }
+
+  if (closeProfileModal) {
+    closeProfileModal.addEventListener('click', () => {
+      closeModal();
+    });
+  }
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      if (confirm('Are you sure you want to logout?')) {
+        try {
+          await signOut(auth);
+          // Clear all local storage
+          localStorage.clear();
+          window.location.href = "auth.html";
+        } catch (error) {
+          console.error('Logout error:', error);
+          NotificationSystem.notifyError('Logout failed');
+        }
+      }
+    });
+  }
+
+  function closeModal() {
+    if (profileModal) {
+      profileModal.style.display = 'none';
+      document.body.classList.remove('modal-open');
     }
   }
 
-  // Calculate and display actual earnings
-  calculateAndDisplayActualEarnings();
+  // Close modal when clicking outside
+  window.addEventListener('click', (event) => {
+    if (profileModal && event.target === profileModal) {
+      closeModal();
+    }
+  });
 
-  const statStudents = document.getElementById('statStudents');
-  const statHours = document.getElementById('statHours');
-  const statUpdated = document.getElementById('statUpdated');
-
-  if (modalStatStudents && statStudents) modalStatStudents.textContent = statStudents.textContent || '0';
-  if (modalStatHours && statHours) modalStatHours.textContent = statHours.textContent || '0';
-  if (modalStatUpdated && statUpdated) modalStatUpdated.textContent = statUpdated.textContent || 'Never';
-
-  console.log('✅ Profile modal stats updated');
-}
-
-// Calculate actual earnings from hours data
-async function calculateAndDisplayActualEarnings() {
-  const modalStatEarnings = document.getElementById('modalStatEarnings');
-  if (!modalStatEarnings) return;
-
-  try {
-    const hours = await EnhancedCache.loadCollection('hours');
-    
-    const totalEarnings = hours.reduce((sum, entry) => {
-      return sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0));
-    }, 0);
-
-    modalStatEarnings.textContent = `$${fmtMoney(totalEarnings)}`;
-    console.log('💰 Calculated actual earnings:', totalEarnings);
-
-  } catch (error) {
-    console.error('Error calculating earnings:', error);
-    modalStatEarnings.textContent = '$0.00';
-  }
-}
-
-// Helper function to get member since date
-function getMemberSinceDate() {
-  return localStorage.getItem('memberSince') || new Date().toISOString();
+  // Close modal with Escape key
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && profileModal && profileModal.style.display === 'flex') {
+      closeModal();
+    }
+  });
 }
 
 // ===========================
@@ -3298,10 +3338,12 @@ document.addEventListener('DOMContentLoaded', () => {
           localStorage.setItem('memberSince', new Date().toISOString());
         }
 
-        // Load all data in parallel with proper caching
+        // Load user profile first
+        await loadUserProfile(user.uid);
+        
+        // Then load all data in parallel
         await Promise.all([
-          loadUserProfile(user.uid),
-          EnhancedCache.loadCollection('students', true), // Force refresh on app start
+          EnhancedCache.loadCollection('students', true),
           EnhancedCache.loadCollection('hours', true),
           EnhancedCache.loadCollection('marks', true),
           EnhancedCache.loadCollection('attendance', true),
@@ -3310,13 +3352,13 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Initialize systems that depend on user data
         SyncBar.init();
-        setupProfileModal();
+        setupProfileModal(); // Make sure this is called
         setupFloatingAddButton();
         updateHeaderStats();
         
         // Setup form handlers and populate student dropdowns
         setupFormHandlers();
-        await populateStudentDropdowns(); // Ensure dropdowns are populated
+        await populateStudentDropdowns();
         
         // Render all data
         await Promise.all([
@@ -3330,10 +3372,10 @@ document.addEventListener('DOMContentLoaded', () => {
         ]);
 
         NotificationSystem.notifySuccess(`Welcome back, ${user.email.split('@')[0]}!`);
-        console.log('✅ Worklog App initialized successfully with cached data');
+        console.log('✅ Worklog App initialized successfully');
       } catch (error) {
         console.error('❌ Error during user login:', error);
-        NotificationSystem.notifyError('Error loading user data');
+        NotificationSystem.notifyError('Error loading user data: ' + error.message);
       }
     } else {
       console.log('👤 No user, redirecting to auth...');
@@ -3343,9 +3385,15 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ===========================
-// EXPORT FUNCTIONS TO WINDOW
+// EXPORT FUNCTIONS TO WINDOW OBJECT
 // ===========================
 
+// Make sure all necessary functions are available globally
+window.updateProfileButton = updateProfileButton;
+window.setupProfileModal = setupProfileModal;
+window.loadUserProfile = loadUserProfile;
+
+// Your existing exports
 window.showWeeklyBreakdown = showWeeklyBreakdown;
 window.showBiWeeklyBreakdown = showBiWeeklyBreakdown;
 window.showMonthlyBreakdown = showMonthlyBreakdown;
@@ -3366,3 +3414,5 @@ window.editPayment = editPayment;
 window.deletePayment = deletePayment;
 window.NotificationSystem = NotificationSystem;
 window.switchTab = switchTab;
+
+console.log('✅ All functions exported to window object');
