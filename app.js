@@ -2076,41 +2076,156 @@ async function renderOverviewReports() {
 }
 
 // ===========================
-// BASE RATE MANAGEMENT
+// FORM SUBMIT HANDLERS - DEFINED FIRST
 // ===========================
 
-function initializeDefaultRate(rate) {
-  const baseRateInput = document.getElementById('baseRate');
-  const studentRateInput = document.getElementById('studentRate');  
-  const defaultBaseRateInput = document.getElementById('defaultBaseRate');
-  
-  console.log('💰 Initializing default rate:', rate);
-  
-  if (baseRateInput && !baseRateInput.value) {
-    baseRateInput.value = rate;
-    calculateTotalPay();
-  }
-  
-  if (studentRateInput && !studentRateInput.value) {
-    studentRateInput.value = rate;
-  }
-  
-  if (defaultBaseRateInput && !defaultBaseRateInput.value) {
-    defaultBaseRateInput.value = rate;
-  }
-  
-  const currentDefaultRateDisplay = document.getElementById('currentDefaultRateDisplay');
-  if (currentDefaultRateDisplay) {
-    currentDefaultRateDisplay.textContent = fmtMoney(rate);
-  }
-  
-  const currentDefaultRate = document.getElementById('currentDefaultRate');
-  if (currentDefaultRate) {
-    currentDefaultRate.textContent = fmtMoney(rate);
+async function handleStudentSubmit(e) {
+  e.preventDefault();
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const formData = new FormData(e.target);
+  const studentData = {
+    name: formData.get('studentName'),
+    email: formData.get('studentEmail'),
+    phone: formData.get('studentPhone'),
+    gender: formData.get('studentGender'),
+    rate: safeNumber(formData.get('studentRate')),
+    createdAt: new Date().toISOString()
+  };
+
+  try {
+    await EnhancedCache.saveWithBackgroundSync('students', studentData);
+    FormAutoClear.handleSuccess('studentForm');
+    EnhancedStats.forceRefresh();
+  } catch (error) {
+    console.error('Error adding student:', error);
+    NotificationSystem.notifyError('Failed to add student');
   }
 }
 
-// Calculate total pay for hours form
+async function handleHoursSubmit(e) {
+  e.preventDefault();
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const formData = new FormData(e.target);
+  const hours = safeNumber(formData.get('hours'));
+  const rate = safeNumber(formData.get('rate'));
+  const total = hours * rate;
+
+  const hoursData = {
+    organization: formData.get('organization'),
+    workType: formData.get('workType'),
+    subject: formData.get('subject'),
+    student: formData.get('student'),
+    hours: hours,
+    rate: rate,
+    total: total,
+    date: formData.get('date'),
+    dateIso: fmtDateISO(formData.get('date')),
+    notes: formData.get('notes')
+  };
+
+  try {
+    await EnhancedCache.saveWithBackgroundSync('hours', hoursData);
+    FormAutoClear.handleSuccess('hoursForm', { baseRate: rate });
+    EnhancedStats.forceRefresh();
+  } catch (error) {
+    console.error('Error adding hours:', error);
+    NotificationSystem.notifyError('Failed to log hours');
+  }
+}
+
+async function handleMarksSubmit(e) {
+  e.preventDefault();
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const formData = new FormData(e.target);
+  const score = safeNumber(formData.get('marksScore'));
+  const max = safeNumber(formData.get('marksMax'));
+  const percentage = max > 0 ? (score / max) * 100 : 0;
+
+  const marksData = {
+    student: formData.get('marksStudent'),
+    subject: formData.get('marksSubject'),
+    topic: formData.get('marksTopic'),
+    score: score,
+    max: max,
+    percentage: percentage,
+    grade: calculateGrade(percentage),
+    date: formData.get('marksDate'),
+    dateIso: fmtDateISO(formData.get('marksDate')),
+    notes: formData.get('marksNotes')
+  };
+
+  try {
+    await EnhancedCache.saveWithBackgroundSync('marks', marksData);
+    FormAutoClear.handleSuccess('marksForm');
+    EnhancedStats.forceRefresh();
+  } catch (error) {
+    console.error('Error adding marks:', error);
+    NotificationSystem.notifyError('Failed to add marks');
+  }
+}
+
+async function handleAttendanceSubmit(e) {
+  e.preventDefault();
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const formData = new FormData(e.target);
+  const presentStudents = formData.getAll('presentStudents');
+
+  const attendanceData = {
+    subject: formData.get('attendanceSubject'),
+    topic: formData.get('attendanceTopic'),
+    present: presentStudents,
+    date: formData.get('attendanceDate'),
+    dateIso: fmtDateISO(formData.get('attendanceDate')),
+    notes: formData.get('attendanceNotes')
+  };
+
+  try {
+    await EnhancedCache.saveWithBackgroundSync('attendance', attendanceData);
+    FormAutoClear.handleSuccess('attendanceForm');
+    EnhancedStats.forceRefresh();
+  } catch (error) {
+    console.error('Error recording attendance:', error);
+    NotificationSystem.notifyError('Failed to record attendance');
+  }
+}
+
+async function handlePaymentSubmit(e) {
+  e.preventDefault();
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const formData = new FormData(e.target);
+  const paymentData = {
+    student: formData.get('paymentStudent'),
+    amount: safeNumber(formData.get('paymentAmount')),
+    method: formData.get('paymentMethod'),
+    date: formData.get('paymentDate'),
+    dateIso: fmtDateISO(formData.get('paymentDate')),
+    notes: formData.get('paymentNotes')
+  };
+
+  try {
+    await EnhancedCache.saveWithBackgroundSync('payments', paymentData);
+    FormAutoClear.handleSuccess('paymentForm');
+    EnhancedStats.forceRefresh();
+  } catch (error) {
+    console.error('Error recording payment:', error);
+    NotificationSystem.notifyError('Failed to record payment');
+  }
+}
+
+// ===========================
+// FORM SETUP & BASE RATE FUNCTIONS - DEFINED AFTER HANDLERS
+// ===========================
+
 function calculateTotalPay() {
   const hours = safeNumber(document.getElementById('hours')?.value);
   const rate = safeNumber(document.getElementById('rate')?.value);
@@ -2121,10 +2236,6 @@ function calculateTotalPay() {
     totalPayElement.textContent = `$${fmtMoney(total)}`;
   }
 }
-
-// ===========================
-// FORM HANDLERS
-// ===========================
 
 function setupFormHandlers() {
   const studentForm = document.getElementById('studentForm');
@@ -2167,6 +2278,108 @@ function setupFormHandlers() {
   if (paymentForm) paymentForm.addEventListener('submit', handlePaymentSubmit);
   
   console.log('✅ All form handlers initialized');
+}
+
+function initializeDefaultRate(rate) {
+  const baseRateInput = document.getElementById('baseRate');
+  const studentRateInput = document.getElementById('studentRate');  
+  const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+  
+  console.log('💰 Initializing default rate:', rate);
+  
+  if (baseRateInput && !baseRateInput.value) {
+    baseRateInput.value = rate;
+    calculateTotalPay();
+  }
+  
+  if (studentRateInput && !studentRateInput.value) {
+    studentRateInput.value = rate;
+  }
+  
+  if (defaultBaseRateInput && !defaultBaseRateInput.value) {
+    defaultBaseRateInput.value = rate;
+  }
+  
+  const currentDefaultRateDisplay = document.getElementById('currentDefaultRateDisplay');
+  if (currentDefaultRateDisplay) {
+    currentDefaultRateDisplay.textContent = fmtMoney(rate);
+  }
+  
+  const currentDefaultRate = document.getElementById('currentDefaultRate');
+  if (currentDefaultRate) {
+    currentDefaultRate.textContent = fmtMoney(rate);
+  }
+}
+
+async function saveDefaultRate() {
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to save default rate');
+    return;
+  }
+  
+  const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+  if (!defaultBaseRateInput) {
+    NotificationSystem.notifyError('Default rate input not found');
+    return;
+  }
+  
+  const newRate = safeNumber(defaultBaseRateInput.value);
+  if (newRate <= 0) {
+    NotificationSystem.notifyError('Please enter a valid rate greater than 0');
+    return;
+  }
+  
+  try {
+    const success = await updateUserDefaultRate(user.uid, newRate);
+    if (success) {
+      NotificationSystem.notifySuccess(`Default rate saved: $${fmtMoney(newRate)}/session`);
+      initializeDefaultRate(newRate);
+    }
+  } catch (error) {
+    console.error('Error saving default rate:', error);
+    NotificationSystem.notifyError('Failed to save default rate');
+  }
+}
+
+async function applyDefaultRateToAll() {
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to apply default rate');
+    return;
+  }
+  
+  if (confirm('Apply the default rate to ALL existing students? This cannot be undone.')) {
+    const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+    const newRate = defaultBaseRateInput ? safeNumber(defaultBaseRateInput.value) : currentUserData?.defaultRate || 0;
+    
+    if (newRate > 0) {
+      await applyDefaultRateToAllStudents(user.uid, newRate);
+    } else {
+      NotificationSystem.notifyError('Please set a valid default rate first');
+    }
+  }
+}
+
+function useDefaultRate() {
+  const studentRateInput = document.getElementById('studentRate');
+  const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+  
+  if (studentRateInput && defaultBaseRateInput) {
+    studentRateInput.value = defaultBaseRateInput.value;
+    NotificationSystem.notifyInfo('Default rate applied to student form');
+  }
+}
+
+function useDefaultRateInHours() {
+  const baseRateInput = document.getElementById('rate');
+  const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+  
+  if (baseRateInput && defaultBaseRateInput) {
+    baseRateInput.value = defaultBaseRateInput.value;
+    NotificationSystem.notifyInfo('Default rate applied to hours form');
+    calculateTotalPay();
+  }
 }
 
 // ===========================
