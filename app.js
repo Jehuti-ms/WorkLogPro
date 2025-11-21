@@ -2300,8 +2300,15 @@ function calculateTotalPay() {
   }
 }
 
+// ===========================
+// ENHANCED FORM SETUP WITH DROPDOWN SUPPORT
+// ===========================
+
 function setupFormHandlers() {
-  console.log('🔧 Setting up form handlers...');
+  console.log('🔧 Setting up form handlers with dropdown support...');
+  
+  // Initialize dropdown manager
+  StudentDropdownManager.init();
   
   const studentForm = document.getElementById('studentForm');
   if (studentForm) {
@@ -2322,6 +2329,7 @@ function setupFormHandlers() {
     const baseRateInput = document.getElementById('rate');
     const defaultBaseRateInput = document.getElementById('defaultBaseRate');
     const hoursInput = document.getElementById('hours');
+    const studentDropdown = document.getElementById('student');
     
     if (baseRateInput && defaultBaseRateInput && !baseRateInput.value) {
       baseRateInput.value = defaultBaseRateInput.value || currentUserData?.defaultRate || '0';
@@ -2330,22 +2338,86 @@ function setupFormHandlers() {
     if (hoursInput) hoursInput.addEventListener('input', calculateTotalPay);
     if (baseRateInput) baseRateInput.addEventListener('input', calculateTotalPay);
     
+    // Enhance student dropdown in hours form
+    if (studentDropdown) {
+      studentDropdown.addEventListener('focus', async () => {
+        console.log('🎯 Hours form student dropdown focused');
+        await StudentDropdownManager.refreshAllDropdowns();
+      });
+    }
+    
     calculateTotalPay();
   }
   
   const marksForm = document.getElementById('marksForm');
-  if (marksForm) marksForm.addEventListener('submit', handleMarksSubmit);
+  if (marksForm) {
+    marksForm.addEventListener('submit', handleMarksSubmit);
+    
+    const studentDropdown = document.getElementById('marksStudent');
+    if (studentDropdown) {
+      studentDropdown.addEventListener('focus', async () => {
+        console.log('🎯 Marks form student dropdown focused');
+        await StudentDropdownManager.refreshAllDropdowns();
+      });
+    }
+  }
   
   const attendanceForm = document.getElementById('attendanceForm');
-  if (attendanceForm) attendanceForm.addEventListener('submit', handleAttendanceSubmit);
+  if (attendanceForm) {
+    attendanceForm.addEventListener('submit', handleAttendanceSubmit);
+    
+    // Refresh attendance students when form is shown
+    const attendanceTab = document.querySelector('[data-tab="attendance"]');
+    if (attendanceTab) {
+      attendanceTab.addEventListener('click', async () => {
+        setTimeout(async () => {
+          console.log('🎯 Attendance tab opened, refreshing students...');
+          await StudentDropdownManager.refreshAllDropdowns();
+        }, 500);
+      });
+    }
+  }
   
   const paymentForm = document.getElementById('paymentForm');
-  if (paymentForm) paymentForm.addEventListener('submit', handlePaymentSubmit);
+  if (paymentForm) {
+    paymentForm.addEventListener('submit', handlePaymentSubmit);
+    
+    const studentDropdown = document.getElementById('paymentStudent');
+    if (studentDropdown) {
+      studentDropdown.addEventListener('focus', async () => {
+        console.log('🎯 Payment form student dropdown focused');
+        await StudentDropdownManager.refreshAllDropdowns();
+      });
+    }
+  }
   
-  // Setup student dropdown population
+  // Setup student dropdown population on tab changes
   setupFormStudentPopulation();
   
-  console.log('✅ All form handlers initialized');
+  console.log('✅ All form handlers with dropdown support initialized');
+}
+
+function setupFormStudentPopulation() {
+  console.log('🔧 Setting up student form population...');
+  
+  // Populate dropdowns immediately if we have data
+  if (Array.isArray(cache.students) && cache.students.length > 0) {
+    setTimeout(() => populateStudentDropdowns(), 1000);
+  }
+  
+  // Set up tab change listeners
+  const formTabs = ['hours', 'marks', 'attendance', 'payments'];
+  formTabs.forEach(tabName => {
+    const tab = document.querySelector(`[data-tab="${tabName}"]`);
+    if (tab) {
+      tab.addEventListener('click', () => {
+        setTimeout(async () => {
+          console.log(`🎯 ${tabName} tab activated, refreshing dropdowns...`);
+          await StudentDropdownManager.refreshAllDropdowns();
+        }, 300);
+      });
+    }
+  });
 }
 
 function initializeDefaultRate(rate) {
@@ -2553,7 +2625,109 @@ async function refreshAllUI() {
 }
 
 // ===========================
-// FIXED STUDENT DROPDOWN POPULATION
+// ENHANCED STUDENT DROPDOWN SYSTEM
+// ===========================
+
+const StudentDropdownManager = {
+  initialized: false,
+  dropdowns: [],
+  
+  init() {
+    if (this.initialized) return;
+    
+    console.log('🎯 Initializing student dropdown manager...');
+    this.setupDropdownListeners();
+    this.initialized = true;
+  },
+  
+  setupDropdownListeners() {
+    // Watch for tab changes to refresh dropdowns
+    document.addEventListener('click', (e) => {
+      if (e.target.matches('.tab[data-tab]')) {
+        setTimeout(() => this.refreshAllDropdowns(), 300);
+      }
+    });
+    
+    // Watch for form submissions that might add new students
+    document.addEventListener('submit', (e) => {
+      if (e.target.id === 'studentForm') {
+        setTimeout(() => this.refreshAllDropdowns(), 1000);
+      }
+    });
+  },
+  
+  async refreshAllDropdowns() {
+    console.log('🔄 Refreshing all student dropdowns...');
+    await populateStudentDropdowns();
+    this.enhanceDropdownBehavior();
+  },
+  
+  enhanceDropdownBehavior() {
+    // Get all student dropdowns
+    const dropdownSelectors = [
+      '#student', // Hours form
+      '#marksStudent', // Marks form  
+      '#paymentStudent', // Payments form
+      'select[name="student"]',
+      'select[name="marksStudent"]', 
+      'select[name="paymentStudent"]'
+    ];
+    
+    this.dropdowns = [];
+    dropdownSelectors.forEach(selector => {
+      const elements = document.querySelectorAll(selector);
+      elements.forEach(el => {
+        if (el && !this.dropdowns.includes(el)) {
+          this.dropdowns.push(el);
+          this.enhanceSingleDropdown(el);
+        }
+      });
+    });
+    
+    console.log(`✅ Enhanced ${this.dropdowns.length} student dropdowns`);
+  },
+  
+  enhanceSingleDropdown(dropdown) {
+    // Remove existing event listeners by cloning
+    const newDropdown = dropdown.cloneNode(true);
+    dropdown.parentNode.replaceChild(newDropdown, dropdown);
+    
+    // Add click handler to open and refresh
+    newDropdown.addEventListener('click', async (e) => {
+      console.log('🎯 Student dropdown clicked:', newDropdown.id || newDropdown.name);
+      
+      // Refresh data if dropdown is empty
+      if (newDropdown.options.length <= 1) {
+        console.log('🔄 Dropdown empty, refreshing students...');
+        await this.refreshAllDropdowns();
+      }
+    });
+    
+    // Add focus handler
+    newDropdown.addEventListener('focus', async (e) => {
+      console.log('🎯 Student dropdown focused:', newDropdown.id || newDropdown.name);
+      
+      // Ensure we have the latest students
+      const students = await EnhancedCache.loadCollection('students');
+      if (students.length > 0 && newDropdown.options.length <= 1) {
+        console.log('🔄 Populating dropdown on focus...');
+        await populateStudentDropdowns();
+      }
+    });
+    
+    return newDropdown;
+  },
+  
+  // Force refresh all dropdowns
+  async forceRefresh() {
+    console.log('🔄 Force refreshing all dropdowns...');
+    await populateStudentDropdowns();
+    this.enhanceDropdownBehavior();
+  }
+};
+
+// ===========================
+// UPDATED STUDENT DROPDOWN POPULATION
 // ===========================
 
 async function populateStudentDropdowns() {
@@ -2566,15 +2740,15 @@ async function populateStudentDropdowns() {
   try {
     console.log('🔄 Populating student dropdowns...');
     
-    // Use cached students or load fresh
-    let students = cache.students;
-    if (!Array.isArray(students) || students.length === 0) {
-      console.log('📥 Loading students for dropdowns...');
-      students = await loadCollectionWithRetry('students');
-      cache.students = students;
-    }
-
+    // Load fresh student data
+    const students = await EnhancedCache.loadCollection('students');
     console.log(`📝 Found ${students.length} students for dropdowns`);
+
+    if (students.length === 0) {
+      console.log('⚠️ No students found for dropdowns');
+      this.showNoStudentsMessage();
+      return;
+    }
 
     // Get all dropdown elements
     const dropdownSelectors = [
@@ -2589,46 +2763,72 @@ async function populateStudentDropdowns() {
     const dropdowns = [];
     dropdownSelectors.forEach(selector => {
       const elements = document.querySelectorAll(selector);
-      elements.forEach(el => dropdowns.push(el));
+      elements.forEach(el => {
+        if (el) dropdowns.push(el);
+      });
     });
 
     console.log(`🎯 Found ${dropdowns.length} student dropdowns to populate`);
 
     dropdowns.forEach(dropdown => {
-      if (!dropdown) return;
-
-      // Store current selection
-      const currentValue = dropdown.value;
-      
-      // Clear existing options except the first placeholder
-      while (dropdown.options.length > 1) {
-        dropdown.remove(1);
-      }
-
-      // Add students to dropdown
-      students.forEach(student => {
-        const studentName = student.name || `Student ${student.id}`;
-        const option = document.createElement('option');
-        option.value = studentName;
-        option.textContent = studentName;
-        option.setAttribute('data-student-id', student.id);
-        dropdown.appendChild(option);
-      });
-
-      // Restore selection if possible
-      if (currentValue && dropdown.querySelector(`option[value="${currentValue}"]`)) {
-        dropdown.value = currentValue;
-      }
-
-      console.log(`✅ Populated ${dropdown.id || dropdown.name} with ${students.length} students`);
+      this.populateSingleDropdown(dropdown, students);
     });
 
     // Update attendance checkboxes
-    populateAttendanceStudents(students);
+    this.populateAttendanceStudents(students);
+    
+    console.log('✅ All student dropdowns populated successfully');
 
   } catch (error) {
     console.error('❌ Error populating student dropdowns:', error);
+    this.showDropdownError();
   }
+}
+
+function populateSingleDropdown(dropdown, students) {
+  if (!dropdown) return;
+
+  // Store current selection
+  const currentValue = dropdown.value;
+  const currentIndex = dropdown.selectedIndex;
+  
+  // Clear existing options except the first placeholder
+  while (dropdown.options.length > 0) {
+    dropdown.remove(0);
+  }
+
+  // Add default placeholder option
+  const defaultOption = document.createElement('option');
+  defaultOption.value = '';
+  defaultOption.textContent = 'Select a student...';
+  defaultOption.disabled = true;
+  defaultOption.selected = true;
+  dropdown.appendChild(defaultOption);
+
+  // Add students to dropdown
+  students.forEach(student => {
+    const studentName = student.name || `Student ${student.id}`;
+    const option = document.createElement('option');
+    option.value = studentName;
+    option.textContent = studentName;
+    option.setAttribute('data-student-id', student.id);
+    dropdown.appendChild(option);
+  });
+
+  // Restore selection if possible
+  if (currentValue && dropdown.querySelector(`option[value="${currentValue}"]`)) {
+    dropdown.value = currentValue;
+  } else if (currentIndex > 0 && dropdown.options.length > currentIndex) {
+    dropdown.selectedIndex = currentIndex;
+  }
+
+  // Add visual feedback
+  dropdown.style.borderColor = '#10b981';
+  setTimeout(() => {
+    dropdown.style.borderColor = '';
+  }, 1000);
+
+  console.log(`✅ Populated ${dropdown.id || dropdown.name} with ${students.length} students`);
 }
 
 function populateAttendanceStudents(students) {
@@ -2643,32 +2843,79 @@ function populateAttendanceStudents(students) {
   attendanceContainer.innerHTML = '';
 
   if (students.length === 0) {
-    attendanceContainer.innerHTML = '<div class="muted">No students available. Add students first.</div>';
+    attendanceContainer.innerHTML = `
+      <div class="empty-state">
+        <p>No students available. Please add students first.</p>
+      </div>
+    `;
     return;
   }
 
   students.forEach(student => {
     const studentName = student.name || `Student ${student.id}`;
     
-    const label = document.createElement('label');
-    label.style.cssText = 'display: flex; align-items: center; gap: 8px; margin: 8px 0; padding: 8px; border-radius: 4px; background: var(--border-light);';
+    const container = document.createElement('div');
+    container.style.cssText = 'display: flex; align-items: center; gap: 12px; margin: 8px 0; padding: 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border);';
     
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.name = 'presentStudents';
     checkbox.value = studentName;
     checkbox.id = `attendance-${student.id}`;
+    checkbox.style.cssText = 'width: 18px; height: 18px;';
     
-    const span = document.createElement('span');
-    span.textContent = studentName;
-    span.style.cssText = 'flex: 1;';
+    const label = document.createElement('label');
+    label.htmlFor = `attendance-${student.id}`;
+    label.textContent = studentName;
+    label.style.cssText = 'flex: 1; margin: 0; cursor: pointer; font-weight: 500;';
     
-    label.appendChild(checkbox);
-    label.appendChild(span);
-    attendanceContainer.appendChild(label);
+    const studentInfo = document.createElement('span');
+    studentInfo.textContent = `Rate: $${fmtMoney(student.rate || 0)}`;
+    studentInfo.style.cssText = 'font-size: 0.85em; color: var(--muted);';
+    
+    container.appendChild(checkbox);
+    container.appendChild(label);
+    container.appendChild(studentInfo);
+    attendanceContainer.appendChild(container);
   });
 
   console.log('✅ Attendance students populated');
+}
+
+function showNoStudentsMessage() {
+  const dropdowns = document.querySelectorAll('select[name="student"], select[name="marksStudent"], select[name="paymentStudent"]');
+  
+  dropdowns.forEach(dropdown => {
+    if (dropdown && dropdown.options.length <= 1) {
+      dropdown.innerHTML = '';
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = 'No students available - Add students first';
+      option.disabled = true;
+      option.selected = true;
+      dropdown.appendChild(option);
+    }
+  });
+}
+
+function showDropdownError() {
+  const dropdowns = document.querySelectorAll('select[name="student"], select[name="marksStudent"], select[name="paymentStudent"]');
+  
+  dropdowns.forEach(dropdown => {
+    if (dropdown) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = 'Error loading students - Click to refresh';
+      option.disabled = true;
+      option.selected = true;
+      dropdown.appendChild(option);
+      
+      // Add click handler to retry
+      dropdown.addEventListener('click', async () => {
+        await populateStudentDropdowns();
+      });
+    }
+  });
 }
 
 // ===========================
@@ -3608,48 +3855,355 @@ document.addEventListener('DOMContentLoaded', () => {
     setupTabNavigation();
   }, 100);
   
- // Wait for authentication
+// ===========================
+// ENHANCED AUTH STATE HANDLER
+// ===========================
+
+// Wait for authentication
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     console.log('👤 User authenticated:', user.email);
+    
+    // Show loading state
+    document.body.classList.add('loading');
+    
     try {
-      // Initialize member since date if not set
+      console.log('🚀 Starting app initialization...');
+      
+      // Step 1: Initialize persistent data
       if (!localStorage.getItem('memberSince')) {
         localStorage.setItem('memberSince', new Date().toISOString());
+        console.log('✅ Member since date initialized');
       }
 
-      // Load user profile first
+      // Step 2: Load user profile
+      console.log('📋 Loading user profile...');
       await loadUserProfile(user.uid);
-      
-      // Load ALL data from Firebase
+      console.log('✅ User profile loaded');
+
+      // Step 3: Load ALL data from Firebase with progress tracking
+      console.log('📥 Loading all data from Firebase...');
       const dataLoaded = await loadAllData();
       
       if (!dataLoaded) {
+        console.warn('⚠️ Using cached data - some features may be limited');
         NotificationSystem.notifyWarning('Using cached data - some features may be limited');
+      } else {
+        console.log('✅ All data loaded successfully from Firebase');
       }
-      
-      // Initialize UI components
+
+      // Step 4: Initialize core UI components
+      console.log('🎨 Initializing UI components...');
       SyncBar.init();
       setupProfileModal();
       setupFloatingAddButton();
       updateHeaderStats();
+      
+      // Step 5: Initialize dropdown manager and forms
+      console.log('⚙️ Setting up forms and dropdowns...');
+      StudentDropdownManager.init();
       setupFormHandlers();
       
-      // Force refresh stats
-      EnhancedStats.forceRefresh();
-
-      NotificationSystem.notifySuccess(`Welcome back, ${user.email.split('@')[0]}! Data loaded successfully.`);
-      console.log('✅ Worklog App initialized successfully');
+      // Step 6: Force refresh all dropdowns with retry logic
+      console.log('🔄 Refreshing student dropdowns...');
+      let dropdownsPopulated = false;
+      let retryCount = 0;
       
+      while (!dropdownsPopulated && retryCount < 3) {
+        try {
+          await StudentDropdownManager.forceRefresh();
+          const students = await EnhancedCache.loadCollection('students');
+          if (students.length > 0) {
+            dropdownsPopulated = true;
+            console.log('✅ Student dropdowns populated successfully');
+          } else {
+            retryCount++;
+            console.log(`🔄 No students found, retry ${retryCount}/3...`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        } catch (error) {
+          retryCount++;
+          console.error(`❌ Dropdown population failed, retry ${retryCount}/3:`, error);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      // Step 7: Force refresh all stats and UI
+      console.log('📊 Refreshing stats and UI...');
+      EnhancedStats.forceRefresh();
+      
+      // Additional UI refresh to ensure everything is updated
+      setTimeout(() => {
+        refreshAllUI();
+        EnhancedStats.forceRefresh();
+      }, 2000);
+
+      // Step 8: Set up periodic data refresh
+      console.log('⏰ Setting up periodic data refresh...');
+      setInterval(async () => {
+        try {
+          await loadAllData();
+          EnhancedStats.forceRefresh();
+          console.log('✅ Periodic data refresh completed');
+        } catch (error) {
+          console.error('❌ Periodic data refresh failed:', error);
+        }
+      }, 60000); // Refresh every 60 seconds
+
+      // Step 9: Final initialization complete
+      document.body.classList.remove('loading');
+      
+      // Show success notification with user info
+      const displayName = user.email.split('@')[0];
+      NotificationSystem.notifySuccess(
+        `Welcome back, ${displayName}! All systems ready.`, 
+        3000
+      );
+      
+      console.log('🎉 Worklog App fully initialized and ready!');
+      console.log('📊 Current data state:', {
+        students: cache.students?.length || 0,
+        hours: cache.hours?.length || 0,
+        marks: cache.marks?.length || 0,
+        attendance: cache.attendance?.length || 0,
+        payments: cache.payments?.length || 0
+      });
+
     } catch (error) {
-      console.error('❌ Error during user login:', error);
-      NotificationSystem.notifyError('Error loading app: ' + error.message);
+      // Comprehensive error handling
+      document.body.classList.remove('loading');
+      
+      console.error('❌ Critical error during app initialization:', error);
+      
+      let errorMessage = 'Failed to load application. ';
+      
+      if (error.code === 'permission-denied') {
+        errorMessage += 'Permission denied. Please check your Firebase rules.';
+      } else if (error.code === 'unavailable') {
+        errorMessage += 'Network unavailable. Using offline data.';
+      } else if (error.message.includes('quota')) {
+        errorMessage += 'Firebase quota exceeded. Please try again later.';
+      } else {
+        errorMessage += error.message;
+      }
+      
+      NotificationSystem.notifyError(errorMessage);
+      
+      // Try to load from cache as fallback
+      try {
+        console.log('🔄 Attempting to load from cache...');
+        EnhancedCache.loadCachedData();
+        EnhancedStats.forceRefresh();
+        NotificationSystem.notifyInfo('Loaded cached data. Some features may be limited.');
+      } catch (cacheError) {
+        console.error('❌ Cache load also failed:', cacheError);
+      }
     }
+    
   } else {
-    console.log('👤 No user, redirecting to auth...');
-    window.location.href = "auth.html";
+    // User is not authenticated
+    console.log('👤 No user authenticated, redirecting to login...');
+    
+    // Clear any existing data
+    localStorage.removeItem('userId');
+    localStorage.removeItem('userEmail');
+    
+    // Redirect to auth page
+    setTimeout(() => {
+      window.location.href = "auth.html";
+    }, 1000);
   }
 });
+
+// ===========================
+// SUPPORTING FUNCTIONS
+// ===========================
+
+async function loadAllData() {
+  const user = auth.currentUser;
+  if (!user) {
+    console.error('❌ No user for data loading');
+    return false;
+  }
+
+  console.log('🔄 Loading all data from Firebase...');
+  
+  try {
+    // Load all collections in parallel with progress tracking
+    const loadPromises = [
+      loadCollectionWithRetry('students'),
+      loadCollectionWithRetry('hours'), 
+      loadCollectionWithRetry('marks'),
+      loadCollectionWithRetry('attendance'),
+      loadCollectionWithRetry('payments')
+    ];
+
+    const [students, hours, marks, attendance, payments] = await Promise.all(loadPromises);
+
+    console.log('📊 Data loaded successfully:', {
+      students: students.length,
+      hours: hours.length,
+      marks: marks.length,
+      attendance: attendance.length,
+      payments: payments.length
+    });
+
+    // Update cache with fresh data
+    cache.students = students;
+    cache.hours = hours;
+    cache.marks = marks;
+    cache.attendance = attendance;
+    cache.payments = payments;
+    cache.lastSync = Date.now();
+
+    // Save to localStorage for offline use
+    EnhancedCache.saveToLocalStorageBulk('students', students);
+    EnhancedCache.saveToLocalStorageBulk('hours', hours);
+    EnhancedCache.saveToLocalStorageBulk('marks', marks);
+    EnhancedCache.saveToLocalStorageBulk('attendance', attendance);
+    EnhancedCache.saveToLocalStorageBulk('payments', payments);
+
+    return true;
+  } catch (error) {
+    console.error('❌ Error loading all data:', error);
+    
+    // Try to load from localStorage as fallback
+    try {
+      console.log('🔄 Attempting to load from localStorage cache...');
+      cache.students = EnhancedCache.loadFromLocalStorage('students');
+      cache.hours = EnhancedCache.loadFromLocalStorage('hours');
+      cache.marks = EnhancedCache.loadFromLocalStorage('marks');
+      cache.attendance = EnhancedCache.loadFromLocalStorage('attendance');
+      cache.payments = EnhancedCache.loadFromLocalStorage('payments');
+      
+      console.log('📁 Loaded from cache:', {
+        students: cache.students.length,
+        hours: cache.hours.length,
+        marks: cache.marks.length,
+        attendance: cache.attendance.length,
+        payments: cache.payments.length
+      });
+      
+      return false; // Indicate we're using cached data
+    } catch (cacheError) {
+      console.error('❌ Cache load failed:', cacheError);
+      return false;
+    }
+  }
+}
+
+async function loadCollectionWithRetry(collectionName, retries = 3) {
+  const user = auth.currentUser;
+  if (!user) return [];
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`🔄 Loading ${collectionName} (attempt ${attempt}/${retries})...`);
+      
+      const querySnapshot = await getDocs(collection(db, "users", user.uid, collectionName));
+      const data = [];
+      
+      querySnapshot.forEach((doc) => {
+        data.push({
+          id: doc.id,
+          ...doc.data(),
+          _firebaseId: doc.id,
+          _synced: true
+        });
+      });
+
+      console.log(`✅ Loaded ${data.length} ${collectionName} from Firebase`);
+      return data;
+    } catch (error) {
+      console.error(`❌ Attempt ${attempt} failed for ${collectionName}:`, error);
+      
+      if (attempt === retries) {
+        throw error;
+      }
+      
+      // Exponential backoff
+      const delay = 1000 * attempt;
+      console.log(`⏳ Waiting ${delay}ms before retry...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  return [];
+}
+
+async function refreshAllUI() {
+  console.log('🔄 Refreshing all UI components...');
+  
+  try {
+    await Promise.all([
+      renderStudents(),
+      renderRecentHours(),
+      renderRecentMarks(),
+      renderAttendanceRecent(),
+      renderPaymentActivity(),
+      renderStudentBalances(),
+      renderOverviewReports()
+    ]);
+    
+    // Refresh dropdowns and stats
+    await StudentDropdownManager.forceRefresh();
+    EnhancedStats.forceRefresh();
+    
+    console.log('✅ All UI components refreshed');
+  } catch (error) {
+    console.error('❌ Error refreshing UI:', error);
+  }
+}
+
+// Add loading CSS for better UX
+function injectLoadingStyles() {
+  if (!document.querySelector('#loading-styles')) {
+    const style = document.createElement('style');
+    style.id = 'loading-styles';
+    style.textContent = `
+      body.loading {
+        cursor: wait !important;
+      }
+      
+      body.loading * {
+        pointer-events: none !important;
+      }
+      
+      .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        color: white;
+        font-size: 1.2em;
+      }
+      
+      .loading-spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 2s linear infinite;
+        margin-bottom: 20px;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+}
+
+// Initialize loading styles when app starts
+injectLoadingStyles();
 
 // ===========================
 // FIXED DATE HANDLING FUNCTIONS
