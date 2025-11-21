@@ -1184,7 +1184,7 @@ const SyncBar = {
 };
 
 // ===========================
-// UTILITY FUNCTIONS
+// UTILITY FUNCTIONS - DECLARE ONLY ONCE
 // ===========================
 
 function safeNumber(n, fallback = 0) {
@@ -1197,37 +1197,34 @@ function fmtMoney(n) {
   return safeNumber(n).toFixed(2);
 }
 
+
+
+function getLocalDateString(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function fmtDateISO(yyyyMmDd) {
   if (!yyyyMmDd) return new Date().toISOString();
   try {
-    const [year, month, day] = yyyyMmDd.split('-');
-    const d = new Date(year, month - 1, day, 12, 0, 0);
-    return d.toISOString();
+    const [year, month, day] = yyyyMmDd.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.toISOString();
   } catch {
     return new Date().toISOString();
   }
 }
 
-function formatDate(dateString) {
-  if (!dateString) return 'Never';
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      timeZone: 'UTC'
-    });
-  } catch {
-    return dateString;
-  }
-}
-
-function refreshTimestamp() {
-  const now = new Date().toLocaleString();
-  if (syncMessageLine) syncMessageLine.textContent = "Status: Last synced at " + now;
-  if (document.getElementById('statUpdated')) {
-    document.getElementById('statUpdated').textContent = now;
+function calculateTotalPay() {
+  const hours = safeNumber(document.getElementById('hours')?.value);
+  const rate = safeNumber(document.getElementById('rate')?.value);
+  const total = hours * rate;
+  
+  const totalPayElement = document.getElementById('totalPay');
+  if (totalPayElement) {
+    totalPayElement.textContent = `$${fmtMoney(total)}`;
   }
 }
 
@@ -1267,6 +1264,23 @@ function formatDateForInput(dateString) {
     return `${year}-${month}-${day}`;
   } catch {
     return new Date().toISOString().split('T')[0];
+  }
+}
+
+function isDateInRange(entryDate, startDate, endDate) {
+  try {
+    const entry = new Date(entryDate);
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    const entryDateOnly = new Date(entry.getFullYear(), entry.getMonth(), entry.getDate());
+    const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const endDateOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    
+    return entryDateOnly >= startDateOnly && entryDateOnly <= endDateOnly;
+  } catch (error) {
+    console.error('Date comparison error:', error);
+    return false;
   }
 }
 
@@ -2282,21 +2296,6 @@ async function handlePaymentSubmit(e) {
   } catch (error) {
     console.error('Error recording payment:', error);
     NotificationSystem.notifyError('Failed to record payment');
-  }
-}
-
-// ===========================
-// FORM SETUP & BASE RATE FUNCTIONS
-// ===========================
-
-function calculateTotalPay() {
-  const hours = safeNumber(document.getElementById('hours')?.value);
-  const rate = safeNumber(document.getElementById('rate')?.value);
-  const total = hours * rate;
-  
-  const totalPayElement = document.getElementById('totalPay');
-  if (totalPayElement) {
-    totalPayElement.textContent = `$${fmtMoney(total)}`;
   }
 }
 
@@ -4215,24 +4214,6 @@ function getLocalDateString(date = new Date()) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
-}
-
-function formatDate(dateString) {
-  if (!dateString) return 'Never';
-  try {
-    // Parse date in local timezone
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'Invalid Date';
-    
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      timeZone: 'UTC' // Keep consistent
-    });
-  } catch {
-    return dateString;
-  }
 }
 
 function fmtDateISO(yyyyMmDd) {
