@@ -608,15 +608,15 @@ const EnhancedStats = {
       });
       
       this.updateElement('weeklyHours', weeklyHours.toFixed(1));
-      this.updateElement('weeklyTotal', fmtMoney(weeklyTotal));
+      this.updateElement('weeklyTotal', `$${fmtMoney(weeklyTotal)}`);
       this.updateElement('monthlyHours', monthlyHours.toFixed(1));
-      this.updateElement('monthlyTotal', fmtMoney(monthlyTotal));
-      
+      this.updateElement('monthlyTotal', `$${fmtMoney(monthlyTotal)}`);
+            
       const totalHours = hours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
       const totalEarnings = hours.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
       
       this.updateElement('totalHoursReport', totalHours.toFixed(1));
-      this.updateElement('totalEarningsReport', fmtMoney(totalEarnings));
+      this.updateElement('totalEarningsReport', `$${fmtMoney(totalEarnings)}`);
     } catch (error) {
       console.error('Error calculating hours stats:', error);
     }
@@ -689,8 +689,8 @@ const EnhancedStats = {
       
       console.log(`📊 Payment stats: monthly $${fmtMoney(monthlyPayments)}, total $${fmtMoney(totalPayments)}`);
       
-      this.updateElement('monthlyPayments', fmtMoney(monthlyPayments));
-      this.updateElement('totalPaymentsReport', fmtMoney(totalPayments));
+      this.updateElement('monthlyPayments', `$${fmtMoney(monthlyPayments)}`);
+      this.updateElement('totalPaymentsReport', `$${fmtMoney(totalPayments)}`);
       
       await this.calculateOutstandingBalance();
     } catch (error) {
@@ -775,10 +775,11 @@ const EnhancedStats = {
       
       this.updateElement('totalStudentsReport', students.length);
       this.updateElement('totalHoursReport', totalHours.toFixed(1));
-      this.updateElement('totalEarningsReport', fmtMoney(totalEarnings));
+      this.updateElement('totalEarningsReport', `$${fmtMoney(totalEarnings)}`);
       this.updateElement('avgMarkReport', `${avgMark.toFixed(1)}%`);
-      this.updateElement('totalPaymentsReport', fmtMoney(totalPayments));
-      this.updateElement('outstandingBalance', fmtMoney(outstanding));
+      this.updateElement('totalPaymentsReport', `$${fmtMoney(totalPayments)}`);
+       this.updateElement('outstandingBalance', `$${fmtMoney(outstanding)}`);
+
     } catch (error) {
       console.error('Error calculating overview stats:', error);
     }
@@ -4150,6 +4151,74 @@ const StudentDropdownManager = {
     console.log(`✅ ${dropdown.id} populated with ${students.length} options`);
   }
 };
+
+// Add this function to populate hours dropdown specifically:
+async function populateHoursStudentDropdown() {
+  const dropdown = document.getElementById('student');
+  if (!dropdown) {
+    console.log('❌ Hours student dropdown not found');
+    return;
+  }
+
+  try {
+    const students = await EnhancedCache.loadCollection('students');
+    console.log(`📝 Populating hours dropdown with ${students.length} students`);
+    
+    // Store current selection
+    const currentValue = dropdown.value;
+    
+    // Clear and repopulate
+    dropdown.innerHTML = '';
+    
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = students.length > 0 ? 'Select a student...' : 'No students available';
+    defaultOption.disabled = true;
+    defaultOption.selected = true;
+    dropdown.appendChild(defaultOption);
+    
+    students.forEach(student => {
+      const option = document.createElement('option');
+      option.value = student.name || student.id;
+      option.textContent = student.name || `Student ${student.id}`;
+      option.setAttribute('data-student-id', student.id);
+      dropdown.appendChild(option);
+    });
+    
+    // Restore selection
+    if (currentValue && dropdown.querySelector(`option[value="${currentValue}"]`)) {
+      dropdown.value = currentValue;
+    }
+    
+    console.log(`✅ Hours dropdown populated with ${students.length} students`);
+  } catch (error) {
+    console.error('Error populating hours dropdown:', error);
+  }
+}
+
+// Update setupFormHandlers for hours form:
+const hoursForm = document.getElementById('hoursForm');
+if (hoursForm) {
+  hoursForm.addEventListener('submit', handleHoursSubmit);
+  
+  // Auto-populate when hours tab is activated
+  const hoursTab = document.querySelector('[data-tab="hours"]');
+  if (hoursTab) {
+    hoursTab.addEventListener('click', async () => {
+      setTimeout(async () => {
+        await populateHoursStudentDropdown();
+      }, 300);
+    });
+  }
+  
+  // Also populate on dropdown focus
+  const studentDropdown = document.getElementById('student');
+  if (studentDropdown) {
+    studentDropdown.addEventListener('focus', async () => {
+      await populateHoursStudentDropdown();
+    });
+  }
+}
 
 // ===========================
 // UPDATED STUDENT DROPDOWN POPULATION
