@@ -2222,15 +2222,15 @@ async function startEditHours(id) {
     // Wait a moment for dropdown to be populated
     await new Promise(resolve => setTimeout(resolve, 100));
     
-    // Safely populate form fields
+    // Safely populate form fields - NOTE: using correct IDs from your HTML
     const fields = [
       { id: 'organization', value: entry.organization || '' },
       { id: 'workType', value: entry.workType || '' },
-      { id: 'subject', value: entry.subject || '' },
-      { id: 'student', value: entry.student || '' },
-      { id: 'hours', value: entry.hours || '' },
-      { id: 'rate', value: entry.rate || '' },
-      { id: 'date', value: entry.date || '' },
+      { id: 'workSubject', value: entry.subject || '' }, // NOTE: workSubject not subject
+      { id: 'hoursStudent', value: entry.student || '' }, // NOTE: hoursStudent not student
+      { id: 'hoursWorked', value: entry.hours || '' },   // NOTE: hoursWorked not hours
+      { id: 'baseRate', value: entry.rate || '' },       // NOTE: baseRate not rate
+      { id: 'workDate', value: entry.date || '' },       // NOTE: workDate not date
       { id: 'notes', value: entry.notes || '' }
     ];
     
@@ -2247,11 +2247,10 @@ async function startEditHours(id) {
       }
     });
     
-    // Special handling for student dropdown - if value wasn't set, try to find it
-    const studentDropdown = document.getElementById('student');
+    // Special handling for student dropdown
+    const studentDropdown = document.getElementById('hoursStudent');
     if (studentDropdown && studentDropdown.value === '' && entry.student) {
       console.log('🔄 Student dropdown exists but value not set, searching for option...');
-      // Try to find the student option
       for (let option of studentDropdown.options) {
         if (option.value === entry.student) {
           studentDropdown.value = entry.student;
@@ -2297,116 +2296,35 @@ async function startEditHours(id) {
 }
 
 function cancelEditHours() {
+  console.log('❌ Cancelling hours edit...');
+  
   currentEditHoursId = null;
+  
   const form = document.getElementById('hoursForm');
-  form.reset();
+  if (form) {
+    form.reset();
+  } else {
+    console.warn('❌ hoursForm not found for reset');
+  }
   
   const submitBtn = document.querySelector('#hoursForm button[type="submit"]');
-  submitBtn.textContent = 'Log Hours';
+  if (submitBtn) {
+    submitBtn.textContent = 'Log Hours';
+  }
   
   const cancelBtn = document.querySelector('#hoursForm button[type="button"]');
-  if (cancelBtn) cancelBtn.remove();
+  if (cancelBtn) {
+    cancelBtn.remove();
+  }
+  
+  // Reset default rate
+  const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+  const rateInput = document.getElementById('baseRate'); // NOTE: baseRate not rate
+  if (rateInput && defaultBaseRateInput) {
+    rateInput.value = defaultBaseRateInput.value || currentUserData?.defaultRate || '0';
+  }
   
   NotificationSystem.notifyInfo('Edit cancelled');
-}
-
-// Replace the existing deleteHours function with this enhanced version
-async function deleteHours(id) {
-  if (!confirm('Are you sure you want to delete this hours entry?')) {
-    return;
-  }
-
-  try {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    const hours = await EnhancedCache.loadCollection('hours');
-    const entry = hours.find(h => h.id === id);
-    
-    if (entry && entry._firebaseId) {
-      await deleteDoc(doc(db, "users", user.uid, "hours", entry._firebaseId));
-    }
-
-    const updatedHours = hours.filter(h => h.id !== id);
-    cache.hours = updatedHours;
-    EnhancedCache.saveToLocalStorageBulk('hours', updatedHours);
-
-    await renderRecentHoursWithEdit();
-    EnhancedStats.forceRefresh();
-    
-    NotificationSystem.notifySuccess('Hours entry deleted successfully');
-    
-  } catch (error) {
-    console.error('Error deleting hours:', error);
-    NotificationSystem.notifyError('Failed to delete hours entry');
-  }
-}
-
-// Replace the existing handleHoursSubmit function with this enhanced version
-async function handleHoursSubmit(e) {
-  e.preventDefault();
-  const user = auth.currentUser;
-  if (!user) return;
-
-  const formData = new FormData(e.target);
-  const hours = safeNumber(formData.get('hours'));
-  const rate = safeNumber(formData.get('rate'));
-  const total = hours * rate;
-
-  const hoursData = {
-    organization: formData.get('organization'),
-    workType: formData.get('workType'),
-    subject: formData.get('subject'),
-    student: formData.get('student'),
-    hours: hours,
-    rate: rate,
-    total: total,
-    date: formData.get('date'),
-    dateIso: fmtDateISO(formData.get('date')),
-    notes: formData.get('notes')
-  };
-
-  try {
-    if (currentEditHoursId) {
-      const hours = await EnhancedCache.loadCollection('hours');
-      const entryIndex = hours.findIndex(h => h.id === currentEditHoursId);
-      
-      if (entryIndex !== -1) {
-        const existingEntry = hours[entryIndex];
-        hoursData.id = currentEditHoursId;
-        hoursData._firebaseId = existingEntry._firebaseId;
-        hoursData._synced = existingEntry._synced;
-        
-        if (existingEntry._firebaseId) {
-          await updateDoc(doc(db, "users", user.uid, "hours", existingEntry._firebaseId), hoursData);
-        }
-        
-        hours[entryIndex] = { ...hours[entryIndex], ...hoursData };
-        cache.hours = hours;
-        EnhancedCache.saveToLocalStorageBulk('hours', hours);
-        
-        NotificationSystem.notifySuccess('Hours updated successfully');
-        currentEditHoursId = null;
-        
-        const submitBtn = document.querySelector('#hoursForm button[type="submit"]');
-        submitBtn.textContent = 'Log Hours';
-        const cancelBtn = document.querySelector('#hoursForm button[type="button"]');
-        if (cancelBtn) cancelBtn.remove();
-        
-        form.reset();
-      }
-    } else {
-      await EnhancedCache.saveWithBackgroundSync('hours', hoursData);
-      FormAutoClear.handleSuccess('hoursForm', { baseRate: rate });
-    }
-    
-    EnhancedStats.forceRefresh();
-    await renderRecentHoursWithEdit();
-    
-  } catch (error) {
-    console.error('Error saving hours:', error);
-    NotificationSystem.notifyError('Failed to save hours');
-  }
 }
 
 async function renderRecentMarks(limit = 10) {
@@ -4242,15 +4160,15 @@ const StudentDropdownManager = {
 
 // Add this function to populate hours dropdown specifically:
 async function populateHoursStudentDropdown() {
-  const dropdown = document.getElementById('student');
+  const dropdown = document.getElementById('hoursStudent');
   if (!dropdown) {
-    console.log('❌ Hours student dropdown not found');
+    console.log('❌ Hours student dropdown not found (looking for #hoursStudent)');
     return false;
   }
 
   try {
     const students = await EnhancedCache.loadCollection('students');
-    console.log(`📝 Populating hours dropdown with ${students.length} students`);
+    console.log(`📝 Populating hours dropdown (#hoursStudent) with ${students.length} students`);
     
     // Store current selection
     const currentValue = dropdown.value;
@@ -4480,7 +4398,7 @@ function showDropdownError() {
 }
 
 // Update the populateAttendanceStudents function:
-/*async function populateAttendanceStudents() {
+async function populateAttendanceStudents() {
   const attendanceContainer = document.getElementById('attendanceStudents');
   if (!attendanceContainer) {
     console.log('❌ Attendance container not found');
@@ -4549,7 +4467,7 @@ if (attendanceForm) {
       }, 300);
     });
   }
-}*/
+}
 
 // ===========================
 // EDIT & DELETE FUNCTIONS
