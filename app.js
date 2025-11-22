@@ -3291,33 +3291,6 @@ async function handleStudentSubmit(e) {
     }
 }
 
-async function handleAttendanceSubmit(e) {
-  e.preventDefault();
-  const user = auth.currentUser;
-  if (!user) return;
-
-  const formData = new FormData(e.target);
-  const presentStudents = formData.getAll('presentStudents');
-
-  const attendanceData = {
-    subject: formData.get('attendanceSubject'),
-    topic: formData.get('attendanceTopic'),
-    present: presentStudents,
-    date: formData.get('attendanceDate'),
-    dateIso: fmtDateISO(formData.get('attendanceDate')),
-    notes: formData.get('attendanceNotes')
-  };
-
-  try {
-    await EnhancedCache.saveWithBackgroundSync('attendance', attendanceData);
-    FormAutoClear.handleSuccess('attendanceForm');
-    EnhancedStats.forceRefresh();
-  } catch (error) {
-    console.error('Error recording attendance:', error);
-    NotificationSystem.notifyError('Failed to record attendance');
-  }
-}
-
 async function handlePaymentSubmit(e) {
   e.preventDefault();
   const user = auth.currentUser;
