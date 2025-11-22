@@ -952,7 +952,7 @@ const FormAutoClear = {
 };
 
 // ===========================
-// SYNC BAR SYSTEM
+// SYNC BAR SYSTEM - FIXED VERSION
 // ===========================
 
 const SyncBar = {
@@ -1037,87 +1037,6 @@ const SyncBar = {
     }
   },
 
-  async performSync(mode = 'manual') {
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError('Please log in to sync');
-    return;
-  }
-
-  try {
-    if (syncIndicator) {
-      syncIndicator.classList.remove('sync-connected', 'sync-error');
-      syncIndicator.classList.add('sync-active');
-    }
-    if (syncMessageLine) {
-      syncMessageLine.textContent = `Status: ${mode === 'auto' ? 'Auto-syncing' : 'Manual syncing'}...`;
-    }
-
-    // Use safe function calls with error handling
-    const syncTasks = [
-      recalcSummaryStats(user.uid),
-      loadUserStats(user.uid),
-      this.safeRender(renderStudents),
-      this.safeRender(renderRecentHours),
-      this.safeRender(renderRecentMarks),
-      this.safeRender(renderAttendanceRecent),
-      this.safeRender(renderPaymentActivity), // Now safely wrapped
-      this.safeRender(renderStudentBalances),
-      this.safeRender(renderOverviewReports)
-    ];
-
-    await Promise.all(syncTasks);
-
-    const now = new Date().toLocaleString();
-    if (syncMessageLine) syncMessageLine.textContent = `Status: Last synced at ${now}`;
-    if (document.getElementById('statUpdated')) {
-      document.getElementById('statUpdated').textContent = now;
-    }
-
-    if (syncIndicator) {
-      syncIndicator.classList.remove('sync-active');
-      if (isAutoSyncEnabled) {
-        syncIndicator.classList.add('sync-connected');
-      }
-    }
-
-    NotificationSystem.notifySuccess(`${mode === 'auto' ? 'Auto-' : ''}Sync completed successfully`);
-
-  } catch (error) {
-    console.error(`❌ ${mode} sync failed:`, error);
-    
-    if (syncIndicator) {
-      syncIndicator.classList.remove('sync-active', 'sync-connected');
-      syncIndicator.classList.add('sync-error');
-    }
-    if (syncMessageLine) {
-      syncMessageLine.textContent = `Status: Sync failed - ${error.message}`;
-    }
-    
-    NotificationSystem.notifyError(`Sync failed: ${error.message}`);
-  }
-},
-
-// Add this helper method to handle missing render functions
-safeRender(renderFunction) {
-  return new Promise((resolve) => {
-    try {
-      if (typeof renderFunction === 'function') {
-        renderFunction().then(resolve).catch(error => {
-          console.warn(`⚠️ Render function failed: ${renderFunction.name}`, error);
-          resolve(); // Resolve anyway to prevent blocking other sync tasks
-        });
-      } else {
-        console.warn(`⚠️ Render function not available: ${renderFunction}`);
-        resolve();
-      }
-    } catch (error) {
-      console.warn(`⚠️ Render function error: ${error.message}`);
-      resolve();
-    }
-  });
-}
-
   setupExportCloudButton() {
     if (exportCloudBtn) {
       exportCloudBtn.addEventListener('click', async () => {
@@ -1179,6 +1098,92 @@ safeRender(renderFunction) {
         }
       });
     }
+  },
+
+  async performSync(mode = 'manual') {
+    const user = auth.currentUser;
+    if (!user) {
+      NotificationSystem.notifyError('Please log in to sync');
+      return;
+    }
+
+    try {
+      if (syncIndicator) {
+        syncIndicator.classList.remove('sync-connected', 'sync-error');
+        syncIndicator.classList.add('sync-active');
+      }
+      if (syncMessageLine) {
+        syncMessageLine.textContent = `Status: ${mode === 'auto' ? 'Auto-syncing' : 'Manual syncing'}...`;
+      }
+
+      // Use safe function calls
+      const syncTasks = [
+        recalcSummaryStats(user.uid),
+        loadUserStats(user.uid),
+        this.safeExecute(renderStudents),
+        this.safeExecute(renderRecentHours),
+        this.safeExecute(renderRecentMarks),
+        this.safeExecute(renderAttendanceRecent),
+        this.safeExecute(renderPaymentActivity),
+        this.safeExecute(renderStudentBalances),
+        this.safeExecute(renderOverviewReports)
+      ];
+
+      await Promise.all(syncTasks);
+
+      const now = new Date().toLocaleString();
+      if (syncMessageLine) syncMessageLine.textContent = `Status: Last synced at ${now}`;
+      if (document.getElementById('statUpdated')) {
+        document.getElementById('statUpdated').textContent = now;
+      }
+
+      if (syncIndicator) {
+        syncIndicator.classList.remove('sync-active');
+        if (isAutoSyncEnabled) {
+          syncIndicator.classList.add('sync-connected');
+        }
+      }
+
+      NotificationSystem.notifySuccess(`${mode === 'auto' ? 'Auto-' : ''}Sync completed successfully`);
+
+    } catch (error) {
+      console.error(`❌ ${mode} sync failed:`, error);
+      
+      if (syncIndicator) {
+        syncIndicator.classList.remove('sync-active', 'sync-connected');
+        syncIndicator.classList.add('sync-error');
+      }
+      if (syncMessageLine) {
+        syncMessageLine.textContent = `Status: Sync failed - ${error.message}`;
+      }
+      
+      NotificationSystem.notifyError(`Sync failed: ${error.message}`);
+    }
+  },
+
+  // Helper function to safely execute functions that might not exist
+  safeExecute(func) {
+    return new Promise((resolve) => {
+      try {
+        if (typeof func === 'function') {
+          const result = func();
+          if (result && typeof result.then === 'function') {
+            result.then(resolve).catch(error => {
+              console.warn(`⚠️ Function execution failed: ${func.name}`, error);
+              resolve();
+            });
+          } else {
+            resolve();
+          }
+        } else {
+          console.warn(`⚠️ Function not available: ${func}`);
+          resolve();
+        }
+      } catch (error) {
+        console.warn(`⚠️ Function execution error: ${error.message}`);
+        resolve();
+      }
+    });
   }
 };
 
