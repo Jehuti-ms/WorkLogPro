@@ -4376,6 +4376,190 @@ async function renderOverviewReports() {
 }
 
 // ===========================
+// REPORT DATA FUNCTIONS
+// ===========================
+
+async function loadReportData() {
+  console.log('📊 Loading report data...');
+  
+  try {
+    const [hours, marks] = await Promise.all([
+      EnhancedCache.loadCollection('hours'),
+      EnhancedCache.loadCollection('marks')
+    ]);
+
+    console.log('📈 Report data loaded:', {
+      hours: hours.length,
+      marks: marks.length
+    });
+
+    // Generate reports
+    generatePeriodReport(hours);
+    generateSubjectReport(marks, hours);
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Error loading report data:', error);
+    return false;
+  }
+}
+
+function generatePeriodReport(hours) {
+  const container = document.getElementById('periodReport');
+  if (!container) return;
+
+  if (!hours || hours.length === 0) {
+    container.innerHTML = '<div class="empty-state">No hours data available</div>';
+    return;
+  }
+
+  // Group by period (weekly, monthly, etc.)
+  const now = new Date();
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay());
+  weekStart.setHours(0, 0, 0, 0);
+  
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  
+  const weeklyData = hours.filter(entry => {
+    const entryDate = new Date(entry.date || entry.dateIso);
+    return entryDate >= weekStart;
+  });
+  
+  const monthlyData = hours.filter(entry => {
+    const entryDate = new Date(entry.date || entry.dateIso);
+    return entryDate >= monthStart;
+  });
+
+  const weeklyHours = weeklyData.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
+  const weeklyEarnings = weeklyData.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
+  
+  const monthlyHours = monthlyData.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
+  const monthlyEarnings = monthlyData.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
+
+  // Get unique subjects
+  const weeklySubjects = [...new Set(weeklyData.map(entry => entry.subject || 'General'))].join(', ');
+  const monthlySubjects = [...new Set(monthlyData.map(entry => entry.subject || 'General'))].join(', ');
+
+  const reportHTML = `
+    <div class="report-table">
+      <div class="report-row header">
+        <div class="report-cell">Period</div>
+        <div class="report-cell">Hours</div>
+        <div class="report-cell">Earnings</div>
+        <div class="report-cell">Subjects</div>
+        <div class="report-cell">Net (80%)</div>
+      </div>
+      <div class="report-row">
+        <div class="report-cell"><strong>This Week</strong></div>
+        <div class="report-cell">${weeklyHours.toFixed(1)}</div>
+        <div class="report-cell">$${fmtMoney(weeklyEarnings)}</div>
+        <div class="report-cell" title="${weeklySubjects}">${weeklySubjects.substring(0, 20)}${weeklySubjects.length > 20 ? '...' : ''}</div>
+        <div class="report-cell">$${fmtMoney(weeklyEarnings * 0.8)}</div>
+      </div>
+      <div class="report-row">
+        <div class="report-cell"><strong>This Month</strong></div>
+        <div class="report-cell">${monthlyHours.toFixed(1)}</div>
+        <div class="report-cell">$${fmtMoney(monthlyEarnings)}</div>
+        <div class="report-cell" title="${monthlySubjects}">${monthlySubjects.substring(0, 20)}${monthlySubjects.length > 20 ? '...' : ''}</div>
+        <div class="report-cell">$${fmtMoney(monthlyEarnings * 0.8)}</div>
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = reportHTML;
+  console.log('✅ Period report generated');
+}
+
+function generateSubjectReport(marks, hours) {
+  const container = document.getElementById('subjectReport');
+  if (!container) return;
+
+  if ((!marks || marks.length === 0) && (!hours || hours.length === 0)) {
+    container.innerHTML = '<div class="empty-state">No marks or hours data available</div>';
+    return;
+  }
+
+  // Group marks by subject
+  const subjectMarks = {};
+  marks.forEach(mark => {
+    const subject = mark.subject || 'General';
+    if (!subjectMarks[subject]) {
+      subjectMarks[subject] = {
+        totalPercentage: 0,
+        count: 0,
+        marks: []
+      };
+    }
+    subjectMarks[subject].totalPercentage += safeNumber(mark.percentage);
+    subjectMarks[subject].count++;
+    subjectMarks[subject].marks.push(mark);
+  });
+
+  // Group hours by subject
+  const subjectHours = {};
+  hours.forEach(entry => {
+    const subject = entry.subject || 'General';
+    if (!subjectHours[subject]) {
+      subjectHours[subject] = {
+        hours: 0,
+        earnings: 0,
+        sessions: 0
+      };
+    }
+    subjectHours[subject].hours += safeNumber(entry.hours);
+    subjectHours[subject].earnings += safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0));
+    subjectHours[subject].sessions++;
+  });
+
+  // Combine data
+  const allSubjects = new Set([
+    ...Object.keys(subjectMarks),
+    ...Object.keys(subjectHours)
+  ]);
+
+  if (allSubjects.size === 0) {
+    container.innerHTML = '<div class="empty-state">No subject data available</div>';
+    return;
+  }
+
+  let reportHTML = `
+    <div class="report-table">
+      <div class="report-row header">
+        <div class="report-cell">Subject</div>
+        <div class="report-cell">Avg Mark</div>
+        <div class="report-cell">Hours</div>
+        <div class="report-cell">Earnings</div>
+        <div class="report-cell">Sessions</div>
+      </div>
+  `;
+
+  allSubjects.forEach(subject => {
+    const markData = subjectMarks[subject];
+    const hourData = subjectHours[subject];
+    
+    const avgMark = markData ? (markData.totalPercentage / markData.count).toFixed(1) : 'N/A';
+    const totalHours = hourData ? hourData.hours.toFixed(1) : '0';
+    const totalEarnings = hourData ? fmtMoney(hourData.earnings) : '$0';
+    const totalSessions = hourData ? hourData.sessions : markData ? markData.count : 0;
+
+    reportHTML += `
+      <div class="report-row">
+        <div class="report-cell"><strong>${subject}</strong></div>
+        <div class="report-cell">${avgMark}%</div>
+        <div class="report-cell">${totalHours}</div>
+        <div class="report-cell">${totalEarnings}</div>
+        <div class="report-cell">${totalSessions}</div>
+      </div>
+    `;
+  });
+
+  reportHTML += '</div>';
+  container.innerHTML = reportHTML;
+  console.log('✅ Subject report generated');
+}
+
+// ===========================
 // ENHANCED APP INITIALIZATION
 // ===========================
 
@@ -4688,7 +4872,8 @@ async function refreshAllUI() {
       renderAttendanceRecent(),
       renderPaymentActivity(),
       renderStudentBalances(),
-      renderOverviewReports() // Now this exists
+      renderOverviewReports(), // Now this exists
+      loadReportData() 
     ]);
     
     await populateStudentDropdowns();
