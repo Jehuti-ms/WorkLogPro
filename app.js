@@ -1214,6 +1214,7 @@ const SyncBar = {
     
     NotificationSystem.notifyError(`Sync failed: ${error.message}`);
   }
+}
 };
   
 // ===========================
