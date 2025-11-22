@@ -4252,12 +4252,8 @@ async function editPayment(id) {
   NotificationSystem.notifyInfo(`Edit payment ${id} - Feature coming soon`);
 }
 
-async function deletePayment(id) {
-  if (confirm('Are you sure you want to delete this payment?')) {
-    NotificationSystem.notifyInfo(`Delete payment ${id} - Feature coming soon`);
-  }
-}
-*/
+
+
 // ===========================
 // TAB NAVIGATION SYSTEM
 // ===========================
