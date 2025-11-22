@@ -3237,6 +3237,40 @@ function cancelEditPayment() {
 }
 
 // Replace the existing deletePayment function with this enhanced version
+// Add these payment functions:
+
+// Record Payment function (already exists as handlePaymentSubmit, but ensure it works)
+async function recordPayment(studentName, amount, method = 'Cash', notes = '') {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const paymentData = {
+    student: studentName,
+    amount: safeNumber(amount),
+    method: method,
+    date: getLocalDateString(),
+    dateIso: new Date().toISOString(),
+    notes: notes
+  };
+
+  try {
+    await EnhancedCache.saveWithBackgroundSync('payments', paymentData);
+    NotificationSystem.notifySuccess('Payment recorded successfully');
+    
+    // Refresh payment displays
+    await renderPaymentActivityWithEdit();
+    await renderStudentBalancesWithEdit();
+    EnhancedStats.forceRefresh();
+    
+    return true;
+  } catch (error) {
+    console.error('Error recording payment:', error);
+    NotificationSystem.notifyError('Failed to record payment');
+    return false;
+  }
+}
+
+// Delete Payment function (enhance existing one)
 async function deletePayment(id) {
   if (!confirm('Are you sure you want to delete this payment?')) {
     return;
@@ -3269,10 +3303,28 @@ async function deletePayment(id) {
   }
 }
 
+// Quick payment function for student balances
 function quickAddPayment(studentName) {
-  document.getElementById('paymentStudent').value = studentName;
-  document.getElementById('paymentAmount').focus();
-  NotificationSystem.notifyInfo(`Quick payment mode for ${studentName}`);
+  const amount = prompt(`Enter payment amount for ${studentName}:`);
+  if (amount && !isNaN(amount) && parseFloat(amount) > 0) {
+    const method = prompt('Payment method (Cash, Transfer, etc.):', 'Cash');
+    const notes = prompt('Payment notes (optional):', '');
+    recordPayment(studentName, parseFloat(amount), method || 'Cash', notes || '');
+  } else if (amount !== null) {
+    NotificationSystem.notifyError('Please enter a valid amount');
+  }
+}
+
+// Quick payment function for student balances
+function quickAddPayment(studentName) {
+  const amount = prompt(`Enter payment amount for ${studentName}:`);
+  if (amount && !isNaN(amount) && parseFloat(amount) > 0) {
+    const method = prompt('Payment method (Cash, Transfer, etc.):', 'Cash');
+    const notes = prompt('Payment notes (optional):', '');
+    recordPayment(studentName, parseFloat(amount), method || 'Cash', notes || '');
+  } else if (amount !== null) {
+    NotificationSystem.notifyError('Please enter a valid amount');
+  }
 }
 
 // Replace the existing handlePaymentSubmit function with this enhanced version
@@ -3332,6 +3384,37 @@ async function handlePaymentSubmit(e) {
   } catch (error) {
     console.error('Error saving payment:', error);
     NotificationSystem.notifyError('Failed to save payment');
+  }
+}
+
+// Record Payment function (already exists as handlePaymentSubmit, but ensure it works)
+async function recordPayment(studentName, amount, method = 'Cash', notes = '') {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const paymentData = {
+    student: studentName,
+    amount: safeNumber(amount),
+    method: method,
+    date: getLocalDateString(),
+    dateIso: new Date().toISOString(),
+    notes: notes
+  };
+
+  try {
+    await EnhancedCache.saveWithBackgroundSync('payments', paymentData);
+    NotificationSystem.notifySuccess('Payment recorded successfully');
+    
+    // Refresh payment displays
+    await renderPaymentActivityWithEdit();
+    await renderStudentBalancesWithEdit();
+    EnhancedStats.forceRefresh();
+    
+    return true;
+  } catch (error) {
+    console.error('Error recording payment:', error);
+    NotificationSystem.notifyError('Failed to record payment');
+    return false;
   }
 }
 
@@ -4412,6 +4495,78 @@ function showDropdownError() {
   });
 }
 
+// Update the populateAttendanceStudents function:
+async function populateAttendanceStudents() {
+  const attendanceContainer = document.getElementById('attendanceStudents');
+  if (!attendanceContainer) {
+    console.log('❌ Attendance container not found');
+    return;
+  }
+
+  try {
+    const students = await EnhancedCache.loadCollection('students');
+    console.log(`👥 Populating attendance with ${students.length} students`);
+
+    attendanceContainer.innerHTML = '';
+
+    if (students.length === 0) {
+      attendanceContainer.innerHTML = `
+        <div class="empty-state">
+          <p>No students available. Please add students first.</p>
+        </div>
+      `;
+      return;
+    }
+
+    students.forEach(student => {
+      const studentDisplay = formatStudentDisplay(student);
+      
+      const container = document.createElement('div');
+      container.style.cssText = 'display: flex; align-items: center; gap: 12px; margin: 8px 0; padding: 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border);';
+      
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.name = 'presentStudents';
+      checkbox.value = student.name || student.id;
+      checkbox.id = `attendance-${student.id}`;
+      checkbox.style.cssText = 'width: 18px; height: 18px;';
+      
+      const label = document.createElement('label');
+      label.htmlFor = `attendance-${student.id}`;
+      label.textContent = studentDisplay;
+      label.style.cssText = 'flex: 1; margin: 0; cursor: pointer; font-weight: 500;';
+      
+      const studentInfo = document.createElement('span');
+      studentInfo.textContent = `Rate: $${fmtMoney(student.rate || 0)}`;
+      studentInfo.style.cssText = 'font-size: 0.85em; color: var(--muted);';
+      
+      container.appendChild(checkbox);
+      container.appendChild(label);
+      container.appendChild(studentInfo);
+      attendanceContainer.appendChild(container);
+    });
+
+    console.log('✅ Attendance students populated');
+  } catch (error) {
+    console.error('Error populating attendance students:', error);
+  }
+}
+
+// Update setupFormHandlers for attendance:
+const attendanceForm = document.getElementById('attendanceForm');
+if (attendanceForm) {
+  attendanceForm.addEventListener('submit', handleAttendanceSubmit);
+  
+  const attendanceTab = document.querySelector('[data-tab="attendance"]');
+  if (attendanceTab) {
+    attendanceTab.addEventListener('click', async () => {
+      setTimeout(async () => {
+        await populateAttendanceStudents();
+      }, 300);
+    });
+  }
+}
+
 // ===========================
 // EDIT & DELETE FUNCTIONS
 // ===========================
@@ -5298,47 +5453,61 @@ async function renderOverviewReports() {
 // REPORT DATA FUNCTIONS
 // ===========================
 
+// Update loadReportData to be more robust:
 async function loadReportData() {
   console.log('📊 Loading report data...');
   
   try {
-    const [hours, marks] = await Promise.all([
+    const [hours, marks, students, payments] = await Promise.all([
       EnhancedCache.loadCollection('hours'),
-      EnhancedCache.loadCollection('marks')
+      EnhancedCache.loadCollection('marks'),
+      EnhancedCache.loadCollection('students'),
+      EnhancedCache.loadCollection('payments')
     ]);
 
     console.log('📈 Report data loaded:', {
       hours: hours.length,
-      marks: marks.length
+      marks: marks.length,
+      students: students.length,
+      payments: payments.length
     });
 
-    // Generate reports
-    generatePeriodReport(hours);
+    // Generate reports with the data
+    generatePeriodReport(hours, students, payments);
     generateSubjectReport(marks, hours);
+    generateStudentPerformanceReport(marks, students);
     
     return true;
   } catch (error) {
     console.error('❌ Error loading report data:', error);
+    
+    // Show error state in reports
+    const containers = ['periodReport', 'subjectReport', 'studentReport'];
+    containers.forEach(containerId => {
+      const container = document.getElementById(containerId);
+      if (container) {
+        container.innerHTML = '<div class="error">Error loading report data</div>';
+      }
+    });
+    
     return false;
   }
 }
 
-function generatePeriodReport(hours) {
+// Enhanced period report with more meaningful data:
+function generatePeriodReport(hours, students, payments) {
   const container = document.getElementById('periodReport');
   if (!container) return;
 
   if (!hours || hours.length === 0) {
-    container.innerHTML = '<div class="empty-state">No hours data available</div>';
+    container.innerHTML = '<div class="empty-state">No hours data available for reports</div>';
     return;
   }
 
-  // Group by period (weekly, monthly, etc.)
+  // Calculate meaningful statistics
   const now = new Date();
-  const weekStart = new Date(now);
-  weekStart.setDate(now.getDate() - now.getDay());
-  weekStart.setHours(0, 0, 0, 0);
-  
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const weekStart = getStartOfWeek(now);
+  const monthStart = getStartOfMonth(now);
   
   const weeklyData = hours.filter(entry => {
     const entryDate = new Date(entry.date || entry.dateIso);
@@ -5351,14 +5520,10 @@ function generatePeriodReport(hours) {
   });
 
   const weeklyHours = weeklyData.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
-  const weeklyEarnings = weeklyData.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
+  const weeklyEarnings = weeklyData.reduce((sum, entry) => sum + safeNumber(entry.total || 0), 0);
   
   const monthlyHours = monthlyData.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
-  const monthlyEarnings = monthlyData.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
-
-  // Get unique subjects
-  const weeklySubjects = [...new Set(weeklyData.map(entry => entry.subject || 'General'))].join(', ');
-  const monthlySubjects = [...new Set(monthlyData.map(entry => entry.subject || 'General'))].join(', ');
+  const monthlyEarnings = monthlyData.reduce((sum, entry) => sum + safeNumber(entry.total || 0), 0);
 
   const reportHTML = `
     <div class="report-table">
@@ -5366,28 +5531,35 @@ function generatePeriodReport(hours) {
         <div class="report-cell">Period</div>
         <div class="report-cell">Hours</div>
         <div class="report-cell">Earnings</div>
-        <div class="report-cell">Subjects</div>
-        <div class="report-cell">Net (80%)</div>
+        <div class="report-cell">Sessions</div>
+        <div class="report-cell">Avg Rate/Hour</div>
       </div>
       <div class="report-row">
         <div class="report-cell"><strong>This Week</strong></div>
         <div class="report-cell">${weeklyHours.toFixed(1)}</div>
         <div class="report-cell">$${fmtMoney(weeklyEarnings)}</div>
-        <div class="report-cell" title="${weeklySubjects}">${weeklySubjects.substring(0, 20)}${weeklySubjects.length > 20 ? '...' : ''}</div>
-        <div class="report-cell">$${fmtMoney(weeklyEarnings * 0.8)}</div>
+        <div class="report-cell">${weeklyData.length}</div>
+        <div class="report-cell">$${fmtMoney(weeklyHours > 0 ? weeklyEarnings / weeklyHours : 0)}</div>
       </div>
       <div class="report-row">
         <div class="report-cell"><strong>This Month</strong></div>
         <div class="report-cell">${monthlyHours.toFixed(1)}</div>
         <div class="report-cell">$${fmtMoney(monthlyEarnings)}</div>
-        <div class="report-cell" title="${monthlySubjects}">${monthlySubjects.substring(0, 20)}${monthlySubjects.length > 20 ? '...' : ''}</div>
-        <div class="report-cell">$${fmtMoney(monthlyEarnings * 0.8)}</div>
+        <div class="report-cell">${monthlyData.length}</div>
+        <div class="report-cell">$${fmtMoney(monthlyHours > 0 ? monthlyEarnings / monthlyHours : 0)}</div>
+      </div>
+      <div class="report-row">
+        <div class="report-cell"><strong>All Time</strong></div>
+        <div class="report-cell">${hours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0).toFixed(1)}</div>
+        <div class="report-cell">$${fmtMoney(hours.reduce((sum, entry) => sum + safeNumber(entry.total || 0), 0))}</div>
+        <div class="report-cell">${hours.length}</div>
+        <div class="report-cell">$${fmtMoney(hours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0) > 0 ? hours.reduce((sum, entry) => sum + safeNumber(entry.total || 0), 0) / hours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0) : 0)}</div>
       </div>
     </div>
   `;
 
   container.innerHTML = reportHTML;
-  console.log('✅ Period report generated');
+  console.log('✅ Period report generated with meaningful data');
 }
 
 function generateSubjectReport(marks, hours) {
