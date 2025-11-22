@@ -1377,6 +1377,37 @@ function debugStudentDropdowns() {
   }
 }
 
+async function deleteHours(id) {
+  if (!confirm('Are you sure you want to delete this hours entry?')) {
+    return;
+  }
+
+  try {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const hours = await EnhancedCache.loadCollection('hours');
+    const entry = hours.find(h => h.id === id);
+    
+    if (entry && entry._firebaseId) {
+      await deleteDoc(doc(db, "users", user.uid, "hours", entry._firebaseId));
+    }
+
+    const updatedHours = hours.filter(h => h.id !== id);
+    cache.hours = updatedHours;
+    EnhancedCache.saveToLocalStorageBulk('hours', updatedHours);
+
+    await renderRecentHoursWithEdit();
+    EnhancedStats.forceRefresh();
+    
+    NotificationSystem.notifySuccess('Hours entry deleted successfully');
+    
+  } catch (error) {
+    console.error('Error deleting hours:', error);
+    NotificationSystem.notifyError('Failed to delete hours entry');
+  }
+}
+
 // ===========================
 // THEME MANAGEMENT - SIMPLE WITH 🌓
 // ===========================
