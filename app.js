@@ -2924,17 +2924,6 @@ function getSelectedStudentsCount() {
 // ATTENDANCE SELECT ALL SETUP
 // ===========================
 
-// Setup when attendance tab is activated
-function setupAttendanceTab() {
-  console.log('🎯 Attendance tab activated, setting up select all...');
-  
-  // Wait a bit for the DOM to be ready
-  setTimeout(() => {
-    setupAttendanceSelectAll();
-    setupAttendanceCheckboxListeners();
-  }, 300);
-}
-
 // Real-time checkbox monitoring
 function setupAttendanceCheckboxListeners() {
   const attendanceContainer = document.getElementById('attendanceStudents');
