@@ -2729,13 +2729,13 @@ function updateProfileModal() {
     }
   }
 
-  // Update stats in modal
-  this.updateModalStats();
+  // Update stats in modal - call the function directly, not with "this"
+  updateModalStats();
 
   console.log('✅ Profile modal updated');
 }
 
-// Helper function to update modal stats
+// Make sure updateModalStats function exists and is defined
 function updateModalStats() {
   const modalStatStudents = document.getElementById('modalStatStudents');
   const modalStatHours = document.getElementById('modalStatHours');
