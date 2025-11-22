@@ -1557,26 +1557,29 @@ function setupProfileModal() {
     return;
   }
 
-  if (profileBtn && profileModal) {
+  // Setup profile button click
+  if (profileBtn) {
     profileBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       console.log('👤 Profile button clicked');
       
+      // Update modal with current data before showing
       updateProfileModal();
       profileModal.style.display = 'flex';
       document.body.classList.add('modal-open');
     });
-  } else {
-    console.error('❌ Profile button or modal not found');
   }
 
+  // Setup close button
   if (closeProfileModal) {
     closeProfileModal.addEventListener('click', () => {
-      closeModal();
+      profileModal.style.display = 'none';
+      document.body.classList.remove('modal-open');
     });
   }
 
+  // Setup logout button
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async () => {
       if (confirm('Are you sure you want to logout?')) {
@@ -1593,26 +1596,23 @@ function setupProfileModal() {
     });
   }
 
-  function closeModal() {
-    if (profileModal) {
-      profileModal.style.display = 'none';
-      document.body.classList.remove('modal-open');
-    }
-  }
-
   // Close modal when clicking outside
   window.addEventListener('click', (event) => {
-    if (profileModal && event.target === profileModal) {
-      closeModal();
+    if (event.target === profileModal) {
+      profileModal.style.display = 'none';
+      document.body.classList.remove('modal-open');
     }
   });
 
   // Close modal with Escape key
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && profileModal && profileModal.style.display === 'flex') {
-      closeModal();
+    if (event.key === 'Escape' && profileModal.style.display === 'flex') {
+      profileModal.style.display = 'none';
+      document.body.classList.remove('modal-open');
     }
   });
+
+  console.log('✅ Profile modal setup complete');
 }
 
 // ===========================
@@ -2573,6 +2573,97 @@ function useDefaultRateInHours() {
     baseRateInput.value = defaultBaseRateInput.value;
     NotificationSystem.notifyInfo('Default rate applied to hours form');
     calculateTotalPay();
+  }
+}
+
+// ===========================
+// MISSING UPDATE PROFILE MODAL FUNCTION
+// ===========================
+
+function updateProfileModal() {
+  const profileUserEmail = document.getElementById('profileUserEmail');
+  const profileUserSince = document.getElementById('profileUserSince');
+  const profileDefaultRate = document.getElementById('profileDefaultRate');
+  const modalStatStudents = document.getElementById('modalStatStudents');
+  const modalStatHours = document.getElementById('modalStatHours');
+  const modalStatEarnings = document.getElementById('modalStatEarnings');
+  const modalStatUpdated = document.getElementById('modalStatUpdated');
+
+  console.log('👤 Updating profile modal...');
+
+  // Update user info
+  if (currentUserData) {
+    const email = currentUserData.email || auth.currentUser?.email || 'Not available';
+    if (profileUserEmail) {
+      profileUserEmail.textContent = email;
+    }
+    
+    // Use persistent member since date
+    const memberSince = currentUserData.memberSince || localStorage.getItem('memberSince') || currentUserData.createdAt || new Date().toISOString();
+    if (profileUserSince) {
+      profileUserSince.textContent = formatDate(memberSince);
+    }
+    
+    if (profileDefaultRate) {
+      profileDefaultRate.textContent = `$${fmtMoney(currentUserData.defaultRate || 0)}/hour`;
+    }
+  }
+
+  // Update stats in modal
+  this.updateModalStats();
+
+  console.log('✅ Profile modal updated');
+}
+
+// Helper function to update modal stats
+function updateModalStats() {
+  const modalStatStudents = document.getElementById('modalStatStudents');
+  const modalStatHours = document.getElementById('modalStatHours');
+  const modalStatEarnings = document.getElementById('modalStatEarnings');
+  const modalStatUpdated = document.getElementById('modalStatUpdated');
+
+  // Get current stats from main display or calculate fresh
+  const statStudents = document.getElementById('statStudents');
+  const statHours = document.getElementById('statHours');
+  const statEarnings = document.getElementById('statEarnings');
+  const statUpdated = document.getElementById('statUpdated');
+
+  // Use main stats if available, otherwise calculate
+  if (modalStatStudents) {
+    if (statStudents && statStudents.textContent) {
+      modalStatStudents.textContent = statStudents.textContent;
+    } else {
+      const students = Array.isArray(cache.students) ? cache.students : [];
+      modalStatStudents.textContent = students.length;
+    }
+  }
+
+  if (modalStatHours) {
+    if (statHours && statHours.textContent) {
+      modalStatHours.textContent = statHours.textContent;
+    } else {
+      const hours = Array.isArray(cache.hours) ? cache.hours : [];
+      const totalHours = hours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
+      modalStatHours.textContent = totalHours.toFixed(1);
+    }
+  }
+
+  if (modalStatEarnings) {
+    if (statEarnings && statEarnings.textContent) {
+      modalStatEarnings.textContent = statEarnings.textContent;
+    } else {
+      const hours = Array.isArray(cache.hours) ? cache.hours : [];
+      const totalEarnings = hours.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
+      modalStatEarnings.textContent = `$${fmtMoney(totalEarnings)}`;
+    }
+  }
+
+  if (modalStatUpdated) {
+    if (statUpdated && statUpdated.textContent) {
+      modalStatUpdated.textContent = statUpdated.textContent;
+    } else {
+      modalStatUpdated.textContent = new Date().toLocaleString();
+    }
   }
 }
 
@@ -4290,6 +4381,8 @@ window.deletePayment = deletePayment;
 window.NotificationSystem = NotificationSystem;
 window.switchTab = switchTab;
 window.renderPaymentActivity = renderPaymentActivity;
+window.updateProfileModal = updateProfileModal;
+window.setupProfileModal = setupProfileModal;
 
 console.log('✅ All functions exported to window object');
 });
