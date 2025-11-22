@@ -2483,7 +2483,7 @@ async function handlePaymentSubmit(e) {
 // ===========================
 
 function setupFormHandlers() {
-  console.log('🔧 Setting up form handlers with dropdown support...');
+  console.log('🔧 Setting up form handlers with enhanced attendance support...');
   
   // Initialize dropdown manager
   StudentDropdownManager.init();
@@ -2544,13 +2544,14 @@ function setupFormHandlers() {
   if (attendanceForm) {
     attendanceForm.addEventListener('submit', handleAttendanceSubmit);
     
-    // Refresh attendance students when form is shown
+    // Enhanced attendance setup with select all functionality
     const attendanceTab = document.querySelector('[data-tab="attendance"]');
     if (attendanceTab) {
-      attendanceTab.addEventListener('click', async () => {
+      attendanceTab.addEventListener('click', () => {
         setTimeout(async () => {
-          console.log('🎯 Attendance tab opened, refreshing students...');
+          console.log('🎯 Attendance tab opened, setting up enhanced features...');
           await StudentDropdownManager.refreshAllDropdowns();
+          setupAttendanceTab(); // Initialize enhanced attendance features
         }, 500);
       });
     }
@@ -2572,7 +2573,7 @@ function setupFormHandlers() {
   // Setup student dropdown population on tab changes
   setupFormStudentPopulation();
   
-  console.log('✅ All form handlers with dropdown support initialized');
+  console.log('✅ All form handlers with enhanced attendance support initialized');
 }
 
 function setupFormStudentPopulation() {
@@ -2592,10 +2593,191 @@ function setupFormStudentPopulation() {
         setTimeout(async () => {
           console.log(`🎯 ${tabName} tab activated, refreshing dropdowns...`);
           await StudentDropdownManager.refreshAllDropdowns();
+          
+          // Special handling for attendance tab
+          if (tabName === 'attendance') {
+            setupAttendanceTab(); // Initialize enhanced attendance features
+          }
         }, 300);
       });
     }
   });
+}
+
+// Enhanced attendance setup function
+function setupAttendanceTab() {
+  console.log('🎯 Setting up enhanced attendance features...');
+  
+  // Wait a bit for the DOM to be ready and students to be populated
+  setTimeout(() => {
+    setupAttendanceSelectAll();
+    setupAttendanceCheckboxListeners();
+    updateSelectAllButtonState();
+  }, 500);
+}
+
+// Setup attendance select all button with event listeners
+function setupAttendanceSelectAll() {
+  const selectAllBtn = document.getElementById('selectAllStudentsBtn');
+  
+  if (!selectAllBtn) {
+    console.warn('⚠️ Select All button not found in DOM');
+    return;
+  }
+
+  console.log('✅ Setting up Select All button with event listener...');
+
+  // Remove any existing event listeners by cloning the button
+  const newSelectAllBtn = selectAllBtn.cloneNode(true);
+  selectAllBtn.parentNode.replaceChild(newSelectAllBtn, selectAllBtn);
+
+  // Add click event listener
+  newSelectAllBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('🎯 Select All button clicked via event listener');
+    selectAllStudents();
+  });
+
+  // Add hover effects
+  newSelectAllBtn.addEventListener('mouseenter', function() {
+    this.style.transform = 'translateY(-1px)';
+    this.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
+  });
+
+  newSelectAllBtn.addEventListener('mouseleave', function() {
+    this.style.transform = 'translateY(0)';
+    this.style.boxShadow = 'none';
+  });
+
+  // Initialize button state
+  updateSelectAllButtonState();
+  
+  console.log('✅ Select All button setup complete with event listeners');
+}
+
+// Real-time checkbox monitoring for attendance
+function setupAttendanceCheckboxListeners() {
+  const attendanceContainer = document.getElementById('attendanceStudents');
+  if (!attendanceContainer) {
+    console.log('⏳ Attendance container not ready yet, will retry...');
+    return;
+  }
+
+  const checkboxes = attendanceContainer.querySelectorAll('input[type="checkbox"][name="presentStudents"]');
+  
+  if (checkboxes.length === 0) {
+    console.log('⏳ No student checkboxes found yet, will retry...');
+    return;
+  }
+  
+  checkboxes.forEach(checkbox => {
+    // Remove existing listeners by cloning
+    const newCheckbox = checkbox.cloneNode(true);
+    checkbox.parentNode.replaceChild(newCheckbox, checkbox);
+
+    newCheckbox.addEventListener('change', function() {
+      // Update visual feedback
+      if (this.checked) {
+        this.parentElement.style.backgroundColor = 'var(--primary-light)';
+        this.parentElement.classList.add('selected');
+      } else {
+        this.parentElement.style.backgroundColor = '';
+        this.parentElement.classList.remove('selected');
+      }
+      
+      // Update select all button state
+      updateSelectAllButtonState();
+    });
+  });
+
+  console.log(`✅ Setup change listeners for ${checkboxes.length} student checkboxes`);
+}
+
+function updateSelectAllButtonState() {
+  const attendanceContainer = document.getElementById('attendanceStudents');
+  if (!attendanceContainer) return;
+  
+  const checkboxes = attendanceContainer.querySelectorAll('input[type="checkbox"][name="presentStudents"]');
+  const selectedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+  const allSelected = selectedCount === checkboxes.length && checkboxes.length > 0;
+  
+  updateSelectAllButton(allSelected);
+}
+
+function updateSelectAllButton(allSelected) {
+  const selectAllBtn = document.getElementById('selectAllStudentsBtn');
+  if (selectAllBtn) {
+    if (allSelected) {
+      selectAllBtn.textContent = 'Deselect All';
+      selectAllBtn.title = 'Deselect all students';
+      selectAllBtn.classList.remove('btn-secondary');
+      selectAllBtn.classList.add('btn-warning');
+    } else {
+      selectAllBtn.textContent = 'Select All';
+      selectAllBtn.title = 'Select all students';
+      selectAllBtn.classList.remove('btn-warning');
+      selectAllBtn.classList.add('btn-secondary');
+    }
+  }
+}
+
+// Enhanced select all students function
+function selectAllStudents() {
+  console.log('👥 Selecting all students for attendance...');
+  
+  const attendanceContainer = document.getElementById('attendanceStudents');
+  if (!attendanceContainer) {
+    console.error('❌ Attendance container not found');
+    NotificationSystem.notifyError('Attendance form not loaded properly');
+    return;
+  }
+  
+  const checkboxes = attendanceContainer.querySelectorAll('input[type="checkbox"][name="presentStudents"]');
+  
+  if (checkboxes.length === 0) {
+    console.warn('⚠️ No student checkboxes found');
+    NotificationSystem.notifyWarning('No students available. Please add students first.');
+    return;
+  }
+  
+  // Check current selection state
+  const selectedCount = Array.from(checkboxes).filter(checkbox => checkbox.checked).length;
+  const allSelected = selectedCount === checkboxes.length;
+  const someSelected = selectedCount > 0 && selectedCount < checkboxes.length;
+  
+  let action;
+  let message;
+  
+  if (allSelected || someSelected) {
+    // Deselect all
+    checkboxes.forEach(checkbox => {
+      checkbox.checked = false;
+      checkbox.parentElement.style.backgroundColor = '';
+      checkbox.parentElement.classList.remove('selected');
+    });
+    action = 'deselected';
+    message = `Deselected all ${checkboxes.length} students`;
+    console.log('✅ All students deselected');
+    NotificationSystem.notifyInfo(message);
+  } else {
+    // Select all
+    checkboxes.forEach(checkbox => {
+      checkbox.checked = true;
+      checkbox.parentElement.style.backgroundColor = 'var(--primary-light)';
+      checkbox.parentElement.classList.add('selected');
+    });
+    action = 'selected';
+    message = `Selected all ${checkboxes.length} students`;
+    console.log(`✅ All ${checkboxes.length} students selected`);
+    NotificationSystem.notifySuccess(message);
+  }
+  
+  // Update button text and style
+  updateSelectAllButton(action === 'selected');
+  
+  return action;
 }
 
 function initializeDefaultRate(rate) {
@@ -2699,6 +2881,186 @@ function useDefaultRateInHours() {
     calculateTotalPay();
   }
 }
+
+// ===========================
+// ENHANCED SELECT ALL STUDENTS FUNCTION - EVENT LISTENER APPROACH
+// ===========================
+
+function selectAllStudents() {
+  console.log('👥 Selecting all students for attendance...');
+  
+  const attendanceContainer = document.getElementById('attendanceStudents');
+  if (!attendanceContainer) {
+    console.error('❌ Attendance container not found');
+    NotificationSystem.notifyError('Attendance form not loaded properly');
+    return;
+  }
+  
+  const checkboxes = attendanceContainer.querySelectorAll('input[type="checkbox"][name="presentStudents"]');
+  
+  if (checkboxes.length === 0) {
+    console.warn('⚠️ No student checkboxes found');
+    NotificationSystem.notifyWarning('No students available. Please add students first.');
+    return;
+  }
+  
+  // Check current selection state
+  const selectedCount = Array.from(checkboxes).filter(checkbox => checkbox.checked).length;
+  const allSelected = selectedCount === checkboxes.length;
+  const someSelected = selectedCount > 0 && selectedCount < checkboxes.length;
+  
+  let action;
+  let message;
+  
+  if (allSelected || someSelected) {
+    // Deselect all
+    checkboxes.forEach(checkbox => {
+      checkbox.checked = false;
+      checkbox.parentElement.style.backgroundColor = ''; // Remove highlight
+    });
+    action = 'deselected';
+    message = `Deselected all ${checkboxes.length} students`;
+    console.log('✅ All students deselected');
+    NotificationSystem.notifyInfo(message);
+  } else {
+    // Select all
+    checkboxes.forEach(checkbox => {
+      checkbox.checked = true;
+      checkbox.parentElement.style.backgroundColor = 'var(--primary-light)'; // Add highlight
+    });
+    action = 'selected';
+    message = `Selected all ${checkboxes.length} students`;
+    console.log(`✅ All ${checkboxes.length} students selected`);
+    NotificationSystem.notifySuccess(message);
+  }
+  
+  // Update button text and style
+  updateSelectAllButton(action === 'selected');
+  
+  return action;
+}
+
+function updateSelectAllButton(allSelected) {
+  const selectAllBtn = document.getElementById('selectAllStudentsBtn');
+  if (selectAllBtn) {
+    if (allSelected) {
+      selectAllBtn.textContent = 'Deselect All';
+      selectAllBtn.title = 'Deselect all students';
+      selectAllBtn.classList.remove('btn-secondary');
+      selectAllBtn.classList.add('btn-warning');
+    } else {
+      selectAllBtn.textContent = 'Select All';
+      selectAllBtn.title = 'Select all students';
+      selectAllBtn.classList.remove('btn-warning');
+      selectAllBtn.classList.add('btn-secondary');
+    }
+  }
+}
+
+// Get current selection count for the button
+function getSelectedStudentsCount() {
+  const attendanceContainer = document.getElementById('attendanceStudents');
+  if (!attendanceContainer) return 0;
+  
+  const checkboxes = attendanceContainer.querySelectorAll('input[type="checkbox"][name="presentStudents"]');
+  return Array.from(checkboxes).filter(checkbox => checkbox.checked).length;
+}
+
+// ===========================
+// ATTENDANCE SELECT ALL SETUP
+// ===========================
+
+function setupAttendanceSelectAll() {
+  const selectAllBtn = document.getElementById('selectAllStudentsBtn');
+  
+  if (!selectAllBtn) {
+    console.warn('⚠️ Select All button not found in DOM');
+    return;
+  }
+
+  console.log('✅ Setting up Select All button with event listener...');
+
+  // Remove any existing event listeners by cloning the button
+  const newSelectAllBtn = selectAllBtn.cloneNode(true);
+  selectAllBtn.parentNode.replaceChild(newSelectAllBtn, selectAllBtn);
+
+  // Add click event listener
+  newSelectAllBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('🎯 Select All button clicked via event listener');
+    selectAllStudents();
+  });
+
+  // Add hover effects
+  newSelectAllBtn.addEventListener('mouseenter', function() {
+    this.style.transform = 'translateY(-1px)';
+    this.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
+  });
+
+  newSelectAllBtn.addEventListener('mouseleave', function() {
+    this.style.transform = 'translateY(0)';
+    this.style.boxShadow = 'none';
+  });
+
+  // Initialize button state
+  updateSelectAllButton(false);
+  
+  console.log('✅ Select All button setup complete with event listeners');
+}
+
+// Setup when attendance tab is activated
+function setupAttendanceTab() {
+  console.log('🎯 Attendance tab activated, setting up select all...');
+  
+  // Wait a bit for the DOM to be ready
+  setTimeout(() => {
+    setupAttendanceSelectAll();
+    setupAttendanceCheckboxListeners();
+  }, 300);
+}
+
+// Real-time checkbox monitoring
+function setupAttendanceCheckboxListeners() {
+  const attendanceContainer = document.getElementById('attendanceStudents');
+  if (!attendanceContainer) return;
+
+  const checkboxes = attendanceContainer.querySelectorAll('input[type="checkbox"][name="presentStudents"]');
+  
+  checkboxes.forEach(checkbox => {
+    // Remove existing listeners by cloning
+    const newCheckbox = checkbox.cloneNode(true);
+    checkbox.parentNode.replaceChild(newCheckbox, checkbox);
+
+    newCheckbox.addEventListener('change', function() {
+      // Update visual feedback
+      if (this.checked) {
+        this.parentElement.style.backgroundColor = 'var(--primary-light)';
+      } else {
+        this.parentElement.style.backgroundColor = '';
+      }
+      
+      // Update select all button state
+      updateSelectAllButtonState();
+    });
+  });
+
+  console.log(`✅ Setup change listeners for ${checkboxes.length} student checkboxes`);
+}
+
+function updateSelectAllButtonState() {
+  const attendanceContainer = document.getElementById('attendanceStudents');
+  if (!attendanceContainer) return;
+  
+  const checkboxes = attendanceContainer.querySelectorAll('input[type="checkbox"][name="presentStudents"]');
+  const selectedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+  const allSelected = selectedCount === checkboxes.length && checkboxes.length > 0;
+  
+  updateSelectAllButton(allSelected);
+}
+
+
 
 // ===========================
 // MISSING UPDATE PROFILE MODAL FUNCTION
