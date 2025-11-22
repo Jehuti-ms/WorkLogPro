@@ -6004,6 +6004,12 @@ window.generatePeriodReport = generatePeriodReport;
 window.generateSubjectReport = generateSubjectReport;
 window.debugStudentDropdowns = debugStudentDropdowns;
 window.manuallyRefreshStudentDropdowns = manuallyRefreshStudentDropdowns;
+window.formatStudentDisplay = formatStudentDisplay;
+window.populateHoursStudentDropdown = populateHoursStudentDropdown;
+window.populateAttendanceStudents = populateAttendanceStudents;
+window.recordPayment = recordPayment;
+window.deletePayment = deletePayment;
+window.quickAddPayment = quickAddPayment;
   
 console.log('✅ All functions exported to window object');
 });
