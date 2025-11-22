@@ -2478,6 +2478,34 @@ async function handlePaymentSubmit(e) {
   }
 }
 
+function clearAttendanceForm() {
+  const form = document.getElementById('attendanceForm');
+  if (form) {
+    form.reset();
+    
+    // Clear all student checkboxes
+    const checkboxes = document.querySelectorAll('#attendanceStudents input[type="checkbox"]');
+    checkboxes.forEach(checkbox => {
+      checkbox.checked = false;
+      if (checkbox.parentElement) {
+        checkbox.parentElement.style.backgroundColor = '';
+        checkbox.parentElement.classList.remove('selected');
+      }
+    });
+    
+    // Reset select all button
+    updateSelectAllButton(false);
+    
+    // Set today's date as default
+    const dateInput = document.getElementById('attendanceDate');
+    if (dateInput) {
+      dateInput.value = new Date().toISOString().split('T')[0];
+    }
+    
+    NotificationSystem.notifyInfo('Attendance form cleared');
+  }
+}
+
 // ===========================
 // ENHANCED FORM SETUP WITH DROPDOWN SUPPORT
 // ===========================
