@@ -1038,62 +1038,85 @@ const SyncBar = {
   },
 
   async performSync(mode = 'manual') {
-    const user = auth.currentUser;
-    if (!user) {
-      NotificationSystem.notifyError('Please log in to sync');
-      return;
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to sync');
+    return;
+  }
+
+  try {
+    if (syncIndicator) {
+      syncIndicator.classList.remove('sync-connected', 'sync-error');
+      syncIndicator.classList.add('sync-active');
+    }
+    if (syncMessageLine) {
+      syncMessageLine.textContent = `Status: ${mode === 'auto' ? 'Auto-syncing' : 'Manual syncing'}...`;
     }
 
+    // Use safe function calls with error handling
+    const syncTasks = [
+      recalcSummaryStats(user.uid),
+      loadUserStats(user.uid),
+      this.safeRender(renderStudents),
+      this.safeRender(renderRecentHours),
+      this.safeRender(renderRecentMarks),
+      this.safeRender(renderAttendanceRecent),
+      this.safeRender(renderPaymentActivity), // Now safely wrapped
+      this.safeRender(renderStudentBalances),
+      this.safeRender(renderOverviewReports)
+    ];
+
+    await Promise.all(syncTasks);
+
+    const now = new Date().toLocaleString();
+    if (syncMessageLine) syncMessageLine.textContent = `Status: Last synced at ${now}`;
+    if (document.getElementById('statUpdated')) {
+      document.getElementById('statUpdated').textContent = now;
+    }
+
+    if (syncIndicator) {
+      syncIndicator.classList.remove('sync-active');
+      if (isAutoSyncEnabled) {
+        syncIndicator.classList.add('sync-connected');
+      }
+    }
+
+    NotificationSystem.notifySuccess(`${mode === 'auto' ? 'Auto-' : ''}Sync completed successfully`);
+
+  } catch (error) {
+    console.error(`❌ ${mode} sync failed:`, error);
+    
+    if (syncIndicator) {
+      syncIndicator.classList.remove('sync-active', 'sync-connected');
+      syncIndicator.classList.add('sync-error');
+    }
+    if (syncMessageLine) {
+      syncMessageLine.textContent = `Status: Sync failed - ${error.message}`;
+    }
+    
+    NotificationSystem.notifyError(`Sync failed: ${error.message}`);
+  }
+},
+
+// Add this helper method to handle missing render functions
+safeRender(renderFunction) {
+  return new Promise((resolve) => {
     try {
-      if (syncIndicator) {
-        syncIndicator.classList.remove('sync-connected', 'sync-error');
-        syncIndicator.classList.add('sync-active');
+      if (typeof renderFunction === 'function') {
+        renderFunction().then(resolve).catch(error => {
+          console.warn(`⚠️ Render function failed: ${renderFunction.name}`, error);
+          resolve(); // Resolve anyway to prevent blocking other sync tasks
+        });
+      } else {
+        console.warn(`⚠️ Render function not available: ${renderFunction}`);
+        resolve();
       }
-      if (syncMessageLine) {
-        syncMessageLine.textContent = `Status: ${mode === 'auto' ? 'Auto-syncing' : 'Manual syncing'}...`;
-      }
-
-      await Promise.all([
-        recalcSummaryStats(user.uid),
-        loadUserStats(user.uid),
-        renderStudents(),
-        renderRecentHours(),
-        renderRecentMarks(),
-        renderAttendanceRecent(),
-        renderPaymentActivity(),
-        renderStudentBalances(),
-        renderOverviewReports()
-      ]);
-
-      const now = new Date().toLocaleString();
-      if (syncMessageLine) syncMessageLine.textContent = `Status: Last synced at ${now}`;
-      if (document.getElementById('statUpdated')) {
-        document.getElementById('statUpdated').textContent = now;
-      }
-
-      if (syncIndicator) {
-        syncIndicator.classList.remove('sync-active');
-        if (isAutoSyncEnabled) {
-          syncIndicator.classList.add('sync-connected');
-        }
-      }
-
-      NotificationSystem.notifySuccess(`${mode === 'auto' ? 'Auto-' : ''}Sync completed successfully`);
-
     } catch (error) {
-      console.error(`❌ ${mode} sync failed:`, error);
-      
-      if (syncIndicator) {
-        syncIndicator.classList.remove('sync-active', 'sync-connected');
-        syncIndicator.classList.add('sync-error');
-      }
-      if (syncMessageLine) {
-        syncMessageLine.textContent = `Status: Sync failed - ${error.message}`;
-      }
-      
-      NotificationSystem.notifyError(`Sync failed: ${error.message}`);
+      console.warn(`⚠️ Render function error: ${error.message}`);
+      resolve();
     }
-  },
+  });
+}
 
   setupExportCloudButton() {
     if (exportCloudBtn) {
@@ -2119,6 +2142,62 @@ async function renderAttendanceRecent(limit = 10) {
   } catch (error) {
     console.error("Error rendering attendance:", error);
     container.innerHTML = '<div class="error">Error loading attendance</div>';
+  }
+}
+
+// ===========================
+// MISSING RENDER PAYMENT ACTIVITY FUNCTION
+// ===========================
+
+async function renderPaymentActivity(limit = 10) {
+  const container = document.getElementById('paymentActivityLog');
+  if (!container) return;
+
+  try {
+    // Use cached payments or load fresh
+    const payments = await EnhancedCache.loadCollection('payments');
+    
+    if (payments.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>No Payment Activity</h3>
+          <p>No recent payment activity recorded</p>
+        </div>
+      `;
+      return;
+    }
+
+    // Sort by date (newest first)
+    const sortedPayments = payments.sort((a, b) => {
+      const dateA = new Date(a.date || a.dateIso);
+      const dateB = new Date(b.date || b.dateIso);
+      return dateB - dateA;
+    });
+
+    let paymentHTML = '';
+    sortedPayments.slice(0, limit).forEach(entry => {
+      paymentHTML += `
+        <div class="activity-item">
+          <div class="payment-header">
+            <strong>$${fmtMoney(entry.amount)}</strong> — ${entry.student || 'Unknown Student'}
+            <div class="student-actions">
+              <button class="btn-icon" onclick="editPayment('${entry.id}')" title="Edit">✏️</button>
+              <button class="btn-icon" onclick="deletePayment('${entry.id}')" title="Delete">🗑️</button>
+            </div>
+          </div>
+          <div class="muted">${formatDate(entry.date)} | ${entry.method || 'Unknown Method'}</div>
+          <div>${entry.notes || ""}</div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = paymentHTML;
+    
+    console.log(`✅ Rendered ${Math.min(payments.length, limit)} payment activities`);
+
+  } catch (error) {
+    console.error("Error rendering payments:", error);
+    container.innerHTML = '<div class="error">Error loading payments</div>';
   }
 }
 
@@ -4210,6 +4289,7 @@ window.editPayment = editPayment;
 window.deletePayment = deletePayment;
 window.NotificationSystem = NotificationSystem;
 window.switchTab = switchTab;
+window.renderPaymentActivity = renderPaymentActivity;
 
 console.log('✅ All functions exported to window object');
 });
