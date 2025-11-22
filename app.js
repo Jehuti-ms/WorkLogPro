@@ -4238,12 +4238,6 @@ async function editHours(id) {
   NotificationSystem.notifyInfo(`Edit hours ${id} - Feature coming soon`);
 }
 
-async function deleteHours(id) {
-  if (confirm('Are you sure you want to delete this hours entry?')) {
-    NotificationSystem.notifyInfo(`Delete hours ${id} - Feature coming soon`);
-  }
-}
-
 async function editMark(id) {
   NotificationSystem.notifyInfo(`Edit mark ${id} - Feature coming soon`);
 }
