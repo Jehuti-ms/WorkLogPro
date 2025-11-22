@@ -1228,6 +1228,39 @@ function getLocalDateString(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function debugStudentDropdowns() {
+  console.log('🔍 DEBUG: Checking student dropdowns...');
+  
+  const dropdowns = [
+    { id: 'student', name: 'Hours Tab Student Dropdown' },
+    { id: 'marksStudent', name: 'Marks Tab Student Dropdown' },
+    { id: 'paymentStudent', name: 'Payments Tab Student Dropdown' }
+  ];
+  
+  dropdowns.forEach(dropdown => {
+    const element = document.getElementById(dropdown.id);
+    if (element) {
+      console.log(`📋 ${dropdown.name}:`, {
+        exists: true,
+        options: element.options.length,
+        value: element.value,
+        id: element.id
+      });
+    } else {
+      console.log(`❌ ${dropdown.name}: NOT FOUND IN DOM`);
+    }
+  });
+  
+  // Check if we have students in cache
+  console.log('📊 Students in cache:', cache.students?.length || 0);
+}
+
+function manuallyRefreshStudentDropdowns() {
+  console.log('🔄 Manually refreshing student dropdowns...');
+  StudentDropdownManager.forceRefresh();
+  debugStudentDropdowns();
+}
+
 function fmtDateISO(yyyyMmDd) {
   if (!yyyyMmDd) return new Date().toISOString();
   try {
@@ -3357,7 +3390,20 @@ function setupFormHandlers() {
     if (hoursInput) hoursInput.addEventListener('input', calculateTotalPay);
     if (baseRateInput) baseRateInput.addEventListener('input', calculateTotalPay);
     
-    // Enhance student dropdown in hours form
+    // ENHANCED: Force populate student dropdown when hours tab is activated
+    const hoursTab = document.querySelector('[data-tab="hours"]');
+    if (hoursTab) {
+      hoursTab.addEventListener('click', async () => {
+        console.log('🎯 Hours tab activated, populating student dropdown...');
+        setTimeout(async () => {
+          await StudentDropdownManager.forceRefresh();
+          // Also populate the dropdown immediately
+          await populateStudentDropdowns();
+        }, 300);
+      });
+    }
+    
+    // Also populate on form focus
     if (studentDropdown) {
       studentDropdown.addEventListener('focus', async () => {
         console.log('🎯 Hours form student dropdown focused');
@@ -4042,7 +4088,10 @@ const StudentDropdownManager = {
 
 async function populateStudentDropdowns() {
   const user = auth.currentUser;
-  if (!user) return;
+  if (!user) {
+    console.log('❌ No user for dropdown population');
+    return;
+  }
 
   try {
     console.log('🔄 Populating student dropdowns...');
@@ -4051,25 +4100,27 @@ async function populateStudentDropdowns() {
     console.log(`📝 Found ${students.length} students for dropdowns`);
 
     if (students.length === 0) {
-      showDropdownError();
+      showNoStudentsMessage();
       return;
     }
 
-    // Get all dropdown elements
+    // Get ALL student dropdowns - including the hours tab
     const dropdownSelectors = [
-      '#student',
-      '#marksStudent', 
-      '#paymentStudent',
-      'select[name="student"]',
-      'select[name="marksStudent"]', 
-      'select[name="paymentStudent"]'
+      '#student',                    // Hours form
+      '#marksStudent',               // Marks form  
+      '#paymentStudent',             // Payments form
+      'select[name="student"]',      // Generic hours dropdown
+      'select[name="marksStudent"]', // Generic marks dropdown
+      'select[name="paymentStudent"]' // Generic payments dropdown
     ];
 
     const dropdowns = [];
     dropdownSelectors.forEach(selector => {
       const elements = document.querySelectorAll(selector);
       elements.forEach(el => {
-        if (el) dropdowns.push(el);
+        if (el && !dropdowns.includes(el)) {
+          dropdowns.push(el);
+        }
       });
     });
 
@@ -4078,6 +4129,9 @@ async function populateStudentDropdowns() {
     dropdowns.forEach(dropdown => {
       populateSingleDropdown(dropdown, students);
     });
+
+    // Also populate attendance checkboxes
+    populateAttendanceStudents(students);
 
     console.log('✅ All student dropdowns populated successfully');
 
@@ -5594,21 +5648,19 @@ async function refreshAllUI() {
   try {
     await Promise.all([
       renderStudents(),
-      renderRecentHours(),
-      renderRecentMarks(),
-      renderAttendanceRecent(),
-      renderPaymentActivity(),
-      renderStudentBalances(),
-      renderOverviewReports(), // Now this exists
-      loadReportData() 
+      renderRecentHoursWithEdit(),
+      renderRecentMarksWithEdit(),
+      renderAttendanceRecentWithEdit(),
+      renderPaymentActivityWithEdit(),
+      renderStudentBalancesWithEdit(),
+      renderOverviewReports()
     ]);
     
-    await populateStudentDropdowns();
+    // Force refresh dropdowns after UI is rendered
+    await StudentDropdownManager.forceRefresh();
     
-    // Refresh stats
-    if (typeof EnhancedStats !== 'undefined' && EnhancedStats.forceRefresh) {
-      EnhancedStats.forceRefresh();
-    }
+    // Debug: Check dropdown status
+    setTimeout(debugStudentDropdowns, 1000);
     
     console.log('✅ All UI components refreshed');
   } catch (error) {
@@ -5727,6 +5779,8 @@ window.renderOverviewReports = renderOverviewReports;
 window.loadReportData = loadReportData;
 window.generatePeriodReport = generatePeriodReport;
 window.generateSubjectReport = generateSubjectReport;
+window.debugStudentDropdowns = debugStudentDropdowns;
+window.manuallyRefreshStudentDropdowns = manuallyRefreshStudentDropdowns;
   
 console.log('✅ All functions exported to window object');
 });
