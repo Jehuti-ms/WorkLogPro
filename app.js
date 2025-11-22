@@ -1256,20 +1256,21 @@ function debugStudentDropdowns() {
 }
 
 function manuallyRefreshStudentDropdowns() {
-  console.log('🔄 Manually refreshing student dropdowns...');
-  StudentDropdownManager.forceRefresh();
-  debugStudentDropdowns();
-}
-
-function fmtDateISO(yyyyMmDd) {
-  if (!yyyyMmDd) return new Date().toISOString();
-  try {
-    const [year, month, day] = yyyyMmDd.split('-').map(Number);
-    const date = new Date(year, month - 1, day);
-    return date.toISOString();
-  } catch {
-    return new Date().toISOString();
+  console.log('🔄 MANUAL REFRESH: Starting...');
+  
+  // Make sure manager is initialized
+  if (!StudentDropdownManager || !StudentDropdownManager.forceRefresh) {
+    console.log('❌ StudentDropdownManager not available');
+    return;
   }
+  
+  // Force refresh
+  StudentDropdownManager.forceRefresh().then(() => {
+    console.log('✅ Manual refresh completed');
+    debugStudentDropdowns();
+  }).catch(error => {
+    console.error('❌ Manual refresh failed:', error);
+  });
 }
 
 function calculateTotalPay() {
@@ -1336,6 +1337,50 @@ function isDateInRange(entryDate, startDate, endDate) {
   } catch (error) {
     console.error('Date comparison error:', error);
     return false;
+  }
+}
+
+function debugStudentDropdowns() {
+  console.log('🔍 DEBUG: Comprehensive student dropdown check...');
+  
+  // Check authentication
+  const user = auth.currentUser;
+  console.log('👤 User:', user ? user.email : 'No user');
+  
+  // Check cache
+  console.log('📊 Cache students:', cache.students?.length || 0);
+  console.log('📊 Cache data:', cache.students);
+  
+  // Check all dropdown elements
+  const dropdowns = [
+    { id: 'student', name: 'Hours Tab' },
+    { id: 'marksStudent', name: 'Marks Tab' },
+    { id: 'paymentStudent', name: 'Payments Tab' }
+  ];
+  
+  dropdowns.forEach(dropdown => {
+    const element = document.getElementById(dropdown.id);
+    if (element) {
+      console.log(`✅ ${dropdown.name}:`, {
+        id: element.id,
+        options: element.options.length,
+        value: element.value,
+        html: element.outerHTML
+      });
+    } else {
+      console.log(`❌ ${dropdown.name}: ELEMENT NOT FOUND`);
+    }
+  });
+  
+  // Check if StudentDropdownManager exists
+  console.log('🔄 StudentDropdownManager:', StudentDropdownManager ? 'Exists' : 'UNDEFINED');
+  
+  // Check localStorage
+  try {
+    const storedStudents = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    console.log('💾 localStorage students:', storedStudents.length);
+  } catch (e) {
+    console.log('💾 localStorage error:', e);
   }
 }
 
@@ -4000,33 +4045,24 @@ const StudentDropdownManager = {
     // Watch for tab changes to refresh dropdowns
     document.addEventListener('click', (e) => {
       if (e.target.matches('.tab[data-tab]')) {
+        const tabName = e.target.getAttribute('data-tab');
+        console.log(`📑 Tab changed to: ${tabName}`);
         setTimeout(() => this.refreshAllDropdowns(), 300);
-      }
-    });
-    
-    // Watch for form submissions that might add new students
-    document.addEventListener('submit', (e) => {
-      if (e.target.id === 'studentForm') {
-        setTimeout(() => this.refreshAllDropdowns(), 1000);
       }
     });
   },
   
   async refreshAllDropdowns() {
-    console.log('🔄 Refreshing all student dropdowns...');
+    console.log('🔄 StudentDropdownManager: Refreshing all dropdowns...');
     await populateStudentDropdowns();
     this.enhanceDropdownBehavior();
   },
   
   enhanceDropdownBehavior() {
-    // Get all student dropdowns
     const dropdownSelectors = [
-      '#student', // Hours form
-      '#marksStudent', // Marks form  
-      '#paymentStudent', // Payments form
-      'select[name="student"]',
-      'select[name="marksStudent"]', 
-      'select[name="paymentStudent"]'
+      '#student',
+      '#marksStudent', 
+      '#paymentStudent'
     ];
     
     this.dropdowns = [];
@@ -4035,7 +4071,6 @@ const StudentDropdownManager = {
       elements.forEach(el => {
         if (el && !this.dropdowns.includes(el)) {
           this.dropdowns.push(el);
-          this.enhanceSingleDropdown(el);
         }
       });
     });
@@ -4043,42 +4078,76 @@ const StudentDropdownManager = {
     console.log(`✅ Enhanced ${this.dropdowns.length} student dropdowns`);
   },
   
-  enhanceSingleDropdown(dropdown) {
-    // Remove existing event listeners by cloning
-    const newDropdown = dropdown.cloneNode(true);
-    dropdown.parentNode.replaceChild(newDropdown, dropdown);
+  async forceRefresh() {
+    console.log('🔄 StudentDropdownManager: Force refreshing all dropdowns...');
     
-    // Add click handler to open and refresh
-    newDropdown.addEventListener('click', async (e) => {
-      console.log('🎯 Student dropdown clicked:', newDropdown.id || newDropdown.name);
-      
-      // Refresh data if dropdown is empty
-      if (newDropdown.options.length <= 1) {
-        console.log('🔄 Dropdown empty, refreshing students...');
-        await this.refreshAllDropdowns();
-      }
+    // Clear cache and reload fresh data
+    const students = await EnhancedCache.loadCollection('students', true); // force refresh
+    
+    if (students.length === 0) {
+      console.log('❌ No students found to populate dropdowns');
+      return;
+    }
+    
+    // Get all dropdowns
+    const dropdownSelectors = ['#student', '#marksStudent', '#paymentStudent'];
+    const dropdowns = [];
+    
+    dropdownSelectors.forEach(selector => {
+      const elements = document.querySelectorAll(selector);
+      elements.forEach(el => {
+        if (el) dropdowns.push(el);
+      });
     });
     
-    // Add focus handler
-    newDropdown.addEventListener('focus', async (e) => {
-      console.log('🎯 Student dropdown focused:', newDropdown.id || newDropdown.name);
-      
-      // Ensure we have the latest students
-      const students = await EnhancedCache.loadCollection('students');
-      if (students.length > 0 && newDropdown.options.length <= 1) {
-        console.log('🔄 Populating dropdown on focus...');
-        await populateStudentDropdowns();
-      }
+    console.log(`🎯 Found ${dropdowns.length} dropdowns to populate with ${students.length} students`);
+    
+    // Populate each dropdown
+    dropdowns.forEach(dropdown => {
+      this.populateDropdown(dropdown, students);
     });
     
-    return newDropdown;
+    console.log('✅ Force refresh completed');
   },
   
-  // Force refresh all dropdowns
-  async forceRefresh() {
-    console.log('🔄 Force refreshing all dropdowns...');
-    await populateStudentDropdowns();
-    this.enhanceDropdownBehavior();
+  populateDropdown(dropdown, students) {
+    if (!dropdown) {
+      console.log('❌ Dropdown element is null');
+      return;
+    }
+    
+    console.log(`📝 Populating ${dropdown.id} with ${students.length} students`);
+    
+    // Store current selection
+    const currentValue = dropdown.value;
+    
+    // Clear existing options
+    dropdown.innerHTML = '';
+    
+    // Add default option
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = students.length > 0 ? 'Select a student...' : 'No students available';
+    defaultOption.disabled = true;
+    defaultOption.selected = true;
+    dropdown.appendChild(defaultOption);
+    
+    // Add students
+    students.forEach(student => {
+      const studentName = student.name || `Student ${student.id}`;
+      const option = document.createElement('option');
+      option.value = studentName;
+      option.textContent = studentName;
+      option.setAttribute('data-student-id', student.id);
+      dropdown.appendChild(option);
+    });
+    
+    // Restore selection if possible
+    if (currentValue && dropdown.querySelector(`option[value="${currentValue}"]`)) {
+      dropdown.value = currentValue;
+    }
+    
+    console.log(`✅ ${dropdown.id} populated with ${students.length} options`);
   }
 };
 
