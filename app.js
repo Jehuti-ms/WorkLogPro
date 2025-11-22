@@ -4242,12 +4242,6 @@ async function editMark(id) {
   NotificationSystem.notifyInfo(`Edit mark ${id} - Feature coming soon`);
 }
 
-async function deleteMark(id) {
-  if (confirm('Are you sure you want to delete this mark?')) {
-    NotificationSystem.notifyInfo(`Delete mark ${id} - Feature coming soon`);
-  }
-}
-
 async function editAttendance(id) {
   NotificationSystem.notifyInfo(`Edit attendance ${id} - Feature coming soon`);
 }
