@@ -2924,34 +2924,6 @@ function getSelectedStudentsCount() {
 // ATTENDANCE SELECT ALL SETUP
 // ===========================
 
-// Real-time checkbox monitoring
-function setupAttendanceCheckboxListeners() {
-  const attendanceContainer = document.getElementById('attendanceStudents');
-  if (!attendanceContainer) return;
-
-  const checkboxes = attendanceContainer.querySelectorAll('input[type="checkbox"][name="presentStudents"]');
-  
-  checkboxes.forEach(checkbox => {
-    // Remove existing listeners by cloning
-    const newCheckbox = checkbox.cloneNode(true);
-    checkbox.parentNode.replaceChild(newCheckbox, checkbox);
-
-    newCheckbox.addEventListener('change', function() {
-      // Update visual feedback
-      if (this.checked) {
-        this.parentElement.style.backgroundColor = 'var(--primary-light)';
-      } else {
-        this.parentElement.style.backgroundColor = '';
-      }
-      
-      // Update select all button state
-      updateSelectAllButtonState();
-    });
-  });
-
-  console.log(`✅ Setup change listeners for ${checkboxes.length} student checkboxes`);
-}
-
 function updateSelectAllButtonState() {
   const attendanceContainer = document.getElementById('attendanceStudents');
   if (!attendanceContainer) return;
