@@ -4224,10 +4224,10 @@ function showDropdownError() {
 // EDIT & DELETE FUNCTIONS
 // ===========================
 
-/*async function editStudent(id) {
+async function editStudent(id) {
   NotificationSystem.notifyInfo(`Edit student ${id} - Feature coming soon`);
 }
-
+/*
 async function deleteStudent(id) {
   if (confirm('Are you sure you want to delete this student?')) {
     NotificationSystem.notifyInfo(`Delete student ${id} - Feature coming soon`);
