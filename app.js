@@ -2751,63 +2751,6 @@ function updateSelectAllButton(allSelected) {
   }
 }
 
-// Enhanced select all students function
-function selectAllStudents() {
-  console.log('👥 Selecting all students for attendance...');
-  
-  const attendanceContainer = document.getElementById('attendanceStudents');
-  if (!attendanceContainer) {
-    console.error('❌ Attendance container not found');
-    NotificationSystem.notifyError('Attendance form not loaded properly');
-    return;
-  }
-  
-  const checkboxes = attendanceContainer.querySelectorAll('input[type="checkbox"][name="presentStudents"]');
-  
-  if (checkboxes.length === 0) {
-    console.warn('⚠️ No student checkboxes found');
-    NotificationSystem.notifyWarning('No students available. Please add students first.');
-    return;
-  }
-  
-  // Check current selection state
-  const selectedCount = Array.from(checkboxes).filter(checkbox => checkbox.checked).length;
-  const allSelected = selectedCount === checkboxes.length;
-  const someSelected = selectedCount > 0 && selectedCount < checkboxes.length;
-  
-  let action;
-  let message;
-  
-  if (allSelected || someSelected) {
-    // Deselect all
-    checkboxes.forEach(checkbox => {
-      checkbox.checked = false;
-      checkbox.parentElement.style.backgroundColor = '';
-      checkbox.parentElement.classList.remove('selected');
-    });
-    action = 'deselected';
-    message = `Deselected all ${checkboxes.length} students`;
-    console.log('✅ All students deselected');
-    NotificationSystem.notifyInfo(message);
-  } else {
-    // Select all
-    checkboxes.forEach(checkbox => {
-      checkbox.checked = true;
-      checkbox.parentElement.style.backgroundColor = 'var(--primary-light)';
-      checkbox.parentElement.classList.add('selected');
-    });
-    action = 'selected';
-    message = `Selected all ${checkboxes.length} students`;
-    console.log(`✅ All ${checkboxes.length} students selected`);
-    NotificationSystem.notifySuccess(message);
-  }
-  
-  // Update button text and style
-  updateSelectAllButton(action === 'selected');
-  
-  return action;
-}
-
 function initializeDefaultRate(rate) {
   const baseRateInput = document.getElementById('baseRate');
   const studentRateInput = document.getElementById('studentRate');  
