@@ -1,5 +1,5 @@
 // ===========================
-// WORKLOG APP - FIXED VERSION
+// WORKLOG APP - COMPLETE FIXED VERSION
 // ===========================
 
 import { 
@@ -9,10 +9,6 @@ import {
   collection, 
   addDoc, 
   getDocs,
-  writeBatch,
-  query, 
-  orderBy,
-  where,
   updateDoc,
   deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -30,26 +26,6 @@ import {
 let autoSyncInterval = null;
 let isAutoSyncEnabled = false;
 let currentUserData = null;
-let currentEditStudentId = null;
-let currentEditHoursId = null;
-let currentEditMarksId = null;
-let currentEditAttendanceId = null;
-let currentEditPaymentId = null;
-
-// DOM Elements
-const syncIndicator = document.getElementById("syncIndicator");
-const syncSpinner = document.getElementById("syncSpinner");
-const autoSyncCheckbox = document.getElementById("autoSyncCheckbox");
-const autoSyncText = document.getElementById("autoSyncText");
-const syncMessage = document.getElementById("syncMessage");
-const syncMessageLine = document.getElementById("syncMessageLine");
-const syncBtn = document.getElementById("syncBtn");
-const exportCloudBtn = document.getElementById("exportCloudBtn");
-const importCloudBtn = document.getElementById("importCloudBtn");
-const syncStatsBtn = document.getElementById("syncStatsBtn");
-const exportDataBtn = document.getElementById("exportDataBtn");
-const importDataBtn = document.getElementById("importDataBtn");
-const clearDataBtn = document.getElementById("clearDataBtn");
 
 // Cache system
 const cache = {
@@ -299,7 +275,9 @@ const EnhancedCache = {
       
       this.markAsSynced(collection, item._id, result);
       console.log(`☁️ Background sync successful: ${collection} - ${item._id}`);
-      EnhancedStats.forceRefresh();
+      if (window.EnhancedStats && window.EnhancedStats.forceRefresh) {
+        window.EnhancedStats.forceRefresh();
+      }
     } catch (error) {
       console.error(`❌ Background sync failed for ${collection}:`, error);
     }
@@ -406,20 +384,105 @@ const EnhancedCache = {
 };
 
 // ===========================
-// STATS SYSTEM
+// UTILITY FUNCTIONS
+// ===========================
+
+function safeNumber(n, fallback = 0) {
+  if (n === null || n === undefined || n === '') return fallback;
+  const v = Number(n);
+  return Number.isFinite(v) ? v : fallback;
+}
+
+function fmtMoney(n) {
+  return safeNumber(n).toFixed(2);
+}
+
+function getLocalDateString(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function fmtDateISO(yyyyMmDd) {
+  if (!yyyyMmDd) return new Date().toISOString();
+  try {
+    const [year, month, day] = yyyyMmDd.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.toISOString();
+  } catch {
+    return new Date().toISOString();
+  }
+}
+
+function calculateTotalPay() {
+  const hours = safeNumber(document.getElementById('hours')?.value);
+  const rate = safeNumber(document.getElementById('rate')?.value);
+  const total = hours * rate;
+  
+  const totalPayElement = document.getElementById('totalPay');
+  if (totalPayElement) {
+    totalPayElement.textContent = `$${fmtMoney(total)}`;
+  }
+}
+
+function calculateGrade(percentage) {
+  if (percentage >= 90) return 'A';
+  if (percentage >= 80) return 'B';
+  if (percentage >= 70) return 'C';
+  if (percentage >= 60) return 'D';
+  return 'F';
+}
+
+function formatDate(dateString) {
+  if (!dateString) return 'Never';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Invalid Date';
+    
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch {
+    return dateString;
+  }
+}
+
+function isDateInRange(entryDate, startDate, endDate) {
+  try {
+    const entry = new Date(entryDate);
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    const entryDateOnly = new Date(entry.getFullYear(), entry.getMonth(), entry.getDate());
+    const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const endDateOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    
+    return entryDateOnly >= startDateOnly && entryDateOnly <= endDateOnly;
+  } catch (error) {
+    console.error('Date comparison error:', error);
+    return false;
+  }
+}
+
+// ===========================
+// STATS SYSTEM - COMPLETE VERSION
 // ===========================
 
 const EnhancedStats = {
   init() {
     this.setupStatsUpdaters();
     this.startStatsRefresh();
+    console.log('✅ Stats system initialized');
   },
 
   setupStatsUpdaters() {
+    // Remove the missing calculateAttendanceStats reference
     this.updateStudentStats = this.debounce(() => this.calculateStudentStats(), 500);
     this.updateHoursStats = this.debounce(() => this.calculateHoursStats(), 500);
     this.updateMarksStats = this.debounce(() => this.calculateMarksStats(), 500);
-    this.updateAttendanceStats = this.debounce(() => this.calculateAttendanceStats(), 500);
     this.updatePaymentStats = this.debounce(() => this.calculatePaymentStats(), 500);
     this.updateOverviewStats = this.debounce(() => this.calculateOverviewStats(), 1000);
   },
@@ -448,10 +511,10 @@ const EnhancedStats = {
         this.calculateStudentStats(),
         this.calculateHoursStats(),
         this.calculateMarksStats(),
-        this.calculateAttendanceStats(),
         this.calculatePaymentStats(),
         this.calculateOverviewStats()
       ]);
+      console.log('✅ All stats refreshed');
     } catch (error) {
       console.error('❌ Error refreshing stats:', error);
     }
@@ -648,93 +711,10 @@ const EnhancedStats = {
   },
 
   forceRefresh() {
+    console.log('🔄 Forcing stats refresh...');
     this.refreshAllStats();
   }
 };
-
-// ===========================
-// UTILITY FUNCTIONS
-// ===========================
-
-function safeNumber(n, fallback = 0) {
-  if (n === null || n === undefined || n === '') return fallback;
-  const v = Number(n);
-  return Number.isFinite(v) ? v : fallback;
-}
-
-function fmtMoney(n) {
-  return safeNumber(n).toFixed(2);
-}
-
-function getLocalDateString(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function fmtDateISO(yyyyMmDd) {
-  if (!yyyyMmDd) return new Date().toISOString();
-  try {
-    const [year, month, day] = yyyyMmDd.split('-').map(Number);
-    const date = new Date(year, month - 1, day);
-    return date.toISOString();
-  } catch {
-    return new Date().toISOString();
-  }
-}
-
-function calculateTotalPay() {
-  const hours = safeNumber(document.getElementById('hours')?.value);
-  const rate = safeNumber(document.getElementById('rate')?.value);
-  const total = hours * rate;
-  
-  const totalPayElement = document.getElementById('totalPay');
-  if (totalPayElement) {
-    totalPayElement.textContent = `$${fmtMoney(total)}`;
-  }
-}
-
-function calculateGrade(percentage) {
-  if (percentage >= 90) return 'A';
-  if (percentage >= 80) return 'B';
-  if (percentage >= 70) return 'C';
-  if (percentage >= 60) return 'D';
-  return 'F';
-}
-
-function formatDate(dateString) {
-  if (!dateString) return 'Never';
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return 'Invalid Date';
-    
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  } catch {
-    return dateString;
-  }
-}
-
-function isDateInRange(entryDate, startDate, endDate) {
-  try {
-    const entry = new Date(entryDate);
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    
-    const entryDateOnly = new Date(entry.getFullYear(), entry.getMonth(), entry.getDate());
-    const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-    const endDateOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-    
-    return entryDateOnly >= startDateOnly && entryDateOnly <= endDateOnly;
-  } catch (error) {
-    console.error('Date comparison error:', error);
-    return false;
-  }
-}
 
 // ===========================
 // FIXED ATTENDANCE SYSTEM
@@ -742,10 +722,14 @@ function isDateInRange(entryDate, startDate, endDate) {
 
 async function loadAttendanceStudents() {
   const container = document.getElementById('attendanceStudents');
-  if (!container) return;
+  if (!container) {
+    console.log('❌ Attendance container not found');
+    return;
+  }
 
   try {
     const students = await EnhancedCache.loadCollection('students');
+    console.log(`👥 Loading ${students.length} students for attendance`);
     
     if (students.length === 0) {
       container.innerHTML = '<div class="empty-state">No students registered. Add students first.</div>';
@@ -834,19 +818,10 @@ function updateSelectAllButtonState() {
 // FIXED STUDENT DROPDOWN SYSTEM
 // ===========================
 
-const StudentDropdownManager = {
-  async refreshAllDropdowns() {
-    await populateStudentDropdowns();
-  },
-
-  async forceRefresh() {
-    await populateStudentDropdowns();
-  }
-};
-
 async function populateStudentDropdowns() {
   try {
     const students = await EnhancedCache.loadCollection('students');
+    console.log(`📝 Populating dropdowns with ${students.length} students`);
     
     // Update all student dropdowns
     const dropdowns = [
@@ -885,6 +860,8 @@ async function populateStudentDropdowns() {
         if (currentValue && dropdown.querySelector(`option[value="${currentValue}"]`)) {
           dropdown.value = currentValue;
         }
+        
+        console.log(`✅ Populated ${id} dropdown`);
       }
     });
     
@@ -899,6 +876,54 @@ async function populateStudentDropdowns() {
 // ===========================
 // FIXED DATA RENDERING FUNCTIONS
 // ===========================
+
+async function renderStudents() {
+  const container = document.getElementById('studentsContainer');
+  if (!container) return;
+
+  try {
+    const students = await EnhancedCache.loadCollection('students');
+    
+    if (students.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>No Students Yet</h3>
+          <p>Add your first student to get started</p>
+        </div>
+      `;
+      return;
+    }
+
+    let studentsHTML = '';
+    students.forEach(student => {
+      studentsHTML += `
+        <div class="student-card">
+          <div class="student-card-header">
+            <div>
+              <strong>${student.name || 'Unnamed Student'}</strong>
+            </div>
+            <div class="student-actions">
+              <button class="btn-icon" onclick="editStudent('${student.id}')" title="Edit">✏️</button>
+              <button class="btn-icon" onclick="deleteStudent('${student.id}')" title="Delete">🗑️</button>
+            </div>
+          </div>
+          <div class="student-details">
+            <div class="muted">${student.gender || 'Not specified'} • ${student.email || 'No email'} • ${student.phone || 'No phone'}</div>
+            <div class="student-rate">Rate: $${fmtMoney(student.rate || 0)}/session</div>
+            <div class="student-meta">Added: ${formatDate(student.createdAt)}</div>
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = studentsHTML;
+    console.log(`✅ Rendered ${students.length} students`);
+
+  } catch (error) {
+    console.error("Error rendering students:", error);
+    container.innerHTML = '<div class="error">Error loading students</div>';
+  }
+}
 
 async function renderRecentMarks(limit = 10) {
   const container = document.getElementById('marksContainer');
@@ -952,6 +977,8 @@ async function renderRecentMarks(limit = 10) {
       container.appendChild(item);
     });
 
+    console.log(`✅ Rendered ${Math.min(marks.length, limit)} marks`);
+
   } catch (error) {
     console.error("Error rendering marks:", error);
     container.innerHTML = '<div class="error">Error loading marks</div>';
@@ -968,6 +995,11 @@ async function loadReportData() {
       EnhancedCache.loadCollection('hours'),
       EnhancedCache.loadCollection('marks')
     ]);
+
+    console.log('📊 Generating reports with:', {
+      hours: hours.length,
+      marks: marks.length
+    });
 
     generatePeriodReport(hours);
     generateSubjectReport(marks, hours);
@@ -1036,6 +1068,7 @@ function generatePeriodReport(hours) {
   `;
 
   container.innerHTML = reportHTML;
+  console.log('✅ Period report generated');
 }
 
 function generateSubjectReport(marks, hours) {
@@ -1122,6 +1155,7 @@ function generateSubjectReport(marks, hours) {
 
   reportHTML += '</div>';
   container.innerHTML = reportHTML;
+  console.log('✅ Subject report generated');
 }
 
 // ===========================
@@ -1394,12 +1428,14 @@ function switchTab(tabName) {
   const allTabContents = document.querySelectorAll('.tabcontent');
   allTabContents.forEach(content => {
     content.classList.remove('active');
+    content.style.display = 'none';
   });
   
   // Show target tab
   const targetTab = document.getElementById(tabName);
   if (targetTab) {
     targetTab.classList.add('active');
+    targetTab.style.display = 'block';
     
     // Load report data when reports tab is activated
     if (tabName === 'reports') {
@@ -1412,6 +1448,20 @@ function switchTab(tabName) {
     if (tabName === 'attendance') {
       setTimeout(() => {
         loadAttendanceStudents();
+      }, 300);
+    }
+    
+    // Refresh data when marks tab is activated
+    if (tabName === 'marks') {
+      setTimeout(() => {
+        renderRecentMarks();
+      }, 300);
+    }
+    
+    // Refresh data when students tab is activated
+    if (tabName === 'students') {
+      setTimeout(() => {
+        renderStudents();
       }, 300);
     }
   }
@@ -1531,6 +1581,7 @@ window.loadReportData = loadReportData;
 window.switchTab = switchTab;
 window.NotificationSystem = NotificationSystem;
 window.calculateTotalPay = calculateTotalPay;
+window.EnhancedStats = EnhancedStats;
 
 // Placeholder functions for edit/delete operations
 window.editStudent = (id) => NotificationSystem.notifyInfo(`Edit student ${id} - Feature coming soon`);
