@@ -5733,3 +5733,4 @@ window.generatePeriodReport = generatePeriodReport;
 window.generateSubjectReport = generateSubjectReport;
   
 console.log('✅ All functions exported to window object');
+});
