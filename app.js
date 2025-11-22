@@ -3291,39 +3291,6 @@ async function handleStudentSubmit(e) {
     }
 }
 
-async function handleHoursSubmit(e) {
-  e.preventDefault();
-  const user = auth.currentUser;
-  if (!user) return;
-
-  const formData = new FormData(e.target);
-  const hours = safeNumber(formData.get('hours'));
-  const rate = safeNumber(formData.get('rate'));
-  const total = hours * rate;
-
-  const hoursData = {
-    organization: formData.get('organization'),
-    workType: formData.get('workType'),
-    subject: formData.get('subject'),
-    student: formData.get('student'),
-    hours: hours,
-    rate: rate,
-    total: total,
-    date: formData.get('date'),
-    dateIso: fmtDateISO(formData.get('date')),
-    notes: formData.get('notes')
-  };
-
-  try {
-    await EnhancedCache.saveWithBackgroundSync('hours', hoursData);
-    FormAutoClear.handleSuccess('hoursForm', { baseRate: rate });
-    EnhancedStats.forceRefresh();
-  } catch (error) {
-    console.error('Error adding hours:', error);
-    NotificationSystem.notifyError('Failed to log hours');
-  }
-}
-
 async function handleMarksSubmit(e) {
   e.preventDefault();
   const user = auth.currentUser;
