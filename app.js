@@ -2921,23 +2921,6 @@ function getSelectedStudentsCount() {
 }
 
 // ===========================
-// ATTENDANCE SELECT ALL SETUP
-// ===========================
-
-function updateSelectAllButtonState() {
-  const attendanceContainer = document.getElementById('attendanceStudents');
-  if (!attendanceContainer) return;
-  
-  const checkboxes = attendanceContainer.querySelectorAll('input[type="checkbox"][name="presentStudents"]');
-  const selectedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
-  const allSelected = selectedCount === checkboxes.length && checkboxes.length > 0;
-  
-  updateSelectAllButton(allSelected);
-}
-
-
-
-// ===========================
 // MISSING UPDATE PROFILE MODAL FUNCTION
 // ===========================
 
