@@ -827,8 +827,6 @@ const EnhancedStats = {
 // DATE HELPER FUNCTIONS
 // ===========================
 
-
-
 function formatDate(dateString) {
   if (!dateString) return 'Never';
   try {
@@ -843,6 +841,32 @@ function formatDate(dateString) {
   } catch {
     return dateString;
   }
+}
+
+// ===========================
+// MISSING REFRESH TIMESTAMP FUNCTION
+// ===========================
+
+function refreshTimestamp() {
+  const now = new Date().toLocaleString();
+  
+  // Update sync status
+  if (syncMessageLine) {
+    syncMessageLine.textContent = `Status: Last synced at ${now}`;
+  }
+  
+  // Update stats timestamp
+  if (document.getElementById('statUpdated')) {
+    document.getElementById('statUpdated').textContent = now;
+  }
+  
+  // Update modal timestamp if it exists
+  const modalStatUpdated = document.getElementById('modalStatUpdated');
+  if (modalStatUpdated) {
+    modalStatUpdated.textContent = now;
+  }
+  
+  console.log('🕒 Timestamp refreshed:', now);
 }
 
 // ===========================
@@ -2147,6 +2171,92 @@ async function renderAttendanceRecent(limit = 10) {
   } catch (error) {
     console.error("Error rendering attendance:", error);
     container.innerHTML = '<div class="error">Error loading attendance</div>';
+  }
+}
+
+// ===========================
+// MISSING RENDER STUDENT BALANCES FUNCTION
+// ===========================
+
+async function renderStudentBalances() {
+  const container = document.getElementById('studentBalancesContainer');
+  if (!container) return;
+
+  try {
+    // Load fresh data
+    const [students, hours, payments] = await Promise.all([
+      EnhancedCache.loadCollection('students'),
+      EnhancedCache.loadCollection('hours'),
+      EnhancedCache.loadCollection('payments')
+    ]);
+
+    console.log(`💰 Calculating balances for ${students.length} students`);
+
+    if (students.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <h3>No Student Data</h3>
+          <p>Add students and record hours/payments to see balances</p>
+        </div>
+      `;
+      return;
+    }
+
+    // Calculate earnings and payments by student
+    const earningsByStudent = {};
+    const paymentsByStudent = {};
+    
+    hours.forEach(entry => {
+      const studentName = entry.student;
+      if (studentName) {
+        const earnings = entry.total || (entry.hours || 0) * (entry.rate || 0);
+        earningsByStudent[studentName] = (earningsByStudent[studentName] || 0) + safeNumber(earnings);
+      }
+    });
+
+    payments.forEach(payment => {
+      const studentName = payment.student;
+      if (studentName) {
+        paymentsByStudent[studentName] = (paymentsByStudent[studentName] || 0) + safeNumber(payment.amount);
+      }
+    });
+
+    let balancesHTML = '';
+    let totalOwed = 0;
+
+    students.forEach(student => {
+      const studentName = student.name || `Student ${student.id}`;
+      const earned = earningsByStudent[studentName] || 0;
+      const paid = paymentsByStudent[studentName] || 0;
+      const owed = Math.max(earned - paid, 0);
+      totalOwed += owed;
+
+      balancesHTML += `
+        <div class="activity-item">
+          <div><strong>${studentName}</strong></div>
+          <div class="muted">
+            Earned: $${fmtMoney(earned)} | 
+            Paid: $${fmtMoney(paid)} | 
+            <strong>Owed: $${fmtMoney(owed)}</strong>
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = balancesHTML;
+
+    // Update total owed display
+    const totalOwedEl = document.getElementById('totalOwed');
+    const totalStudentsCountEl = document.getElementById('totalStudentsCount');
+    
+    if (totalOwedEl) totalOwedEl.textContent = `$${fmtMoney(totalOwed)}`;
+    if (totalStudentsCountEl) totalStudentsCountEl.textContent = students.length;
+
+    console.log(`✅ Rendered balances for ${students.length} students, total owed: $${fmtMoney(totalOwed)}`);
+
+  } catch (error) {
+    console.error("Error rendering student balances:", error);
+    container.innerHTML = '<div class="error">Error loading student balances</div>';
   }
 }
 
