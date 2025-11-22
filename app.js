@@ -1125,92 +1125,97 @@ const SyncBar = {
   },
 
   async performSync(mode = 'manual') {
-    const user = auth.currentUser;
-    if (!user) {
-      NotificationSystem.notifyError('Please log in to sync');
-      return;
-    }
-
-    try {
-      if (syncIndicator) {
-        syncIndicator.classList.remove('sync-connected', 'sync-error');
-        syncIndicator.classList.add('sync-active');
-      }
-      if (syncMessageLine) {
-        syncMessageLine.textContent = `Status: ${mode === 'auto' ? 'Auto-syncing' : 'Manual syncing'}...`;
-      }
-
-      // Use safe function calls
-      const syncTasks = [
-        recalcSummaryStats(user.uid),
-        loadUserStats(user.uid),
-        this.safeExecute(renderStudents),
-        this.safeExecute(renderRecentHours),
-        this.safeExecute(renderRecentMarks),
-        this.safeExecute(renderAttendanceRecent),
-        this.safeExecute(renderPaymentActivity),
-        this.safeExecute(renderStudentBalances),
-        this.safeExecute(renderOverviewReports)
-      ];
-
-      await Promise.all(syncTasks);
-
-      const now = new Date().toLocaleString();
-      if (syncMessageLine) syncMessageLine.textContent = `Status: Last synced at ${now}`;
-      if (document.getElementById('statUpdated')) {
-        document.getElementById('statUpdated').textContent = now;
-      }
-
-      if (syncIndicator) {
-        syncIndicator.classList.remove('sync-active');
-        if (isAutoSyncEnabled) {
-          syncIndicator.classList.add('sync-connected');
-        }
-      }
-
-      NotificationSystem.notifySuccess(`${mode === 'auto' ? 'Auto-' : ''}Sync completed successfully`);
-
-    } catch (error) {
-      console.error(`❌ ${mode} sync failed:`, error);
-      
-      if (syncIndicator) {
-        syncIndicator.classList.remove('sync-active', 'sync-connected');
-        syncIndicator.classList.add('sync-error');
-      }
-      if (syncMessageLine) {
-        syncMessageLine.textContent = `Status: Sync failed - ${error.message}`;
-      }
-      
-      NotificationSystem.notifyError(`Sync failed: ${error.message}`);
-    }
-  },
-
-  // Helper function to safely execute functions that might not exist
-  safeExecute(func) {
-    return new Promise((resolve) => {
-      try {
-        if (typeof func === 'function') {
-          const result = func();
-          if (result && typeof result.then === 'function') {
-            result.then(resolve).catch(error => {
-              console.warn(`⚠️ Function execution failed: ${func.name}`, error);
-              resolve();
-            });
-          } else {
-            resolve();
-          }
-        } else {
-          console.warn(`⚠️ Function not available: ${func}`);
-          resolve();
-        }
-      } catch (error) {
-        console.warn(`⚠️ Function execution error: ${error.message}`);
-        resolve();
-      }
-    });
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to sync');
+    return;
   }
-};
 
+  try {
+    if (syncIndicator) {
+      syncIndicator.classList.remove('sync-connected', 'sync-error');
+      syncIndicator.classList.add('sync-active');
+    }
+    if (syncMessageLine) {
+      syncMessageLine.textContent = `Status: ${mode === 'auto' ? 'Auto-syncing' : 'Manual syncing'}...`;
+    }
+
+    // Core sync tasks that must work
+    await Promise.all([
+      recalcSummaryStats(user.uid),
+      loadUserStats(user.uid)
+    ]);
+
+    // Optional UI updates - these won't break the sync if they fail
+    try {
+      if (typeof renderStudents === 'function') await renderStudents();
+    } catch (e) { console.warn('renderStudents failed:', e); }
+    
+    try {
+      if (typeof renderRecentHours === 'function') await renderRecentHours();
+    } catch (e) { console.warn('renderRecentHours failed:', e); }
+    
+    try {
+      if (typeof renderRecentMarks === 'function') await renderRecentMarks();
+    } catch (e) { console.warn('renderRecentMarks failed:', e); }
+    
+    try {
+      if (typeof renderAttendanceRecent === 'function') await renderAttendanceRecent();
+    } catch (e) { console.warn('renderAttendanceRecent failed:', e); }
+    
+    try {
+      if (typeof renderPaymentActivity === 'function') await renderPaymentActivity();
+    } catch (e) { console.warn('renderPaymentActivity failed:', e); }
+    
+    try {
+      if (typeof renderStudentBalances === 'function') await renderStudentBalances();
+    } catch (e) { console.warn('renderStudentBalances failed:', e); }
+    
+    try {
+      if (typeof renderOverviewReports === 'function') await renderOverviewReports();
+    } catch (e) { console.warn('renderOverviewReports failed:', e); }
+    
+    try {
+      if (typeof populateStudentDropdowns === 'function') await populateStudentDropdowns();
+    } catch (e) { console.warn('populateStudentDropdowns failed:', e); }
+
+    // Update timestamp
+    const now = new Date().toLocaleString();
+    if (syncMessageLine) syncMessageLine.textContent = `Status: Last synced at ${now}`;
+    if (document.getElementById('statUpdated')) {
+      document.getElementById('statUpdated').textContent = now;
+    }
+
+    if (syncIndicator) {
+      syncIndicator.classList.remove('sync-active');
+      if (isAutoSyncEnabled) {
+        syncIndicator.classList.add('sync-connected');
+      }
+    }
+
+    // Refresh stats
+    if (typeof EnhancedStats !== 'undefined' && EnhancedStats.forceRefresh) {
+      EnhancedStats.forceRefresh();
+    }
+
+    NotificationSystem.notifySuccess(`${mode === 'auto' ? 'Auto-' : ''}Sync completed successfully`);
+    console.log('✅ Sync completed successfully');
+
+  } catch (error) {
+    console.error(`❌ ${mode} sync failed:`, error);
+    
+    if (syncIndicator) {
+      syncIndicator.classList.remove('sync-active', 'sync-connected');
+      syncIndicator.classList.add('sync-error');
+    }
+    if (syncMessageLine) {
+      syncMessageLine.textContent = `Status: Sync failed - ${error.message}`;
+    }
+    
+    NotificationSystem.notifyError(`Sync failed: ${error.message}`);
+  }
+}
+  
 // ===========================
 // UTILITY FUNCTIONS - DECLARE ONLY ONCE
 // ===========================
@@ -1869,6 +1874,7 @@ async function loadUserStats(uid) {
       if (document.getElementById('statEarnings')) document.getElementById('statEarnings').textContent = "0.00";
     }
 
+    // Call refreshTimestamp here
     refreshTimestamp();
     console.log('✅ User stats loaded successfully');
     
