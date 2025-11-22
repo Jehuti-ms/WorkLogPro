@@ -1296,6 +1296,14 @@ function isDateInRange(entryDate, startDate, endDate) {
   }
 }
 
+function formatStudentDisplay(student) {
+  if (!student) return 'Unknown Student';
+  
+  const name = student.name || `Student ${student.id}`;
+  const id = student.id ? ` (${student.id})` : '';
+  return `${name}${id}`;
+}
+
 function manuallyRefreshStudentDropdowns() {
   console.log('🔄 Manually refreshing student dropdowns...');
   
@@ -6075,6 +6083,7 @@ window.deletePayment = deletePayment;
 window.quickAddPayment = quickAddPayment;
 window.debugStudentDropdowns = debugStudentDropdowns;
 window.manuallyRefreshStudentDropdowns = manuallyRefreshStudentDropdowns;
+window.formatStudentDisplay = formatStudentDisplay;
   
 console.log('✅ All functions exported to window object');
 });
