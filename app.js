@@ -4409,7 +4409,7 @@ function showDropdownError() {
 }
 
 // Update the populateAttendanceStudents function:
-async function populateAttendanceStudents() {
+/*async function populateAttendanceStudents() {
   const attendanceContainer = document.getElementById('attendanceStudents');
   if (!attendanceContainer) {
     console.log('❌ Attendance container not found');
@@ -4478,7 +4478,7 @@ if (attendanceForm) {
       }, 300);
     });
   }
-}
+}*/
 
 // ===========================
 // EDIT & DELETE FUNCTIONS
