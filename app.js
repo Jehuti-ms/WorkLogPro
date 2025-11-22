@@ -2707,29 +2707,24 @@ const StudentDropdownManager = {
 
 async function populateStudentDropdowns() {
   const user = auth.currentUser;
-  if (!user) {
-    console.log('❌ No user for dropdown population');
-    return;
-  }
+  if (!user) return;
 
   try {
     console.log('🔄 Populating student dropdowns...');
     
-    // Load fresh student data
     const students = await EnhancedCache.loadCollection('students');
     console.log(`📝 Found ${students.length} students for dropdowns`);
 
     if (students.length === 0) {
-      console.log('⚠️ No students found for dropdowns');
-      this.showNoStudentsMessage();
+      showDropdownError();
       return;
     }
 
     // Get all dropdown elements
     const dropdownSelectors = [
-      '#student', // Hours form
-      '#marksStudent', // Marks form  
-      '#paymentStudent', // Payments form
+      '#student',
+      '#marksStudent', 
+      '#paymentStudent',
       'select[name="student"]',
       'select[name="marksStudent"]', 
       'select[name="paymentStudent"]'
@@ -2746,17 +2741,14 @@ async function populateStudentDropdowns() {
     console.log(`🎯 Found ${dropdowns.length} student dropdowns to populate`);
 
     dropdowns.forEach(dropdown => {
-      this.populateSingleDropdown(dropdown, students);
+      populateSingleDropdown(dropdown, students);
     });
 
-    // Update attendance checkboxes
-    this.populateAttendanceStudents(students);
-    
     console.log('✅ All student dropdowns populated successfully');
 
   } catch (error) {
     console.error('❌ Error populating student dropdowns:', error);
-    this.showDropdownError();
+    showDropdownError();
   }
 }
 
