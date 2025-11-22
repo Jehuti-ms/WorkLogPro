@@ -1214,7 +1214,7 @@ const SyncBar = {
     
     NotificationSystem.notifyError(`Sync failed: ${error.message}`);
   }
-}
+};
   
 // ===========================
 // UTILITY FUNCTIONS - DECLARE ONLY ONCE
@@ -1229,8 +1229,6 @@ function safeNumber(n, fallback = 0) {
 function fmtMoney(n) {
   return safeNumber(n).toFixed(2);
 }
-
-
 
 function getLocalDateString(date = new Date()) {
   const year = date.getFullYear();
