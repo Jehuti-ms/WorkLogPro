@@ -3270,18 +3270,6 @@ function quickAddPayment(studentName) {
   }
 }
 
-// Quick payment function for student balances
-function quickAddPayment(studentName) {
-  const amount = prompt(`Enter payment amount for ${studentName}:`);
-  if (amount && !isNaN(amount) && parseFloat(amount) > 0) {
-    const method = prompt('Payment method (Cash, Transfer, etc.):', 'Cash');
-    const notes = prompt('Payment notes (optional):', '');
-    recordPayment(studentName, parseFloat(amount), method || 'Cash', notes || '');
-  } else if (amount !== null) {
-    NotificationSystem.notifyError('Please enter a valid amount');
-  }
-}
-
 // Replace the existing handlePaymentSubmit function with this enhanced version
 async function handlePaymentSubmit(e) {
   e.preventDefault();
