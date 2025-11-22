@@ -2924,46 +2924,6 @@ function getSelectedStudentsCount() {
 // ATTENDANCE SELECT ALL SETUP
 // ===========================
 
-function setupAttendanceSelectAll() {
-  const selectAllBtn = document.getElementById('selectAllStudentsBtn');
-  
-  if (!selectAllBtn) {
-    console.warn('⚠️ Select All button not found in DOM');
-    return;
-  }
-
-  console.log('✅ Setting up Select All button with event listener...');
-
-  // Remove any existing event listeners by cloning the button
-  const newSelectAllBtn = selectAllBtn.cloneNode(true);
-  selectAllBtn.parentNode.replaceChild(newSelectAllBtn, selectAllBtn);
-
-  // Add click event listener
-  newSelectAllBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    console.log('🎯 Select All button clicked via event listener');
-    selectAllStudents();
-  });
-
-  // Add hover effects
-  newSelectAllBtn.addEventListener('mouseenter', function() {
-    this.style.transform = 'translateY(-1px)';
-    this.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
-  });
-
-  newSelectAllBtn.addEventListener('mouseleave', function() {
-    this.style.transform = 'translateY(0)';
-    this.style.boxShadow = 'none';
-  });
-
-  // Initialize button state
-  updateSelectAllButton(false);
-  
-  console.log('✅ Select All button setup complete with event listeners');
-}
-
 // Setup when attendance tab is activated
 function setupAttendanceTab() {
   console.log('🎯 Attendance tab activated, setting up select all...');
