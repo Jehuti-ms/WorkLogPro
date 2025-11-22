@@ -4310,57 +4310,6 @@ function populateSingleDropdown(dropdown, students) {
   console.log(`✅ Populated ${dropdown.id || dropdown.name} with ${students.length} students`);
 }
 
-function populateAttendanceStudents(students) {
-  const attendanceContainer = document.getElementById('attendanceStudents');
-  if (!attendanceContainer) {
-    console.log('❌ Attendance container not found');
-    return;
-  }
-
-  console.log(`👥 Populating attendance with ${students.length} students`);
-
-  attendanceContainer.innerHTML = '';
-
-  if (students.length === 0) {
-    attendanceContainer.innerHTML = `
-      <div class="empty-state">
-        <p>No students available. Please add students first.</p>
-      </div>
-    `;
-    return;
-  }
-
-  students.forEach(student => {
-    const studentName = student.name || `Student ${student.id}`;
-    
-    const container = document.createElement('div');
-    container.style.cssText = 'display: flex; align-items: center; gap: 12px; margin: 8px 0; padding: 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border);';
-    
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.name = 'presentStudents';
-    checkbox.value = studentName;
-    checkbox.id = `attendance-${student.id}`;
-    checkbox.style.cssText = 'width: 18px; height: 18px;';
-    
-    const label = document.createElement('label');
-    label.htmlFor = `attendance-${student.id}`;
-    label.textContent = studentName;
-    label.style.cssText = 'flex: 1; margin: 0; cursor: pointer; font-weight: 500;';
-    
-    const studentInfo = document.createElement('span');
-    studentInfo.textContent = `Rate: $${fmtMoney(student.rate || 0)}`;
-    studentInfo.style.cssText = 'font-size: 0.85em; color: var(--muted);';
-    
-    container.appendChild(checkbox);
-    container.appendChild(label);
-    container.appendChild(studentInfo);
-    attendanceContainer.appendChild(container);
-  });
-
-  console.log('✅ Attendance students populated');
-}
-
 function showNoStudentsMessage() {
   const dropdowns = document.querySelectorAll('select[name="student"], select[name="marksStudent"], select[name="paymentStudent"]');
   
