@@ -1150,6 +1150,10 @@ const SyncBar = {
     try {
       if (typeof renderStudents === 'function') await renderStudents();
     } catch (e) { console.warn('renderStudents failed:', e); }
+
+     try {
+      if (typeof renderOverviewReports === 'function') await renderOverviewReports();
+    } catch (e) { console.warn('renderOverviewReports failed:', e); }
     
     try {
       if (typeof renderRecentHours === 'function') await renderRecentHours();
@@ -4075,6 +4079,83 @@ function getWeekNumber(date) {
 }
 
 // ===========================
+// MISSING RENDER OVERVIEW REPORTS FUNCTION
+// ===========================
+
+async function renderOverviewReports() {
+  console.log('📊 Rendering overview reports...');
+  
+  try {
+    // Load all necessary data
+    const [students, hours, marks, payments] = await Promise.all([
+      EnhancedCache.loadCollection('students'),
+      EnhancedCache.loadCollection('hours'),
+      EnhancedCache.loadCollection('marks'),
+      EnhancedCache.loadCollection('payments')
+    ]);
+
+    // Calculate totals
+    const totalStudents = students.length;
+    const totalHours = hours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
+    const totalEarnings = hours.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
+    const totalPayments = payments.reduce((sum, payment) => sum + safeNumber(payment.amount), 0);
+    
+    // Calculate average marks
+    let avgMark = 0;
+    if (marks.length > 0) {
+      const totalPercentage = marks.reduce((sum, mark) => sum + safeNumber(mark.percentage), 0);
+      avgMark = totalPercentage / marks.length;
+    }
+    
+    // Calculate outstanding balance
+    const outstandingBalance = Math.max(totalEarnings - totalPayments, 0);
+
+    // Update overview report elements
+    const elements = {
+      'totalStudentsReport': totalStudents,
+      'totalHoursReport': totalHours.toFixed(1),
+      'totalEarningsReport': `$${fmtMoney(totalEarnings)}`,
+      'avgMarkReport': `${avgMark.toFixed(1)}%`,
+      'totalPaymentsReport': `$${fmtMoney(totalPayments)}`,
+      'outstandingBalance': `$${fmtMoney(outstandingBalance)}`
+    };
+
+    // Update each element
+    Object.entries(elements).forEach(([id, value]) => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.textContent = value;
+      }
+    });
+
+    console.log('✅ Overview reports rendered:', {
+      students: totalStudents,
+      hours: totalHours,
+      earnings: totalEarnings,
+      payments: totalPayments,
+      marks: avgMark.toFixed(1),
+      outstanding: outstandingBalance
+    });
+
+  } catch (error) {
+    console.error('❌ Error rendering overview reports:', error);
+    
+    // Show error state
+    const errorElements = [
+      'totalStudentsReport', 'totalHoursReport', 'totalEarningsReport',
+      'avgMarkReport', 'totalPaymentsReport', 'outstandingBalance'
+    ];
+    
+    errorElements.forEach(id => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.textContent = 'Error';
+      }
+    });
+  }
+}
+
+// ===========================
 // ENHANCED APP INITIALIZATION
 // ===========================
 
@@ -4387,12 +4468,15 @@ async function refreshAllUI() {
       renderAttendanceRecent(),
       renderPaymentActivity(),
       renderStudentBalances(),
-      renderOverviewReports()
+      renderOverviewReports() // Now this exists
     ]);
     
-    // Refresh dropdowns and stats
-    await StudentDropdownManager.forceRefresh();
-    EnhancedStats.forceRefresh();
+    await populateStudentDropdowns();
+    
+    // Refresh stats
+    if (typeof EnhancedStats !== 'undefined' && EnhancedStats.forceRefresh) {
+      EnhancedStats.forceRefresh();
+    }
     
     console.log('✅ All UI components refreshed');
   } catch (error) {
@@ -4503,6 +4587,7 @@ window.switchTab = switchTab;
 window.renderPaymentActivity = renderPaymentActivity;
 window.updateProfileModal = updateProfileModal;
 window.setupProfileModal = setupProfileModal;
-
+window.renderOverviewReports = renderOverviewReports;
+  
 console.log('✅ All functions exported to window object');
 });
