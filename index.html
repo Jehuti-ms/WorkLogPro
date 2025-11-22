@@ -387,67 +387,68 @@
       </div>
     </div>
 
-    <!-- Attendance Tab -->
-    <div id="attendance" class="tabcontent">
-      <div class="section-header">
-        <h2>✅ Attendance Tracking</h2>
-        <div class="student-stats">
-          <span class="stat-badge" id="attendanceCount">0</span>
-          <span class="stat-divider">|</span>
-          <span class="stat-text">Last Session: <span id="lastSessionDate">Never</span></span>
+  <!-- Attendance Tab -->
+<div id="attendance" class="tabcontent">
+  <div class="section-header">
+    <h2>✅ Attendance Tracking</h2>
+    <div class="student-stats">
+      <span class="stat-badge" id="attendanceCount">0</span>
+      <span class="stat-divider">|</span>
+      <span class="stat-text">Last Session: <span id="lastSessionDate">Never</span></span>
+    </div>
+  </div>
+
+  <div class="form-grid">
+    <div class="section-card">
+      <h3>📅 Quick Attendance</h3>
+      <form id="attendanceForm"> <!-- Added form element -->
+        <div class="form-group">
+          <label for="attendanceDate">Date *</label>
+          <input type="date" id="attendanceDate" name="attendanceDate" required> <!-- Added name attribute -->
         </div>
-      </div>
-
-      <div class="form-grid">
-        <div class="section-card">
-          <h3>📅 Quick Attendance</h3>
-          <div class="form-group">
-            <label for="attendanceDate">Date *</label>
-            <input type="date" id="attendanceDate" required>
-          </div>
-          <div class="form-group">
-            <label for="attendanceSubject">Subject *</label>
-            <input type="text" id="attendanceSubject" required>
-          </div>
-          <div class="form-group">
-            <label for="attendanceTopic">Topic</label>
-            <input type="text" id="attendanceTopic">
-          </div>
-          <div class="form-group">
-            <label for="attendanceNotes">Notes</label>
-            <textarea id="attendanceNotes"></textarea>
-          </div>
-
-          <div class="attendance-container">
-            <div class="attendance-header">
-              <h4>Select Present Students:</h4>
-              <div class="attendance-quick-actions">
-                <button type="button" class="button small" onclick="selectAllStudents()">✅ Select All</button>
-                <button type="button" class="button small" onclick="deselectAllStudents()">❌ Deselect All</button>
-              </div>
-            </div>
-            <div id="attendanceList">
-              <p class="empty-message">No students registered. Add students first.</p>
-            </div>
-          </div>
-
-          <div class="form-actions">
-            <button type="button" class="button primary" id="saveAttendanceBtn">💾 Save Attendance</button>
-            <button type="button" class="button secondary" onclick="clearAttendanceForm()">🗑️ Clear Form</button>
-            <button type="button" class="button warning" id="cancelAttendanceBtn" style="display: none;">❌ Cancel Edit</button>
-            <button type="button" class="button danger" id="deleteAttendanceBtn" style="display: none;">🗑️ Delete Attendance</button>
+        <div class="form-group">
+          <label for="attendanceSubject">Subject *</label>
+          <input type="text" id="attendanceSubject" name="attendanceSubject" required> <!-- Added name attribute -->
+        </div>
+        <div class="form-group">
+          <label for="attendanceTopic">Topic</label>
+          <input type="text" id="attendanceTopic" name="attendanceTopic"> <!-- Added name attribute -->
+        </div>
+        
+        <!-- Attendance Students Section -->
+        <div class="form-group">
+          <label>Mark Students Present:</label>
+          <button type="button" id="selectAllStudentsBtn" class="btn btn-secondary">
+            Select All
+          </button>
+          <div id="attendanceStudents" class="attendance-students-container">
+            <!-- Student checkboxes will be populated here -->
+            <p class="empty-message">No students registered. Add students first.</p>
           </div>
         </div>
 
-        <div class="section-card">
-          <h3>📋 Recent Attendance</h3>
-          <div id="attendanceContainer">
-            <p class="empty-message">No attendance records yet.</p>
-          </div>
+        <div class="form-group">
+          <label for="attendanceNotes">Notes</label>
+          <textarea id="attendanceNotes" name="attendanceNotes"></textarea> <!-- Added name attribute -->
         </div>
-      </div>
+
+        <div class="form-actions">
+          <button type="submit" class="button primary" id="saveAttendanceBtn">💾 Save Attendance</button> <!-- Changed to type="submit" -->
+          <button type="button" class="button secondary" onclick="clearAttendanceForm()">🗑️ Clear Form</button>
+          <button type="button" class="button warning" id="cancelAttendanceBtn" style="display: none;">❌ Cancel Edit</button>
+          <button type="button" class="button danger" id="deleteAttendanceBtn" style="display: none;">🗑️ Delete Attendance</button>
+        </div>
+      </form> <!-- Closing form tag -->
     </div>
 
+    <div class="section-card">
+      <h3>📋 Recent Attendance</h3>
+      <div id="attendanceContainer">
+        <p class="empty-message">No attendance records yet.</p>
+      </div>
+    </div>
+  </div>
+</div>
     <!-- Payments Tab -->
     <div id="payments" class="tabcontent">
       <div class="section-header">
