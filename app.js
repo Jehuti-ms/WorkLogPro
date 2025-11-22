@@ -2200,22 +2200,77 @@ async function startEditHours(id) {
     const entry = hours.find(h => h.id === id);
     
     if (!entry) {
-      NotificationSystem.notifyError('Entry not found');
+      NotificationSystem.notifyError('Hours entry not found');
       return;
     }
 
     currentEditHoursId = id;
     
-    document.getElementById('organization').value = entry.organization || '';
-    document.getElementById('workType').value = entry.workType || '';
-    document.getElementById('subject').value = entry.subject || '';
-    document.getElementById('student').value = entry.student || '';
-    document.getElementById('hours').value = entry.hours || '';
-    document.getElementById('rate').value = entry.rate || '';
-    document.getElementById('date').value = entry.date || '';
-    document.getElementById('notes').value = entry.notes || '';
+    console.log('🔧 Starting edit for hours entry:', entry);
     
+    // CRITICAL FIX: Ensure student dropdown is populated first
+    await populateHoursStudentDropdown();
+    
+    // Wait a moment for dropdown to be populated
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Safely populate form fields
+    const fields = [
+      { id: 'organization', value: entry.organization || '' },
+      { id: 'workType', value: entry.workType || '' },
+      { id: 'subject', value: entry.subject || '' },
+      { id: 'student', value: entry.student || '' },
+      { id: 'hours', value: entry.hours || '' },
+      { id: 'rate', value: entry.rate || '' },
+      { id: 'date', value: entry.date || '' },
+      { id: 'notes', value: entry.notes || '' }
+    ];
+    
+    let missingFields = [];
+    
+    fields.forEach(field => {
+      const element = document.getElementById(field.id);
+      if (element) {
+        element.value = field.value;
+        console.log(`✅ Set ${field.id} to:`, field.value);
+      } else {
+        missingFields.push(field.id);
+        console.warn(`❌ Field not found: ${field.id}`);
+      }
+    });
+    
+    // Special handling for student dropdown - if value wasn't set, try to find it
+    const studentDropdown = document.getElementById('student');
+    if (studentDropdown && studentDropdown.value === '' && entry.student) {
+      console.log('🔄 Student dropdown exists but value not set, searching for option...');
+      // Try to find the student option
+      for (let option of studentDropdown.options) {
+        if (option.value === entry.student) {
+          studentDropdown.value = entry.student;
+          console.log('✅ Found and set student option:', entry.student);
+          break;
+        }
+      }
+    }
+    
+    if (missingFields.length > 0) {
+      console.warn('Missing form fields:', missingFields);
+    }
+    
+    // Update form button to show edit mode
     const submitBtn = document.querySelector('#hoursForm button[type="submit"]');
+    if (!submitBtn) {
+      console.error('❌ Submit button not found in hours form');
+      NotificationSystem.notifyError('Cannot enter edit mode - form not found');
+      return;
+    }
+    
+    // Remove existing cancel button if any
+    const existingCancelBtn = document.querySelector('#hoursForm button[type="button"]');
+    if (existingCancelBtn) {
+      existingCancelBtn.remove();
+    }
+    
     const cancelBtn = document.createElement('button');
     cancelBtn.type = 'button';
     cancelBtn.textContent = 'Cancel Edit';
@@ -4182,7 +4237,7 @@ async function populateHoursStudentDropdown() {
   const dropdown = document.getElementById('student');
   if (!dropdown) {
     console.log('❌ Hours student dropdown not found');
-    return;
+    return false;
   }
 
   try {
@@ -4203,45 +4258,24 @@ async function populateHoursStudentDropdown() {
     dropdown.appendChild(defaultOption);
     
     students.forEach(student => {
+      const studentName = student.name || `Student ${student.id}`;
       const option = document.createElement('option');
-      option.value = student.name || student.id;
-      option.textContent = student.name || `Student ${student.id}`;
+      option.value = studentName;
+      option.textContent = studentName;
       option.setAttribute('data-student-id', student.id);
       dropdown.appendChild(option);
     });
     
-    // Restore selection
+    // Restore selection if possible
     if (currentValue && dropdown.querySelector(`option[value="${currentValue}"]`)) {
       dropdown.value = currentValue;
     }
     
     console.log(`✅ Hours dropdown populated with ${students.length} students`);
+    return true;
   } catch (error) {
     console.error('Error populating hours dropdown:', error);
-  }
-}
-
-// Update setupFormHandlers for hours form:
-const hoursForm = document.getElementById('hoursForm');
-if (hoursForm) {
-  hoursForm.addEventListener('submit', handleHoursSubmit);
-  
-  // Auto-populate when hours tab is activated
-  const hoursTab = document.querySelector('[data-tab="hours"]');
-  if (hoursTab) {
-    hoursTab.addEventListener('click', async () => {
-      setTimeout(async () => {
-        await populateHoursStudentDropdown();
-      }, 300);
-    });
-  }
-  
-  // Also populate on dropdown focus
-  const studentDropdown = document.getElementById('student');
-  if (studentDropdown) {
-    studentDropdown.addEventListener('focus', async () => {
-      await populateHoursStudentDropdown();
-    });
+    return false;
   }
 }
 
