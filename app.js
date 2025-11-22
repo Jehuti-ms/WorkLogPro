@@ -5940,15 +5940,16 @@ window.loadUserProfile = loadUserProfile;
 window.startEditHours = startEditHours;
 window.cancelEditHours = cancelEditHours;
 window.deleteHours = deleteHours;
+window.deleteMark = deleteMark;
+window.deleteAttendance = deleteAttendance;
+window.deletePayment = deletePayment;
+window.deleteStudent = deleteStudent;
 window.startEditMark = startEditMark;
 window.cancelEditMark = cancelEditMark;
-window.deleteMark = deleteMark;
 window.startEditAttendance = startEditAttendance;
 window.cancelEditAttendance = cancelEditAttendance;
-window.deleteAttendance = deleteAttendance;
 window.startEditPayment = startEditPayment;
 window.cancelEditPayment = cancelEditPayment;
-window.deletePayment = deletePayment;
 window.quickAddPayment = quickAddPayment;
 
 // Your existing exports
@@ -5982,6 +5983,6 @@ window.quickAddPayment = quickAddPayment;
 window.debugStudentDropdowns = debugStudentDropdowns;
 window.manuallyRefreshStudentDropdowns = manuallyRefreshStudentDropdowns;
 window.formatStudentDisplay = formatStudentDisplay;
-  
+
 console.log('✅ All functions exported to window object');
 });
