@@ -2306,5 +2306,38 @@ select.loading {
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
+/* Report Styles */
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+}
 
+.report-row {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+
+.report-row.header {
+  background: var(--primary);
+  color: white;
+  font-weight: bold;
+}
+
+.report-cell {
+  flex: 1;
+  padding: 12px 8px;
+  text-align: left;
+}
+
+.report-row:not(.header):hover {
+  background: var(--border-light);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--muted);
+  font-style: italic;
+}
 
