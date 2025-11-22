@@ -3291,31 +3291,6 @@ async function handleStudentSubmit(e) {
     }
 }
 
-async function handlePaymentSubmit(e) {
-  e.preventDefault();
-  const user = auth.currentUser;
-  if (!user) return;
-
-  const formData = new FormData(e.target);
-  const paymentData = {
-    student: formData.get('paymentStudent'),
-    amount: safeNumber(formData.get('paymentAmount')),
-    method: formData.get('paymentMethod'),
-    date: formData.get('paymentDate'),
-    dateIso: fmtDateISO(formData.get('paymentDate')),
-    notes: formData.get('paymentNotes')
-  };
-
-  try {
-    await EnhancedCache.saveWithBackgroundSync('payments', paymentData);
-    FormAutoClear.handleSuccess('paymentForm');
-    EnhancedStats.forceRefresh();
-  } catch (error) {
-    console.error('Error recording payment:', error);
-    NotificationSystem.notifyError('Failed to record payment');
-  }
-}
-
 function clearAttendanceForm() {
   const form = document.getElementById('attendanceForm');
   if (form) {
