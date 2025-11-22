@@ -4224,7 +4224,7 @@ function showDropdownError() {
 // EDIT & DELETE FUNCTIONS
 // ===========================
 
-async function editStudent(id) {
+/*async function editStudent(id) {
   NotificationSystem.notifyInfo(`Edit student ${id} - Feature coming soon`);
 }
 
@@ -4246,11 +4246,7 @@ async function editAttendance(id) {
   NotificationSystem.notifyInfo(`Edit attendance ${id} - Feature coming soon`);
 }
 
-async function deleteAttendance(id) {
-  if (confirm('Are you sure you want to delete this attendance record?')) {
-    NotificationSystem.notifyInfo(`Delete attendance ${id} - Feature coming soon`);
-  }
-}
+
 
 async function editPayment(id) {
   NotificationSystem.notifyInfo(`Edit payment ${id} - Feature coming soon`);
@@ -4261,7 +4257,7 @@ async function deletePayment(id) {
     NotificationSystem.notifyInfo(`Delete payment ${id} - Feature coming soon`);
   }
 }
-
+*/
 // ===========================
 // TAB NAVIGATION SYSTEM
 // ===========================
