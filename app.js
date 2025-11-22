@@ -3330,36 +3330,6 @@ async function handlePaymentSubmit(e) {
   }
 }
 
-// Record Payment function (already exists as handlePaymentSubmit, but ensure it works)
-async function recordPayment(studentName, amount, method = 'Cash', notes = '') {
-  const user = auth.currentUser;
-  if (!user) return;
-
-  const paymentData = {
-    student: studentName,
-    amount: safeNumber(amount),
-    method: method,
-    date: getLocalDateString(),
-    dateIso: new Date().toISOString(),
-    notes: notes
-  };
-
-  try {
-    await EnhancedCache.saveWithBackgroundSync('payments', paymentData);
-    NotificationSystem.notifySuccess('Payment recorded successfully');
-    
-    // Refresh payment displays
-    await renderPaymentActivityWithEdit();
-    await renderStudentBalancesWithEdit();
-    EnhancedStats.forceRefresh();
-    
-    return true;
-  } catch (error) {
-    console.error('Error recording payment:', error);
-    NotificationSystem.notifyError('Failed to record payment');
-    return false;
-  }
-}
 
 // ===========================
 // FORM SUBMIT HANDLERS
