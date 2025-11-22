@@ -5331,6 +5331,96 @@ async function renderOverviewReports() {
   }
 }
 
+function generateStudentPerformanceReport(marks, students) {
+  const container = document.getElementById('studentReport');
+  if (!container) {
+    console.log('❌ Student report container not found');
+    return;
+  }
+
+  if (!marks || marks.length === 0) {
+    container.innerHTML = '<div class="empty-state">No marks data available for student performance report</div>';
+    return;
+  }
+
+  // Calculate performance by student
+  const performanceByStudent = {};
+  
+  marks.forEach(mark => {
+    const studentName = mark.student;
+    if (!studentName) return;
+    
+    if (!performanceByStudent[studentName]) {
+      performanceByStudent[studentName] = {
+        totalPercentage: 0,
+        count: 0,
+        subjects: new Set(),
+        grades: []
+      };
+    }
+    
+    performanceByStudent[studentName].totalPercentage += safeNumber(mark.percentage);
+    performanceByStudent[studentName].count++;
+    performanceByStudent[studentName].subjects.add(mark.subject || 'General');
+    performanceByStudent[studentName].grades.push(mark.grade || calculateGrade(mark.percentage));
+  });
+
+  // Calculate averages and stats
+  const studentPerformance = Object.entries(performanceByStudent).map(([studentName, data]) => {
+    const avgPercentage = data.totalPercentage / data.count;
+    const gradeCounts = {};
+    data.grades.forEach(grade => {
+      gradeCounts[grade] = (gradeCounts[grade] || 0) + 1;
+    });
+    const mostCommonGrade = Object.entries(gradeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
+    
+    return {
+      student: studentName,
+      average: avgPercentage,
+      totalMarks: data.count,
+      subjects: Array.from(data.subjects).join(', '),
+      mostCommonGrade: mostCommonGrade,
+      performance: avgPercentage >= 80 ? 'Excellent' : 
+                   avgPercentage >= 70 ? 'Good' : 
+                   avgPercentage >= 60 ? 'Average' : 'Needs Improvement'
+    };
+  });
+
+  // Sort by average (highest first)
+  studentPerformance.sort((a, b) => b.average - a.average);
+
+  let reportHTML = `
+    <div class="report-table">
+      <div class="report-row header">
+        <div class="report-cell">Student</div>
+        <div class="report-cell">Avg Score</div>
+        <div class="report-cell">Total Marks</div>
+        <div class="report-cell">Subjects</div>
+        <div class="report-cell">Common Grade</div>
+        <div class="report-cell">Performance</div>
+      </div>
+  `;
+
+  studentPerformance.forEach(student => {
+    reportHTML += `
+      <div class="report-row">
+        <div class="report-cell"><strong>${student.student}</strong></div>
+        <div class="report-cell">${student.average.toFixed(1)}%</div>
+        <div class="report-cell">${student.totalMarks}</div>
+        <div class="report-cell" title="${student.subjects}">${student.subjects.substring(0, 20)}${student.subjects.length > 20 ? '...' : ''}</div>
+        <div class="report-cell">${student.mostCommonGrade}</div>
+        <div class="report-cell ${student.performance === 'Excellent' ? 'excellent' : student.performance === 'Good' ? 'good' : student.performance === 'Average' ? 'average' : 'needs-improvement'}">
+          ${student.performance}
+        </div>
+      </div>
+    `;
+  });
+
+  reportHTML += '</div>';
+  container.innerHTML = reportHTML;
+  console.log('✅ Student performance report generated');
+}
+
 // ===========================
 // REPORT DATA FUNCTIONS
 // ===========================
