@@ -1296,6 +1296,35 @@ function isDateInRange(entryDate, startDate, endDate) {
   }
 }
 
+function manuallyRefreshStudentDropdowns() {
+  console.log('🔄 Manually refreshing student dropdowns...');
+  
+  // Check if StudentDropdownManager exists
+  if (typeof StudentDropdownManager === 'undefined') {
+    console.log('❌ StudentDropdownManager not defined');
+    return;
+  }
+  
+  if (typeof StudentDropdownManager.forceRefresh === 'function') {
+    StudentDropdownManager.forceRefresh().then(() => {
+      console.log('✅ Manual refresh completed');
+      // Optional: Call debug function if it exists
+      if (typeof debugStudentDropdowns === 'function') {
+        debugStudentDropdowns();
+      }
+    }).catch(error => {
+      console.error('❌ Manual refresh failed:', error);
+    });
+  } else {
+    console.log('❌ StudentDropdownManager.forceRefresh not available');
+    
+    // Fallback: Try to populate dropdowns directly
+    populateStudentDropdowns().then(() => {
+      console.log('✅ Fallback dropdown refresh completed');
+    });
+  }
+}
+
 function debugStudentDropdowns() {
   console.log('🔍 DEBUG: Comprehensive student dropdown check...');
   
@@ -6010,6 +6039,8 @@ window.populateAttendanceStudents = populateAttendanceStudents;
 window.recordPayment = recordPayment;
 window.deletePayment = deletePayment;
 window.quickAddPayment = quickAddPayment;
+window.debugStudentDropdowns = debugStudentDropdowns;
+window.manuallyRefreshStudentDropdowns = manuallyRefreshStudentDropdowns;
   
 console.log('✅ All functions exported to window object');
 });
