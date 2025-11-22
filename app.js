@@ -3291,39 +3291,6 @@ async function handleStudentSubmit(e) {
     }
 }
 
-async function handleMarksSubmit(e) {
-  e.preventDefault();
-  const user = auth.currentUser;
-  if (!user) return;
-
-  const formData = new FormData(e.target);
-  const score = safeNumber(formData.get('marksScore'));
-  const max = safeNumber(formData.get('marksMax'));
-  const percentage = max > 0 ? (score / max) * 100 : 0;
-
-  const marksData = {
-    student: formData.get('marksStudent'),
-    subject: formData.get('marksSubject'),
-    topic: formData.get('marksTopic'),
-    score: score,
-    max: max,
-    percentage: percentage,
-    grade: calculateGrade(percentage),
-    date: formData.get('marksDate'),
-    dateIso: fmtDateISO(formData.get('marksDate')),
-    notes: formData.get('marksNotes')
-  };
-
-  try {
-    await EnhancedCache.saveWithBackgroundSync('marks', marksData);
-    FormAutoClear.handleSuccess('marksForm');
-    EnhancedStats.forceRefresh();
-  } catch (error) {
-    console.error('Error adding marks:', error);
-    NotificationSystem.notifyError('Failed to add marks');
-  }
-}
-
 async function handleAttendanceSubmit(e) {
   e.preventDefault();
   const user = auth.currentUser;
