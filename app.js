@@ -3484,6 +3484,17 @@ function setupTabNavigation() {
   setTimeout(() => switchTab(initialTab), 100);
 }
 
+// In your setupTabNavigation or similar function
+const reportsTab = document.querySelector('[data-tab="reports"]');
+if (reportsTab) {
+  reportsTab.addEventListener('click', () => {
+    setTimeout(() => {
+      console.log('📊 Reports tab activated, loading data...');
+      loadReportData();
+    }, 300);
+  });
+}
+
 function injectTabCSS() {
   if (!document.querySelector('#tab-css-fixed')) {
     const style = document.createElement('style');
@@ -4993,6 +5004,9 @@ window.renderPaymentActivity = renderPaymentActivity;
 window.updateProfileModal = updateProfileModal;
 window.setupProfileModal = setupProfileModal;
 window.renderOverviewReports = renderOverviewReports;
+window.loadReportData = loadReportData;
+window.generatePeriodReport = generatePeriodReport;
+window.generateSubjectReport = generateSubjectReport;
   
 console.log('✅ All functions exported to window object');
 });
