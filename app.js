@@ -2734,23 +2734,6 @@ function updateSelectAllButtonState() {
   updateSelectAllButton(allSelected);
 }
 
-function updateSelectAllButton(allSelected) {
-  const selectAllBtn = document.getElementById('selectAllStudentsBtn');
-  if (selectAllBtn) {
-    if (allSelected) {
-      selectAllBtn.textContent = 'Deselect All';
-      selectAllBtn.title = 'Deselect all students';
-      selectAllBtn.classList.remove('btn-secondary');
-      selectAllBtn.classList.add('btn-warning');
-    } else {
-      selectAllBtn.textContent = 'Select All';
-      selectAllBtn.title = 'Select all students';
-      selectAllBtn.classList.remove('btn-warning');
-      selectAllBtn.classList.add('btn-secondary');
-    }
-  }
-}
-
 function initializeDefaultRate(rate) {
   const baseRateInput = document.getElementById('baseRate');
   const studentRateInput = document.getElementById('studentRate');  
