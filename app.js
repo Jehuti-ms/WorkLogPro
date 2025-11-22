@@ -548,7 +548,6 @@ const EnhancedStats = {
 
   async calculateStudentStats() {
     try {
-      // Ensure we have fresh data
       const students = await EnhancedCache.loadCollection('students');
       const studentCount = students.length;
       
@@ -574,22 +573,18 @@ const EnhancedStats = {
 
   async calculateHoursStats() {
     try {
-      // Ensure we have fresh data
       const hours = await EnhancedCache.loadCollection('hours');
       console.log(`📊 Calculating hours stats from ${hours.length} entries`);
       
       const now = new Date();
       const today = getLocalDateString(now);
       
-      // Get start of current week (Sunday)
       const weekStart = new Date(now);
       weekStart.setDate(now.getDate() - now.getDay());
       weekStart.setHours(0, 0, 0, 0);
       
-      // Get start of current month
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       
-      // Use fixed date comparison function
       const weeklyData = hours.filter(entry => {
         const entryDate = entry.date || entry.dateIso;
         return isDateInRange(entryDate, weekStart, now);
@@ -621,7 +616,7 @@ const EnhancedStats = {
       const totalEarnings = hours.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
       
       this.updateElement('totalHoursReport', totalHours.toFixed(1));
-      this.updateElement('totalEarningsReport', `$${fmtMoney(totalEarnings)}`);
+      this.updateElement('totalEarningsReport', fmtMoney(totalEarnings));
     } catch (error) {
       console.error('Error calculating hours stats:', error);
     }
@@ -629,7 +624,6 @@ const EnhancedStats = {
 
   async calculateMarksStats() {
     try {
-      // Ensure we have fresh data
       const marks = await EnhancedCache.loadCollection('marks');
       const marksCount = marks.length;
       
@@ -651,7 +645,6 @@ const EnhancedStats = {
 
   async calculateAttendanceStats() {
     try {
-      // Ensure we have fresh data
       const attendance = await EnhancedCache.loadCollection('attendance');
       const attendanceCount = attendance.length;
       
@@ -659,7 +652,6 @@ const EnhancedStats = {
       let lastSessionDate = null;
       
       if (attendanceCount > 0) {
-        // Sort by date to find the most recent
         const sortedAttendance = attendance.sort((a, b) => {
           const dateA = new Date(a.date || a.dateIso);
           const dateB = new Date(b.date || b.dateIso);
@@ -681,11 +673,9 @@ const EnhancedStats = {
 
   async calculatePaymentStats() {
     try {
-      // Ensure we have fresh data
       const payments = await EnhancedCache.loadCollection('payments');
       const now = new Date();
       
-      // Get current month in YYYY-MM format for comparison
       const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       
       const monthlyPayments = payments
@@ -699,8 +689,8 @@ const EnhancedStats = {
       
       console.log(`📊 Payment stats: monthly $${fmtMoney(monthlyPayments)}, total $${fmtMoney(totalPayments)}`);
       
-      this.updateElement('monthlyPayments', `$${fmtMoney(monthlyPayments)}`);
-      this.updateElement('totalPaymentsReport', `$${fmtMoney(totalPayments)}`);
+      this.updateElement('monthlyPayments', fmtMoney(monthlyPayments));
+      this.updateElement('totalPaymentsReport', fmtMoney(totalPayments));
       
       await this.calculateOutstandingBalance();
     } catch (error) {
@@ -710,7 +700,6 @@ const EnhancedStats = {
 
   async calculateOutstandingBalance() {
     try {
-      // Ensure we have fresh data
       const [students, hours, payments] = await Promise.all([
         EnhancedCache.loadCollection('students'),
         EnhancedCache.loadCollection('hours'),
@@ -747,55 +736,78 @@ const EnhancedStats = {
       
       console.log(`📊 Outstanding balance: $${fmtMoney(totalOwed)}`);
       
-      this.updateElement('totalOwed', `$${fmtMoney(totalOwed)}`);
-      this.updateElement('outstandingBalance', `$${fmtMoney(totalOwed)}`);
+      this.updateElement('totalOwed', fmtMoney(totalOwed));
+      this.updateElement('outstandingBalance', fmtMoney(totalOwed));
     } catch (error) {
       console.error('Error calculating outstanding balance:', error);
     }
   },
 
- async calculateOverviewStats() {
-  try {
-    // Ensure we have fresh data for all collections
-    const [students, hours, marks, payments] = await Promise.all([
-      EnhancedCache.loadCollection('students'),
-      EnhancedCache.loadCollection('hours'),
-      EnhancedCache.loadCollection('marks'),
-      EnhancedCache.loadCollection('payments')
-    ]);
-    
-    const totalHours = hours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
-    const totalEarnings = hours.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
-    const totalPayments = payments.reduce((sum, payment) => sum + safeNumber(payment.amount), 0);
-    
-    let avgMark = 0;
-    if (marks.length > 0) {
-      const totalPercentage = marks.reduce((sum, mark) => sum + safeNumber(mark.percentage), 0);
-      avgMark = totalPercentage / marks.length;
+  async calculateOverviewStats() {
+    try {
+      const [students, hours, marks, payments] = await Promise.all([
+        EnhancedCache.loadCollection('students'),
+        EnhancedCache.loadCollection('hours'),
+        EnhancedCache.loadCollection('marks'),
+        EnhancedCache.loadCollection('payments')
+      ]);
+      
+      const totalHours = hours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
+      const totalEarnings = hours.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
+      const totalPayments = payments.reduce((sum, payment) => sum + safeNumber(payment.amount), 0);
+      
+      let avgMark = 0;
+      if (marks.length > 0) {
+        const totalPercentage = marks.reduce((sum, mark) => sum + safeNumber(mark.percentage), 0);
+        avgMark = totalPercentage / marks.length;
+      }
+      
+      const outstanding = Math.max(totalEarnings - totalPayments, 0);
+      
+      console.log('📊 Overview stats:', {
+        students: students.length,
+        hours: totalHours,
+        earnings: totalEarnings,
+        payments: totalPayments,
+        marks: avgMark.toFixed(1),
+        outstanding: outstanding
+      });
+      
+      this.updateElement('totalStudentsReport', students.length);
+      this.updateElement('totalHoursReport', totalHours.toFixed(1));
+      this.updateElement('totalEarningsReport', fmtMoney(totalEarnings));
+      this.updateElement('avgMarkReport', `${avgMark.toFixed(1)}%`);
+      this.updateElement('totalPaymentsReport', fmtMoney(totalPayments));
+      this.updateElement('outstandingBalance', fmtMoney(outstanding));
+    } catch (error) {
+      console.error('Error calculating overview stats:', error);
     }
-    
-    const outstanding = Math.max(totalEarnings - totalPayments, 0);
-    
-    console.log('📊 Overview stats:', {
-      students: students.length,
-      hours: totalHours,
-      earnings: totalEarnings,
-      payments: totalPayments,
-      marks: avgMark.toFixed(1),
-      outstanding: outstanding
-    });
-    
-    // FIXED: Remove extra $ - fmtMoney already includes $
-    this.updateElement('totalStudentsReport', students.length);
-    this.updateElement('totalHoursReport', totalHours.toFixed(1));
-    this.updateElement('totalEarningsReport', fmtMoney(totalEarnings));
-    this.updateElement('avgMarkReport', `${avgMark.toFixed(1)}%`);
-    this.updateElement('totalPaymentsReport', fmtMoney(totalPayments));
-    this.updateElement('outstandingBalance', fmtMoney(outstanding));
-  } catch (error) {
-    console.error('Error calculating overview stats:', error);
+  },
+
+  updateElement(id, value) {
+    const element = document.getElementById(id);
+    if (element) {
+      element.textContent = value;
+      element.style.transition = 'all 0.3s ease';
+      element.style.transform = 'scale(1.05)';
+      setTimeout(() => {
+        element.style.transform = 'scale(1)';
+      }, 300);
+    } else {
+      console.warn(`⚠️ Element not found: ${id}`);
+    }
+  },
+
+  forceRefresh() {
+    console.log('🔄 Forcing stats refresh...');
+    this.refreshAllStats();
+  },
+
+  onDataChanged() {
+    console.log('📈 Data changed, updating stats...');
+    this.forceRefresh();
   }
-}
+};
 
 // ===========================
 // DATE HELPER FUNCTIONS
