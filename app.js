@@ -1229,51 +1229,6 @@ function getLocalDateString(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-function debugStudentDropdowns() {
-  console.log('🔍 DEBUG: Checking student dropdowns...');
-  
-  const dropdowns = [
-    { id: 'student', name: 'Hours Tab Student Dropdown' },
-    { id: 'marksStudent', name: 'Marks Tab Student Dropdown' },
-    { id: 'paymentStudent', name: 'Payments Tab Student Dropdown' }
-  ];
-  
-  dropdowns.forEach(dropdown => {
-    const element = document.getElementById(dropdown.id);
-    if (element) {
-      console.log(`📋 ${dropdown.name}:`, {
-        exists: true,
-        options: element.options.length,
-        value: element.value,
-        id: element.id
-      });
-    } else {
-      console.log(`❌ ${dropdown.name}: NOT FOUND IN DOM`);
-    }
-  });
-  
-  // Check if we have students in cache
-  console.log('📊 Students in cache:', cache.students?.length || 0);
-}
-
-function manuallyRefreshStudentDropdowns() {
-  console.log('🔄 MANUAL REFRESH: Starting...');
-  
-  // Make sure manager is initialized
-  if (!StudentDropdownManager || !StudentDropdownManager.forceRefresh) {
-    console.log('❌ StudentDropdownManager not available');
-    return;
-  }
-  
-  // Force refresh
-  StudentDropdownManager.forceRefresh().then(() => {
-    console.log('✅ Manual refresh completed');
-    debugStudentDropdowns();
-  }).catch(error => {
-    console.error('❌ Manual refresh failed:', error);
-  });
-}
-
 function calculateTotalPay() {
   const hours = safeNumber(document.getElementById('hours')?.value);
   const rate = safeNumber(document.getElementById('rate')?.value);
