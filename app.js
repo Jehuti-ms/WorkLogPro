@@ -4418,9 +4418,9 @@ function createDateRangeModal(reportType, onConfirm) {
 }
 
 // Helper function (make sure this exists)
-function getStartOfMonth(date) {
+/*function getStartOfMonth(date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
-}
+}*/
     
 // ===========================
 // REPORT GENERATION FUNCTIONS
