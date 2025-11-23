@@ -102,10 +102,6 @@ function updateProfileButton() {
   console.warn('updateProfileButton is not yet implemented');
 }
 
-/*function injectThemeStyles() {
-  console.warn('injectThemeStyles is not yet implemented');
-}*/
-
 function setupProfileModal() {
   console.warn('setupProfileModal is not yet implemented');
 }
