@@ -237,7 +237,7 @@ const NotificationSystem = {
 };
 
 // ===========================
-// CACHE SYSTEM - FIXED VERSION
+// CACHE SYSTEM
 // ===========================
 
 const cache = {
@@ -413,7 +413,6 @@ const EnhancedCache = {
     return { total, unsynced };
   },
 
-  // NEW: Enhanced data loading with caching
   async loadCollection(collectionName, forceRefresh = false) {
     const user = auth.currentUser;
     if (!user) return [];
@@ -493,7 +492,7 @@ const EnhancedCache = {
 };
 
 // ===========================
-// ENHANCED REAL-TIME STATS SYSTEM - UPDATED
+// ENHANCED REAL-TIME STATS SYSTEM
 // ===========================
 
 const EnhancedStats = {
@@ -563,7 +562,7 @@ const EnhancedStats = {
       console.log(`📊 Student stats: ${studentCount} students, avg rate: $${fmtMoney(averageRate)}`);
       
       this.updateElement('studentCount', studentCount);
-      this.updateElement('averageRate', fmtMoney(averageRate));
+      this.updateElement('averageRate', `$${fmtMoney(averageRate)}`);
       this.updateElement('totalStudentsCount', studentCount);
       this.updateElement('totalStudentsReport', studentCount);
     } catch (error) {
@@ -611,7 +610,7 @@ const EnhancedStats = {
       this.updateElement('weeklyTotal', `$${fmtMoney(weeklyTotal)}`);
       this.updateElement('monthlyHours', monthlyHours.toFixed(1));
       this.updateElement('monthlyTotal', `$${fmtMoney(monthlyTotal)}`);
-            
+      
       const totalHours = hours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
       const totalEarnings = hours.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
       
@@ -706,38 +705,45 @@ const EnhancedStats = {
         EnhancedCache.loadCollection('payments')
       ]);
       
-      const earningsByStudent = {};
+      // FIX: Use student IDs as keys to prevent merging issues
+      const earningsByStudentId = {};
+      const paymentsByStudentId = {};
+      
       hours.forEach(entry => {
         const studentName = entry.student;
         if (studentName) {
-          const earnings = entry.total || (entry.hours || 0) * (entry.rate || 0);
-          earningsByStudent[studentName] = (earningsByStudent[studentName] || 0) + safeNumber(earnings);
+          const student = findStudentByNameOrId(students, studentName);
+          if (student) {
+            const earnings = entry.total || (entry.hours || 0) * (entry.rate || 0);
+            earningsByStudentId[student.id] = (earningsByStudentId[student.id] || 0) + safeNumber(earnings);
+          }
         }
       });
-      
-      const paymentsByStudent = {};
+
       payments.forEach(payment => {
         const studentName = payment.student;
         if (studentName) {
-          paymentsByStudent[studentName] = (paymentsByStudent[studentName] || 0) + safeNumber(payment.amount);
+          const student = findStudentByNameOrId(students, studentName);
+          if (student) {
+            paymentsByStudentId[student.id] = (paymentsByStudentId[student.id] || 0) + safeNumber(payment.amount);
+          }
         }
       });
       
       let totalOwed = 0;
       students.forEach(student => {
-        const studentName = student.name || `Student ${student.id}`;
-        const earned = earningsByStudent[studentName] || 0;
-        const paid = paymentsByStudent[studentName] || 0;
+        const earned = earningsByStudentId[student.id] || 0;
+        const paid = paymentsByStudentId[student.id] || 0;
         const owed = Math.max(earned - paid, 0);
         totalOwed += owed;
         
-        console.log(`💰 ${studentName}: Earned $${fmtMoney(earned)}, Paid $${fmtMoney(paid)}, Owed $${fmtMoney(owed)}`);
+        console.log(`💰 ${formatStudentDisplay(student)}: Earned $${fmtMoney(earned)}, Paid $${fmtMoney(paid)}, Owed $${fmtMoney(owed)}`);
       });
       
       console.log(`📊 Outstanding balance: $${fmtMoney(totalOwed)}`);
       
-      this.updateElement('totalOwed', fmtMoney(totalOwed));
-      this.updateElement('outstandingBalance', fmtMoney(totalOwed));
+      this.updateElement('totalOwed', `$${fmtMoney(totalOwed)}`);
+      this.updateElement('outstandingBalance', `$${fmtMoney(totalOwed)}`);
     } catch (error) {
       console.error('Error calculating outstanding balance:', error);
     }
@@ -773,13 +779,13 @@ const EnhancedStats = {
         outstanding: outstanding
       });
       
+      // FIX: Currency formatting - fmtMoney is numeric only, prepend $ in display
       this.updateElement('totalStudentsReport', students.length);
       this.updateElement('totalHoursReport', totalHours.toFixed(1));
       this.updateElement('totalEarningsReport', `$${fmtMoney(totalEarnings)}`);
       this.updateElement('avgMarkReport', `${avgMark.toFixed(1)}%`);
       this.updateElement('totalPaymentsReport', `$${fmtMoney(totalPayments)}`);
-       this.updateElement('outstandingBalance', `$${fmtMoney(outstanding)}`);
-
+      this.updateElement('outstandingBalance', `$${fmtMoney(outstanding)}`);
     } catch (error) {
       console.error('Error calculating overview stats:', error);
     }
@@ -811,6 +817,175 @@ const EnhancedStats = {
 };
 
 // ===========================
+// UTILITY FUNCTIONS
+// ===========================
+
+function safeNumber(n, fallback = 0) {
+  if (n === null || n === undefined || n === '') return fallback;
+  const v = Number(n);
+  return Number.isFinite(v) ? v : fallback;
+}
+
+// FIX: fmtMoney returns numeric only to prevent double $$ formatting
+function fmtMoney(n) {
+  return safeNumber(n).toFixed(2);
+}
+
+function getLocalDateString(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function fmtDateISO(yyyyMmDd) {
+  if (!yyyyMmDd) return new Date().toISOString();
+  try {
+    const [year, month, day] = yyyyMmDd.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.toISOString();
+  } catch {
+    return new Date().toISOString();
+  }
+}
+
+function calculateTotalPay() {
+  const hours = safeNumber(document.getElementById('hoursWorked')?.value);
+  const rate = safeNumber(document.getElementById('baseRate')?.value);
+  const total = hours * rate;
+  
+  const totalPayElement = document.getElementById('totalPay');
+  if (totalPayElement) {
+    totalPayElement.textContent = `$${fmtMoney(total)}`;
+  }
+}
+
+function calculateGrade(percentage) {
+  if (percentage >= 90) return 'A';
+  if (percentage >= 80) return 'B';
+  if (percentage >= 70) return 'C';
+  if (percentage >= 60) return 'D';
+  return 'F';
+}
+
+function getLocalISODate() {
+  const now = new Date();
+  const tzOffset = -now.getTimezoneOffset();
+  const diff = tzOffset >= 0 ? '+' : '-';
+  const pad = n => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
+  return now.getFullYear() +
+    '-' + pad(now.getMonth() + 1) +
+    '-' + pad(now.getDate()) +
+    'T' + pad(now.getHours()) +
+    ':' + pad(now.getMinutes()) +
+    ':' + pad(now.getSeconds()) +
+    diff + pad(tzOffset / 60) +
+    ':' + pad(tzOffset % 60);
+}
+
+function formatDateForInput(dateString) {
+  if (!dateString) return new Date().toISOString().split('T')[0];
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      return new Date().toISOString().split('T')[0];
+    }
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  } catch {
+    return new Date().toISOString().split('T')[0];
+  }
+}
+
+function isDateInRange(entryDate, startDate, endDate) {
+  try {
+    const entry = new Date(entryDate);
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    const entryDateOnly = new Date(entry.getFullYear(), entry.getMonth(), entry.getDate());
+    const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const endDateOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    
+    return entryDateOnly >= startDateOnly && entryDateOnly <= endDateOnly;
+  } catch (error) {
+    console.error('Date comparison error:', error);
+    return false;
+  }
+}
+
+// FIX: Student display formatting consistency
+function formatStudentDisplay(student) {
+  if (!student) return 'Unknown Student';
+  
+  // Handle different parameter types
+  if (typeof student === 'string') {
+    return student; // It's already a string
+  }
+  
+  if (typeof student === 'object') {
+    const name = student.name || `Student ${student.id}`;
+    const id = student.id ? ` (${student.id})` : '';
+    return `${name}${id}`;
+  }
+  
+  return 'Unknown Student';
+}
+
+// FIX: Enhanced student lookup helper
+function findStudentByNameOrId(students, identifier) {
+  if (!identifier) return null;
+  
+  // Try to find by name first
+  let student = students.find(s => s.name === identifier);
+  
+  // If not found by name, try by ID
+  if (!student) {
+    student = students.find(s => s.id === identifier);
+  }
+  
+  return student;
+}
+
+// Debug functions
+function debugStudentDropdowns() {
+  console.log('🔍 DEBUG: Comprehensive student dropdown check...');
+  
+  const user = auth.currentUser;
+  console.log('👤 User:', user ? user.email : 'No user');
+  console.log('📊 Cache students:', cache.students?.length || 0);
+  
+  // FIX: Using correct IDs for hours tab
+  const dropdowns = [
+    { id: 'hoursStudent', name: 'Hours Tab' },
+    { id: 'marksStudent', name: 'Marks Tab' },
+    { id: 'paymentStudent', name: 'Payments Tab' }
+  ];
+  
+  dropdowns.forEach(dropdown => {
+    const element = document.getElementById(dropdown.id);
+    if (element) {
+      console.log(`✅ ${dropdown.name}:`, {
+        id: element.id,
+        options: element.options.length,
+        value: element.value,
+        populated: element.options.length > 1
+      });
+    } else {
+      console.log(`❌ ${dropdown.name}: ELEMENT NOT FOUND (looking for #${dropdown.id})`);
+    }
+  });
+}
+
+function manuallyRefreshStudentDropdowns() {
+  console.log('🔄 Manually refreshing student dropdowns...');
+  StudentDropdownManager.forceRefresh();
+  debugStudentDropdowns();
+}
+
+// ===========================
 // DATE HELPER FUNCTIONS
 // ===========================
 
@@ -830,24 +1005,17 @@ function formatDate(dateString) {
   }
 }
 
-// ===========================
-// MISSING REFRESH TIMESTAMP FUNCTION
-// ===========================
-
 function refreshTimestamp() {
   const now = new Date().toLocaleString();
   
-  // Update sync status
   if (syncMessageLine) {
     syncMessageLine.textContent = `Status: Last synced at ${now}`;
   }
   
-  // Update stats timestamp
   if (document.getElementById('statUpdated')) {
     document.getElementById('statUpdated').textContent = now;
   }
   
-  // Update modal timestamp if it exists
   const modalStatUpdated = document.getElementById('modalStatUpdated');
   if (modalStatUpdated) {
     modalStatUpdated.textContent = now;
@@ -963,7 +1131,7 @@ const FormAutoClear = {
 };
 
 // ===========================
-// SYNC BAR SYSTEM - FIXED VERSION
+// SYNC BAR SYSTEM
 // ===========================
 
 const SyncBar = {
@@ -1112,304 +1280,76 @@ const SyncBar = {
   },
 
   async performSync(mode = 'manual') {
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError('Please log in to sync');
-    return;
-  }
-
-  try {
-    if (syncIndicator) {
-      syncIndicator.classList.remove('sync-connected', 'sync-error');
-      syncIndicator.classList.add('sync-active');
-    }
-    if (syncMessageLine) {
-      syncMessageLine.textContent = `Status: ${mode === 'auto' ? 'Auto-syncing' : 'Manual syncing'}...`;
-    }
-
-    // Core sync tasks that must work
-    await Promise.all([
-      recalcSummaryStats(user.uid),
-      loadUserStats(user.uid)
-    ]);
-
-    // Optional UI updates - these won't break the sync if they fail
-    try {
-      if (typeof renderStudents === 'function') await renderStudents();
-    } catch (e) { console.warn('renderStudents failed:', e); }
-
-     try {
-      if (typeof renderOverviewReports === 'function') await renderOverviewReports();
-    } catch (e) { console.warn('renderOverviewReports failed:', e); }
-    
-    try {
-      if (typeof renderRecentHours === 'function') await renderRecentHours();
-    } catch (e) { console.warn('renderRecentHours failed:', e); }
-    
-    try {
-      if (typeof renderRecentMarks === 'function') await renderRecentMarks();
-    } catch (e) { console.warn('renderRecentMarks failed:', e); }
-    
-    try {
-      if (typeof renderAttendanceRecent === 'function') await renderAttendanceRecent();
-    } catch (e) { console.warn('renderAttendanceRecent failed:', e); }
-    
-    try {
-      if (typeof renderPaymentActivity === 'function') await renderPaymentActivity();
-    } catch (e) { console.warn('renderPaymentActivity failed:', e); }
-    
-    try {
-      if (typeof renderStudentBalances === 'function') await renderStudentBalances();
-    } catch (e) { console.warn('renderStudentBalances failed:', e); }
-    
-    try {
-      if (typeof renderOverviewReports === 'function') await renderOverviewReports();
-    } catch (e) { console.warn('renderOverviewReports failed:', e); }
-    
-    try {
-      if (typeof populateStudentDropdowns === 'function') await populateStudentDropdowns();
-    } catch (e) { console.warn('populateStudentDropdowns failed:', e); }
-
-    // Update timestamp
-    const now = new Date().toLocaleString();
-    if (syncMessageLine) syncMessageLine.textContent = `Status: Last synced at ${now}`;
-    if (document.getElementById('statUpdated')) {
-      document.getElementById('statUpdated').textContent = now;
-    }
-
-    if (syncIndicator) {
-      syncIndicator.classList.remove('sync-active');
-      if (isAutoSyncEnabled) {
-        syncIndicator.classList.add('sync-connected');
-      }
-    }
-
-    // Refresh stats
-    if (typeof EnhancedStats !== 'undefined' && EnhancedStats.forceRefresh) {
-      EnhancedStats.forceRefresh();
-    }
-
-    NotificationSystem.notifySuccess(`${mode === 'auto' ? 'Auto-' : ''}Sync completed successfully`);
-    console.log('✅ Sync completed successfully');
-
-  } catch (error) {
-    console.error(`❌ ${mode} sync failed:`, error);
-    
-    if (syncIndicator) {
-      syncIndicator.classList.remove('sync-active', 'sync-connected');
-      syncIndicator.classList.add('sync-error');
-    }
-    if (syncMessageLine) {
-      syncMessageLine.textContent = `Status: Sync failed - ${error.message}`;
-    }
-    
-    NotificationSystem.notifyError(`Sync failed: ${error.message}`);
-  }
-}
-};
-  
-// ===========================
-// UTILITY FUNCTIONS - DECLARE ONLY ONCE
-// ===========================
-
-function safeNumber(n, fallback = 0) {
-  if (n === null || n === undefined || n === '') return fallback;
-  const v = Number(n);
-  return Number.isFinite(v) ? v : fallback;
-}
-
-function fmtMoney(n) {
-  return safeNumber(n).toFixed(2);
-}
-
-function getLocalDateString(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function calculateTotalPay() {
-  const hours = safeNumber(document.getElementById('hours')?.value);
-  const rate = safeNumber(document.getElementById('rate')?.value);
-  const total = hours * rate;
-  
-  const totalPayElement = document.getElementById('totalPay');
-  if (totalPayElement) {
-    totalPayElement.textContent = `$${fmtMoney(total)}`;
-  }
-}
-
-function calculateGrade(percentage) {
-  if (percentage >= 90) return 'A';
-  if (percentage >= 80) return 'B';
-  if (percentage >= 70) return 'C';
-  if (percentage >= 60) return 'D';
-  return 'F';
-}
-
-function getLocalISODate() {
-  const now = new Date();
-  const tzOffset = -now.getTimezoneOffset();
-  const diff = tzOffset >= 0 ? '+' : '-';
-  const pad = n => `${Math.floor(Math.abs(n))}`.padStart(2, '0');
-  return now.getFullYear() +
-    '-' + pad(now.getMonth() + 1) +
-    '-' + pad(now.getDate()) +
-    'T' + pad(now.getHours()) +
-    ':' + pad(now.getMinutes()) +
-    ':' + pad(now.getSeconds()) +
-    diff + pad(tzOffset / 60) +
-    ':' + pad(tzOffset % 60);
-}
-
-function formatDateForInput(dateString) {
-  if (!dateString) return new Date().toISOString().split('T')[0];
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) {
-      return new Date().toISOString().split('T')[0];
-    }
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  } catch {
-    return new Date().toISOString().split('T')[0];
-  }
-}
-
-function isDateInRange(entryDate, startDate, endDate) {
-  try {
-    const entry = new Date(entryDate);
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    
-    const entryDateOnly = new Date(entry.getFullYear(), entry.getMonth(), entry.getDate());
-    const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-    const endDateOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-    
-    return entryDateOnly >= startDateOnly && entryDateOnly <= endDateOnly;
-  } catch (error) {
-    console.error('Date comparison error:', error);
-    return false;
-  }
-}
-
-function formatStudentDisplay(student) {
-  if (!student) return 'Unknown Student';
-  
-  const name = student.name || `Student ${student.id}`;
-  const id = student.id ? ` (${student.id})` : '';
-  return `${name}${id}`;
-}
-
-function manuallyRefreshStudentDropdowns() {
-  console.log('🔄 Manually refreshing student dropdowns...');
-  
-  // Check if StudentDropdownManager exists
-  if (typeof StudentDropdownManager === 'undefined') {
-    console.log('❌ StudentDropdownManager not defined');
-    return;
-  }
-  
-  if (typeof StudentDropdownManager.forceRefresh === 'function') {
-    StudentDropdownManager.forceRefresh().then(() => {
-      console.log('✅ Manual refresh completed');
-      // Optional: Call debug function if it exists
-      if (typeof debugStudentDropdowns === 'function') {
-        debugStudentDropdowns();
-      }
-    }).catch(error => {
-      console.error('❌ Manual refresh failed:', error);
-    });
-  } else {
-    console.log('❌ StudentDropdownManager.forceRefresh not available');
-    
-    // Fallback: Try to populate dropdowns directly
-    populateStudentDropdowns().then(() => {
-      console.log('✅ Fallback dropdown refresh completed');
-    });
-  }
-}
-
-function debugStudentDropdowns() {
-  console.log('🔍 DEBUG: Comprehensive student dropdown check...');
-  
-  // Check authentication
-  const user = auth.currentUser;
-  console.log('👤 User:', user ? user.email : 'No user');
-  
-  // Check cache
-  console.log('📊 Cache students:', cache.students?.length || 0);
-  console.log('📊 Cache data:', cache.students);
-  
-  // Check all dropdown elements
-  const dropdowns = [
-    { id: 'student', name: 'Hours Tab' },
-    { id: 'marksStudent', name: 'Marks Tab' },
-    { id: 'paymentStudent', name: 'Payments Tab' }
-  ];
-  
-  dropdowns.forEach(dropdown => {
-    const element = document.getElementById(dropdown.id);
-    if (element) {
-      console.log(`✅ ${dropdown.name}:`, {
-        id: element.id,
-        options: element.options.length,
-        value: element.value,
-        html: element.outerHTML
-      });
-    } else {
-      console.log(`❌ ${dropdown.name}: ELEMENT NOT FOUND`);
-    }
-  });
-  
-  // Check if StudentDropdownManager exists
-  console.log('🔄 StudentDropdownManager:', StudentDropdownManager ? 'Exists' : 'UNDEFINED');
-  
-  // Check localStorage
-  try {
-    const storedStudents = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-    console.log('💾 localStorage students:', storedStudents.length);
-  } catch (e) {
-    console.log('💾 localStorage error:', e);
-  }
-}
-
-async function deleteHours(id) {
-  if (!confirm('Are you sure you want to delete this hours entry?')) {
-    return;
-  }
-
-  try {
     const user = auth.currentUser;
-    if (!user) return;
-
-    const hours = await EnhancedCache.loadCollection('hours');
-    const entry = hours.find(h => h.id === id);
-    
-    if (entry && entry._firebaseId) {
-      await deleteDoc(doc(db, "users", user.uid, "hours", entry._firebaseId));
+    if (!user) {
+      NotificationSystem.notifyError('Please log in to sync');
+      return;
     }
 
-    const updatedHours = hours.filter(h => h.id !== id);
-    cache.hours = updatedHours;
-    EnhancedCache.saveToLocalStorageBulk('hours', updatedHours);
+    try {
+      if (syncIndicator) {
+        syncIndicator.classList.remove('sync-connected', 'sync-error');
+        syncIndicator.classList.add('sync-active');
+      }
+      if (syncMessageLine) {
+        syncMessageLine.textContent = `Status: ${mode === 'auto' ? 'Auto-syncing' : 'Manual syncing'}...`;
+      }
 
-    await renderRecentHoursWithEdit();
-    EnhancedStats.forceRefresh();
-    
-    NotificationSystem.notifySuccess('Hours entry deleted successfully');
-    
-  } catch (error) {
-    console.error('Error deleting hours:', error);
-    NotificationSystem.notifyError('Failed to delete hours entry');
+      await Promise.all([
+        recalcSummaryStats(user.uid),
+        loadUserStats(user.uid)
+      ]);
+
+      // Refresh all UI components
+      try {
+        if (typeof renderStudents === 'function') await renderStudents();
+        if (typeof renderOverviewReports === 'function') await renderOverviewReports();
+        if (typeof renderRecentHoursWithEdit === 'function') await renderRecentHoursWithEdit();
+        if (typeof renderRecentMarksWithEdit === 'function') await renderRecentMarksWithEdit();
+        if (typeof renderAttendanceRecentWithEdit === 'function') await renderAttendanceRecentWithEdit();
+        if (typeof renderPaymentActivityWithEdit === 'function') await renderPaymentActivityWithEdit();
+        if (typeof renderStudentBalancesWithEdit === 'function') await renderStudentBalancesWithEdit();
+        if (typeof populateStudentDropdowns === 'function') await populateStudentDropdowns();
+      } catch (e) { console.warn('UI refresh failed:', e); }
+
+      // Update timestamp
+      const now = new Date().toLocaleString();
+      if (syncMessageLine) syncMessageLine.textContent = `Status: Last synced at ${now}`;
+      if (document.getElementById('statUpdated')) {
+        document.getElementById('statUpdated').textContent = now;
+      }
+
+      if (syncIndicator) {
+        syncIndicator.classList.remove('sync-active');
+        if (isAutoSyncEnabled) {
+          syncIndicator.classList.add('sync-connected');
+        }
+      }
+
+      // Refresh stats
+      EnhancedStats.forceRefresh();
+
+      NotificationSystem.notifySuccess(`${mode === 'auto' ? 'Auto-' : ''}Sync completed successfully`);
+      console.log('✅ Sync completed successfully');
+
+    } catch (error) {
+      console.error(`❌ ${mode} sync failed:`, error);
+      
+      if (syncIndicator) {
+        syncIndicator.classList.remove('sync-active', 'sync-connected');
+        syncIndicator.classList.add('sync-error');
+      }
+      if (syncMessageLine) {
+        syncMessageLine.textContent = `Status: Sync failed - ${error.message}`;
+      }
+      
+      NotificationSystem.notifyError(`Sync failed: ${error.message}`);
+    }
   }
-}
+};
 
 // ===========================
-// THEME MANAGEMENT - SIMPLE WITH 🌓
+// THEME MANAGEMENT
 // ===========================
 
 function toggleTheme() {
@@ -1418,11 +1358,9 @@ function toggleTheme() {
     
     console.log('🔄 Toggling theme from', currentTheme, 'to', newTheme);
     
-    // Apply the theme
     document.documentElement.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
     
-    // Add animation to the button
     animateThemeButton();
 }
 
@@ -1430,11 +1368,9 @@ function animateThemeButton() {
     const themeButton = document.querySelector('.theme-toggle button');
     if (!themeButton) return;
     
-    // Add spin animation
     themeButton.style.transform = 'rotate(180deg)';
     themeButton.style.transition = 'transform 0.5s ease';
     
-    // Reset animation after it completes
     setTimeout(() => {
         themeButton.style.transform = 'rotate(0deg)';
     }, 500);
@@ -1445,11 +1381,9 @@ function setupThemeToggle() {
     if (themeToggle) {
         console.log('🎯 Found theme toggle button');
         
-        // Set the 🌓 symbol
         themeToggle.innerHTML = '🌓';
         themeToggle.setAttribute('title', 'Toggle theme');
         
-        // Add basic styles
         themeToggle.style.cssText = `
             background: var(--surface);
             border: 1px solid var(--border);
@@ -1464,11 +1398,9 @@ function setupThemeToggle() {
             transition: all 0.3s ease;
         `;
         
-        // Remove any existing event listeners by cloning
         const newButton = themeToggle.cloneNode(true);
         themeToggle.parentNode.replaceChild(newButton, themeToggle);
         
-        // Add click event to the new button
         newButton.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -1476,7 +1408,6 @@ function setupThemeToggle() {
             toggleTheme();
         });
         
-        // Add hover effects
         newButton.addEventListener('mouseenter', function() {
             this.style.transform = 'scale(1.1)';
         });
@@ -1495,16 +1426,13 @@ function initializeTheme() {
     const savedTheme = localStorage.getItem('theme') || 'light';
     console.log('🎨 Initializing theme:', savedTheme);
     
-    // Apply the theme
     document.documentElement.setAttribute('data-theme', savedTheme);
     
-    // Initialize the theme button after a short delay to ensure DOM is ready
     setTimeout(() => {
         setupThemeToggle();
     }, 100);
 }
 
-// Add CSS for smooth animations
 function injectThemeStyles() {
     if (!document.querySelector('#theme-button-styles')) {
         const style = document.createElement('style');
@@ -1570,7 +1498,7 @@ function updateHeaderStats() {
 }
 
 // ===========================
-// FIXED USER PROFILE FUNCTIONS
+// USER PROFILE FUNCTIONS
 // ===========================
 
 async function loadUserProfile(uid) {
@@ -1578,7 +1506,6 @@ async function loadUserProfile(uid) {
   
   const user = auth.currentUser;
   
-  // Try to get memberSince from localStorage first (persistent)
   let memberSince = localStorage.getItem('memberSince');
   if (!memberSince) {
     memberSince = new Date().toISOString();
@@ -1592,7 +1519,6 @@ async function loadUserProfile(uid) {
     memberSince: memberSince
   };
   
-  // Initialize profile button with fallback data
   if (typeof updateProfileButton === 'function') {
     updateProfileButton(fallbackProfile);
   }
@@ -1605,16 +1531,13 @@ async function loadUserProfile(uid) {
     if (userSnap.exists()) {
       currentUserData = { uid, ...userSnap.data() };
       
-      // Ensure memberSince is preserved
       if (!currentUserData.memberSince) {
         currentUserData.memberSince = memberSince;
-        // Update Firestore with memberSince
         await updateDoc(userRef, { memberSince: memberSince });
       }
       
       console.log('✅ User profile loaded from Firestore');
       
-      // Update profile button with actual data
       if (typeof updateProfileButton === 'function') {
         updateProfileButton(currentUserData);
       }
@@ -1643,10 +1566,6 @@ async function loadUserProfile(uid) {
     return fallbackProfile;
   }
 }
-
-// ===========================
-// PROFILE BUTTON FUNCTIONS - ADD THIS SECTION
-// ===========================
 
 function updateProfileButton(userData) {
   const profileBtn = document.getElementById('profileBtn');
@@ -1682,21 +1601,18 @@ function setupProfileModal() {
     return;
   }
 
-  // Setup profile button click
   if (profileBtn) {
     profileBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       console.log('👤 Profile button clicked');
       
-      // Update modal with current data before showing
       updateProfileModal();
       profileModal.style.display = 'flex';
       document.body.classList.add('modal-open');
     });
   }
 
-  // Setup close button
   if (closeProfileModal) {
     closeProfileModal.addEventListener('click', () => {
       profileModal.style.display = 'none';
@@ -1704,13 +1620,11 @@ function setupProfileModal() {
     });
   }
 
-  // Setup logout button
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async () => {
       if (confirm('Are you sure you want to logout?')) {
         try {
           await signOut(auth);
-          // Clear all local storage
           localStorage.clear();
           window.location.href = "auth.html";
         } catch (error) {
@@ -1721,7 +1635,6 @@ function setupProfileModal() {
     });
   }
 
-  // Close modal when clicking outside
   window.addEventListener('click', (event) => {
     if (event.target === profileModal) {
       profileModal.style.display = 'none';
@@ -1729,7 +1642,6 @@ function setupProfileModal() {
     }
   });
 
-  // Close modal with Escape key
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && profileModal.style.display === 'flex') {
       profileModal.style.display = 'none';
@@ -1738,6 +1650,87 @@ function setupProfileModal() {
   });
 
   console.log('✅ Profile modal setup complete');
+}
+
+function updateProfileModal() {
+  const profileUserEmail = document.getElementById('profileUserEmail');
+  const profileUserSince = document.getElementById('profileUserSince');
+  const profileDefaultRate = document.getElementById('profileDefaultRate');
+  const modalStatStudents = document.getElementById('modalStatStudents');
+  const modalStatHours = document.getElementById('modalStatHours');
+  const modalStatEarnings = document.getElementById('modalStatEarnings');
+  const modalStatUpdated = document.getElementById('modalStatUpdated');
+
+  console.log('👤 Updating profile modal...');
+
+  if (currentUserData) {
+    const email = currentUserData.email || auth.currentUser?.email || 'Not available';
+    if (profileUserEmail) {
+      profileUserEmail.textContent = email;
+    }
+    
+    const memberSince = currentUserData.memberSince || localStorage.getItem('memberSince') || currentUserData.createdAt || new Date().toISOString();
+    if (profileUserSince) {
+      profileUserSince.textContent = formatDate(memberSince);
+    }
+    
+    if (profileDefaultRate) {
+      profileDefaultRate.textContent = `$${fmtMoney(currentUserData.defaultRate || 0)}/hour`;
+    }
+  }
+
+  updateModalStats();
+
+  console.log('✅ Profile modal updated');
+}
+
+function updateModalStats() {
+  const modalStatStudents = document.getElementById('modalStatStudents');
+  const modalStatHours = document.getElementById('modalStatHours');
+  const modalStatEarnings = document.getElementById('modalStatEarnings');
+  const modalStatUpdated = document.getElementById('modalStatUpdated');
+
+  const statStudents = document.getElementById('statStudents');
+  const statHours = document.getElementById('statHours');
+  const statEarnings = document.getElementById('statEarnings');
+  const statUpdated = document.getElementById('statUpdated');
+
+  if (modalStatStudents) {
+    if (statStudents && statStudents.textContent) {
+      modalStatStudents.textContent = statStudents.textContent;
+    } else {
+      const students = Array.isArray(cache.students) ? cache.students : [];
+      modalStatStudents.textContent = students.length;
+    }
+  }
+
+  if (modalStatHours) {
+    if (statHours && statHours.textContent) {
+      modalStatHours.textContent = statHours.textContent;
+    } else {
+      const hours = Array.isArray(cache.hours) ? cache.hours : [];
+      const totalHours = hours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
+      modalStatHours.textContent = totalHours.toFixed(1);
+    }
+  }
+
+  if (modalStatEarnings) {
+    if (statEarnings && statEarnings.textContent) {
+      modalStatEarnings.textContent = statEarnings.textContent;
+    } else {
+      const hours = Array.isArray(cache.hours) ? cache.hours : [];
+      const totalEarnings = hours.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
+      modalStatEarnings.textContent = `$${fmtMoney(totalEarnings)}`;
+    }
+  }
+
+  if (modalStatUpdated) {
+    if (statUpdated && statUpdated.textContent) {
+      modalStatUpdated.textContent = statUpdated.textContent;
+    } else {
+      modalStatUpdated.textContent = new Date().toLocaleString();
+    }
+  }
 }
 
 // ===========================
@@ -1949,7 +1942,7 @@ async function loadUserStats(uid) {
       }
       if (document.getElementById('statEarnings')) {
         const earnings = stats.earnings != null ? fmtMoney(stats.earnings) : "0.00";
-        document.getElementById('statEarnings').textContent = earnings;
+        document.getElementById('statEarnings').textContent = `$${earnings}`;
       }
     } else {
       console.log('📊 No stats found, creating default stats...');
@@ -1962,10 +1955,9 @@ async function loadUserStats(uid) {
       
       if (document.getElementById('statStudents')) document.getElementById('statStudents').textContent = 0;
       if (document.getElementById('statHours')) document.getElementById('statHours').textContent = 0;
-      if (document.getElementById('statEarnings')) document.getElementById('statEarnings').textContent = "0.00";
+      if (document.getElementById('statEarnings')) document.getElementById('statEarnings').textContent = "$0.00";
     }
 
-    // Call refreshTimestamp here
     refreshTimestamp();
     console.log('✅ User stats loaded successfully');
     
@@ -1991,7 +1983,7 @@ async function updateUserStats(uid, newStats) {
     }
     if (newStats.earnings !== undefined) {
       const statEarnings = document.getElementById('statEarnings');
-      if (statEarnings) statEarnings.textContent = fmtMoney(newStats.earnings);
+      if (statEarnings) statEarnings.textContent = `$${fmtMoney(newStats.earnings)}`;
     }
     if (newStats.lastSync !== undefined) {
       const statUpdated = document.getElementById('statUpdated');
@@ -2048,7 +2040,7 @@ async function recalcSummaryStats(uid) {
 }
 
 // ===========================
-// FIXED DATA RENDERING FUNCTIONS
+// DATA RENDERING FUNCTIONS
 // ===========================
 
 async function renderStudents(forceRefresh = false) {
@@ -2074,12 +2066,14 @@ async function renderStudents(forceRefresh = false) {
 
     let studentsHTML = '';
     students.forEach(student => {
+      // FIX: Use formatStudentDisplay for consistent display
+      const studentDisplay = formatStudentDisplay(student);
+      
       studentsHTML += `
         <div class="student-card">
           <div class="student-card-header">
             <div>
-              <strong>${student.name || 'Unnamed Student'}</strong>
-              <span class="student-id">${student.id}</span>
+              <strong>${studentDisplay}</strong>
             </div>
             <div class="student-actions">
               <button class="btn-icon" onclick="editStudent('${student.id}')" title="Edit">✏️</button>
@@ -2104,77 +2098,50 @@ async function renderStudents(forceRefresh = false) {
   }
 }
 
-async function renderRecentHours(limit = 10) {
-  const container = document.getElementById('hoursContainer');
-  if (!container) return;
+// ===========================
+// HOURS TAB FUNCTIONS (FIXED)
+// ===========================
 
-  container.innerHTML = '<div class="loading">Loading recent hours...</div>';
+async function populateHoursStudentDropdown() {
+  const dropdown = document.getElementById('hoursStudent');
+  if (!dropdown) {
+    console.log('❌ Hours student dropdown not found (looking for #hoursStudent)');
+    return false;
+  }
 
   try {
-    const hours = await EnhancedCache.loadCollection('hours');
+    const students = await EnhancedCache.loadCollection('students');
+    console.log(`📝 Populating hours dropdown (#hoursStudent) with ${students.length} students`);
     
-    if (hours.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <h3>No Hours Logged</h3>
-          <p>Log your first work session to get started</p>
-        </div>
-      `;
-      return;
+    const currentValue = dropdown.value;
+    
+    dropdown.innerHTML = '';
+    
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = students.length > 0 ? 'Select a student...' : 'No students available';
+    defaultOption.disabled = true;
+    defaultOption.selected = true;
+    dropdown.appendChild(defaultOption);
+    
+    students.forEach(student => {
+      const studentName = student.name || `Student ${student.id}`;
+      const option = document.createElement('option');
+      option.value = studentName;
+      option.textContent = studentName;
+      option.setAttribute('data-student-id', student.id);
+      dropdown.appendChild(option);
+    });
+    
+    if (currentValue && dropdown.querySelector(`option[value="${currentValue}"]`)) {
+      dropdown.value = currentValue;
     }
-
-    // Sort by date (newest first)
-    const sortedHours = hours.sort((a, b) => {
-      const dateA = new Date(a.date || a.dateIso);
-      const dateB = new Date(b.date || b.dateIso);
-      return dateB - dateA;
-    });
-
-    container.innerHTML = '';
-    sortedHours.slice(0, limit).forEach(entry => {
-      const item = document.createElement("div");
-      item.className = "hours-entry";
-      item.innerHTML = `
-        <div class="hours-header">
-          <strong>${entry.organization || 'No organization'}</strong>
-          <span class="hours-type">${entry.workType || 'General'}</span>
-          <div class="student-actions">
-            <button class="btn-icon" onclick="editHours('${entry.id}')" title="Edit">✏️</button>
-            <button class="btn-icon" onclick="deleteHours('${entry.id}')" title="Delete">🗑️</button>
-          </div>
-        </div>
-        <div class="muted">${formatDate(entry.date)} • ${entry.subject || 'General'}</div>
-        <div class="hours-details">
-          <span>Hours: ${safeNumber(entry.hours)}</span>
-          <span>Rate: $${fmtMoney(entry.rate)}</span>
-          <span class="hours-total">Total: $${fmtMoney(entry.total)}</span>
-        </div>
-        ${entry.student ? `<div class="muted">Student: ${entry.student}</div>` : ''}
-      `;
-      container.appendChild(item);
-    });
-
+    
+    console.log(`✅ Hours dropdown populated with ${students.length} students`);
+    return true;
   } catch (error) {
-    console.error("Error rendering hours:", error);
-    container.innerHTML = '<div class="error">Error loading hours</div>';
-  }
-}
-
-// Add this after the existing renderRecentHours function
-async function setupHoursTab() {
-  await populateStudentDropdowns();
-  setupHoursEditFeatures();
-}
-
-function setupHoursEditFeatures() {
-  const hoursTab = document.querySelector('[data-tab="hours"]');
-  if (hoursTab) {
-    hoursTab.addEventListener('click', async () => {
-      setTimeout(async () => {
-        await populateStudentDropdowns();
-        await renderRecentHoursWithEdit();
-      }, 300);
-    });
+    console.error('Error populating hours dropdown:', error);
+    return false;
   }
 }
 
@@ -2235,6 +2202,10 @@ async function renderRecentHoursWithEdit(limit = 10) {
 
 async function startEditHours(id) {
   try {
+    // Ensure dropdown is populated first
+    await populateHoursStudentDropdown();
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     const hours = await EnhancedCache.loadCollection('hours');
     const entry = hours.find(h => h.id === id);
     
@@ -2247,21 +2218,14 @@ async function startEditHours(id) {
     
     console.log('🔧 Starting edit for hours entry:', entry);
     
-    // CRITICAL FIX: Ensure student dropdown is populated first
-    await populateHoursStudentDropdown();
-    
-    // Wait a moment for dropdown to be populated
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    // Safely populate form fields - NOTE: using correct IDs from your HTML
     const fields = [
       { id: 'organization', value: entry.organization || '' },
       { id: 'workType', value: entry.workType || '' },
-      { id: 'workSubject', value: entry.subject || '' }, // NOTE: workSubject not subject
-      { id: 'hoursStudent', value: entry.student || '' }, // NOTE: hoursStudent not student
-      { id: 'hoursWorked', value: entry.hours || '' },   // NOTE: hoursWorked not hours
-      { id: 'baseRate', value: entry.rate || '' },       // NOTE: baseRate not rate
-      { id: 'workDate', value: entry.date || '' },       // NOTE: workDate not date
+      { id: 'workSubject', value: entry.subject || '' },
+      { id: 'hoursStudent', value: entry.student || '' },
+      { id: 'hoursWorked', value: entry.hours || '' },
+      { id: 'baseRate', value: entry.rate || '' },
+      { id: 'workDate', value: entry.date || '' },
       { id: 'notes', value: entry.notes || '' }
     ];
     
@@ -2278,7 +2242,6 @@ async function startEditHours(id) {
       }
     });
     
-    // Special handling for student dropdown
     const studentDropdown = document.getElementById('hoursStudent');
     if (studentDropdown && studentDropdown.value === '' && entry.student) {
       console.log('🔄 Student dropdown exists but value not set, searching for option...');
@@ -2295,7 +2258,6 @@ async function startEditHours(id) {
       console.warn('Missing form fields:', missingFields);
     }
     
-    // Update form button to show edit mode
     const submitBtn = document.querySelector('#hoursForm button[type="submit"]');
     if (!submitBtn) {
       console.error('❌ Submit button not found in hours form');
@@ -2303,7 +2265,7 @@ async function startEditHours(id) {
       return;
     }
     
-    // Remove existing cancel button if any
+    // FIX: Remove existing cancel button before adding new one
     const existingCancelBtn = document.querySelector('#hoursForm button[type="button"]');
     if (existingCancelBtn) {
       existingCancelBtn.remove();
@@ -2348,9 +2310,8 @@ function cancelEditHours() {
     cancelBtn.remove();
   }
   
-  // Reset default rate
   const defaultBaseRateInput = document.getElementById('defaultBaseRate');
-  const rateInput = document.getElementById('baseRate'); // NOTE: baseRate not rate
+  const rateInput = document.getElementById('baseRate');
   if (rateInput && defaultBaseRateInput) {
     rateInput.value = defaultBaseRateInput.value || currentUserData?.defaultRate || '0';
   }
@@ -2358,66 +2319,109 @@ function cancelEditHours() {
   NotificationSystem.notifyInfo('Edit cancelled');
 }
 
-async function renderRecentMarks(limit = 10) {
-  const container = document.getElementById('marksContainer');
-  if (!container) return;
-
-  container.innerHTML = '<div class="loading">Loading recent marks...</div>';
+async function deleteHours(id) {
+  if (!confirm('Are you sure you want to delete this hours entry?')) {
+    return;
+  }
 
   try {
-    const marks = await EnhancedCache.loadCollection('marks');
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const hours = await EnhancedCache.loadCollection('hours');
+    const entry = hours.find(h => h.id === id);
     
-    if (marks.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <h3>No Marks Recorded</h3>
-          <p>Add your first mark to get started</p>
-        </div>
-      `;
-      return;
+    if (entry && entry._firebaseId) {
+      await deleteDoc(doc(db, "users", user.uid, "hours", entry._firebaseId));
     }
 
-    // Sort by date (newest first) and enhance with student names
-    const sortedMarks = marks.sort((a, b) => {
-      const dateA = new Date(a.date || a.dateIso);
-      const dateB = new Date(b.date || b.dateIso);
-      return dateB - dateA;
-    });
+    const updatedHours = hours.filter(h => h.id !== id);
+    cache.hours = updatedHours;
+    EnhancedCache.saveToLocalStorageBulk('hours', updatedHours);
 
-    // Get students for name lookup
-    const students = await EnhancedCache.loadCollection('students');
-    const studentMap = {};
-    students.forEach(student => {
-      studentMap[student.name || student.id] = student.name || `Student ${student.id}`;
-    });
-
-    container.innerHTML = '';
-    sortedMarks.slice(0, limit).forEach(entry => {
-      const studentName = studentMap[entry.student] || entry.student || 'Unknown Student';
-      
-      const item = document.createElement("div");
-      item.className = "mark-entry";
-      item.innerHTML = `
-        <div class="mark-header">
-          <strong>${studentName}</strong> — ${entry.subject || 'No Subject'} (${entry.topic || 'No Topic'})
-          <div class="student-actions">
-            <button class="btn-icon" onclick="editMark('${entry.id}')" title="Edit">✏️</button>
-            <button class="btn-icon" onclick="deleteMark('${entry.id}')" title="Delete">🗑️</button>
-          </div>
-        </div>
-        <div class="muted">${formatDate(entry.date)}</div>
-        <div>Score: ${safeNumber(entry.score)}/${safeNumber(entry.max)} — ${safeNumber(entry.percentage).toFixed(2)}% — Grade: ${entry.grade || 'N/A'}</div>
-      `;
-      container.appendChild(item);
-    });
-
+    await renderRecentHoursWithEdit();
+    // FIX: Refresh stats after deletion
+    EnhancedStats.forceRefresh();
+    
+    NotificationSystem.notifySuccess('Hours entry deleted successfully');
+    
   } catch (error) {
-    console.error("Error rendering marks:", error);
-    container.innerHTML = '<div class="error">Error loading marks</div>';
+    console.error('Error deleting hours:', error);
+    NotificationSystem.notifyError('Failed to delete hours entry');
   }
 }
 
-// Add this after the existing renderRecentMarks function
+async function handleHoursSubmit(e) {
+  e.preventDefault();
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const formData = new FormData(e.target);
+  const hours = safeNumber(formData.get('hoursWorked'));
+  const rate = safeNumber(formData.get('baseRate'));
+  const total = hours * rate;
+
+  const hoursData = {
+    organization: formData.get('organization'),
+    workType: formData.get('workType'),
+    subject: formData.get('workSubject'),
+    student: formData.get('hoursStudent'),
+    hours: hours,
+    rate: rate,
+    total: total,
+    date: formData.get('workDate'),
+    dateIso: fmtDateISO(formData.get('workDate')),
+    notes: formData.get('notes')
+  };
+
+  try {
+    if (currentEditHoursId) {
+      const hours = await EnhancedCache.loadCollection('hours');
+      const entryIndex = hours.findIndex(h => h.id === currentEditHoursId);
+      
+      if (entryIndex !== -1) {
+        const existingEntry = hours[entryIndex];
+        hoursData.id = currentEditHoursId;
+        hoursData._firebaseId = existingEntry._firebaseId;
+        hoursData._synced = existingEntry._synced;
+        
+        if (existingEntry._firebaseId) {
+          await updateDoc(doc(db, "users", user.uid, "hours", existingEntry._firebaseId), hoursData);
+        }
+        
+        hours[entryIndex] = { ...hours[entryIndex], ...hoursData };
+        cache.hours = hours;
+        EnhancedCache.saveToLocalStorageBulk('hours', hours);
+        
+        NotificationSystem.notifySuccess('Hours updated successfully');
+        currentEditHoursId = null;
+        
+        const submitBtn = document.querySelector('#hoursForm button[type="submit"]');
+        submitBtn.textContent = 'Log Hours';
+        const cancelBtn = document.querySelector('#hoursForm button[type="button"]');
+        if (cancelBtn) cancelBtn.remove();
+        
+        e.target.reset();
+      }
+    } else {
+      await EnhancedCache.saveWithBackgroundSync('hours', hoursData);
+      FormAutoClear.handleSuccess('hoursForm', { baseRate: rate });
+    }
+    
+    // FIX: Refresh stats after save/update
+    EnhancedStats.forceRefresh();
+    await renderRecentHoursWithEdit();
+    
+  } catch (error) {
+    console.error('Error saving hours:', error);
+    NotificationSystem.notifyError('Failed to save hours');
+  }
+}
+
+// ===========================
+// MARKS TAB FUNCTIONS (FIXED)
+// ===========================
+
 async function renderRecentMarksWithEdit(limit = 10) {
   const container = document.getElementById('marksContainer');
   if (!container) return;
@@ -2444,24 +2448,19 @@ async function renderRecentMarksWithEdit(limit = 10) {
 
     const studentMap = {};
     students.forEach(student => {
-      studentMap[student.name || student.id] = {
-        name: student.name || `Student ${student.id}`,
-        id: student.id
-      };
+      studentMap[student.name || student.id] = student;
     });
 
     let marksHTML = '';
     sortedMarks.slice(0, limit).forEach(entry => {
-      const studentInfo = studentMap[entry.student] || { 
-        name: entry.student || 'Unknown Student', 
-        id: 'N/A' 
-      };
+      const student = studentMap[entry.student] || { name: entry.student, id: 'N/A' };
+      // FIX: Use formatStudentDisplay for consistent display
+      const studentDisplay = formatStudentDisplay(student);
       
       marksHTML += `
         <div class="mark-entry" id="mark-entry-${entry.id}">
           <div class="mark-header">
-            <strong>${studentInfo.name}</strong> 
-            <span class="student-id">${studentInfo.id}</span>
+            <strong>${studentDisplay}</strong>
             — ${entry.subject || 'No Subject'} (${entry.topic || 'No Topic'})
             <div class="student-actions">
               <button class="btn-icon" onclick="startEditMark('${entry.id}')" title="Edit">✏️</button>
@@ -2504,6 +2503,11 @@ async function startEditMark(id) {
     document.getElementById('marksNotes').value = entry.notes || '';
     
     const submitBtn = document.querySelector('#marksForm button[type="submit"]');
+    const existingCancelBtn = document.querySelector('#marksForm button[type="button"]');
+    if (existingCancelBtn) {
+      existingCancelBtn.remove();
+    }
+    
     const cancelBtn = document.createElement('button');
     cancelBtn.type = 'button';
     cancelBtn.textContent = 'Cancel Edit';
@@ -2535,7 +2539,6 @@ function cancelEditMark() {
   NotificationSystem.notifyInfo('Edit cancelled');
 }
 
-// Replace the existing deleteMark function with this enhanced version
 async function deleteMark(id) {
   if (!confirm('Are you sure you want to delete this mark?')) {
     return;
@@ -2557,6 +2560,7 @@ async function deleteMark(id) {
     EnhancedCache.saveToLocalStorageBulk('marks', updatedMarks);
 
     await renderRecentMarksWithEdit();
+    // FIX: Refresh stats after deletion
     EnhancedStats.forceRefresh();
     
     NotificationSystem.notifySuccess('Mark deleted successfully');
@@ -2567,7 +2571,6 @@ async function deleteMark(id) {
   }
 }
 
-// Replace the existing handleMarksSubmit function with this enhanced version
 async function handleMarksSubmit(e) {
   e.preventDefault();
   const user = auth.currentUser;
@@ -2618,13 +2621,14 @@ async function handleMarksSubmit(e) {
         const cancelBtn = document.querySelector('#marksForm button[type="button"]');
         if (cancelBtn) cancelBtn.remove();
         
-        form.reset();
+        e.target.reset();
       }
     } else {
       await EnhancedCache.saveWithBackgroundSync('marks', marksData);
       FormAutoClear.handleSuccess('marksForm');
     }
     
+    // FIX: Refresh stats after save/update
     EnhancedStats.forceRefresh();
     await renderRecentMarksWithEdit();
     
@@ -2634,59 +2638,67 @@ async function handleMarksSubmit(e) {
   }
 }
 
-async function renderAttendanceRecent(limit = 10) {
-  const container = document.getElementById('attendanceContainer');
-  if (!container) return;
+// ===========================
+// ATTENDANCE TAB FUNCTIONS (FIXED)
+// ===========================
 
-  container.innerHTML = '<div class="loading">Loading attendance records...</div>';
+async function populateAttendanceStudents() {
+  const attendanceContainer = document.getElementById('attendanceStudents');
+  if (!attendanceContainer) {
+    console.log('❌ Attendance container not found');
+    return;
+  }
 
   try {
-    const attendance = await EnhancedCache.loadCollection('attendance');
-    
-    if (attendance.length === 0) {
-      container.innerHTML = `
+    const students = await EnhancedCache.loadCollection('students');
+    console.log(`👥 Populating attendance with ${students.length} students`);
+
+    attendanceContainer.innerHTML = '';
+
+    if (students.length === 0) {
+      attendanceContainer.innerHTML = `
         <div class="empty-state">
-          <h3>No Attendance Records</h3>
-          <p>Record your first attendance session</p>
+          <p>No students available. Please add students first.</p>
         </div>
       `;
       return;
     }
 
-    // Sort by date (newest first)
-    const sortedAttendance = attendance.sort((a, b) => {
-      const dateA = new Date(a.date || a.dateIso);
-      const dateB = new Date(b.date || b.dateIso);
-      return dateB - dateA;
-    });
-
-    container.innerHTML = '';
-    sortedAttendance.slice(0, limit).forEach(entry => {
-      const presentCount = Array.isArray(entry.present) ? entry.present.length : 0;
+    students.forEach(student => {
+      // FIX: Use formatStudentDisplay for consistent display
+      const studentDisplay = formatStudentDisplay(student);
       
-      const item = document.createElement("div");
-      item.className = "attendance-entry";
-      item.innerHTML = `
-        <div class="attendance-header">
-          <strong>${entry.subject || 'No Subject'}</strong> — ${entry.topic || "—"}
-          <div class="student-actions">
-            <button class="btn-icon" onclick="editAttendance('${entry.id}')" title="Edit">✏️</button>
-            <button class="btn-icon" onclick="deleteAttendance('${entry.id}')" title="Delete">🗑️</button>
-          </div>
-        </div>
-        <div class="muted">${formatDate(entry.date)}</div>
-        <div>Present: ${presentCount} students</div>
-      `;
-      container.appendChild(item);
+      const container = document.createElement('div');
+      container.style.cssText = 'display: flex; align-items: center; gap: 12px; margin: 8px 0; padding: 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border);';
+      
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.name = 'presentStudents';
+      checkbox.value = student.name || student.id;
+      checkbox.id = `attendance-${student.id}`;
+      checkbox.style.cssText = 'width: 18px; height: 18px;';
+      
+      const label = document.createElement('label');
+      label.htmlFor = `attendance-${student.id}`;
+      label.textContent = studentDisplay;
+      label.style.cssText = 'flex: 1; margin: 0; cursor: pointer; font-weight: 500;';
+      
+      const studentInfo = document.createElement('span');
+      studentInfo.textContent = `Rate: $${fmtMoney(student.rate || 0)}`;
+      studentInfo.style.cssText = 'font-size: 0.85em; color: var(--muted);';
+      
+      container.appendChild(checkbox);
+      container.appendChild(label);
+      container.appendChild(studentInfo);
+      attendanceContainer.appendChild(container);
     });
 
+    console.log('✅ Attendance students populated');
   } catch (error) {
-    console.error("Error rendering attendance:", error);
-    container.innerHTML = '<div class="error">Error loading attendance</div>';
+    console.error('Error populating attendance students:', error);
   }
 }
 
-// Add this after the existing renderAttendanceRecent function
 async function renderAttendanceRecentWithEdit(limit = 10) {
   const container = document.getElementById('attendanceContainer');
   if (!container) return;
@@ -2757,8 +2769,7 @@ async function startEditAttendance(id) {
     document.getElementById('attendanceDate').value = entry.date || '';
     document.getElementById('attendanceNotes').value = entry.notes || '';
     
-    const students = await EnhancedCache.loadCollection('students');
-    populateAttendanceStudents(students);
+    await populateAttendanceStudents();
     
     if (Array.isArray(entry.present)) {
       entry.present.forEach(studentName => {
@@ -2772,6 +2783,11 @@ async function startEditAttendance(id) {
     }
     
     const submitBtn = document.querySelector('#attendanceForm button[type="submit"]');
+    const existingCancelBtn = document.querySelector('#attendanceForm button[type="button"]');
+    if (existingCancelBtn) {
+      existingCancelBtn.remove();
+    }
+    
     const cancelBtn = document.createElement('button');
     cancelBtn.type = 'button';
     cancelBtn.textContent = 'Cancel Edit';
@@ -2812,7 +2828,6 @@ function cancelEditAttendance() {
   NotificationSystem.notifyInfo('Edit cancelled');
 }
 
-// Replace the existing deleteAttendance function with this enhanced version
 async function deleteAttendance(id) {
   if (!confirm('Are you sure you want to delete this attendance record?')) {
     return;
@@ -2834,6 +2849,7 @@ async function deleteAttendance(id) {
     EnhancedCache.saveToLocalStorageBulk('attendance', updatedAttendance);
 
     await renderAttendanceRecentWithEdit();
+    // FIX: Refresh stats after deletion
     EnhancedStats.forceRefresh();
     
     NotificationSystem.notifySuccess('Attendance record deleted successfully');
@@ -2844,7 +2860,6 @@ async function deleteAttendance(id) {
   }
 }
 
-// Replace the existing handleAttendanceSubmit function with this enhanced version
 async function handleAttendanceSubmit(e) {
   e.preventDefault();
   const user = auth.currentUser;
@@ -2889,13 +2904,14 @@ async function handleAttendanceSubmit(e) {
         const cancelBtn = document.querySelector('#attendanceForm button[type="button"]');
         if (cancelBtn) cancelBtn.remove();
         
-        form.reset();
+        e.target.reset();
       }
     } else {
       await EnhancedCache.saveWithBackgroundSync('attendance', attendanceData);
       FormAutoClear.handleSuccess('attendanceForm');
     }
     
+    // FIX: Refresh stats after save/update
     EnhancedStats.forceRefresh();
     await renderAttendanceRecentWithEdit();
     
@@ -2906,148 +2922,9 @@ async function handleAttendanceSubmit(e) {
 }
 
 // ===========================
-// MISSING RENDER STUDENT BALANCES FUNCTION
+// PAYMENT MANAGEMENT FUNCTIONS (FIXED)
 // ===========================
 
-async function renderStudentBalances() {
-  const container = document.getElementById('studentBalancesContainer');
-  if (!container) return;
-
-  try {
-    // Load fresh data
-    const [students, hours, payments] = await Promise.all([
-      EnhancedCache.loadCollection('students'),
-      EnhancedCache.loadCollection('hours'),
-      EnhancedCache.loadCollection('payments')
-    ]);
-
-    console.log(`💰 Calculating balances for ${students.length} students`);
-
-    if (students.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <h3>No Student Data</h3>
-          <p>Add students and record hours/payments to see balances</p>
-        </div>
-      `;
-      return;
-    }
-
-    // Calculate earnings and payments by student
-    const earningsByStudent = {};
-    const paymentsByStudent = {};
-    
-    hours.forEach(entry => {
-      const studentName = entry.student;
-      if (studentName) {
-        const earnings = entry.total || (entry.hours || 0) * (entry.rate || 0);
-        earningsByStudent[studentName] = (earningsByStudent[studentName] || 0) + safeNumber(earnings);
-      }
-    });
-
-    payments.forEach(payment => {
-      const studentName = payment.student;
-      if (studentName) {
-        paymentsByStudent[studentName] = (paymentsByStudent[studentName] || 0) + safeNumber(payment.amount);
-      }
-    });
-
-    let balancesHTML = '';
-    let totalOwed = 0;
-
-    students.forEach(student => {
-      const studentName = student.name || `Student ${student.id}`;
-      const earned = earningsByStudent[studentName] || 0;
-      const paid = paymentsByStudent[studentName] || 0;
-      const owed = Math.max(earned - paid, 0);
-      totalOwed += owed;
-
-      balancesHTML += `
-        <div class="activity-item">
-          <div><strong>${studentName}</strong></div>
-          <div class="muted">
-            Earned: $${fmtMoney(earned)} | 
-            Paid: $${fmtMoney(paid)} | 
-            <strong>Owed: $${fmtMoney(owed)}</strong>
-          </div>
-        </div>
-      `;
-    });
-
-    container.innerHTML = balancesHTML;
-
-    // Update total owed display
-    const totalOwedEl = document.getElementById('totalOwed');
-    const totalStudentsCountEl = document.getElementById('totalStudentsCount');
-    
-    if (totalOwedEl) totalOwedEl.textContent = `$${fmtMoney(totalOwed)}`;
-    if (totalStudentsCountEl) totalStudentsCountEl.textContent = students.length;
-
-    console.log(`✅ Rendered balances for ${students.length} students, total owed: $${fmtMoney(totalOwed)}`);
-
-  } catch (error) {
-    console.error("Error rendering student balances:", error);
-    container.innerHTML = '<div class="error">Error loading student balances</div>';
-  }
-}
-
-// ===========================
-// MISSING RENDER PAYMENT ACTIVITY FUNCTION
-// ===========================
-
-async function renderPaymentActivity(limit = 10) {
-  const container = document.getElementById('paymentActivityLog');
-  if (!container) return;
-
-  try {
-    // Use cached payments or load fresh
-    const payments = await EnhancedCache.loadCollection('payments');
-    
-    if (payments.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <h3>No Payment Activity</h3>
-          <p>No recent payment activity recorded</p>
-        </div>
-      `;
-      return;
-    }
-
-    // Sort by date (newest first)
-    const sortedPayments = payments.sort((a, b) => {
-      const dateA = new Date(a.date || a.dateIso);
-      const dateB = new Date(b.date || b.dateIso);
-      return dateB - dateA;
-    });
-
-    let paymentHTML = '';
-    sortedPayments.slice(0, limit).forEach(entry => {
-      paymentHTML += `
-        <div class="activity-item">
-          <div class="payment-header">
-            <strong>$${fmtMoney(entry.amount)}</strong> — ${entry.student || 'Unknown Student'}
-            <div class="student-actions">
-              <button class="btn-icon" onclick="editPayment('${entry.id}')" title="Edit">✏️</button>
-              <button class="btn-icon" onclick="deletePayment('${entry.id}')" title="Delete">🗑️</button>
-            </div>
-          </div>
-          <div class="muted">${formatDate(entry.date)} | ${entry.method || 'Unknown Method'}</div>
-          <div>${entry.notes || ""}</div>
-        </div>
-      `;
-    });
-
-    container.innerHTML = paymentHTML;
-    
-    console.log(`✅ Rendered ${Math.min(payments.length, limit)} payment activities`);
-
-  } catch (error) {
-    console.error("Error rendering payments:", error);
-    container.innerHTML = '<div class="error">Error loading payments</div>';
-  }
-}
-
-// Add this after the existing payment functions
 async function renderPaymentActivityWithEdit(limit = 10) {
   const container = document.getElementById('paymentActivityLog');
   if (!container) return;
@@ -3098,6 +2975,7 @@ async function renderPaymentActivityWithEdit(limit = 10) {
   }
 }
 
+// FIX: Student balances with consistent identification and display
 async function renderStudentBalancesWithEdit() {
   const container = document.getElementById('studentBalancesContainer');
   if (!container) return;
@@ -3121,21 +2999,28 @@ async function renderStudentBalancesWithEdit() {
       return;
     }
 
-    const earningsByStudent = {};
-    const paymentsByStudent = {};
+    // FIX: Use student IDs as keys instead of names to prevent merging issues
+    const earningsByStudentId = {};
+    const paymentsByStudentId = {};
     
     hours.forEach(entry => {
       const studentName = entry.student;
       if (studentName) {
-        const earnings = entry.total || (entry.hours || 0) * (entry.rate || 0);
-        earningsByStudent[studentName] = (earningsByStudent[studentName] || 0) + safeNumber(earnings);
+        const student = findStudentByNameOrId(students, studentName);
+        if (student) {
+          const earnings = entry.total || (entry.hours || 0) * (entry.rate || 0);
+          earningsByStudentId[student.id] = (earningsByStudentId[student.id] || 0) + safeNumber(earnings);
+        }
       }
     });
 
     payments.forEach(payment => {
       const studentName = payment.student;
       if (studentName) {
-        paymentsByStudent[studentName] = (paymentsByStudent[studentName] || 0) + safeNumber(payment.amount);
+        const student = findStudentByNameOrId(students, studentName);
+        if (student) {
+          paymentsByStudentId[student.id] = (paymentsByStudentId[student.id] || 0) + safeNumber(payment.amount);
+        }
       }
     });
 
@@ -3143,18 +3028,20 @@ async function renderStudentBalancesWithEdit() {
     let totalOwed = 0;
 
     students.forEach(student => {
-      const studentName = student.name || `Student ${student.id}`;
-      const earned = earningsByStudent[studentName] || 0;
-      const paid = paymentsByStudent[studentName] || 0;
+      const earned = earningsByStudentId[student.id] || 0;
+      const paid = paymentsByStudentId[student.id] || 0;
       const owed = Math.max(earned - paid, 0);
       totalOwed += owed;
+
+      // FIX: Use formatStudentDisplay for consistent display
+      const studentDisplay = formatStudentDisplay(student);
 
       balancesHTML += `
         <div class="activity-item" id="balance-${student.id}">
           <div>
-            <strong>${studentName}</strong>
+            <strong>${studentDisplay}</strong>
             <div class="student-actions" style="display: inline-block; margin-left: 10px;">
-              <button class="btn-icon" onclick="quickAddPayment('${studentName}')" title="Add Payment">💰</button>
+              <button class="btn-icon" onclick="quickAddPayment('${student.name || student.id}')" title="Add Payment">💰</button>
             </div>
           </div>
           <div class="muted">
@@ -3173,6 +3060,9 @@ async function renderStudentBalancesWithEdit() {
     
     if (totalOwedEl) totalOwedEl.textContent = `$${fmtMoney(totalOwed)}`;
     if (totalStudentsCountEl) totalStudentsCountEl.textContent = students.length;
+
+    // FIX: Refresh stats to stay in sync
+    EnhancedStats.forceRefresh();
 
     console.log(`✅ Rendered balances for ${students.length} students, total owed: $${fmtMoney(totalOwed)}`);
 
@@ -3201,6 +3091,12 @@ async function startEditPayment(id) {
     document.getElementById('paymentNotes').value = entry.notes || '';
     
     const submitBtn = document.querySelector('#paymentForm button[type="submit"]');
+    // FIX: Remove existing cancel button before adding new one
+    const existingCancelBtn = document.querySelector('#paymentForm button[type="button"]');
+    if (existingCancelBtn) {
+      existingCancelBtn.remove();
+    }
+    
     const cancelBtn = document.createElement('button');
     cancelBtn.type = 'button';
     cancelBtn.textContent = 'Cancel Edit';
@@ -3232,41 +3128,6 @@ function cancelEditPayment() {
   NotificationSystem.notifyInfo('Edit cancelled');
 }
 
-// Replace the existing deletePayment function with this enhanced version
-// Add these payment functions:
-
-// Record Payment function (already exists as handlePaymentSubmit, but ensure it works)
-async function recordPayment(studentName, amount, method = 'Cash', notes = '') {
-  const user = auth.currentUser;
-  if (!user) return;
-
-  const paymentData = {
-    student: studentName,
-    amount: safeNumber(amount),
-    method: method,
-    date: getLocalDateString(),
-    dateIso: new Date().toISOString(),
-    notes: notes
-  };
-
-  try {
-    await EnhancedCache.saveWithBackgroundSync('payments', paymentData);
-    NotificationSystem.notifySuccess('Payment recorded successfully');
-    
-    // Refresh payment displays
-    await renderPaymentActivityWithEdit();
-    await renderStudentBalancesWithEdit();
-    EnhancedStats.forceRefresh();
-    
-    return true;
-  } catch (error) {
-    console.error('Error recording payment:', error);
-    NotificationSystem.notifyError('Failed to record payment');
-    return false;
-  }
-}
-
-// Delete Payment function (enhance existing one)
 async function deletePayment(id) {
   if (!confirm('Are you sure you want to delete this payment?')) {
     return;
@@ -3289,6 +3150,7 @@ async function deletePayment(id) {
 
     await renderPaymentActivityWithEdit();
     await renderStudentBalancesWithEdit();
+    // FIX: Refresh stats after deletion
     EnhancedStats.forceRefresh();
     
     NotificationSystem.notifySuccess('Payment deleted successfully');
@@ -3299,19 +3161,12 @@ async function deletePayment(id) {
   }
 }
 
-// Quick payment function for student balances
 function quickAddPayment(studentName) {
-  const amount = prompt(`Enter payment amount for ${studentName}:`);
-  if (amount && !isNaN(amount) && parseFloat(amount) > 0) {
-    const method = prompt('Payment method (Cash, Transfer, etc.):', 'Cash');
-    const notes = prompt('Payment notes (optional):', '');
-    recordPayment(studentName, parseFloat(amount), method || 'Cash', notes || '');
-  } else if (amount !== null) {
-    NotificationSystem.notifyError('Please enter a valid amount');
-  }
+  document.getElementById('paymentStudent').value = studentName;
+  document.getElementById('paymentAmount').focus();
+  NotificationSystem.notifyInfo(`Quick payment mode for ${studentName}`);
 }
 
-// Replace the existing handlePaymentSubmit function with this enhanced version
 async function handlePaymentSubmit(e) {
   e.preventDefault();
   const user = auth.currentUser;
@@ -3354,13 +3209,14 @@ async function handlePaymentSubmit(e) {
         const cancelBtn = document.querySelector('#paymentForm button[type="button"]');
         if (cancelBtn) cancelBtn.remove();
         
-        form.reset();
+        e.target.reset();
       }
     } else {
       await EnhancedCache.saveWithBackgroundSync('payments', paymentData);
       FormAutoClear.handleSuccess('paymentForm');
     }
     
+    // FIX: Refresh stats after save/update
     EnhancedStats.forceRefresh();
     await renderPaymentActivityWithEdit();
     await renderStudentBalancesWithEdit();
@@ -3371,9 +3227,8 @@ async function handlePaymentSubmit(e) {
   }
 }
 
-
 // ===========================
-// FORM SUBMIT HANDLERS
+// STUDENT FORM FUNCTIONS
 // ===========================
 
 async function handleStudentSubmit(e) {
@@ -3394,9 +3249,9 @@ async function handleStudentSubmit(e) {
     try {
         await EnhancedCache.saveWithBackgroundSync('students', studentData);
         FormAutoClear.handleSuccess('studentForm');
+        // FIX: Refresh stats after student creation
         EnhancedStats.forceRefresh();
         
-        // Refresh student dropdowns after adding new student
         setTimeout(() => {
             populateStudentDropdowns();
         }, 500);
@@ -3407,42 +3262,269 @@ async function handleStudentSubmit(e) {
     }
 }
 
-function clearAttendanceForm() {
-  const form = document.getElementById('attendanceForm');
-  if (form) {
-    form.reset();
-    
-    // Clear all student checkboxes
-    const checkboxes = document.querySelectorAll('#attendanceStudents input[type="checkbox"]');
-    checkboxes.forEach(checkbox => {
-      checkbox.checked = false;
-      if (checkbox.parentElement) {
-        checkbox.parentElement.style.backgroundColor = '';
-        checkbox.parentElement.classList.remove('selected');
-      }
-    });
-    
-    // Reset select all button
-    updateSelectAllButton(false);
-    
-    // Set today's date as default
-    const dateInput = document.getElementById('attendanceDate');
-    if (dateInput) {
-      dateInput.value = new Date().toISOString().split('T')[0];
-    }
-    
-    NotificationSystem.notifyInfo('Attendance form cleared');
+async function editStudent(id) {
+  NotificationSystem.notifyInfo(`Edit student ${id} - Feature coming soon`);
+}
+
+async function deleteStudent(id) {
+  if (confirm('Are you sure you want to delete this student?')) {
+    NotificationSystem.notifyInfo(`Delete student ${id} - Feature coming soon`);
   }
 }
 
 // ===========================
-// ENHANCED FORM SETUP WITH DROPDOWN SUPPORT
+// ENHANCED STUDENT DROPDOWN SYSTEM
+// ===========================
+
+const StudentDropdownManager = {
+  initialized: false,
+  dropdowns: [],
+  
+  init() {
+    if (this.initialized) return;
+    
+    console.log('🎯 Initializing student dropdown manager...');
+    this.setupDropdownListeners();
+    this.initialized = true;
+  },
+  
+  setupDropdownListeners() {
+    document.addEventListener('click', (e) => {
+      if (e.target.matches('.tab[data-tab]')) {
+        const tabName = e.target.getAttribute('data-tab');
+        console.log(`📑 Tab changed to: ${tabName}`);
+        setTimeout(() => this.refreshAllDropdowns(), 300);
+      }
+    });
+  },
+  
+  async refreshAllDropdowns() {
+    console.log('🔄 StudentDropdownManager: Refreshing all dropdowns...');
+    await populateStudentDropdowns();
+    this.enhanceDropdownBehavior();
+  },
+  
+  enhanceDropdownBehavior() {
+    const dropdownSelectors = [
+      '#hoursStudent',
+      '#marksStudent', 
+      '#paymentStudent'
+    ];
+    
+    this.dropdowns = [];
+    dropdownSelectors.forEach(selector => {
+      const elements = document.querySelectorAll(selector);
+      elements.forEach(el => {
+        if (el && !this.dropdowns.includes(el)) {
+          this.dropdowns.push(el);
+        }
+      });
+    });
+    
+    console.log(`✅ Enhanced ${this.dropdowns.length} student dropdowns`);
+  },
+  
+  async forceRefresh() {
+    console.log('🔄 StudentDropdownManager: Force refreshing all dropdowns...');
+    
+    const students = await EnhancedCache.loadCollection('students', true);
+    
+    if (students.length === 0) {
+      console.log('❌ No students found to populate dropdowns');
+      return;
+    }
+    
+    const dropdownSelectors = ['#hoursStudent', '#marksStudent', '#paymentStudent'];
+    const dropdowns = [];
+    
+    dropdownSelectors.forEach(selector => {
+      const elements = document.querySelectorAll(selector);
+      elements.forEach(el => {
+        if (el) dropdowns.push(el);
+      });
+    });
+    
+    console.log(`🎯 Found ${dropdowns.length} dropdowns to populate with ${students.length} students`);
+    
+    dropdowns.forEach(dropdown => {
+      this.populateDropdown(dropdown, students);
+    });
+    
+    console.log('✅ Force refresh completed');
+  },
+  
+  populateDropdown(dropdown, students) {
+    if (!dropdown) {
+      console.log('❌ Dropdown element is null');
+      return;
+    }
+    
+    console.log(`📝 Populating ${dropdown.id} with ${students.length} students`);
+    
+    const currentValue = dropdown.value;
+    
+    dropdown.innerHTML = '';
+    
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = students.length > 0 ? 'Select a student...' : 'No students available';
+    defaultOption.disabled = true;
+    defaultOption.selected = true;
+    dropdown.appendChild(defaultOption);
+    
+    students.forEach(student => {
+      const studentName = student.name || `Student ${student.id}`;
+      const option = document.createElement('option');
+      option.value = studentName;
+      option.textContent = studentName;
+      option.setAttribute('data-student-id', student.id);
+      dropdown.appendChild(option);
+    });
+    
+    if (currentValue && dropdown.querySelector(`option[value="${currentValue}"]`)) {
+      dropdown.value = currentValue;
+    }
+    
+    console.log(`✅ ${dropdown.id} populated with ${students.length} options`);
+  }
+};
+
+// ===========================
+// STUDENT DROPDOWN POPULATION
+// ===========================
+
+async function populateStudentDropdowns() {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  try {
+    console.log('🔄 Populating student dropdowns...');
+    
+    const students = await EnhancedCache.loadCollection('students');
+    console.log(`📝 Found ${students.length} students for dropdowns`);
+
+    if (students.length === 0) {
+      showNoStudentsMessage();
+      return;
+    }
+
+    const dropdownSelectors = [
+      '#hoursStudent',
+      '#marksStudent', 
+      '#paymentStudent',
+      'select[name="student"]',
+      'select[name="marksStudent"]', 
+      'select[name="paymentStudent"]'
+    ];
+
+    const dropdowns = [];
+    dropdownSelectors.forEach(selector => {
+      const elements = document.querySelectorAll(selector);
+      elements.forEach(el => {
+        if (el && !dropdowns.includes(el)) {
+          dropdowns.push(el);
+        }
+      });
+    });
+
+    console.log(`🎯 Found ${dropdowns.length} student dropdowns to populate`);
+
+    dropdowns.forEach(dropdown => {
+      populateSingleDropdown(dropdown, students);
+    });
+
+    await populateAttendanceStudents();
+
+    console.log('✅ All student dropdowns populated successfully');
+
+  } catch (error) {
+    console.error('❌ Error populating student dropdowns:', error);
+    showDropdownError();
+  }
+}
+
+function populateSingleDropdown(dropdown, students) {
+  if (!dropdown) return;
+
+  const currentValue = dropdown.value;
+  const currentIndex = dropdown.selectedIndex;
+  
+  while (dropdown.options.length > 0) {
+    dropdown.remove(0);
+  }
+
+  const defaultOption = document.createElement('option');
+  defaultOption.value = '';
+  defaultOption.textContent = 'Select a student...';
+  defaultOption.disabled = true;
+  defaultOption.selected = true;
+  dropdown.appendChild(defaultOption);
+
+  students.forEach(student => {
+    const studentName = student.name || `Student ${student.id}`;
+    const option = document.createElement('option');
+    option.value = studentName;
+    option.textContent = studentName;
+    option.setAttribute('data-student-id', student.id);
+    dropdown.appendChild(option);
+  });
+
+  if (currentValue && dropdown.querySelector(`option[value="${currentValue}"]`)) {
+    dropdown.value = currentValue;
+  } else if (currentIndex > 0 && dropdown.options.length > currentIndex) {
+    dropdown.selectedIndex = currentIndex;
+  }
+
+  dropdown.style.borderColor = '#10b981';
+  setTimeout(() => {
+    dropdown.style.borderColor = '';
+  }, 1000);
+
+  console.log(`✅ Populated ${dropdown.id || dropdown.name} with ${students.length} students`);
+}
+
+function showNoStudentsMessage() {
+  const dropdowns = document.querySelectorAll('select[name="student"], select[name="marksStudent"], select[name="paymentStudent"]');
+  
+  dropdowns.forEach(dropdown => {
+    if (dropdown && dropdown.options.length <= 1) {
+      dropdown.innerHTML = '';
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = 'No students available - Add students first';
+      option.disabled = true;
+      option.selected = true;
+      dropdown.appendChild(option);
+    }
+  });
+}
+
+function showDropdownError() {
+  const dropdowns = document.querySelectorAll('select[name="student"], select[name="marksStudent"], select[name="paymentStudent"]');
+  
+  dropdowns.forEach(dropdown => {
+    if (dropdown) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = 'Error loading students - Click to refresh';
+      option.disabled = true;
+      option.selected = true;
+      dropdown.appendChild(option);
+      
+      dropdown.addEventListener('click', async () => {
+        await populateStudentDropdowns();
+      });
+    }
+  });
+}
+
+// ===========================
+// FORM SETUP HANDLERS
 // ===========================
 
 function setupFormHandlers() {
   console.log('🔧 Setting up form handlers with enhanced attendance support...');
   
-  // Initialize dropdown manager
   StudentDropdownManager.init();
   
   const studentForm = document.getElementById('studentForm');
@@ -3461,10 +3543,10 @@ function setupFormHandlers() {
   if (hoursForm) {
     hoursForm.addEventListener('submit', handleHoursSubmit);
     
-    const baseRateInput = document.getElementById('rate');
+    const baseRateInput = document.getElementById('baseRate');
     const defaultBaseRateInput = document.getElementById('defaultBaseRate');
-    const hoursInput = document.getElementById('hours');
-    const studentDropdown = document.getElementById('student');
+    const hoursInput = document.getElementById('hoursWorked');
+    const studentDropdown = document.getElementById('hoursStudent');
     
     if (baseRateInput && defaultBaseRateInput && !baseRateInput.value) {
       baseRateInput.value = defaultBaseRateInput.value || currentUserData?.defaultRate || '0';
@@ -3473,20 +3555,17 @@ function setupFormHandlers() {
     if (hoursInput) hoursInput.addEventListener('input', calculateTotalPay);
     if (baseRateInput) baseRateInput.addEventListener('input', calculateTotalPay);
     
-    // ENHANCED: Force populate student dropdown when hours tab is activated
     const hoursTab = document.querySelector('[data-tab="hours"]');
     if (hoursTab) {
       hoursTab.addEventListener('click', async () => {
         console.log('🎯 Hours tab activated, populating student dropdown...');
         setTimeout(async () => {
           await StudentDropdownManager.forceRefresh();
-          // Also populate the dropdown immediately
-          await populateStudentDropdowns();
+          await populateHoursStudentDropdown();
         }, 300);
       });
     }
     
-    // Also populate on form focus
     if (studentDropdown) {
       studentDropdown.addEventListener('focus', async () => {
         console.log('🎯 Hours form student dropdown focused');
@@ -3514,14 +3593,13 @@ function setupFormHandlers() {
   if (attendanceForm) {
     attendanceForm.addEventListener('submit', handleAttendanceSubmit);
     
-    // Enhanced attendance setup with select all functionality
     const attendanceTab = document.querySelector('[data-tab="attendance"]');
     if (attendanceTab) {
-      attendanceTab.addEventListener('click', () => {
+      attendanceTab.addEventListener('click', async () => {
         setTimeout(async () => {
           console.log('🎯 Attendance tab opened, setting up enhanced features...');
           await StudentDropdownManager.refreshAllDropdowns();
-          setupAttendanceTab(); // Initialize enhanced attendance features
+          setupAttendanceTab();
         }, 500);
       });
     }
@@ -3540,7 +3618,6 @@ function setupFormHandlers() {
     }
   }
   
-  // Setup student dropdown population on tab changes
   setupFormStudentPopulation();
   
   console.log('✅ All form handlers with enhanced attendance support initialized');
@@ -3549,12 +3626,10 @@ function setupFormHandlers() {
 function setupFormStudentPopulation() {
   console.log('🔧 Setting up student form population...');
   
-  // Populate dropdowns immediately if we have data
   if (Array.isArray(cache.students) && cache.students.length > 0) {
     setTimeout(() => populateStudentDropdowns(), 1000);
   }
   
-  // Set up tab change listeners
   const formTabs = ['hours', 'marks', 'attendance', 'payments'];
   formTabs.forEach(tabName => {
     const tab = document.querySelector(`[data-tab="${tabName}"]`);
@@ -3564,9 +3639,8 @@ function setupFormStudentPopulation() {
           console.log(`🎯 ${tabName} tab activated, refreshing dropdowns...`);
           await StudentDropdownManager.refreshAllDropdowns();
           
-          // Special handling for attendance tab
           if (tabName === 'attendance') {
-            setupAttendanceTab(); // Initialize enhanced attendance features
+            setupAttendanceTab();
           }
         }, 300);
       });
@@ -3574,11 +3648,9 @@ function setupFormStudentPopulation() {
   });
 }
 
-// Enhanced attendance setup function
 function setupAttendanceTab() {
   console.log('🎯 Setting up enhanced attendance features...');
   
-  // Wait a bit for the DOM to be ready and students to be populated
   setTimeout(() => {
     setupAttendanceSelectAll();
     setupAttendanceCheckboxListeners();
@@ -3586,7 +3658,6 @@ function setupAttendanceTab() {
   }, 500);
 }
 
-// Setup attendance select all button with event listeners
 function setupAttendanceSelectAll() {
   const selectAllBtn = document.getElementById('selectAllStudentsBtn');
   
@@ -3597,11 +3668,9 @@ function setupAttendanceSelectAll() {
 
   console.log('✅ Setting up Select All button with event listener...');
 
-  // Remove any existing event listeners by cloning the button
   const newSelectAllBtn = selectAllBtn.cloneNode(true);
   selectAllBtn.parentNode.replaceChild(newSelectAllBtn, selectAllBtn);
 
-  // Add click event listener
   newSelectAllBtn.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -3610,7 +3679,6 @@ function setupAttendanceSelectAll() {
     selectAllStudents();
   });
 
-  // Add hover effects
   newSelectAllBtn.addEventListener('mouseenter', function() {
     this.style.transform = 'translateY(-1px)';
     this.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
@@ -3621,13 +3689,11 @@ function setupAttendanceSelectAll() {
     this.style.boxShadow = 'none';
   });
 
-  // Initialize button state
   updateSelectAllButtonState();
   
   console.log('✅ Select All button setup complete with event listeners');
 }
 
-// Real-time checkbox monitoring for attendance
 function setupAttendanceCheckboxListeners() {
   const attendanceContainer = document.getElementById('attendanceStudents');
   if (!attendanceContainer) {
@@ -3643,12 +3709,10 @@ function setupAttendanceCheckboxListeners() {
   }
   
   checkboxes.forEach(checkbox => {
-    // Remove existing listeners by cloning
     const newCheckbox = checkbox.cloneNode(true);
     checkbox.parentNode.replaceChild(newCheckbox, checkbox);
 
     newCheckbox.addEventListener('change', function() {
-      // Update visual feedback
       if (this.checked) {
         this.parentElement.style.backgroundColor = 'var(--primary-light)';
         this.parentElement.classList.add('selected');
@@ -3657,7 +3721,6 @@ function setupAttendanceCheckboxListeners() {
         this.parentElement.classList.remove('selected');
       }
       
-      // Update select all button state
       updateSelectAllButtonState();
     });
   });
@@ -3674,6 +3737,106 @@ function updateSelectAllButtonState() {
   const allSelected = selectedCount === checkboxes.length && checkboxes.length > 0;
   
   updateSelectAllButton(allSelected);
+}
+
+function selectAllStudents() {
+  console.log('👥 Selecting all students for attendance...');
+  
+  const attendanceContainer = document.getElementById('attendanceStudents');
+  if (!attendanceContainer) {
+    console.error('❌ Attendance container not found');
+    NotificationSystem.notifyError('Attendance form not loaded properly');
+    return;
+  }
+  
+  const checkboxes = attendanceContainer.querySelectorAll('input[type="checkbox"][name="presentStudents"]');
+  
+  if (checkboxes.length === 0) {
+    console.warn('⚠️ No student checkboxes found');
+    NotificationSystem.notifyWarning('No students available. Please add students first.');
+    return;
+  }
+  
+  const selectedCount = Array.from(checkboxes).filter(checkbox => checkbox.checked).length;
+  const allSelected = selectedCount === checkboxes.length;
+  const someSelected = selectedCount > 0 && selectedCount < checkboxes.length;
+  
+  let action;
+  let message;
+  
+  if (allSelected || someSelected) {
+    checkboxes.forEach(checkbox => {
+      checkbox.checked = false;
+      checkbox.parentElement.style.backgroundColor = '';
+    });
+    action = 'deselected';
+    message = `Deselected all ${checkboxes.length} students`;
+    console.log('✅ All students deselected');
+    NotificationSystem.notifyInfo(message);
+  } else {
+    checkboxes.forEach(checkbox => {
+      checkbox.checked = true;
+      checkbox.parentElement.style.backgroundColor = 'var(--primary-light)';
+    });
+    action = 'selected';
+    message = `Selected all ${checkboxes.length} students`;
+    console.log(`✅ All ${checkboxes.length} students selected`);
+    NotificationSystem.notifySuccess(message);
+  }
+  
+  updateSelectAllButton(action === 'selected');
+  
+  return action;
+}
+
+function updateSelectAllButton(allSelected) {
+  const selectAllBtn = document.getElementById('selectAllStudentsBtn');
+  if (selectAllBtn) {
+    if (allSelected) {
+      selectAllBtn.textContent = 'Deselect All';
+      selectAllBtn.title = 'Deselect all students';
+      selectAllBtn.classList.remove('btn-secondary');
+      selectAllBtn.classList.add('btn-warning');
+    } else {
+      selectAllBtn.textContent = 'Select All';
+      selectAllBtn.title = 'Select all students';
+      selectAllBtn.classList.remove('btn-warning');
+      selectAllBtn.classList.add('btn-secondary');
+    }
+  }
+}
+
+function getSelectedStudentsCount() {
+  const attendanceContainer = document.getElementById('attendanceStudents');
+  if (!attendanceContainer) return 0;
+  
+  const checkboxes = attendanceContainer.querySelectorAll('input[type="checkbox"][name="presentStudents"]');
+  return Array.from(checkboxes).filter(checkbox => checkbox.checked).length;
+}
+
+function clearAttendanceForm() {
+  const form = document.getElementById('attendanceForm');
+  if (form) {
+    form.reset();
+    
+    const checkboxes = document.querySelectorAll('#attendanceStudents input[type="checkbox"]');
+    checkboxes.forEach(checkbox => {
+      checkbox.checked = false;
+      if (checkbox.parentElement) {
+        checkbox.parentElement.style.backgroundColor = '';
+        checkbox.parentElement.classList.remove('selected');
+      }
+    });
+    
+    updateSelectAllButton(false);
+    
+    const dateInput = document.getElementById('attendanceDate');
+    if (dateInput) {
+      dateInput.value = new Date().toISOString().split('T')[0];
+    }
+    
+    NotificationSystem.notifyInfo('Attendance form cleared');
+  }
 }
 
 function initializeDefaultRate(rate) {
@@ -3768,7 +3931,7 @@ function useDefaultRate() {
 }
 
 function useDefaultRateInHours() {
-  const baseRateInput = document.getElementById('rate');
+  const baseRateInput = document.getElementById('baseRate');
   const defaultBaseRateInput = document.getElementById('defaultBaseRate');
   
   if (baseRateInput && defaultBaseRateInput) {
@@ -3779,721 +3942,14 @@ function useDefaultRateInHours() {
 }
 
 // ===========================
-// ENHANCED SELECT ALL STUDENTS FUNCTION - EVENT LISTENER APPROACH
-// ===========================
-
-function selectAllStudents() {
-  console.log('👥 Selecting all students for attendance...');
-  
-  const attendanceContainer = document.getElementById('attendanceStudents');
-  if (!attendanceContainer) {
-    console.error('❌ Attendance container not found');
-    NotificationSystem.notifyError('Attendance form not loaded properly');
-    return;
-  }
-  
-  const checkboxes = attendanceContainer.querySelectorAll('input[type="checkbox"][name="presentStudents"]');
-  
-  if (checkboxes.length === 0) {
-    console.warn('⚠️ No student checkboxes found');
-    NotificationSystem.notifyWarning('No students available. Please add students first.');
-    return;
-  }
-  
-  // Check current selection state
-  const selectedCount = Array.from(checkboxes).filter(checkbox => checkbox.checked).length;
-  const allSelected = selectedCount === checkboxes.length;
-  const someSelected = selectedCount > 0 && selectedCount < checkboxes.length;
-  
-  let action;
-  let message;
-  
-  if (allSelected || someSelected) {
-    // Deselect all
-    checkboxes.forEach(checkbox => {
-      checkbox.checked = false;
-      checkbox.parentElement.style.backgroundColor = ''; // Remove highlight
-    });
-    action = 'deselected';
-    message = `Deselected all ${checkboxes.length} students`;
-    console.log('✅ All students deselected');
-    NotificationSystem.notifyInfo(message);
-  } else {
-    // Select all
-    checkboxes.forEach(checkbox => {
-      checkbox.checked = true;
-      checkbox.parentElement.style.backgroundColor = 'var(--primary-light)'; // Add highlight
-    });
-    action = 'selected';
-    message = `Selected all ${checkboxes.length} students`;
-    console.log(`✅ All ${checkboxes.length} students selected`);
-    NotificationSystem.notifySuccess(message);
-  }
-  
-  // Update button text and style
-  updateSelectAllButton(action === 'selected');
-  
-  return action;
-}
-
-function updateSelectAllButton(allSelected) {
-  const selectAllBtn = document.getElementById('selectAllStudentsBtn');
-  if (selectAllBtn) {
-    if (allSelected) {
-      selectAllBtn.textContent = 'Deselect All';
-      selectAllBtn.title = 'Deselect all students';
-      selectAllBtn.classList.remove('btn-secondary');
-      selectAllBtn.classList.add('btn-warning');
-    } else {
-      selectAllBtn.textContent = 'Select All';
-      selectAllBtn.title = 'Select all students';
-      selectAllBtn.classList.remove('btn-warning');
-      selectAllBtn.classList.add('btn-secondary');
-    }
-  }
-}
-
-// Get current selection count for the button
-function getSelectedStudentsCount() {
-  const attendanceContainer = document.getElementById('attendanceStudents');
-  if (!attendanceContainer) return 0;
-  
-  const checkboxes = attendanceContainer.querySelectorAll('input[type="checkbox"][name="presentStudents"]');
-  return Array.from(checkboxes).filter(checkbox => checkbox.checked).length;
-}
-
-// ===========================
-// MISSING UPDATE PROFILE MODAL FUNCTION
-// ===========================
-
-function updateProfileModal() {
-  const profileUserEmail = document.getElementById('profileUserEmail');
-  const profileUserSince = document.getElementById('profileUserSince');
-  const profileDefaultRate = document.getElementById('profileDefaultRate');
-  const modalStatStudents = document.getElementById('modalStatStudents');
-  const modalStatHours = document.getElementById('modalStatHours');
-  const modalStatEarnings = document.getElementById('modalStatEarnings');
-  const modalStatUpdated = document.getElementById('modalStatUpdated');
-
-  console.log('👤 Updating profile modal...');
-
-  // Update user info
-  if (currentUserData) {
-    const email = currentUserData.email || auth.currentUser?.email || 'Not available';
-    if (profileUserEmail) {
-      profileUserEmail.textContent = email;
-    }
-    
-    // Use persistent member since date
-    const memberSince = currentUserData.memberSince || localStorage.getItem('memberSince') || currentUserData.createdAt || new Date().toISOString();
-    if (profileUserSince) {
-      profileUserSince.textContent = formatDate(memberSince);
-    }
-    
-    if (profileDefaultRate) {
-      profileDefaultRate.textContent = `$${fmtMoney(currentUserData.defaultRate || 0)}/hour`;
-    }
-  }
-
-  // Update stats in modal - call the function directly, not with "this"
-  updateModalStats();
-
-  console.log('✅ Profile modal updated');
-}
-
-// Make sure updateModalStats function exists and is defined
-function updateModalStats() {
-  const modalStatStudents = document.getElementById('modalStatStudents');
-  const modalStatHours = document.getElementById('modalStatHours');
-  const modalStatEarnings = document.getElementById('modalStatEarnings');
-  const modalStatUpdated = document.getElementById('modalStatUpdated');
-
-  // Get current stats from main display or calculate fresh
-  const statStudents = document.getElementById('statStudents');
-  const statHours = document.getElementById('statHours');
-  const statEarnings = document.getElementById('statEarnings');
-  const statUpdated = document.getElementById('statUpdated');
-
-  // Use main stats if available, otherwise calculate
-  if (modalStatStudents) {
-    if (statStudents && statStudents.textContent) {
-      modalStatStudents.textContent = statStudents.textContent;
-    } else {
-      const students = Array.isArray(cache.students) ? cache.students : [];
-      modalStatStudents.textContent = students.length;
-    }
-  }
-
-  if (modalStatHours) {
-    if (statHours && statHours.textContent) {
-      modalStatHours.textContent = statHours.textContent;
-    } else {
-      const hours = Array.isArray(cache.hours) ? cache.hours : [];
-      const totalHours = hours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
-      modalStatHours.textContent = totalHours.toFixed(1);
-    }
-  }
-
-  if (modalStatEarnings) {
-    if (statEarnings && statEarnings.textContent) {
-      modalStatEarnings.textContent = statEarnings.textContent;
-    } else {
-      const hours = Array.isArray(cache.hours) ? cache.hours : [];
-      const totalEarnings = hours.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
-      modalStatEarnings.textContent = `$${fmtMoney(totalEarnings)}`;
-    }
-  }
-
-  if (modalStatUpdated) {
-    if (statUpdated && statUpdated.textContent) {
-      modalStatUpdated.textContent = statUpdated.textContent;
-    } else {
-      modalStatUpdated.textContent = new Date().toLocaleString();
-    }
-  }
-}
-
-// ===========================
-// FIXED DATA LOADING FUNCTIONS
-// ===========================
-
-async function loadAllData() {
-  const user = auth.currentUser;
-  if (!user) return;
-
-  console.log('🔄 Loading all data from Firebase...');
-  
-  try {
-    // Load all collections in parallel
-    const [students, hours, marks, attendance, payments] = await Promise.all([
-      loadCollectionWithRetry('students'),
-      loadCollectionWithRetry('hours'),
-      loadCollectionWithRetry('marks'),
-      loadCollectionWithRetry('attendance'),
-      loadCollectionWithRetry('payments')
-    ]);
-
-    console.log('📊 Data loaded:', {
-      students: students.length,
-      hours: hours.length,
-      marks: marks.length,
-      attendance: attendance.length,
-      payments: payments.length
-    });
-
-    // Update cache
-    cache.students = students;
-    cache.hours = hours;
-    cache.marks = marks;
-    cache.attendance = attendance;
-    cache.payments = payments;
-    cache.lastSync = Date.now();
-
-    // Update UI
-    await refreshAllUI();
-
-    return true;
-  } catch (error) {
-    console.error('❌ Error loading all data:', error);
-    NotificationSystem.notifyError('Failed to load data from server');
-    return false;
-  }
-}
-
-async function loadCollectionWithRetry(collectionName, retries = 3) {
-  const user = auth.currentUser;
-  if (!user) return [];
-
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      console.log(`🔄 Loading ${collectionName} (attempt ${attempt})...`);
-      
-      const querySnapshot = await getDocs(collection(db, "users", user.uid, collectionName));
-      const data = [];
-      
-      querySnapshot.forEach((doc) => {
-        data.push({
-          id: doc.id,
-          ...doc.data(),
-          _firebaseId: doc.id,
-          _synced: true
-        });
-      });
-
-      console.log(`✅ Loaded ${data.length} ${collectionName} from Firebase`);
-      return data;
-    } catch (error) {
-      console.error(`❌ Attempt ${attempt} failed for ${collectionName}:`, error);
-      
-      if (attempt === retries) {
-        throw error;
-      }
-      
-      // Wait before retry
-      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-    }
-  }
-  return [];
-}
-
-async function refreshAllUI() {
-  console.log('🔄 Refreshing all UI components...');
-  
-  try {
-    await Promise.all([
-      renderStudents(),
-      renderRecentHoursWithEdit(), // Updated to use enhanced version
-      renderRecentMarksWithEdit(), // Updated to use enhanced version
-      renderAttendanceRecentWithEdit(), // Updated to use enhanced version
-      renderPaymentActivityWithEdit(), // Updated to use enhanced version
-      renderStudentBalancesWithEdit(), // Updated to use enhanced version
-      renderOverviewReports()
-    ]);
-    
-    await populateStudentDropdowns();
-    
-    // Refresh stats
-    if (typeof EnhancedStats !== 'undefined' && EnhancedStats.forceRefresh) {
-      EnhancedStats.forceRefresh();
-    }
-    
-    console.log('✅ All UI components refreshed');
-  } catch (error) {
-    console.error('❌ Error refreshing UI:', error);
-  }
-}
-
-// ===========================
-// ENHANCED STUDENT DROPDOWN SYSTEM
-// ===========================
-
-const StudentDropdownManager = {
-  initialized: false,
-  dropdowns: [],
-  
-  init() {
-    if (this.initialized) return;
-    
-    console.log('🎯 Initializing student dropdown manager...');
-    this.setupDropdownListeners();
-    this.initialized = true;
-  },
-  
-  setupDropdownListeners() {
-    // Watch for tab changes to refresh dropdowns
-    document.addEventListener('click', (e) => {
-      if (e.target.matches('.tab[data-tab]')) {
-        const tabName = e.target.getAttribute('data-tab');
-        console.log(`📑 Tab changed to: ${tabName}`);
-        setTimeout(() => this.refreshAllDropdowns(), 300);
-      }
-    });
-  },
-  
-  async refreshAllDropdowns() {
-    console.log('🔄 StudentDropdownManager: Refreshing all dropdowns...');
-    await populateStudentDropdowns();
-    this.enhanceDropdownBehavior();
-  },
-  
-  enhanceDropdownBehavior() {
-    const dropdownSelectors = [
-      '#student',
-      '#marksStudent', 
-      '#paymentStudent'
-    ];
-    
-    this.dropdowns = [];
-    dropdownSelectors.forEach(selector => {
-      const elements = document.querySelectorAll(selector);
-      elements.forEach(el => {
-        if (el && !this.dropdowns.includes(el)) {
-          this.dropdowns.push(el);
-        }
-      });
-    });
-    
-    console.log(`✅ Enhanced ${this.dropdowns.length} student dropdowns`);
-  },
-  
-  async forceRefresh() {
-    console.log('🔄 StudentDropdownManager: Force refreshing all dropdowns...');
-    
-    // Clear cache and reload fresh data
-    const students = await EnhancedCache.loadCollection('students', true); // force refresh
-    
-    if (students.length === 0) {
-      console.log('❌ No students found to populate dropdowns');
-      return;
-    }
-    
-    // Get all dropdowns
-    const dropdownSelectors = ['#student', '#marksStudent', '#paymentStudent'];
-    const dropdowns = [];
-    
-    dropdownSelectors.forEach(selector => {
-      const elements = document.querySelectorAll(selector);
-      elements.forEach(el => {
-        if (el) dropdowns.push(el);
-      });
-    });
-    
-    console.log(`🎯 Found ${dropdowns.length} dropdowns to populate with ${students.length} students`);
-    
-    // Populate each dropdown
-    dropdowns.forEach(dropdown => {
-      this.populateDropdown(dropdown, students);
-    });
-    
-    console.log('✅ Force refresh completed');
-  },
-  
-  populateDropdown(dropdown, students) {
-    if (!dropdown) {
-      console.log('❌ Dropdown element is null');
-      return;
-    }
-    
-    console.log(`📝 Populating ${dropdown.id} with ${students.length} students`);
-    
-    // Store current selection
-    const currentValue = dropdown.value;
-    
-    // Clear existing options
-    dropdown.innerHTML = '';
-    
-    // Add default option
-    const defaultOption = document.createElement('option');
-    defaultOption.value = '';
-    defaultOption.textContent = students.length > 0 ? 'Select a student...' : 'No students available';
-    defaultOption.disabled = true;
-    defaultOption.selected = true;
-    dropdown.appendChild(defaultOption);
-    
-    // Add students
-    students.forEach(student => {
-      const studentName = student.name || `Student ${student.id}`;
-      const option = document.createElement('option');
-      option.value = studentName;
-      option.textContent = studentName;
-      option.setAttribute('data-student-id', student.id);
-      dropdown.appendChild(option);
-    });
-    
-    // Restore selection if possible
-    if (currentValue && dropdown.querySelector(`option[value="${currentValue}"]`)) {
-      dropdown.value = currentValue;
-    }
-    
-    console.log(`✅ ${dropdown.id} populated with ${students.length} options`);
-  }
-};
-
-// Add this function to populate hours dropdown specifically:
-async function populateHoursStudentDropdown() {
-  const dropdown = document.getElementById('hoursStudent');
-  if (!dropdown) {
-    console.log('❌ Hours student dropdown not found (looking for #hoursStudent)');
-    return false;
-  }
-
-  try {
-    const students = await EnhancedCache.loadCollection('students');
-    console.log(`📝 Populating hours dropdown (#hoursStudent) with ${students.length} students`);
-    
-    // Store current selection
-    const currentValue = dropdown.value;
-    
-    // Clear and repopulate
-    dropdown.innerHTML = '';
-    
-    const defaultOption = document.createElement('option');
-    defaultOption.value = '';
-    defaultOption.textContent = students.length > 0 ? 'Select a student...' : 'No students available';
-    defaultOption.disabled = true;
-    defaultOption.selected = true;
-    dropdown.appendChild(defaultOption);
-    
-    students.forEach(student => {
-      const studentName = student.name || `Student ${student.id}`;
-      const option = document.createElement('option');
-      option.value = studentName;
-      option.textContent = studentName;
-      option.setAttribute('data-student-id', student.id);
-      dropdown.appendChild(option);
-    });
-    
-    // Restore selection if possible
-    if (currentValue && dropdown.querySelector(`option[value="${currentValue}"]`)) {
-      dropdown.value = currentValue;
-    }
-    
-    console.log(`✅ Hours dropdown populated with ${students.length} students`);
-    return true;
-  } catch (error) {
-    console.error('Error populating hours dropdown:', error);
-    return false;
-  }
-}
-
-// ===========================
-// UPDATED STUDENT DROPDOWN POPULATION
-// ===========================
-
-async function populateStudentDropdowns() {
-  const user = auth.currentUser;
-  if (!user) {
-    console.log('❌ No user for dropdown population');
-    return;
-  }
-
-  try {
-    console.log('🔄 Populating student dropdowns...');
-    
-    const students = await EnhancedCache.loadCollection('students');
-    console.log(`📝 Found ${students.length} students for dropdowns`);
-
-    if (students.length === 0) {
-      showNoStudentsMessage();
-      return;
-    }
-
-    // Get ALL student dropdowns - including the hours tab
-    const dropdownSelectors = [
-      '#student',                    // Hours form
-      '#marksStudent',               // Marks form  
-      '#paymentStudent',             // Payments form
-      'select[name="student"]',      // Generic hours dropdown
-      'select[name="marksStudent"]', // Generic marks dropdown
-      'select[name="paymentStudent"]' // Generic payments dropdown
-    ];
-
-    const dropdowns = [];
-    dropdownSelectors.forEach(selector => {
-      const elements = document.querySelectorAll(selector);
-      elements.forEach(el => {
-        if (el && !dropdowns.includes(el)) {
-          dropdowns.push(el);
-        }
-      });
-    });
-
-    console.log(`🎯 Found ${dropdowns.length} student dropdowns to populate`);
-
-    dropdowns.forEach(dropdown => {
-      populateSingleDropdown(dropdown, students);
-    });
-
-    // Also populate attendance checkboxes
-    populateAttendanceStudents(students);
-
-    console.log('✅ All student dropdowns populated successfully');
-
-  } catch (error) {
-    console.error('❌ Error populating student dropdowns:', error);
-    showDropdownError();
-  }
-}
-
-function populateSingleDropdown(dropdown, students) {
-  if (!dropdown) return;
-
-  // Store current selection
-  const currentValue = dropdown.value;
-  const currentIndex = dropdown.selectedIndex;
-  
-  // Clear existing options except the first placeholder
-  while (dropdown.options.length > 0) {
-    dropdown.remove(0);
-  }
-
-  // Add default placeholder option
-  const defaultOption = document.createElement('option');
-  defaultOption.value = '';
-  defaultOption.textContent = 'Select a student...';
-  defaultOption.disabled = true;
-  defaultOption.selected = true;
-  dropdown.appendChild(defaultOption);
-
-  // Add students to dropdown
-  students.forEach(student => {
-    const studentName = student.name || `Student ${student.id}`;
-    const option = document.createElement('option');
-    option.value = studentName;
-    option.textContent = studentName;
-    option.setAttribute('data-student-id', student.id);
-    dropdown.appendChild(option);
-  });
-
-  // Restore selection if possible
-  if (currentValue && dropdown.querySelector(`option[value="${currentValue}"]`)) {
-    dropdown.value = currentValue;
-  } else if (currentIndex > 0 && dropdown.options.length > currentIndex) {
-    dropdown.selectedIndex = currentIndex;
-  }
-
-  // Add visual feedback
-  dropdown.style.borderColor = '#10b981';
-  setTimeout(() => {
-    dropdown.style.borderColor = '';
-  }, 1000);
-
-  console.log(`✅ Populated ${dropdown.id || dropdown.name} with ${students.length} students`);
-}
-
-function showNoStudentsMessage() {
-  const dropdowns = document.querySelectorAll('select[name="student"], select[name="marksStudent"], select[name="paymentStudent"]');
-  
-  dropdowns.forEach(dropdown => {
-    if (dropdown && dropdown.options.length <= 1) {
-      dropdown.innerHTML = '';
-      const option = document.createElement('option');
-      option.value = '';
-      option.textContent = 'No students available - Add students first';
-      option.disabled = true;
-      option.selected = true;
-      dropdown.appendChild(option);
-    }
-  });
-}
-
-function showDropdownError() {
-  const dropdowns = document.querySelectorAll('select[name="student"], select[name="marksStudent"], select[name="paymentStudent"]');
-  
-  dropdowns.forEach(dropdown => {
-    if (dropdown) {
-      const option = document.createElement('option');
-      option.value = '';
-      option.textContent = 'Error loading students - Click to refresh';
-      option.disabled = true;
-      option.selected = true;
-      dropdown.appendChild(option);
-      
-      // Add click handler to retry
-      dropdown.addEventListener('click', async () => {
-        await populateStudentDropdowns();
-      });
-    }
-  });
-}
-
-// Update the populateAttendanceStudents function:
-async function populateAttendanceStudents() {
-  const attendanceContainer = document.getElementById('attendanceStudents');
-  if (!attendanceContainer) {
-    console.log('❌ Attendance container not found');
-    return;
-  }
-
-  try {
-    const students = await EnhancedCache.loadCollection('students');
-    console.log(`👥 Populating attendance with ${students.length} students`);
-
-    attendanceContainer.innerHTML = '';
-
-    if (students.length === 0) {
-      attendanceContainer.innerHTML = `
-        <div class="empty-state">
-          <p>No students available. Please add students first.</p>
-        </div>
-      `;
-      return;
-    }
-
-    students.forEach(student => {
-      const studentDisplay = formatStudentDisplay(student);
-      
-      const container = document.createElement('div');
-      container.style.cssText = 'display: flex; align-items: center; gap: 12px; margin: 8px 0; padding: 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border);';
-      
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.name = 'presentStudents';
-      checkbox.value = student.name || student.id;
-      checkbox.id = `attendance-${student.id}`;
-      checkbox.style.cssText = 'width: 18px; height: 18px;';
-      
-      const label = document.createElement('label');
-      label.htmlFor = `attendance-${student.id}`;
-      label.textContent = studentDisplay;
-      label.style.cssText = 'flex: 1; margin: 0; cursor: pointer; font-weight: 500;';
-      
-      const studentInfo = document.createElement('span');
-      studentInfo.textContent = `Rate: $${fmtMoney(student.rate || 0)}`;
-      studentInfo.style.cssText = 'font-size: 0.85em; color: var(--muted);';
-      
-      container.appendChild(checkbox);
-      container.appendChild(label);
-      container.appendChild(studentInfo);
-      attendanceContainer.appendChild(container);
-    });
-
-    console.log('✅ Attendance students populated');
-  } catch (error) {
-    console.error('Error populating attendance students:', error);
-  }
-}
-
-// Update setupFormHandlers for attendance:
-const attendanceForm = document.getElementById('attendanceForm');
-if (attendanceForm) {
-  attendanceForm.addEventListener('submit', handleAttendanceSubmit);
-  
-  const attendanceTab = document.querySelector('[data-tab="attendance"]');
-  if (attendanceTab) {
-    attendanceTab.addEventListener('click', async () => {
-      setTimeout(async () => {
-        await populateAttendanceStudents();
-      }, 300);
-    });
-  }
-}
-
-// ===========================
-// EDIT & DELETE FUNCTIONS
-// ===========================
-
-async function editStudent(id) {
-  NotificationSystem.notifyInfo(`Edit student ${id} - Feature coming soon`);
-}
-
-async function deleteStudent(id) {
-  if (confirm('Are you sure you want to delete this student?')) {
-    NotificationSystem.notifyInfo(`Delete student ${id} - Feature coming soon`);
-  }
-}
-
-async function editHours(id) {
-  NotificationSystem.notifyInfo(`Edit hours ${id} - Feature coming soon`);
-}
-
-async function editMark(id) {
-  NotificationSystem.notifyInfo(`Edit mark ${id} - Feature coming soon`);
-}
-
-async function editAttendance(id) {
-  NotificationSystem.notifyInfo(`Edit attendance ${id} - Feature coming soon`);
-}
-
-
-
-async function editPayment(id) {
-  NotificationSystem.notifyInfo(`Edit payment ${id} - Feature coming soon`);
-}
-
-
-
-// ===========================
 // TAB NAVIGATION SYSTEM
 // ===========================
 
 function setupTabNavigation() {
   console.log('🔧 Setting up tab navigation...');
   
-  // Inject CSS that matches your HTML structure
   injectTabCSS();
   
-  // Find tab buttons
   const tabButtons = document.querySelectorAll('.tab[data-tab]');
   console.log(`✅ Found ${tabButtons.length} tab buttons`);
   
@@ -4505,24 +3961,25 @@ function setupTabNavigation() {
       e.preventDefault();
       e.stopPropagation();
       switchTab(tabName);
+      
+      // Auto-fix: When hours tab is clicked, fix the dropdown
+      if (tabName === 'hours') {
+        console.log('🎯 Hours tab clicked, fixing dropdown...');
+        setTimeout(() => {
+          populateHoursStudentDropdown();
+        }, 500);
+      }
     });
   });
   
-  // Set initial tab
   const initialTab = getInitialTab();
   console.log(`📑 Initial tab: ${initialTab}`);
-  setTimeout(() => switchTab(initialTab), 100);
-}
-
-// In your setupTabNavigation or similar function
-const reportsTab = document.querySelector('[data-tab="reports"]');
-if (reportsTab) {
-  reportsTab.addEventListener('click', () => {
-    setTimeout(() => {
-      console.log('📊 Reports tab activated, loading data...');
-      loadReportData();
-    }, 300);
-  });
+  setTimeout(() => {
+    switchTab(initialTab);
+    if (initialTab === 'hours') {
+      setTimeout(() => populateHoursStudentDropdown(), 1000);
+    }
+  }, 100);
 }
 
 function injectTabCSS() {
@@ -4530,7 +3987,6 @@ function injectTabCSS() {
     const style = document.createElement('style');
     style.id = 'tab-css-fixed';
     style.textContent = `
-      /* Hide ALL tabcontent by default */
       .tabcontent {
         display: none !important;
         visibility: hidden !important;
@@ -4539,7 +3995,6 @@ function injectTabCSS() {
         overflow: hidden !important;
       }
       
-      /* Show only active tabcontent */
       .tabcontent.active {
         display: block !important;
         visibility: visible !important;
@@ -4548,7 +4003,6 @@ function injectTabCSS() {
         overflow: visible !important;
       }
       
-      /* Tab button styles */
       .tab.active {
         background: var(--primary) !important;
         color: white !important;
@@ -4560,15 +4014,12 @@ function injectTabCSS() {
 }
 
 function getInitialTab() {
-  // Check URL hash
   const hash = window.location.hash.replace('#', '');
   if (hash && document.getElementById(hash)) return hash;
   
-  // Check for active tab
   const activeTab = document.querySelector('.tab.active');
   if (activeTab) return activeTab.getAttribute('data-tab');
   
-  // Default to students (since it's first in your HTML)
   return 'students';
 }
 
@@ -4580,27 +4031,22 @@ function switchTab(tabName) {
     return;
   }
   
-  // Update URL
   window.location.hash = tabName;
   
-  // 1. Update buttons - remove active from all
   document.querySelectorAll('.tab').forEach(btn => {
     btn.classList.remove('active');
   });
   
-  // Add active to clicked tab button
   const activeButtons = document.querySelectorAll(`.tab[data-tab="${tabName}"]`);
   activeButtons.forEach(btn => {
     btn.classList.add('active');
   });
   
-  // 2. Hide ALL tab content
   const allTabContents = document.querySelectorAll('.tabcontent');
   console.log(`📊 Hiding ${allTabContents.length} tabcontent elements`);
   
   allTabContents.forEach(content => {
     content.classList.remove('active');
-    // Apply multiple hiding methods
     content.style.display = 'none';
     content.style.visibility = 'hidden';
     content.style.opacity = '0';
@@ -4608,11 +4054,9 @@ function switchTab(tabName) {
     content.style.overflow = 'hidden';
   });
   
-  // 3. Show ONLY the target tab
   const targetTab = document.getElementById(tabName);
   if (targetTab) {
     targetTab.classList.add('active');
-    // Apply multiple showing methods
     targetTab.style.display = 'block';
     targetTab.style.visibility = 'visible';
     targetTab.style.opacity = '1';
@@ -4624,7 +4068,6 @@ function switchTab(tabName) {
     console.error(`❌ Tab content not found: ${tabName}`);
   }
   
-  // Debug what's visible
   setTimeout(debugTabState, 50);
 }
 
@@ -4646,21 +4089,19 @@ function debugTabState() {
 }
 
 // ===========================
-// REPORT FUNCTIONS
+// REPORT FUNCTIONS (FIXED)
 // ===========================
 
 function showWeeklyBreakdown() {
   const user = auth.currentUser;
   if (!user) return;
 
-  // Default to current week
   const today = new Date();
   const startDate = getStartOfWeek(today);
   const endDate = getEndOfWeek(today);
   
   generateWeeklyReport(startDate, endDate);
   
-  // Add option to choose different week
   setTimeout(() => {
     if (confirm('Would you like to generate a report for a different week?')) {
       const modal = createDateSelectionModal('weekly', (selectedDate) => {
@@ -4679,14 +4120,12 @@ function showBiWeeklyBreakdown() {
   const user = auth.currentUser;
   if (!user) return;
 
-  // Default to current bi-weekly period (last 2 weeks)
   const endDate = new Date();
   const startDate = new Date();
-  startDate.setDate(endDate.getDate() - 13); // Last 14 days (2 weeks)
+  startDate.setDate(endDate.getDate() - 13);
   
   generateBiWeeklyReport(startDate, endDate);
   
-  // Add option to choose different period
   setTimeout(() => {
     if (confirm('Would you like to generate a report for a different 2-week period?')) {
       const modal = createDateRangeModal('bi-weekly', (customStartDate, customEndDate) => {
@@ -4702,14 +4141,12 @@ function showMonthlyBreakdown() {
   const user = auth.currentUser;
   if (!user) return;
 
-  // Default to current month
   const today = new Date();
   const startDate = getStartOfMonth(today);
   const endDate = getEndOfMonth(today);
   
   generateMonthlyReport(startDate, endDate);
   
-  // Add option to choose different month
   setTimeout(() => {
     if (confirm('Would you like to generate a report for a different month?')) {
       const modal = createDateSelectionModal('monthly', (selectedDate) => {
@@ -4717,7 +4154,7 @@ function showMonthlyBreakdown() {
         const customEndDate = getEndOfMonth(selectedDate);
         
         generateMonthlyReport(customStartDate, customEndDate);
-      }, true); // true for month selection
+      }, true);
       
       document.body.appendChild(modal);
     }
@@ -4728,14 +4165,12 @@ function showSubjectBreakdown() {
   const user = auth.currentUser;
   if (!user) return;
 
-  // Default to current month
   const today = new Date();
   const startDate = getStartOfMonth(today);
   const endDate = getEndOfMonth(today);
   
   generateSubjectReport(startDate, endDate);
   
-  // Add option to choose custom range
   setTimeout(() => {
     if (confirm('Would you like to generate a report for a different period?')) {
       const modal = createDateRangeModal('subject', (customStartDate, customEndDate) => {
@@ -4779,10 +4214,6 @@ function getEndOfMonth(date) {
   return end;
 }
 
-// TIMEZONE-SAFE DATE COMPARISON
-
-
-
 function formatDateForDisplay(date) {
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
@@ -4823,7 +4254,6 @@ function createDateSelectionModal(reportType, onConfirm, showMonthPicker = false
   const dateInput = document.createElement('input');
   dateInput.type = showMonthPicker ? 'month' : 'date';
   
-  // Fix: Set correct default value for month picker
   if (showMonthPicker) {
     const today = new Date();
     const year = today.getFullYear();
@@ -4858,7 +4288,6 @@ function createDateSelectionModal(reportType, onConfirm, showMonthPicker = false
   confirmBtn.onclick = () => {
     let selectedDate;
     if (showMonthPicker) {
-      // Fix: Properly handle month selection - use the 1st of the month
       const [year, month] = dateInput.value.split('-');
       selectedDate = new Date(parseInt(year), parseInt(month) - 1, 1);
     } else {
@@ -4879,7 +4308,6 @@ function createDateSelectionModal(reportType, onConfirm, showMonthPicker = false
   modalContent.appendChild(buttonContainer);
   modal.appendChild(modalContent);
   
-  // Close modal when clicking outside
   modal.onclick = (e) => {
     if (e.target === modal) {
       document.body.removeChild(modal);
@@ -4922,281 +4350,427 @@ function createDateRangeModal(reportType, onConfirm) {
   endDateInput.value = new Date().toISOString().split('T')[0];
   endDateInput.style.cssText = startDateInput.style.cssText;
   
-  // Set start date to first day of current month by default
   const firstDay = getStartOfMonth(new Date());
   startDateInput.value = firstDay.toISOString().split('T')[0];
   
   const buttonContainer = document.createElement('div');
-  buttonContainer.style.cssText = 'display: flex; gap: 10px; margin-top: 15px;';
-  
-  const confirmBtn = document.createElement('button');
-  confirmBtn.textContent = 'Generate Report';
-  confirmBtn.style.cssText = `
-    flex: 1; padding: 10px; background: var(--primary); color: white;
-    border: none; border-radius: 6px; cursor: pointer;
-  `;
-  
-  const cancelBtn = document.createElement('button');
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.style.cssText = `
-    flex: 1; padding: 10px; background: var(--border); color: var(--text);
-    border: none; border-radius: 6px; cursor: pointer;
-  `;
-  
-  confirmBtn.onclick = () => {
-    const startDate = new Date(startDateInput.value);
-    const endDate = new Date(endDateInput.value);
-    
-    if (startDate > endDate) {
-      NotificationSystem.notifyError('Start date cannot be after end date');
-      return;
-    }
-    
-    onConfirm(startDate, endDate);
-    document.body.removeChild(modal);
-  };
-  
-  cancelBtn.onclick = () => {
-    document.body.removeChild(modal);
-  };
-  
-  modalContent.appendChild(title);
-  modalContent.appendChild(createLabel('Start Date:'));
-  modalContent.appendChild(startDateInput);
-  modalContent.appendChild(createLabel('End Date:'));
-  modalContent.appendChild(endDateInput);
-  buttonContainer.appendChild(confirmBtn);
-  buttonContainer.appendChild(cancelBtn);
-  modalContent.appendChild(buttonContainer);
-  modal.appendChild(modalContent);
-  
-  modal.onclick = (e) => {
-    if (e.target === modal) {
-      document.body.removeChild(modal);
-    }
-  };
-  
-  return modal;
-}
+  buttonContainer.style.cssText = '// ===========================
+// REPORT GENERATION FUNCTIONS
+// ===========================
 
-function createLabel(text) {
-  const label = document.createElement('div');
-  label.textContent = text;
-  label.style.cssText = 'margin-top: 10px; font-weight: bold; color: var(--text);';
-  return label;
-}
-
-// Report Generation Functions with Timezone Fixes
-function generateWeeklyReport(startDate, endDate) {
+async function generateWeeklyReport(startDate, endDate) {
   try {
-    const hours = Array.isArray(cache.hours) ? cache.hours : [];
+    console.log(`📊 Generating weekly report from ${startDate.toDateString()} to ${endDate.toDateString()}`);
     
-    console.log('🔍 Weekly Report - Looking for data between:', formatDateForDisplay(startDate), 'and', formatDateForDisplay(endDate));
-    console.log('📊 Total hours in cache:', hours.length);
+    const [hours, students] = await Promise.all([
+      EnhancedCache.loadCollection('hours'),
+      EnhancedCache.loadCollection('students')
+    ]);
     
-    const weeklyData = hours.filter(entry => {
-      if (!entry.date && !entry.dateIso) return false;
-      
-      const entryDate = entry.date || entry.dateIso;
-      return isDateInRange(entryDate, startDate, endDate);
-    });
-
-    console.log('✅ Found entries for weekly report:', weeklyData.length);
-    weeklyData.forEach(entry => {
-      console.log('  -', entry.date || entry.dateIso, entry.hours, 'hours');
-    });
-
-    if (weeklyData.length === 0) {
-      NotificationSystem.notifyInfo(`No hours logged for week of ${formatDateForDisplay(startDate)}`);
-      return;
-    }
-
-    const weeklyHours = weeklyData.reduce((sum, entry) => sum + (entry.hours || 0), 0);
-    const weeklyTotal = weeklyData.reduce((sum, entry) => sum + (entry.total || 0), 0);
-    
-    const byDay = {};
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-      const dayKey = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-      byDay[dayKey] = 0;
-    }
-    
-    weeklyData.forEach(entry => {
+    const weekHours = hours.filter(entry => {
       const entryDate = new Date(entry.date || entry.dateIso);
-      const dayKey = entryDate.toLocaleDateString('en-US', { 
-        weekday: 'short', month: 'short', day: 'numeric' 
-      });
-      byDay[dayKey] = (byDay[dayKey] || 0) + (entry.hours || 0);
+      return entryDate >= startDate && entryDate <= endDate;
     });
-
-    let breakdown = `Weekly Breakdown (${formatDateForDisplay(startDate)} - ${formatDateForDisplay(endDate)}):\n\n`;
-    breakdown += `Total Hours: ${weeklyHours.toFixed(1)}\n`;
-    breakdown += `Total Earnings: $${fmtMoney(weeklyTotal)}\n`;
-    if (weeklyHours > 0) {
-      breakdown += `Average Rate: $${fmtMoney(weeklyTotal / weeklyHours)}/hour\n`;
-    }
-    breakdown += '\nDaily Breakdown:\n';
     
-    Object.entries(byDay).forEach(([day, hours]) => {
-      breakdown += `${day}: ${hours.toFixed(1)} hours\n`;
+    const totalHours = weekHours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
+    const totalEarnings = weekHours.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
+    
+    const studentEarnings = {};
+    weekHours.forEach(entry => {
+      if (entry.student) {
+        const earnings = entry.total || (entry.hours || 0) * (entry.rate || 0);
+        studentEarnings[entry.student] = (studentEarnings[entry.student] || 0) + safeNumber(earnings);
+      }
     });
-
-    showReportModal('Weekly Breakdown', breakdown);
-
+    
+    const reportHTML = `
+      <div class="report-header">
+        <h3>Weekly Report: ${formatDateForDisplay(startDate)} - ${formatDateForDisplay(endDate)}</h3>
+        <div class="report-summary">
+          <div class="stat-card">
+            <div class="stat-value">${totalHours.toFixed(1)}</div>
+            <div class="stat-label">Total Hours</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">$${fmtMoney(totalEarnings)}</div>
+            <div class="stat-label">Total Earnings</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${weekHours.length}</div>
+            <div class="stat-label">Sessions</div>
+          </div>
+        </div>
+      </div>
+      
+      ${Object.keys(studentEarnings).length > 0 ? `
+        <div class="report-section">
+          <h4>Earnings by Student</h4>
+          <div class="student-earnings">
+            ${Object.entries(studentEarnings).map(([student, earnings]) => `
+              <div class="earning-item">
+                <span class="student-name">${student}</span>
+                <span class="earning-amount">$${fmtMoney(earnings)}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+      
+      <div class="report-section">
+        <h4>Recent Sessions</h4>
+        <div class="session-list">
+          ${weekHours.slice(0, 10).map(entry => `
+            <div class="session-item">
+              <div class="session-header">
+                <strong>${entry.organization || 'No Organization'}</strong>
+                <span class="session-hours">${safeNumber(entry.hours)}h</span>
+              </div>
+              <div class="session-details">
+                ${entry.student ? `<span>Student: ${entry.student}</span>` : ''}
+                <span>Date: ${formatDate(entry.date)}</span>
+                <span class="session-total">$${fmtMoney(entry.total)}</span>
+              </div>
+              ${entry.notes ? `<div class="session-notes">Notes: ${entry.notes}</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+    
+    showReportModal('Weekly Report', reportHTML);
+    
   } catch (error) {
-    console.error('Error generating weekly breakdown:', error);
+    console.error('Error generating weekly report:', error);
     NotificationSystem.notifyError('Failed to generate weekly report');
   }
 }
 
-function generateBiWeeklyReport(startDate, endDate) {
+async function generateBiWeeklyReport(startDate, endDate) {
   try {
-    const hours = Array.isArray(cache.hours) ? cache.hours : [];
+    console.log(`📊 Generating bi-weekly report from ${startDate.toDateString()} to ${endDate.toDateString()}`);
     
-    console.log('🔍 Bi-Weekly Report - Looking for data between:', formatDateForDisplay(startDate), 'and', formatDateForDisplay(endDate));
+    const [hours, students, payments] = await Promise.all([
+      EnhancedCache.loadCollection('hours'),
+      EnhancedCache.loadCollection('students'),
+      EnhancedCache.loadCollection('payments')
+    ]);
     
-    const biWeeklyData = hours.filter(entry => {
-      if (!entry.date && !entry.dateIso) return false;
-      
-      const entryDate = entry.date || entry.dateIso;
-      return isDateInRange(entryDate, startDate, endDate);
+    const periodHours = hours.filter(entry => {
+      const entryDate = new Date(entry.date || entry.dateIso);
+      return entryDate >= startDate && entryDate <= endDate;
     });
-
-    console.log('✅ Found entries for bi-weekly report:', biWeeklyData.length);
-
-    if (biWeeklyData.length === 0) {
-      NotificationSystem.notifyInfo(`No hours logged for period ${formatDateForDisplay(startDate)} - ${formatDateForDisplay(endDate)}`);
-      return;
-    }
-
-    const totalHours = biWeeklyData.reduce((sum, entry) => sum + (entry.hours || 0), 0);
-    const totalEarnings = biWeeklyData.reduce((sum, entry) => sum + (entry.total || 0), 0);
     
-    const byWeek = {};
-    const currentDate = new Date(startDate);
-    
-    while (currentDate <= endDate) {
-      const weekEnd = new Date(currentDate);
-      weekEnd.setDate(currentDate.getDate() + 6);
-      const actualWeekEnd = weekEnd > endDate ? endDate : weekEnd;
-      const weekKey = `Week of ${formatDateShort(currentDate)}`;
-      
-      const weekData = biWeeklyData.filter(entry => {
-        if (!entry.date && !entry.dateIso) return false;
-        const entryDate = entry.date || entry.dateIso;
-        return isDateInRange(entryDate, currentDate, actualWeekEnd);
-      });
-      
-      byWeek[weekKey] = {
-        hours: weekData.reduce((sum, entry) => sum + (entry.hours || 0), 0),
-        earnings: weekData.reduce((sum, entry) => sum + (entry.total || 0), 0),
-        sessions: weekData.length
-      };
-      
-      currentDate.setDate(currentDate.getDate() + 7);
-    }
-
-    let breakdown = `Bi-Weekly Breakdown (${formatDateForDisplay(startDate)} - ${formatDateForDisplay(endDate)}):\n\n`;
-    breakdown += `Total Hours: ${totalHours.toFixed(1)}\n`;
-    breakdown += `Total Earnings: $${fmtMoney(totalEarnings)}\n`;
-    if (totalHours > 0) {
-      breakdown += `Average Rate: $${fmtMoney(totalEarnings / totalHours)}/hour\n`;
-    }
-    breakdown += '\nWeekly Breakdown:\n';
-    
-    Object.entries(byWeek).forEach(([week, data]) => {
-      breakdown += `${week}: ${data.hours.toFixed(1)} hours (${data.sessions} sessions) - $${fmtMoney(data.earnings)}\n`;
+    const periodPayments = payments.filter(payment => {
+      const paymentDate = new Date(payment.date || payment.dateIso);
+      return paymentDate >= startDate && paymentDate <= endDate;
     });
-
-    showReportModal('Bi-Weekly Breakdown', breakdown);
-
+    
+    const totalHours = periodHours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
+    const totalEarnings = periodHours.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
+    const totalPayments = periodPayments.reduce((sum, payment) => sum + safeNumber(payment.amount), 0);
+    const outstanding = Math.max(totalEarnings - totalPayments, 0);
+    
+    const reportHTML = `
+      <div class="report-header">
+        <h3>Bi-Weekly Report: ${formatDateForDisplay(startDate)} - ${formatDateForDisplay(endDate)}</h3>
+        <div class="report-summary">
+          <div class="stat-card">
+            <div class="stat-value">${totalHours.toFixed(1)}</div>
+            <div class="stat-label">Total Hours</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">$${fmtMoney(totalEarnings)}</div>
+            <div class="stat-label">Total Earnings</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">$${fmtMoney(totalPayments)}</div>
+            <div class="stat-label">Payments Received</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">$${fmtMoney(outstanding)}</div>
+            <div class="stat-label">Outstanding</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="report-section">
+        <h4>Payment Summary</h4>
+        <div class="payment-summary">
+          <div class="payment-item">
+            <span>Earned this period:</span>
+            <span class="amount-earned">$${fmtMoney(totalEarnings)}</span>
+          </div>
+          <div class="payment-item">
+            <span>Received this period:</span>
+            <span class="amount-received">$${fmtMoney(totalPayments)}</span>
+          </div>
+          <div class="payment-item outstanding">
+            <span>Outstanding balance:</span>
+            <span class="amount-outstanding">$${fmtMoney(outstanding)}</span>
+          </div>
+        </div>
+      </div>
+      
+      ${periodPayments.length > 0 ? `
+        <div class="report-section">
+          <h4>Recent Payments</h4>
+          <div class="payment-list">
+            ${periodPayments.slice(0, 10).map(payment => `
+              <div class="payment-item">
+                <div class="payment-header">
+                  <strong>${payment.student || 'Unknown Student'}</strong>
+                  <span class="payment-amount">$${fmtMoney(payment.amount)}</span>
+                </div>
+                <div class="payment-details">
+                  <span>${formatDate(payment.date)}</span>
+                  <span>${payment.method || 'Unknown Method'}</span>
+                </div>
+                ${payment.notes ? `<div class="payment-notes">${payment.notes}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+    `;
+    
+    showReportModal('Bi-Weekly Report', reportHTML);
+    
   } catch (error) {
-    console.error('Error generating bi-weekly breakdown:', error);
+    console.error('Error generating bi-weekly report:', error);
     NotificationSystem.notifyError('Failed to generate bi-weekly report');
   }
 }
 
-function generateMonthlyReport(startDate, endDate) {
+async function generateMonthlyReport(startDate, endDate) {
   try {
-    const hours = Array.isArray(cache.hours) ? cache.hours : [];
+    console.log(`📊 Generating monthly report from ${startDate.toDateString()} to ${endDate.toDateString()}`);
     
-    console.log('🔍 Monthly Report - Looking for data between:', formatDateForDisplay(startDate), 'and', formatDateForDisplay(endDate));
+    const [hours, students, marks, payments] = await Promise.all([
+      EnhancedCache.loadCollection('hours'),
+      EnhancedCache.loadCollection('students'),
+      EnhancedCache.loadCollection('marks'),
+      EnhancedCache.loadCollection('payments')
+    ]);
     
-    const monthlyData = hours.filter(entry => {
-      if (!entry.date && !entry.dateIso) return false;
-      
-      const entryDate = entry.date || entry.dateIso;
-      return isDateInRange(entryDate, startDate, endDate);
-    });
-
-    console.log('✅ Found entries for monthly report:', monthlyData.length);
-    monthlyData.forEach(entry => {
-      console.log('  -', entry.date || entry.dateIso, entry.hours, 'hours -', entry.student);
-    });
-
-    if (monthlyData.length === 0) {
-      NotificationSystem.notifyInfo(`No hours logged for ${formatDateForDisplay(startDate)}`);
-      return;
-    }
-
-    const monthlyHours = monthlyData.reduce((sum, entry) => sum + (entry.hours || 0), 0);
-    const monthlyTotal = monthlyData.reduce((sum, entry) => sum + (entry.total || 0), 0);
-    
-    const byStudent = {};
-    const byWorkType = {};
-    const byWeek = {};
-    
-    monthlyData.forEach(entry => {
-      // By student
-      const student = entry.student || 'Unknown Student';
-      if (!byStudent[student]) {
-        byStudent[student] = { hours: 0, total: 0, sessions: 0 };
-      }
-      byStudent[student].hours += entry.hours || 0;
-      byStudent[student].total += entry.total || 0;
-      byStudent[student].sessions += 1;
-      
-      // By work type
-      const workType = entry.workType || 'General';
-      byWorkType[workType] = (byWorkType[workType] || 0) + (entry.hours || 0);
-      
-      // By week
+    const monthHours = hours.filter(entry => {
       const entryDate = new Date(entry.date || entry.dateIso);
-      const weekStart = getStartOfWeek(entryDate);
-      const weekKey = `Week ${getWeekNumber(entryDate)} (${formatDateShort(weekStart)})`;
-      byWeek[weekKey] = (byWeek[weekKey] || 0) + (entry.hours || 0);
+      return entryDate >= startDate && entryDate <= endDate;
     });
-
-    let breakdown = `Monthly Breakdown (${formatDateForDisplay(startDate)}):\n\n`;
-    breakdown += `Total Hours: ${monthlyHours.toFixed(1)}\n`;
-    breakdown += `Total Earnings: $${fmtMoney(monthlyTotal)}\n`;
-    if (monthlyHours > 0) {
-      breakdown += `Average Rate: $${fmtMoney(monthlyTotal / monthlyHours)}/hour\n`;
+    
+    const monthMarks = marks.filter(mark => {
+      const markDate = new Date(mark.date || mark.dateIso);
+      return markDate >= startDate && markDate <= endDate;
+    });
+    
+    const monthPayments = payments.filter(payment => {
+      const paymentDate = new Date(payment.date || payment.dateIso);
+      return paymentDate >= startDate && paymentDate <= endDate;
+    });
+    
+    const totalHours = monthHours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
+    const totalEarnings = monthHours.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
+    const totalPayments = monthPayments.reduce((sum, payment) => sum + safeNumber(payment.amount), 0);
+    
+    let avgMark = 0;
+    if (monthMarks.length > 0) {
+      const totalPercentage = monthMarks.reduce((sum, mark) => sum + safeNumber(mark.percentage), 0);
+      avgMark = totalPercentage / monthMarks.length;
     }
-    breakdown += '\nBy Student:\n';
-    Object.entries(byStudent)
-      .sort((a, b) => b[1].total - a[1].total)
-      .forEach(([student, data]) => {
-        breakdown += `• ${student}: ${data.hours.toFixed(1)} hours (${data.sessions} sessions) - $${fmtMoney(data.total)}\n`;
-      });
-
-    breakdown += '\nBy Work Type:\n';
-    Object.entries(byWorkType)
-      .sort((a, b) => b[1] - a[1])
-      .forEach(([workType, hours]) => {
-        breakdown += `• ${workType}: ${hours.toFixed(1)} hours\n`;
-      });
-
-    breakdown += '\nBy Week:\n';
-    Object.entries(byWeek)
-      .forEach(([week, hours]) => {
-        breakdown += `• ${week}: ${hours.toFixed(1)} hours\n`;
-      });
-
-    showReportModal('Monthly Breakdown', breakdown);
-
+    
+    const reportHTML = `
+      <div class="report-header">
+        <h3>Monthly Report: ${formatDateForDisplay(startDate)} - ${formatDateForDisplay(endDate)}</h3>
+        <div class="report-summary">
+          <div class="stat-card">
+            <div class="stat-value">${totalHours.toFixed(1)}</div>
+            <div class="stat-label">Total Hours</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">$${fmtMoney(totalEarnings)}</div>
+            <div class="stat-label">Total Earnings</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${monthMarks.length}</div>
+            <div class="stat-label">Marks Recorded</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${avgMark.toFixed(1)}%</div>
+            <div class="stat-label">Avg Mark</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="report-section">
+        <h4>Performance Overview</h4>
+        <div class="performance-grid">
+          <div class="performance-item">
+            <label>Sessions Conducted:</label>
+            <span>${monthHours.length}</span>
+          </div>
+          <div class="performance-item">
+            <label>Students Taught:</label>
+            <span>${new Set(monthHours.map(h => h.student).filter(Boolean)).size}</span>
+          </div>
+          <div class="performance-item">
+            <label>Subjects Covered:</label>
+            <span>${new Set(monthHours.map(h => h.subject).filter(Boolean)).size}</span>
+          </div>
+          <div class="performance-item">
+            <label>Payments Received:</label>
+            <span>${monthPayments.length}</span>
+          </div>
+        </div>
+      </div>
+      
+      ${monthMarks.length > 0 ? `
+        <div class="report-section">
+          <h4>Recent Marks</h4>
+          <div class="marks-list">
+            ${monthMarks.slice(0, 8).map(mark => `
+              <div class="mark-item">
+                <div class="mark-header">
+                  <strong>${mark.student || 'Unknown Student'}</strong>
+                  <span class="mark-percentage">${safeNumber(mark.percentage).toFixed(1)}%</span>
+                </div>
+                <div class="mark-details">
+                  <span>${mark.subject || 'No Subject'}</span>
+                  <span>${mark.topic || 'No Topic'}</span>
+                  <span class="mark-grade">${mark.grade || 'N/A'}</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+    `;
+    
+    showReportModal('Monthly Report', reportHTML);
+    
   } catch (error) {
-    console.error('Error generating monthly breakdown:', error);
+    console.error('Error generating monthly report:', error);
     NotificationSystem.notifyError('Failed to generate monthly report');
+  }
+}
+
+async function generateSubjectReport(startDate, endDate) {
+  try {
+    console.log(`📊 Generating subject report from ${startDate.toDateString()} to ${endDate.toDateString()}`);
+    
+    const [hours, marks] = await Promise.all([
+      EnhancedCache.loadCollection('hours'),
+      EnhancedCache.loadCollection('marks')
+    ]);
+    
+    const periodHours = hours.filter(entry => {
+      const entryDate = new Date(entry.date || entry.dateIso);
+      return entryDate >= startDate && entryDate <= endDate;
+    });
+    
+    const periodMarks = marks.filter(mark => {
+      const markDate = new Date(mark.date || mark.dateIso);
+      return markDate >= startDate && markDate <= endDate;
+    });
+    
+    const subjectHours = {};
+    const subjectEarnings = {};
+    const subjectMarks = {};
+    
+    periodHours.forEach(entry => {
+      const subject = entry.subject || 'General';
+      subjectHours[subject] = (subjectHours[subject] || 0) + safeNumber(entry.hours);
+      subjectEarnings[subject] = (subjectEarnings[subject] || 0) + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0));
+    });
+    
+    periodMarks.forEach(mark => {
+      const subject = mark.subject || 'General';
+      if (!subjectMarks[subject]) {
+        subjectMarks[subject] = { total: 0, count: 0, grades: {} };
+      }
+      subjectMarks[subject].total += safeNumber(mark.percentage);
+      subjectMarks[subject].count += 1;
+      
+      const grade = mark.grade || calculateGrade(mark.percentage);
+      subjectMarks[subject].grades[grade] = (subjectMarks[subject].grades[grade] || 0) + 1;
+    });
+    
+    const reportHTML = `
+      <div class="report-header">
+        <h3>Subject Report: ${formatDateForDisplay(startDate)} - ${formatDateForDisplay(endDate)}</h3>
+        <div class="report-summary">
+          <div class="stat-card">
+            <div class="stat-value">${Object.keys(subjectHours).length}</div>
+            <div class="stat-label">Subjects</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${periodHours.length}</div>
+            <div class="stat-label">Sessions</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${periodMarks.length}</div>
+            <div class="stat-label">Marks</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="report-section">
+        <h4>Subject Breakdown</h4>
+        <div class="subject-breakdown">
+          ${Object.keys(subjectHours).map(subject => {
+            const hours = subjectHours[subject];
+            const earnings = subjectEarnings[subject];
+            const marksData = subjectMarks[subject];
+            const avgMark = marksData ? (marksData.total / marksData.count).toFixed(1) : 'N/A';
+            
+            return `
+              <div class="subject-item">
+                <div class="subject-header">
+                  <strong>${subject}</strong>
+                  <span class="subject-hours">${hours.toFixed(1)}h</span>
+                </div>
+                <div class="subject-details">
+                  <span>Earnings: $${fmtMoney(earnings)}</span>
+                  ${marksData ? `<span>Avg Mark: ${avgMark}%</span>` : ''}
+                </div>
+                ${marksData && marksData.count > 0 ? `
+                  <div class="subject-grades">
+                    ${Object.entries(marksData.grades).map(([grade, count]) => `
+                      <span class="grade-badge">${grade}: ${count}</span>
+                    `).join('')}
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+      
+      <div class="report-section">
+        <h4>Subject Performance</h4>
+        <div class="performance-chart">
+          ${Object.keys(subjectHours).map(subject => {
+            const hours = subjectHours[subject];
+            const totalHours = Object.values(subjectHours).reduce((sum, h) => sum + h, 0);
+            const percentage = totalHours > 0 ? (hours / totalHours) * 100 : 0;
+            
+            return `
+              <div class="chart-item">
+                <div class="chart-label">${subject}</div>
+                <div class="chart-bar">
+                  <div class="chart-fill" style="width: ${percentage}%"></div>
+                </div>
+                <div class="chart-value">${hours.toFixed(1)}h (${percentage.toFixed(1)}%)</div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+    
+    showReportModal('Subject Report', reportHTML);
+    
+  } catch (error) {
+    console.error('Error generating subject report:', error);
+    NotificationSystem.notifyError('Failed to generate subject report');
   }
 }
 
@@ -5210,869 +4784,360 @@ function showReportModal(title, content) {
   `;
   
   const modalContent = document.createElement('div');
+  modalContent.className = 'modal-content report-modal';
   modalContent.style.cssText = `
     background: var(--surface); padding: 20px; border-radius: 12px; 
-    min-width: 300px; max-width: 80vw; max-height: 80vh; overflow-y: auto;
-    white-space: pre-line; font-family: monospace; line-height: 1.4;
+    max-width: 800px; max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
   `;
   
-  const modalTitle = document.createElement('h3');
-  modalTitle.textContent = title;
-  modalTitle.style.cssText = 'margin-bottom: 15px; color: var(--text);';
+  const modalHeader = document.createElement('div');
+  modalHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;';
   
-  const reportContent = document.createElement('div');
-  reportContent.textContent = content;
-  reportContent.style.cssText = 'margin-bottom: 15px;';
+  const modalTitle = document.createElement('h2');
+  modalTitle.textContent = title;
+  modalTitle.style.margin = '0';
   
   const closeBtn = document.createElement('button');
-  closeBtn.textContent = 'Close';
+  closeBtn.innerHTML = '&times;';
   closeBtn.style.cssText = `
-    padding: 10px 20px; background: var(--primary); color: white;
-    border: none; border-radius: 6px; cursor: pointer; float: right;
+    background: none; border: none; font-size: 24px; cursor: pointer;
+    color: var(--muted); padding: 5px; border-radius: 4px;
   `;
+  closeBtn.onclick = () => document.body.removeChild(modal);
   
-  closeBtn.onclick = () => {
-    document.body.removeChild(modal);
-  };
+  modalHeader.appendChild(modalTitle);
+  modalHeader.appendChild(closeBtn);
   
-  modalContent.appendChild(modalTitle);
-  modalContent.appendChild(reportContent);
-  modalContent.appendChild(closeBtn);
+  modalContent.appendChild(modalHeader);
+  modalContent.innerHTML += content;
+  
   modal.appendChild(modalContent);
-  document.body.appendChild(modal);
   
   modal.onclick = (e) => {
     if (e.target === modal) {
       document.body.removeChild(modal);
     }
   };
-}
-
-function getWeekNumber(date) {
-  const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
-  const pastDaysOfYear = (date - firstDayOfYear) / 86400000;
-  return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
-}
-
-// ===========================
-// MISSING RENDER OVERVIEW REPORTS FUNCTION
-// ===========================
-
-async function renderOverviewReports() {
-  console.log('📊 Rendering overview reports...');
   
-  try {
-    // Load all necessary data
-    const [students, hours, marks, payments] = await Promise.all([
-      EnhancedCache.loadCollection('students'),
-      EnhancedCache.loadCollection('hours'),
-      EnhancedCache.loadCollection('marks'),
-      EnhancedCache.loadCollection('payments')
-    ]);
-
-    // Calculate totals
-    const totalStudents = students.length;
-    const totalHours = hours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
-    const totalEarnings = hours.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
-    const totalPayments = payments.reduce((sum, payment) => sum + safeNumber(payment.amount), 0);
-    
-    // Calculate average marks
-    let avgMark = 0;
-    if (marks.length > 0) {
-      const totalPercentage = marks.reduce((sum, mark) => sum + safeNumber(mark.percentage), 0);
-      avgMark = totalPercentage / marks.length;
-    }
-    
-    // Calculate outstanding balance
-    const outstandingBalance = Math.max(totalEarnings - totalPayments, 0);
-
-    // Update overview report elements
-    const elements = {
-      'totalStudentsReport': totalStudents,
-      'totalHoursReport': totalHours.toFixed(1),
-      'totalEarningsReport': `$${fmtMoney(totalEarnings)}`,
-      'avgMarkReport': `${avgMark.toFixed(1)}%`,
-      'totalPaymentsReport': `$${fmtMoney(totalPayments)}`,
-      'outstandingBalance': `$${fmtMoney(outstandingBalance)}`
-    };
-
-    // Update each element
-    Object.entries(elements).forEach(([id, value]) => {
-      const element = document.getElementById(id);
-      if (element) {
-        element.textContent = value;
-      }
-    });
-
-    console.log('✅ Overview reports rendered:', {
-      students: totalStudents,
-      hours: totalHours,
-      earnings: totalEarnings,
-      payments: totalPayments,
-      marks: avgMark.toFixed(1),
-      outstanding: outstandingBalance
-    });
-
-  } catch (error) {
-    console.error('❌ Error rendering overview reports:', error);
-    
-    // Show error state
-    const errorElements = [
-      'totalStudentsReport', 'totalHoursReport', 'totalEarningsReport',
-      'avgMarkReport', 'totalPaymentsReport', 'outstandingBalance'
-    ];
-    
-    errorElements.forEach(id => {
-      const element = document.getElementById(id);
-      if (element) {
-        element.textContent = 'Error';
-      }
-    });
-  }
-}
-
-function generateStudentPerformanceReport(marks, students) {
-  const container = document.getElementById('studentReport');
-  if (!container) {
-    console.log('❌ Student report container not found');
-    return;
-  }
-
-  if (!marks || marks.length === 0) {
-    container.innerHTML = '<div class="empty-state">No marks data available for student performance report</div>';
-    return;
-  }
-
-  // Calculate performance by student
-  const performanceByStudent = {};
+  document.body.appendChild(modal);
   
-  marks.forEach(mark => {
-    const studentName = mark.student;
-    if (!studentName) return;
-    
-    if (!performanceByStudent[studentName]) {
-      performanceByStudent[studentName] = {
-        totalPercentage: 0,
-        count: 0,
-        subjects: new Set(),
-        grades: []
-      };
-    }
-    
-    performanceByStudent[studentName].totalPercentage += safeNumber(mark.percentage);
-    performanceByStudent[studentName].count++;
-    performanceByStudent[studentName].subjects.add(mark.subject || 'General');
-    performanceByStudent[studentName].grades.push(mark.grade || calculateGrade(mark.percentage));
-  });
-
-  // Calculate averages and stats
-  const studentPerformance = Object.entries(performanceByStudent).map(([studentName, data]) => {
-    const avgPercentage = data.totalPercentage / data.count;
-    const gradeCounts = {};
-    data.grades.forEach(grade => {
-      gradeCounts[grade] = (gradeCounts[grade] || 0) + 1;
-    });
-    const mostCommonGrade = Object.entries(gradeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
-    
-    return {
-      student: studentName,
-      average: avgPercentage,
-      totalMarks: data.count,
-      subjects: Array.from(data.subjects).join(', '),
-      mostCommonGrade: mostCommonGrade,
-      performance: avgPercentage >= 80 ? 'Excellent' : 
-                   avgPercentage >= 70 ? 'Good' : 
-                   avgPercentage >= 60 ? 'Average' : 'Needs Improvement'
-    };
-  });
-
-  // Sort by average (highest first)
-  studentPerformance.sort((a, b) => b.average - a.average);
-
-  let reportHTML = `
-    <div class="report-table">
-      <div class="report-row header">
-        <div class="report-cell">Student</div>
-        <div class="report-cell">Avg Score</div>
-        <div class="report-cell">Total Marks</div>
-        <div class="report-cell">Subjects</div>
-        <div class="report-cell">Common Grade</div>
-        <div class="report-cell">Performance</div>
-      </div>
-  `;
-
-  studentPerformance.forEach(student => {
-    reportHTML += `
-      <div class="report-row">
-        <div class="report-cell"><strong>${student.student}</strong></div>
-        <div class="report-cell">${student.average.toFixed(1)}%</div>
-        <div class="report-cell">${student.totalMarks}</div>
-        <div class="report-cell" title="${student.subjects}">${student.subjects.substring(0, 20)}${student.subjects.length > 20 ? '...' : ''}</div>
-        <div class="report-cell">${student.mostCommonGrade}</div>
-        <div class="report-cell ${student.performance === 'Excellent' ? 'excellent' : student.performance === 'Good' ? 'good' : student.performance === 'Average' ? 'average' : 'needs-improvement'}">
-          ${student.performance}
-        </div>
-      </div>
-    `;
-  });
-
-  reportHTML += '</div>';
-  container.innerHTML = reportHTML;
-  console.log('✅ Student performance report generated');
-}
-
-// ===========================
-// REPORT DATA FUNCTIONS
-// ===========================
-
-// Update loadReportData to be more robust:
-async function loadReportData() {
-  console.log('📊 Loading report data...');
-  
-  try {
-    const [hours, marks, students, payments] = await Promise.all([
-      EnhancedCache.loadCollection('hours'),
-      EnhancedCache.loadCollection('marks'),
-      EnhancedCache.loadCollection('students'),
-      EnhancedCache.loadCollection('payments')
-    ]);
-
-    console.log('📈 Report data loaded:', {
-      hours: hours.length,
-      marks: marks.length,
-      students: students.length,
-      payments: payments.length
-    });
-
-    // Generate reports with the data
-    generatePeriodReport(hours, students, payments);
-    generateSubjectReport(marks, hours);
-    generateStudentPerformanceReport(marks, students);
-    
-    return true;
-  } catch (error) {
-    console.error('❌ Error loading report data:', error);
-    
-    // Show error state in reports
-    const containers = ['periodReport', 'subjectReport', 'studentReport'];
-    containers.forEach(containerId => {
-      const container = document.getElementById(containerId);
-      if (container) {
-        container.innerHTML = '<div class="error">Error loading report data</div>';
-      }
-    });
-    
-    return false;
-  }
-}
-
-// Enhanced period report with more meaningful data:
-function generatePeriodReport(hours, students, payments) {
-  const container = document.getElementById('periodReport');
-  if (!container) return;
-
-  if (!hours || hours.length === 0) {
-    container.innerHTML = '<div class="empty-state">No hours data available for reports</div>';
-    return;
-  }
-
-  // Calculate meaningful statistics
-  const now = new Date();
-  const weekStart = getStartOfWeek(now);
-  const monthStart = getStartOfMonth(now);
-  
-  const weeklyData = hours.filter(entry => {
-    const entryDate = new Date(entry.date || entry.dateIso);
-    return entryDate >= weekStart;
-  });
-  
-  const monthlyData = hours.filter(entry => {
-    const entryDate = new Date(entry.date || entry.dateIso);
-    return entryDate >= monthStart;
-  });
-
-  const weeklyHours = weeklyData.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
-  const weeklyEarnings = weeklyData.reduce((sum, entry) => sum + safeNumber(entry.total || 0), 0);
-  
-  const monthlyHours = monthlyData.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
-  const monthlyEarnings = monthlyData.reduce((sum, entry) => sum + safeNumber(entry.total || 0), 0);
-
-  const reportHTML = `
-    <div class="report-table">
-      <div class="report-row header">
-        <div class="report-cell">Period</div>
-        <div class="report-cell">Hours</div>
-        <div class="report-cell">Earnings</div>
-        <div class="report-cell">Sessions</div>
-        <div class="report-cell">Avg Rate/Hour</div>
-      </div>
-      <div class="report-row">
-        <div class="report-cell"><strong>This Week</strong></div>
-        <div class="report-cell">${weeklyHours.toFixed(1)}</div>
-        <div class="report-cell">$${fmtMoney(weeklyEarnings)}</div>
-        <div class="report-cell">${weeklyData.length}</div>
-        <div class="report-cell">$${fmtMoney(weeklyHours > 0 ? weeklyEarnings / weeklyHours : 0)}</div>
-      </div>
-      <div class="report-row">
-        <div class="report-cell"><strong>This Month</strong></div>
-        <div class="report-cell">${monthlyHours.toFixed(1)}</div>
-        <div class="report-cell">$${fmtMoney(monthlyEarnings)}</div>
-        <div class="report-cell">${monthlyData.length}</div>
-        <div class="report-cell">$${fmtMoney(monthlyHours > 0 ? monthlyEarnings / monthlyHours : 0)}</div>
-      </div>
-      <div class="report-row">
-        <div class="report-cell"><strong>All Time</strong></div>
-        <div class="report-cell">${hours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0).toFixed(1)}</div>
-        <div class="report-cell">$${fmtMoney(hours.reduce((sum, entry) => sum + safeNumber(entry.total || 0), 0))}</div>
-        <div class="report-cell">${hours.length}</div>
-        <div class="report-cell">$${fmtMoney(hours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0) > 0 ? hours.reduce((sum, entry) => sum + safeNumber(entry.total || 0), 0) / hours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0) : 0)}</div>
-      </div>
-    </div>
-  `;
-
-  container.innerHTML = reportHTML;
-  console.log('✅ Period report generated with meaningful data');
-}
-
-function generateSubjectReport(marks, hours) {
-  const container = document.getElementById('subjectReport');
-  if (!container) return;
-
-  if ((!marks || marks.length === 0) && (!hours || hours.length === 0)) {
-    container.innerHTML = '<div class="empty-state">No marks or hours data available</div>';
-    return;
-  }
-
-  // Group marks by subject
-  const subjectMarks = {};
-  marks.forEach(mark => {
-    const subject = mark.subject || 'General';
-    if (!subjectMarks[subject]) {
-      subjectMarks[subject] = {
-        totalPercentage: 0,
-        count: 0,
-        marks: []
-      };
-    }
-    subjectMarks[subject].totalPercentage += safeNumber(mark.percentage);
-    subjectMarks[subject].count++;
-    subjectMarks[subject].marks.push(mark);
-  });
-
-  // Group hours by subject
-  const subjectHours = {};
-  hours.forEach(entry => {
-    const subject = entry.subject || 'General';
-    if (!subjectHours[subject]) {
-      subjectHours[subject] = {
-        hours: 0,
-        earnings: 0,
-        sessions: 0
-      };
-    }
-    subjectHours[subject].hours += safeNumber(entry.hours);
-    subjectHours[subject].earnings += safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0));
-    subjectHours[subject].sessions++;
-  });
-
-  // Combine data
-  const allSubjects = new Set([
-    ...Object.keys(subjectMarks),
-    ...Object.keys(subjectHours)
-  ]);
-
-  if (allSubjects.size === 0) {
-    container.innerHTML = '<div class="empty-state">No subject data available</div>';
-    return;
-  }
-
-  let reportHTML = `
-    <div class="report-table">
-      <div class="report-row header">
-        <div class="report-cell">Subject</div>
-        <div class="report-cell">Avg Mark</div>
-        <div class="report-cell">Hours</div>
-        <div class="report-cell">Earnings</div>
-        <div class="report-cell">Sessions</div>
-      </div>
-  `;
-
-  allSubjects.forEach(subject => {
-    const markData = subjectMarks[subject];
-    const hourData = subjectHours[subject];
-    
-    const avgMark = markData ? (markData.totalPercentage / markData.count).toFixed(1) : 'N/A';
-    const totalHours = hourData ? hourData.hours.toFixed(1) : '0';
-    const totalEarnings = hourData ? fmtMoney(hourData.earnings) : '$0';
-    const totalSessions = hourData ? hourData.sessions : markData ? markData.count : 0;
-
-    reportHTML += `
-      <div class="report-row">
-        <div class="report-cell"><strong>${subject}</strong></div>
-        <div class="report-cell">${avgMark}%</div>
-        <div class="report-cell">${totalHours}</div>
-        <div class="report-cell">${totalEarnings}</div>
-        <div class="report-cell">${totalSessions}</div>
-      </div>
-    `;
-  });
-
-  reportHTML += '</div>';
-  container.innerHTML = reportHTML;
-  console.log('✅ Subject report generated');
-}
-
-// ===========================
-// ENHANCED APP INITIALIZATION
-// ===========================
-
-// Start the application when DOM is fully loaded
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('🏠 DOM fully loaded, starting app...');
-  
-  // IMMEDIATELY hide all tab content before anything else
-  const allTabContents = document.querySelectorAll('.tabcontent');
-  allTabContents.forEach(content => {
-    content.style.display = 'none';
-    content.style.visibility = 'hidden';
-  });
-  
-  // Initialize core systems in correct order
-  injectThemeStyles();
-  initializeTheme();
-  NotificationSystem.initNotificationStyles();
-  EnhancedCache.loadCachedData();
-  EnhancedStats.init();
-  
-  // Setup tab navigation with a small delay to ensure DOM is ready
-  setTimeout(() => {
-    setupTabNavigation();
-  }, 100);
-  
-// ===========================
-// ENHANCED AUTH STATE HANDLER
-// ===========================
-
-// Wait for authentication
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    console.log('👤 User authenticated:', user.email);
-    
-    // Show loading state
-    document.body.classList.add('loading');
-    
-    try {
-      console.log('🚀 Starting app initialization...');
-      
-      // Step 1: Initialize persistent data
-      if (!localStorage.getItem('memberSince')) {
-        localStorage.setItem('memberSince', new Date().toISOString());
-        console.log('✅ Member since date initialized');
-      }
-
-      // Step 2: Load user profile
-      console.log('📋 Loading user profile...');
-      await loadUserProfile(user.uid);
-      console.log('✅ User profile loaded');
-
-      // Step 3: Load ALL data from Firebase with progress tracking
-      console.log('📥 Loading all data from Firebase...');
-      const dataLoaded = await loadAllData();
-      
-      if (!dataLoaded) {
-        console.warn('⚠️ Using cached data - some features may be limited');
-        NotificationSystem.notifyWarning('Using cached data - some features may be limited');
-      } else {
-        console.log('✅ All data loaded successfully from Firebase');
-      }
-
-      // Step 4: Initialize core UI components
-      console.log('🎨 Initializing UI components...');
-      SyncBar.init();
-      setupProfileModal();
-      setupFloatingAddButton();
-      updateHeaderStats();
-      
-      // Step 5: Initialize dropdown manager and forms
-      console.log('⚙️ Setting up forms and dropdowns...');
-      StudentDropdownManager.init();
-      setupFormHandlers();
-      
-      // Step 6: Force refresh all dropdowns with retry logic
-      console.log('🔄 Refreshing student dropdowns...');
-      let dropdownsPopulated = false;
-      let retryCount = 0;
-      
-      while (!dropdownsPopulated && retryCount < 3) {
-        try {
-          await StudentDropdownManager.forceRefresh();
-          const students = await EnhancedCache.loadCollection('students');
-          if (students.length > 0) {
-            dropdownsPopulated = true;
-            console.log('✅ Student dropdowns populated successfully');
-          } else {
-            retryCount++;
-            console.log(`🔄 No students found, retry ${retryCount}/3...`);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        } catch (error) {
-          retryCount++;
-          console.error(`❌ Dropdown population failed, retry ${retryCount}/3:`, error);
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
-
-      // Step 7: Force refresh all stats and UI
-      console.log('📊 Refreshing stats and UI...');
-      EnhancedStats.forceRefresh();
-      
-      // Additional UI refresh to ensure everything is updated
-      setTimeout(() => {
-        refreshAllUI();
-        EnhancedStats.forceRefresh();
-      }, 2000);
-
-      // Step 8: Set up periodic data refresh
-      console.log('⏰ Setting up periodic data refresh...');
-      setInterval(async () => {
-        try {
-          await loadAllData();
-          EnhancedStats.forceRefresh();
-          console.log('✅ Periodic data refresh completed');
-        } catch (error) {
-          console.error('❌ Periodic data refresh failed:', error);
-        }
-      }, 60000); // Refresh every 60 seconds
-
-      // Step 9: Final initialization complete
-      document.body.classList.remove('loading');
-      
-      // Show success notification with user info
-      const displayName = user.email.split('@')[0];
-      NotificationSystem.notifySuccess(
-        `Welcome back, ${displayName}! All systems ready.`, 
-        3000
-      );
-      
-      console.log('🎉 Worklog App fully initialized and ready!');
-      console.log('📊 Current data state:', {
-        students: cache.students?.length || 0,
-        hours: cache.hours?.length || 0,
-        marks: cache.marks?.length || 0,
-        attendance: cache.attendance?.length || 0,
-        payments: cache.payments?.length || 0
-      });
-
-    } catch (error) {
-      // Comprehensive error handling
-      document.body.classList.remove('loading');
-      
-      console.error('❌ Critical error during app initialization:', error);
-      
-      let errorMessage = 'Failed to load application. ';
-      
-      if (error.code === 'permission-denied') {
-        errorMessage += 'Permission denied. Please check your Firebase rules.';
-      } else if (error.code === 'unavailable') {
-        errorMessage += 'Network unavailable. Using offline data.';
-      } else if (error.message.includes('quota')) {
-        errorMessage += 'Firebase quota exceeded. Please try again later.';
-      } else {
-        errorMessage += error.message;
-      }
-      
-      NotificationSystem.notifyError(errorMessage);
-      
-      // Try to load from cache as fallback
-      try {
-        console.log('🔄 Attempting to load from cache...');
-        EnhancedCache.loadCachedData();
-        EnhancedStats.forceRefresh();
-        NotificationSystem.notifyInfo('Loaded cached data. Some features may be limited.');
-      } catch (cacheError) {
-        console.error('❌ Cache load also failed:', cacheError);
-      }
-    }
-    
-  } else {
-    // User is not authenticated
-    console.log('👤 No user authenticated, redirecting to login...');
-    
-    // Clear any existing data
-    localStorage.removeItem('userId');
-    localStorage.removeItem('userEmail');
-    
-    // Redirect to auth page
-    setTimeout(() => {
-      window.location.href = "auth.html";
-    }, 1000);
-  }
-});
-
-// ===========================
-// SUPPORTING FUNCTIONS
-// ===========================
-
-async function loadAllData() {
-  const user = auth.currentUser;
-  if (!user) {
-    console.error('❌ No user for data loading');
-    return false;
-  }
-
-  console.log('🔄 Loading all data from Firebase...');
-  
-  try {
-    // Load all collections in parallel with progress tracking
-    const loadPromises = [
-      loadCollectionWithRetry('students'),
-      loadCollectionWithRetry('hours'), 
-      loadCollectionWithRetry('marks'),
-      loadCollectionWithRetry('attendance'),
-      loadCollectionWithRetry('payments')
-    ];
-
-    const [students, hours, marks, attendance, payments] = await Promise.all(loadPromises);
-
-    console.log('📊 Data loaded successfully:', {
-      students: students.length,
-      hours: hours.length,
-      marks: marks.length,
-      attendance: attendance.length,
-      payments: payments.length
-    });
-
-    // Update cache with fresh data
-    cache.students = students;
-    cache.hours = hours;
-    cache.marks = marks;
-    cache.attendance = attendance;
-    cache.payments = payments;
-    cache.lastSync = Date.now();
-
-    // Save to localStorage for offline use
-    EnhancedCache.saveToLocalStorageBulk('students', students);
-    EnhancedCache.saveToLocalStorageBulk('hours', hours);
-    EnhancedCache.saveToLocalStorageBulk('marks', marks);
-    EnhancedCache.saveToLocalStorageBulk('attendance', attendance);
-    EnhancedCache.saveToLocalStorageBulk('payments', payments);
-
-    return true;
-  } catch (error) {
-    console.error('❌ Error loading all data:', error);
-    
-    // Try to load from localStorage as fallback
-    try {
-      console.log('🔄 Attempting to load from localStorage cache...');
-      cache.students = EnhancedCache.loadFromLocalStorage('students');
-      cache.hours = EnhancedCache.loadFromLocalStorage('hours');
-      cache.marks = EnhancedCache.loadFromLocalStorage('marks');
-      cache.attendance = EnhancedCache.loadFromLocalStorage('attendance');
-      cache.payments = EnhancedCache.loadFromLocalStorage('payments');
-      
-      console.log('📁 Loaded from cache:', {
-        students: cache.students.length,
-        hours: cache.hours.length,
-        marks: cache.marks.length,
-        attendance: cache.attendance.length,
-        payments: cache.payments.length
-      });
-      
-      return false; // Indicate we're using cached data
-    } catch (cacheError) {
-      console.error('❌ Cache load failed:', cacheError);
-      return false;
-    }
-  }
-}
-
-async function loadCollectionWithRetry(collectionName, retries = 3) {
-  const user = auth.currentUser;
-  if (!user) return [];
-
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      console.log(`🔄 Loading ${collectionName} (attempt ${attempt}/${retries})...`);
-      
-      const querySnapshot = await getDocs(collection(db, "users", user.uid, collectionName));
-      const data = [];
-      
-      querySnapshot.forEach((doc) => {
-        data.push({
-          id: doc.id,
-          ...doc.data(),
-          _firebaseId: doc.id,
-          _synced: true
-        });
-      });
-
-      console.log(`✅ Loaded ${data.length} ${collectionName} from Firebase`);
-      return data;
-    } catch (error) {
-      console.error(`❌ Attempt ${attempt} failed for ${collectionName}:`, error);
-      
-      if (attempt === retries) {
-        throw error;
-      }
-      
-      // Exponential backoff
-      const delay = 1000 * attempt;
-      console.log(`⏳ Waiting ${delay}ms before retry...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-  }
-  return [];
-}
-
-async function refreshAllUI() {
-  console.log('🔄 Refreshing all UI components...');
-  
-  try {
-    await Promise.all([
-      renderStudents(),
-      renderRecentHoursWithEdit(),
-      renderRecentMarksWithEdit(),
-      renderAttendanceRecentWithEdit(),
-      renderPaymentActivityWithEdit(),
-      renderStudentBalancesWithEdit(),
-      renderOverviewReports()
-    ]);
-    
-    // Force refresh dropdowns after UI is rendered
-    await StudentDropdownManager.forceRefresh();
-    
-    // Debug: Check dropdown status
-    setTimeout(debugStudentDropdowns, 1000);
-    
-    console.log('✅ All UI components refreshed');
-  } catch (error) {
-    console.error('❌ Error refreshing UI:', error);
-  }
-}
-
-// Add loading CSS for better UX
-function injectLoadingStyles() {
-  if (!document.querySelector('#loading-styles')) {
+  // Add report styles if not already added
+  if (!document.querySelector('#report-styles')) {
     const style = document.createElement('style');
-    style.id = 'loading-styles';
+    style.id = 'report-styles';
     style.textContent = `
-      body.loading {
-        cursor: wait !important;
-      }
-      
-      body.loading * {
-        pointer-events: none !important;
-      }
-      
-      .loading-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.7);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 9999;
-        color: white;
-        font-size: 1.2em;
-      }
-      
-      .loading-spinner {
-        border: 4px solid #f3f3f3;
-        border-top: 4px solid #3498db;
-        border-radius: 50%;
-        width: 50px;
-        height: 50px;
-        animation: spin 2s linear infinite;
+      .report-header {
+        border-bottom: 2px solid var(--border);
+        padding-bottom: 20px;
         margin-bottom: 20px;
       }
       
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+      .report-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+      }
+      
+      .stat-card {
+        background: var(--background);
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+        border: 1px solid var(--border);
+      }
+      
+      .stat-value {
+        font-size: 1.5em;
+        font-weight: bold;
+        color: var(--primary);
+      }
+      
+      .stat-label {
+        font-size: 0.85em;
+        color: var(--muted);
+        margin-top: 5px;
+      }
+      
+      .report-section {
+        margin: 25px 0;
+      }
+      
+      .report-section h4 {
+        color: var(--text);
+        margin-bottom: 15px;
+        border-bottom: 1px solid var(--border-light);
+        padding-bottom: 8px;
+      }
+      
+      .student-earnings, .session-list, .payment-list, .marks-list, .subject-breakdown {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      
+      .earning-item, .session-item, .payment-item, .mark-item, .subject-item {
+        background: var(--background);
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+      }
+      
+      .session-header, .payment-header, .mark-header, .subject-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+      
+      .session-details, .payment-details, .mark-details, .subject-details {
+        display: flex;
+        gap: 15px;
+        font-size: 0.9em;
+        color: var(--muted);
+        flex-wrap: wrap;
+      }
+      
+      .session-total, .payment-amount, .mark-percentage, .subject-hours {
+        font-weight: bold;
+        color: var(--primary);
+      }
+      
+      .payment-summary {
+        background: var(--background);
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+      }
+      
+      .payment-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border-light);
+      }
+      
+      .payment-item.outstanding {
+        border-bottom: none;
+        font-weight: bold;
+        color: var(--warning);
+      }
+      
+      .performance-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+      }
+      
+      .performance-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px;
+        background: var(--background);
+        border-radius: 6px;
+        border: 1px solid var(--border-light);
+      }
+      
+      .grade-badge {
+        background: var(--primary-light);
+        color: var(--primary);
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.8em;
+        margin-right: 5px;
+      }
+      
+      .chart-item {
+        display: flex;
+        align-items: center;
+        margin: 10px 0;
+        gap: 10px;
+      }
+      
+      .chart-label {
+        min-width: 100px;
+        font-size: 0.9em;
+      }
+      
+      .chart-bar {
+        flex: 1;
+        background: var(--border-light);
+        height: 20px;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      
+      .chart-fill {
+        background: var(--primary);
+        height: 100%;
+        transition: width 0.5s ease;
+      }
+      
+      .chart-value {
+        min-width: 80px;
+        text-align: right;
+        font-size: 0.85em;
+        color: var(--muted);
+      }
+      
+      .subject-grades {
+        margin-top: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
       }
     `;
     document.head.appendChild(style);
   }
 }
 
-// Initialize loading styles when app starts
-injectLoadingStyles();
-
 // ===========================
-// FIXED DATE HANDLING FUNCTIONS
+// OVERVIEW REPORTS
 // ===========================
 
-function fmtDateISO(yyyyMmDd) {
-  if (!yyyyMmDd) return new Date().toISOString();
+async function renderOverviewReports() {
+  await renderStudentBalancesWithEdit();
+  await renderPaymentActivityWithEdit();
+  
+  // Update overview stats
+  EnhancedStats.forceRefresh();
+}
+
+// ===========================
+// USER SETTINGS FUNCTIONS
+// ===========================
+
+async function updateUserDefaultRate(uid, newRate) {
   try {
-    // Parse as local date, convert to UTC for storage
-    const [year, month, day] = yyyyMmDd.split('-').map(Number);
-    const date = new Date(year, month - 1, day);
-    return date.toISOString();
-  } catch {
-    return new Date().toISOString();
+    const userRef = doc(db, "users", uid);
+    await updateDoc(userRef, { defaultRate: newRate });
+    
+    currentUserData.defaultRate = newRate;
+    localStorage.setItem('userDefaultRate', newRate.toString());
+    
+    console.log('✅ Default rate updated:', newRate);
+    return true;
+  } catch (error) {
+    console.error('Error updating default rate:', error);
+    return false;
+  }
+}
+
+async function applyDefaultRateToAllStudents(uid, newRate) {
+  try {
+    const students = await EnhancedCache.loadCollection('students');
+    const batch = writeBatch(db);
+    
+    let updateCount = 0;
+    
+    students.forEach(student => {
+      if (student._firebaseId) {
+        const studentRef = doc(db, "users", uid, "students", student._firebaseId);
+        batch.update(studentRef, { rate: newRate });
+        updateCount++;
+      }
+    });
+    
+    if (updateCount > 0) {
+      await batch.commit();
+      
+      // Update local cache
+      students.forEach(student => {
+        student.rate = newRate;
+      });
+      cache.students = students;
+      EnhancedCache.saveToLocalStorageBulk('students', students);
+      
+      NotificationSystem.notifySuccess(`Applied default rate to ${updateCount} students`);
+      console.log(`✅ Applied default rate to ${updateCount} students`);
+    } else {
+      NotificationSystem.notifyInfo('No students found to update');
+    }
+    
+    return updateCount;
+  } catch (error) {
+    console.error('Error applying default rate to all students:', error);
+    NotificationSystem.notifyError('Failed to apply default rate to all students');
+    return 0;
   }
 }
 
 // ===========================
-// EXPORT FUNCTIONS TO WINDOW OBJECT
+// INITIALIZATION
 // ===========================
 
-// Make sure all necessary functions are available globally
-window.updateProfileButton = updateProfileButton;
-window.setupProfileModal = setupProfileModal;
-window.loadUserProfile = loadUserProfile;
+async function initializeApp() {
+  console.log('🚀 Initializing WorkLog App...');
+  
+  // Initialize notification system first
+  NotificationSystem.initNotificationStyles();
+  
+  // Initialize theme
+  initializeTheme();
+  injectThemeStyles();
+  
+  // Setup authentication state listener
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      console.log('✅ User authenticated:', user.email);
+      
+      // Load user profile and data
+      await loadUserProfile(user.uid);
+      EnhancedCache.loadCachedData();
+      
+      // Initialize systems
+      setupTabNavigation();
+      setupFormHandlers();
+      setupProfileModal();
+      setupFloatingAddButton();
+      SyncBar.init();
+      EnhancedStats.init();
+      
+      // Load and render initial data
+      await Promise.all([
+        renderStudents(),
+        renderRecentHoursWithEdit(),
+        renderRecentMarksWithEdit(),
+        renderAttendanceRecentWithEdit(),
+        renderOverviewReports()
+      ]);
+      
+      // Populate dropdowns
+      await StudentDropdownManager.forceRefresh();
+      
+      // Update UI
+      updateHeaderStats();
+      refreshTimestamp();
+      
+      console.log('✅ App initialization complete');
+      
+    } else {
+      console.log('❌ No user signed in, redirecting to auth...');
+      window.location.href = "auth.html";
+    }
+  });
+}
 
-// Enhanced functions for edit features
-window.startEditHours = startEditHours;
-window.cancelEditHours = cancelEditHours;
-window.deleteHours = deleteHours;
-window.deleteMark = deleteMark;
-window.deleteAttendance = deleteAttendance;
-window.deletePayment = deletePayment;
-window.deleteStudent = deleteStudent;
-window.startEditMark = startEditMark;
-window.cancelEditMark = cancelEditMark;
-window.startEditAttendance = startEditAttendance;
-window.cancelEditAttendance = cancelEditAttendance;
-window.startEditPayment = startEditPayment;
-window.cancelEditPayment = cancelEditPayment;
-window.quickAddPayment = quickAddPayment;
+// Start the app when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('📄 DOM Content Loaded - Starting app initialization...');
+  initializeApp();
+});
 
-// Your existing exports
-window.showWeeklyBreakdown = showWeeklyBreakdown;
-window.showBiWeeklyBreakdown = showBiWeeklyBreakdown;
-window.showMonthlyBreakdown = showMonthlyBreakdown;
-window.showSubjectBreakdown = showSubjectBreakdown;
+// Export functions for global access
+window.NotificationSystem = NotificationSystem;
+window.debugStudentDropdowns = debugStudentDropdowns;
+window.manuallyRefreshStudentDropdowns = manuallyRefreshStudentDropdowns;
+window.selectAllStudents = selectAllStudents;
+window.clearAttendanceForm = clearAttendanceForm;
 window.saveDefaultRate = saveDefaultRate;
 window.applyDefaultRateToAll = applyDefaultRateToAll;
 window.useDefaultRate = useDefaultRate;
 window.useDefaultRateInHours = useDefaultRateInHours;
-window.editStudent = editStudent;
-window.deleteStudent = deleteStudent;
-window.NotificationSystem = NotificationSystem;
-window.switchTab = switchTab;
-window.renderPaymentActivity = renderPaymentActivityWithEdit; // Updated to use enhanced version
-window.updateProfileModal = updateProfileModal;
-window.setupProfileModal = setupProfileModal;
-window.renderOverviewReports = renderOverviewReports;
-window.loadReportData = loadReportData;
-window.generatePeriodReport = generatePeriodReport;
-window.generateSubjectReport = generateSubjectReport;
-window.debugStudentDropdowns = debugStudentDropdowns;
-window.manuallyRefreshStudentDropdowns = manuallyRefreshStudentDropdowns;
-window.formatStudentDisplay = formatStudentDisplay;
-window.populateHoursStudentDropdown = populateHoursStudentDropdown;
-window.populateAttendanceStudents = populateAttendanceStudents;
-window.recordPayment = recordPayment;
-window.deletePayment = deletePayment;
-window.quickAddPayment = quickAddPayment;
-window.debugStudentDropdowns = debugStudentDropdowns;
-window.manuallyRefreshStudentDropdowns = manuallyRefreshStudentDropdowns;
-window.formatStudentDisplay = formatStudentDisplay;
+window.showWeeklyBreakdown = showWeeklyBreakdown;
+window.showBiWeeklyBreakdown = showBiWeeklyBreakdown;
+window.showMonthlyBreakdown = showMonthlyBreakdown;
+window.showSubjectBreakdown = showSubjectBreakdown;
 
-console.log('✅ All functions exported to window object');
-});
+console.log('✅ worklog.js loaded successfully');
