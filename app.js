@@ -114,6 +114,82 @@ function initializeTheme() {
   console.warn('initializeTheme is not yet implemented');
 }
 
+function injectThemeStyles() {
+  if (!document.querySelector('#theme-styles')) {
+    const style = document.createElement('style');
+    style.id = 'theme-styles';
+    style.textContent = `
+      :root {
+        --primary: #3498db;
+        --surface: #ffffff;
+        --surface-2: #f6f6f6;
+        --background: #fafafa;
+        --border: #ddd;
+        --text: #333;
+        --muted: #666;
+      }
+      body.dark {
+        --primary: #10b981;
+        --surface: #1f2937;
+        --surface-2: #374151;
+        --background: #111827;
+        --border: #4b5563;
+        --text: #f9fafb;
+        --muted: #9ca3af;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+}
+
+function initializeTheme() {
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme === 'dark') {
+    document.body.classList.add('dark');
+  } else {
+    document.body.classList.remove('dark');
+  }
+
+  const toggle = document.getElementById('themeToggle');
+  if (toggle) {
+    toggle.onclick = () => {
+      document.body.classList.toggle('dark');
+      localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+    };
+  }
+}
+
+function setupProfileModal() {
+  const modal = document.getElementById('profileModal');
+  const openBtn = document.getElementById('openProfileBtn');
+  const closeBtn = document.getElementById('closeProfileBtn');
+  const saveBtn = document.getElementById('saveProfileBtn');
+
+  if (!modal) return;
+
+  if (openBtn) openBtn.onclick = () => { modal.style.display = 'flex'; };
+  if (closeBtn) closeBtn.onclick = () => { modal.style.display = 'none'; };
+  if (saveBtn) {
+    saveBtn.onclick = async () => {
+      const nameInput = document.getElementById('profileName');
+      const rateInput = document.getElementById('profileRate');
+      const updatedProfile = {
+        name: nameInput?.value.trim(),
+        defaultRate: parseFloat(rateInput?.value) || 0
+      };
+      try {
+        await updateProfileModal(updatedProfile);
+        NotificationSystem.notifySuccess('Profile updated successfully');
+        modal.style.display = 'none';
+      } catch (err) {
+        NotificationSystem.notifyError('Failed to update profile');
+      }
+    };
+  }
+
+  modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+}
+
 // ===========================
 // LOADING OVERLAY & STYLES
 // ===========================
@@ -1363,12 +1439,13 @@ async function loadReportDataEntrypoint() {
 // ===========================
 (function exportGlobals() {
   const exports = {
-    // UI & profile
-    updateProfileButton,
+    // Theme & profile
+    injectThemeStyles,
+    initializeTheme,
     setupProfileModal,
-    loadUserProfile,
-    updateHeaderStats,
-    setupFloatingAddButton,
+    updateProfileModal,   // already exists in your code
+    loadUserProfile,      // already exists in your code
+
     // Dropdowns & attendance
     StudentDropdownManager,
     populateStudentDropdowns,
@@ -1377,6 +1454,7 @@ async function loadReportDataEntrypoint() {
     formatStudentDisplay,
     debugStudentDropdowns,
     manuallyRefreshStudentDropdowns,
+
     // Reports
     showWeeklyBreakdown,
     showBiWeeklyBreakdown,
@@ -1387,11 +1465,14 @@ async function loadReportDataEntrypoint() {
     generateSubjectReport,
     generateStudentPerformanceReport,
     renderOverviewReports,
+
     // Navigation
     switchTab,
     setupTabNavigation,
+
     // Payment activity
     renderPaymentActivity: renderPaymentActivityWithEdit,
+
     // Edit/delete
     startEditHours,
     cancelEditHours,
@@ -1408,10 +1489,12 @@ async function loadReportDataEntrypoint() {
     cancelEditPayment,
     quickAddPayment,
     recordPayment,
+
     // Support & cache
     loadAllData,
     loadCollectionWithRetry,
     refreshAllUI,
+
     // Date helpers
     fmtDateISO,
     formatDateForDisplay,
@@ -1422,14 +1505,21 @@ async function loadReportDataEntrypoint() {
     getEndOfMonth,
     getWeekNumber,
     isDateInRange,
+
     // Systems
     NotificationSystem,
     EnhancedStats,
     EnhancedCache,
     SyncBar
   };
+
   Object.entries(exports).forEach(([key, fn]) => {
-    if (typeof fn !== 'undefined') window[key] = fn;
+    if (typeof fn !== 'undefined') {
+      window[key] = fn;
+    } else {
+      console.warn(`⚠️ Export skipped: ${key} is undefined`);
+    }
   });
+
   console.log('✅ All functions exported to window object');
 })();
