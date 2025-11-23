@@ -4354,7 +4354,75 @@ function createDateRangeModal(reportType, onConfirm) {
   startDateInput.value = firstDay.toISOString().split('T')[0];
   
   const buttonContainer = document.createElement('div');
-  buttonContainer.style.cssText = '// ===========================
+  buttonContainer.style.cssText = 'display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;';
+  
+  const cancelButton = document.createElement('button');
+  cancelButton.textContent = 'Cancel';
+  cancelButton.style.cssText = `
+    padding: 8px 16px; border: 1px solid var(--border); 
+    border-radius: 6px; background: var(--background); 
+    color: var(--text); cursor: pointer;
+  `;
+  
+  const confirmButton = document.createElement('button');
+  confirmButton.textContent = 'Generate Report';
+  confirmButton.style.cssText = `
+    padding: 8px 16px; border: none; border-radius: 6px; 
+    background: var(--primary); color: white; cursor: pointer;
+  `;
+  
+  // Event handlers
+  const closeModal = () => document.body.removeChild(modal);
+  
+  cancelButton.addEventListener('click', closeModal);
+  
+  confirmButton.addEventListener('click', () => {
+    const startDate = startDateInput.value;
+    const endDate = endDateInput.value;
+    
+    if (!startDate || !endDate) {
+      alert('Please select both start and end dates');
+      return;
+    }
+    
+    if (new Date(startDate) > new Date(endDate)) {
+      alert('Start date cannot be after end date');
+      return;
+    }
+    
+    onConfirm(startDate, endDate);
+    closeModal();
+  });
+  
+  // Close modal when clicking outside
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      closeModal();
+    }
+  });
+  
+  // Assemble modal
+  buttonContainer.appendChild(cancelButton);
+  buttonContainer.appendChild(confirmButton);
+  
+  modalContent.appendChild(title);
+  modalContent.appendChild(startDateInput);
+  modalContent.appendChild(endDateInput);
+  modalContent.appendChild(buttonContainer);
+  
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
+  
+  // Focus on modal for better accessibility
+  modalContent.focus();
+}
+
+// Helper function (make sure this exists)
+function getStartOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+    
+// ===========================
 // REPORT GENERATION FUNCTIONS
 // ===========================
 
