@@ -3770,6 +3770,353 @@ async function renderOverviewReports() {
   EnhancedStats.forceRefresh();
 }
 
+/**
+ * Clear the attendance form and reset to default values
+ */
+function clearAttendanceForm() {
+    console.log('🧹 Clearing attendance form...');
+    
+    // Reset form fields
+    document.getElementById('attendance-date').value = '';
+    document.getElementById('clock-in-time').value = '';
+    document.getElementById('clock-out-time').value = '';
+    document.getElementById('break-duration').value = '30';
+    document.getElementById('notes').value = '';
+    
+    // Reset any error states
+    const errorElements = document.querySelectorAll('.error-message');
+    errorElements.forEach(element => {
+        element.textContent = '';
+        element.style.display = 'none';
+    });
+    
+    // Remove any success messages
+    const successMessage = document.getElementById('success-message');
+    if (successMessage) {
+        successMessage.style.display = 'none';
+    }
+    
+    console.log('✅ Attendance form cleared');
+}
+
+/**
+ * Load user profile data from Firestore
+ */
+/**
+ * Load user profile data from Firestore
+ */
+async function loadUserProfile(userId) {
+    console.log('👤 Loading user profile for:', userId);
+    
+    try {
+        const userDoc = await db.collection('users').doc(userId).get();
+        
+        if (userDoc.exists) {
+            const userData = userDoc.data();
+            console.log('✅ User profile loaded:', userData);
+            
+            // Store user data globally for easy access
+            window.currentUser = userData;
+            window.currentUser.uid = userId;
+            
+            // Update UI with user data
+            updateUserProfileUI(userData);
+            
+            return userData;
+        } else {
+            console.log('⚠️ No user profile found, creating default...');
+            // Create default user profile
+            const user = auth.currentUser;
+            const defaultUserData = {
+                email: user.email,
+                displayName: user.displayName || user.email.split('@')[0],
+                createdAt: new Date(),
+                theme: 'dark',
+                breakDuration: 30,
+                currency: 'USD',
+                schoolName: '',
+                className: ''
+            };
+            
+            await db.collection('users').doc(userId).set(defaultUserData);
+            
+            // Store globally
+            window.currentUser = defaultUserData;
+            window.currentUser.uid = userId;
+            
+            updateUserProfileUI(defaultUserData);
+            
+            return defaultUserData;
+        }
+    } catch (error) {
+        console.error('❌ Error loading user profile:', error);
+        showNotification('Error loading user profile', 'error');
+        throw error; // Re-throw to handle in caller
+    }
+}
+
+/**
+ * Update UI with user profile data
+ */
+function updateUserProfileUI(userData) {
+    console.log('🎨 Updating UI with user profile data...');
+    
+    // Update user display name if element exists
+    const userDisplayElement = document.getElementById('user-display-name');
+    if (userDisplayElement && userData.displayName) {
+        userDisplayElement.textContent = userData.displayName;
+    }
+    
+    // Update user email if element exists
+    const userEmailElement = document.getElementById('user-email');
+    if (userEmailElement && userData.email) {
+        userEmailElement.textContent = userData.email;
+    }
+    
+    // Apply user theme preference
+    if (userData.theme) {
+        applyTheme(userData.theme);
+        
+        // Update theme toggle button state
+        const themeToggle = document.getElementById('theme-toggle');
+        if (themeToggle) {
+            const isDark = userData.theme === 'dark';
+            themeToggle.innerHTML = isDark ? '☀️' : '🌙';
+            themeToggle.setAttribute('data-theme', userData.theme);
+        }
+    }
+    
+    // Update break duration in form if it exists
+    const breakDurationInput = document.getElementById('break-duration');
+    if (breakDurationInput && userData.breakDuration) {
+        breakDurationInput.value = userData.breakDuration;
+    }
+    
+    console.log('✅ UI updated with user profile');
+}
+
+/**
+ * Apply theme to the application
+ */
+function applyTheme(theme) {
+    console.log(`🎨 Applying ${theme} theme...`);
+    
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.className = theme;
+    
+    // Update theme in localStorage
+    localStorage.setItem('worklog-theme', theme);
+    
+    console.log(`✅ ${theme} theme applied`);
+}
+
+/**
+ * Setup tab navigation system
+ */
+function setupTabNavigation() {
+    console.log('🔧 Setting up tab navigation...');
+    
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabPanes = document.querySelectorAll('.tab-pane');
+    
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const targetTab = button.getAttribute('data-tab');
+            
+            // Update active tab button
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            
+            // Show target tab pane
+            tabPanes.forEach(pane => {
+                pane.classList.remove('active');
+                if (pane.id === targetTab) {
+                    pane.classList.add('active');
+                }
+            });
+            
+            console.log(`📱 Switched to tab: ${targetTab}`);
+        });
+    });
+    
+    console.log('✅ Tab navigation setup complete');
+}
+
+/**
+ * Setup form handlers for all forms
+ */
+function setupFormHandlers() {
+    console.log('🔧 Setting up form handlers...');
+    
+    // Student form
+    const studentForm = document.getElementById('student-form');
+    if (studentForm) {
+        studentForm.addEventListener('submit', handleStudentSubmit);
+    }
+    
+    // Hours form
+    const hoursForm = document.getElementById('hours-form');
+    if (hoursForm) {
+        hoursForm.addEventListener('submit', handleHoursSubmit);
+    }
+    
+    // Marks form
+    const marksForm = document.getElementById('marks-form');
+    if (marksForm) {
+        marksForm.addEventListener('submit', handleMarksSubmit);
+    }
+    
+    // Attendance form
+    const attendanceForm = document.getElementById('attendance-form');
+    if (attendanceForm) {
+        attendanceForm.addEventListener('submit', handleAttendanceSubmit);
+    }
+    
+    console.log('✅ Form handlers setup complete');
+}
+
+/**
+ * Setup profile modal functionality
+ */
+function setupProfileModal() {
+    console.log('🔧 Setting up profile modal...');
+    
+    const profileModal = document.getElementById('profile-modal');
+    const profileButton = document.getElementById('profile-button');
+    const closeProfile = document.getElementById('close-profile');
+    const profileForm = document.getElementById('profile-form');
+    
+    if (profileButton && profileModal) {
+        profileButton.addEventListener('click', () => {
+            profileModal.style.display = 'block';
+            loadProfileData();
+        });
+    }
+    
+    if (closeProfile) {
+        closeProfile.addEventListener('click', () => {
+            profileModal.style.display = 'none';
+        });
+    }
+    
+    if (profileForm) {
+        profileForm.addEventListener('submit', handleProfileSubmit);
+    }
+    
+    // Close modal when clicking outside
+    window.addEventListener('click', (event) => {
+        if (event.target === profileModal) {
+            profileModal.style.display = 'none';
+        }
+    });
+    
+    console.log('✅ Profile modal setup complete');
+}
+
+/**
+ * Setup floating add button
+ */
+function setupFloatingAddButton() {
+    console.log('🔧 Setting up floating add button...');
+    
+    const fab = document.getElementById('floating-add-btn');
+    const quickAddModal = document.getElementById('quick-add-modal');
+    const closeQuickAdd = document.getElementById('close-quick-add');
+    
+    if (fab && quickAddModal) {
+        fab.addEventListener('click', () => {
+            quickAddModal.style.display = 'block';
+        });
+    }
+    
+    if (closeQuickAdd) {
+        closeQuickAdd.addEventListener('click', () => {
+            quickAddModal.style.display = 'none';
+        });
+    }
+    
+    // Close modal when clicking outside
+    window.addEventListener('click', (event) => {
+        if (event.target === quickAddModal) {
+            quickAddModal.style.display = 'none';
+        }
+    });
+    
+    console.log('✅ Floating add button setup complete');
+}
+
+/**
+ * Load data into profile form
+ */
+async function loadProfileData() {
+    try {
+        const user = auth.currentUser;
+        if (!user) return;
+        
+        const userDoc = await db.collection('users').doc(user.uid).get();
+        if (userDoc.exists) {
+            const userData = userDoc.data();
+            
+            // Populate form fields
+            document.getElementById('profile-display-name').value = userData.displayName || '';
+            document.getElementById('profile-school').value = userData.schoolName || '';
+            document.getElementById('profile-class').value = userData.className || '';
+            document.getElementById('profile-break-duration').value = userData.breakDuration || 30;
+            document.getElementById('profile-currency').value = userData.currency || 'USD';
+            
+            // Theme selection
+            const themeSelect = document.getElementById('profile-theme');
+            if (themeSelect) {
+                themeSelect.value = userData.theme || 'dark';
+            }
+        }
+    } catch (error) {
+        console.error('Error loading profile data:', error);
+        showNotification('Error loading profile data', 'error');
+    }
+}
+
+/**
+ * Handle profile form submission
+ */
+async function handleProfileSubmit(e) {
+    e.preventDefault();
+    
+    try {
+        const user = auth.currentUser;
+        if (!user) return;
+        
+        const profileData = {
+            displayName: document.getElementById('profile-display-name').value,
+            schoolName: document.getElementById('profile-school').value,
+            className: document.getElementById('profile-class').value,
+            breakDuration: parseInt(document.getElementById('profile-break-duration').value),
+            currency: document.getElementById('profile-currency').value,
+            theme: document.getElementById('profile-theme').value,
+            updatedAt: new Date()
+        };
+        
+        await db.collection('users').doc(user.uid).set(profileData, { merge: true });
+        
+        // Update global user data
+        if (window.currentUser) {
+            Object.assign(window.currentUser, profileData);
+        }
+        
+        // Apply theme if changed
+        applyTheme(profileData.theme);
+        
+        showNotification('Profile updated successfully!', 'success');
+        
+        // Close modal
+        document.getElementById('profile-modal').style.display = 'none';
+        
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        showNotification('Error updating profile', 'error');
+    }
+}
+
 // ===========================
 // INITIALIZATION
 // ===========================
