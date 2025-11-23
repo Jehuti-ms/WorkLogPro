@@ -705,7 +705,7 @@ const EnhancedStats = {
         EnhancedCache.loadCollection('payments')
       ]);
       
-      // FIX: Use student IDs as keys to prevent merging issues
+      // FIX 1: Use student IDs as keys to prevent merging issues
       const earningsByStudentId = {};
       const paymentsByStudentId = {};
       
@@ -779,7 +779,7 @@ const EnhancedStats = {
         outstanding: outstanding
       });
       
-      // FIX: Currency formatting - fmtMoney is numeric only, prepend $ in display
+      // FIX 3: Currency formatting - fmtMoney is numeric only, prepend $ in display
       this.updateElement('totalStudentsReport', students.length);
       this.updateElement('totalHoursReport', totalHours.toFixed(1));
       this.updateElement('totalEarningsReport', `$${fmtMoney(totalEarnings)}`);
@@ -826,7 +826,7 @@ function safeNumber(n, fallback = 0) {
   return Number.isFinite(v) ? v : fallback;
 }
 
-// FIX: fmtMoney returns numeric only to prevent double $$ formatting
+// FIX 3: fmtMoney returns numeric only to prevent double $$ formatting
 function fmtMoney(n) {
   return safeNumber(n).toFixed(2);
 }
@@ -916,7 +916,7 @@ function isDateInRange(entryDate, startDate, endDate) {
   }
 }
 
-// FIX: Student display formatting consistency
+// FIX 2: Student display formatting consistency
 function formatStudentDisplay(student) {
   if (!student) return 'Unknown Student';
   
@@ -934,7 +934,7 @@ function formatStudentDisplay(student) {
   return 'Unknown Student';
 }
 
-// FIX: Enhanced student lookup helper
+// FIX 1: Enhanced student lookup helper
 function findStudentByNameOrId(students, identifier) {
   if (!identifier) return null;
   
@@ -957,7 +957,6 @@ function debugStudentDropdowns() {
   console.log('👤 User:', user ? user.email : 'No user');
   console.log('📊 Cache students:', cache.students?.length || 0);
   
-  // FIX: Using correct IDs for hours tab
   const dropdowns = [
     { id: 'hoursStudent', name: 'Hours Tab' },
     { id: 'marksStudent', name: 'Marks Tab' },
@@ -2066,7 +2065,7 @@ async function renderStudents(forceRefresh = false) {
 
     let studentsHTML = '';
     students.forEach(student => {
-      // FIX: Use formatStudentDisplay for consistent display
+      // FIX 2: Use formatStudentDisplay for consistent display
       const studentDisplay = formatStudentDisplay(student);
       
       studentsHTML += `
@@ -2099,7 +2098,7 @@ async function renderStudents(forceRefresh = false) {
 }
 
 // ===========================
-// HOURS TAB FUNCTIONS (FIXED)
+// HOURS TAB FUNCTIONS
 // ===========================
 
 async function populateHoursStudentDropdown() {
@@ -2265,7 +2264,7 @@ async function startEditHours(id) {
       return;
     }
     
-    // FIX: Remove existing cancel button before adding new one
+    // FIX 4: Remove existing cancel button before adding new one
     const existingCancelBtn = document.querySelector('#hoursForm button[type="button"]');
     if (existingCancelBtn) {
       existingCancelBtn.remove();
@@ -2340,7 +2339,7 @@ async function deleteHours(id) {
     EnhancedCache.saveToLocalStorageBulk('hours', updatedHours);
 
     await renderRecentHoursWithEdit();
-    // FIX: Refresh stats after deletion
+    // FIX 4: Refresh stats after deletion
     EnhancedStats.forceRefresh();
     
     NotificationSystem.notifySuccess('Hours entry deleted successfully');
@@ -2408,7 +2407,7 @@ async function handleHoursSubmit(e) {
       FormAutoClear.handleSuccess('hoursForm', { baseRate: rate });
     }
     
-    // FIX: Refresh stats after save/update
+    // FIX 4: Refresh stats after save/update
     EnhancedStats.forceRefresh();
     await renderRecentHoursWithEdit();
     
@@ -2419,7 +2418,7 @@ async function handleHoursSubmit(e) {
 }
 
 // ===========================
-// MARKS TAB FUNCTIONS (FIXED)
+// MARKS TAB FUNCTIONS
 // ===========================
 
 async function renderRecentMarksWithEdit(limit = 10) {
@@ -2454,7 +2453,7 @@ async function renderRecentMarksWithEdit(limit = 10) {
     let marksHTML = '';
     sortedMarks.slice(0, limit).forEach(entry => {
       const student = studentMap[entry.student] || { name: entry.student, id: 'N/A' };
-      // FIX: Use formatStudentDisplay for consistent display
+      // FIX 2: Use formatStudentDisplay for consistent display
       const studentDisplay = formatStudentDisplay(student);
       
       marksHTML += `
@@ -2503,6 +2502,7 @@ async function startEditMark(id) {
     document.getElementById('marksNotes').value = entry.notes || '';
     
     const submitBtn = document.querySelector('#marksForm button[type="submit"]');
+    // FIX 4: Remove existing cancel button before adding new one
     const existingCancelBtn = document.querySelector('#marksForm button[type="button"]');
     if (existingCancelBtn) {
       existingCancelBtn.remove();
@@ -2560,7 +2560,7 @@ async function deleteMark(id) {
     EnhancedCache.saveToLocalStorageBulk('marks', updatedMarks);
 
     await renderRecentMarksWithEdit();
-    // FIX: Refresh stats after deletion
+    // FIX 4: Refresh stats after deletion
     EnhancedStats.forceRefresh();
     
     NotificationSystem.notifySuccess('Mark deleted successfully');
@@ -2628,7 +2628,7 @@ async function handleMarksSubmit(e) {
       FormAutoClear.handleSuccess('marksForm');
     }
     
-    // FIX: Refresh stats after save/update
+    // FIX 4: Refresh stats after save/update
     EnhancedStats.forceRefresh();
     await renderRecentMarksWithEdit();
     
@@ -2639,7 +2639,7 @@ async function handleMarksSubmit(e) {
 }
 
 // ===========================
-// ATTENDANCE TAB FUNCTIONS (FIXED)
+// ATTENDANCE TAB FUNCTIONS
 // ===========================
 
 async function populateAttendanceStudents() {
@@ -2665,7 +2665,7 @@ async function populateAttendanceStudents() {
     }
 
     students.forEach(student => {
-      // FIX: Use formatStudentDisplay for consistent display
+      // FIX 2: Use formatStudentDisplay for consistent display
       const studentDisplay = formatStudentDisplay(student);
       
       const container = document.createElement('div');
@@ -2783,6 +2783,7 @@ async function startEditAttendance(id) {
     }
     
     const submitBtn = document.querySelector('#attendanceForm button[type="submit"]');
+    // FIX 4: Remove existing cancel button before adding new one
     const existingCancelBtn = document.querySelector('#attendanceForm button[type="button"]');
     if (existingCancelBtn) {
       existingCancelBtn.remove();
@@ -2849,7 +2850,7 @@ async function deleteAttendance(id) {
     EnhancedCache.saveToLocalStorageBulk('attendance', updatedAttendance);
 
     await renderAttendanceRecentWithEdit();
-    // FIX: Refresh stats after deletion
+    // FIX 4: Refresh stats after deletion
     EnhancedStats.forceRefresh();
     
     NotificationSystem.notifySuccess('Attendance record deleted successfully');
@@ -2911,7 +2912,7 @@ async function handleAttendanceSubmit(e) {
       FormAutoClear.handleSuccess('attendanceForm');
     }
     
-    // FIX: Refresh stats after save/update
+    // FIX 4: Refresh stats after save/update
     EnhancedStats.forceRefresh();
     await renderAttendanceRecentWithEdit();
     
@@ -2922,7 +2923,7 @@ async function handleAttendanceSubmit(e) {
 }
 
 // ===========================
-// PAYMENT MANAGEMENT FUNCTIONS (FIXED)
+// PAYMENT MANAGEMENT FUNCTIONS
 // ===========================
 
 async function renderPaymentActivityWithEdit(limit = 10) {
@@ -2975,7 +2976,7 @@ async function renderPaymentActivityWithEdit(limit = 10) {
   }
 }
 
-// FIX: Student balances with consistent identification and display
+// FIX 1 & 2: Student balances with consistent identification and display
 async function renderStudentBalancesWithEdit() {
   const container = document.getElementById('studentBalancesContainer');
   if (!container) return;
@@ -2999,7 +3000,7 @@ async function renderStudentBalancesWithEdit() {
       return;
     }
 
-    // FIX: Use student IDs as keys instead of names to prevent merging issues
+    // FIX 1: Use student IDs as keys instead of names to prevent merging issues
     const earningsByStudentId = {};
     const paymentsByStudentId = {};
     
@@ -3033,7 +3034,7 @@ async function renderStudentBalancesWithEdit() {
       const owed = Math.max(earned - paid, 0);
       totalOwed += owed;
 
-      // FIX: Use formatStudentDisplay for consistent display
+      // FIX 2: Use formatStudentDisplay for consistent display
       const studentDisplay = formatStudentDisplay(student);
 
       balancesHTML += `
@@ -3061,7 +3062,7 @@ async function renderStudentBalancesWithEdit() {
     if (totalOwedEl) totalOwedEl.textContent = `$${fmtMoney(totalOwed)}`;
     if (totalStudentsCountEl) totalStudentsCountEl.textContent = students.length;
 
-    // FIX: Refresh stats to stay in sync
+    // FIX 4: Refresh stats to stay in sync
     EnhancedStats.forceRefresh();
 
     console.log(`✅ Rendered balances for ${students.length} students, total owed: $${fmtMoney(totalOwed)}`);
@@ -3091,7 +3092,7 @@ async function startEditPayment(id) {
     document.getElementById('paymentNotes').value = entry.notes || '';
     
     const submitBtn = document.querySelector('#paymentForm button[type="submit"]');
-    // FIX: Remove existing cancel button before adding new one
+    // FIX 4: Remove existing cancel button before adding new one
     const existingCancelBtn = document.querySelector('#paymentForm button[type="button"]');
     if (existingCancelBtn) {
       existingCancelBtn.remove();
@@ -3150,7 +3151,7 @@ async function deletePayment(id) {
 
     await renderPaymentActivityWithEdit();
     await renderStudentBalancesWithEdit();
-    // FIX: Refresh stats after deletion
+    // FIX 4: Refresh stats after deletion
     EnhancedStats.forceRefresh();
     
     NotificationSystem.notifySuccess('Payment deleted successfully');
@@ -3216,7 +3217,7 @@ async function handlePaymentSubmit(e) {
       FormAutoClear.handleSuccess('paymentForm');
     }
     
-    // FIX: Refresh stats after save/update
+    // FIX 4: Refresh stats after save/update
     EnhancedStats.forceRefresh();
     await renderPaymentActivityWithEdit();
     await renderStudentBalancesWithEdit();
@@ -3249,7 +3250,7 @@ async function handleStudentSubmit(e) {
     try {
         await EnhancedCache.saveWithBackgroundSync('students', studentData);
         FormAutoClear.handleSuccess('studentForm');
-        // FIX: Refresh stats after student creation
+        // FIX 4: Refresh stats after student creation
         EnhancedStats.forceRefresh();
         
         setTimeout(() => {
@@ -4089,7 +4090,7 @@ function debugTabState() {
 }
 
 // ===========================
-// REPORT FUNCTIONS (FIXED)
+// REPORT FUNCTIONS
 // ===========================
 
 function showWeeklyBreakdown() {
@@ -4354,74 +4355,52 @@ function createDateRangeModal(reportType, onConfirm) {
   startDateInput.value = firstDay.toISOString().split('T')[0];
   
   const buttonContainer = document.createElement('div');
-  buttonContainer.style.cssText = 'display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;';
+  buttonContainer.style.cssText = 'display: flex; gap: 10px; margin-top: 15px;';
   
-  const cancelButton = document.createElement('button');
-  cancelButton.textContent = 'Cancel';
-  cancelButton.style.cssText = `
-    padding: 8px 16px; border: 1px solid var(--border); 
-    border-radius: 6px; background: var(--background); 
-    color: var(--text); cursor: pointer;
+  const confirmBtn = document.createElement('button');
+  confirmBtn.textContent = 'Generate Report';
+  confirmBtn.style.cssText = `
+    flex: 1; padding: 10px; background: var(--primary); color: white;
+    border: none; border-radius: 6px; cursor: pointer;
   `;
   
-  const confirmButton = document.createElement('button');
-  confirmButton.textContent = 'Generate Report';
-  confirmButton.style.cssText = `
-    padding: 8px 16px; border: none; border-radius: 6px; 
-    background: var(--primary); color: white; cursor: pointer;
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.style.cssText = `
+    flex: 1; padding: 10px; background: var(--border); color: var(--text);
+    border: none; border-radius: 6px; cursor: pointer;
   `;
   
-  // Event handlers
-  const closeModal = () => document.body.removeChild(modal);
-  
-  cancelButton.addEventListener('click', closeModal);
-  
-  confirmButton.addEventListener('click', () => {
-    const startDate = startDateInput.value;
-    const endDate = endDateInput.value;
+  confirmBtn.onclick = () => {
+    const customStartDate = new Date(startDateInput.value);
+    const customEndDate = new Date(endDateInput.value);
+    customEndDate.setHours(23, 59, 59, 999);
     
-    if (!startDate || !endDate) {
-      alert('Please select both start and end dates');
-      return;
-    }
-    
-    if (new Date(startDate) > new Date(endDate)) {
-      alert('Start date cannot be after end date');
-      return;
-    }
-    
-    onConfirm(startDate, endDate);
-    closeModal();
-  });
+    onConfirm(customStartDate, customEndDate);
+    document.body.removeChild(modal);
+  };
   
-  // Close modal when clicking outside
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      closeModal();
-    }
-  });
-  
-  // Assemble modal
-  buttonContainer.appendChild(cancelButton);
-  buttonContainer.appendChild(confirmButton);
+  cancelBtn.onclick = () => {
+    document.body.removeChild(modal);
+  };
   
   modalContent.appendChild(title);
   modalContent.appendChild(startDateInput);
   modalContent.appendChild(endDateInput);
+  buttonContainer.appendChild(confirmBtn);
+  buttonContainer.appendChild(cancelBtn);
   modalContent.appendChild(buttonContainer);
-  
   modal.appendChild(modalContent);
-  document.body.appendChild(modal);
   
-  // Focus on modal for better accessibility
-  modalContent.focus();
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      document.body.removeChild(modal);
+    }
+  };
+  
+  return modal;
 }
 
-// Helper function (make sure this exists)
-/*function getStartOfMonth(date) {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
-}*/
-    
 // ===========================
 // REPORT GENERATION FUNCTIONS
 // ===========================
@@ -5208,4 +5187,4 @@ window.showBiWeeklyBreakdown = showBiWeeklyBreakdown;
 window.showMonthlyBreakdown = showMonthlyBreakdown;
 window.showSubjectBreakdown = showSubjectBreakdown;
 
-console.log('✅ worklog.js loaded successfully');
+console.log('✅ app.js loaded successfully with all fixes applied');
