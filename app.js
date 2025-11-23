@@ -176,6 +176,43 @@ function setupTabNavigation() {
   switchTab(getInitialTab());
 }
 
+// Simple NotificationSystem implementation
+const NotificationSystem = {
+  initNotificationStyles() {
+    if (!document.querySelector('#notification-styles')) {
+      const style = document.createElement('style');
+      style.id = 'notification-styles';
+      style.textContent = `
+        .notification { position: fixed; top: 20px; right: 20px; padding: 10px 15px;
+          border-radius: 6px; color: #fff; z-index: 10000; }
+        .notification.success { background: #10b981; }
+        .notification.error { background: #ef4444; }
+        .notification.warning { background: #f59e0b; }
+        .notification.info { background: #3b82f6; }
+      `;
+      document.head.appendChild(style);
+    }
+  },
+  notifySuccess(msg, timeout = 2000) { this._show(msg, 'success', timeout); },
+  notifyError(msg, timeout = 2000) { this._show(msg, 'error', timeout); },
+  notifyWarning(msg, timeout = 2000) { this._show(msg, 'warning', timeout); },
+  notifyInfo(msg, timeout = 2000) { this._show(msg, 'info', timeout); },
+  _show(msg, type, timeout) {
+    const div = document.createElement('div');
+    div.className = `notification ${type}`;
+    div.textContent = msg;
+    document.body.appendChild(div);
+    setTimeout(() => div.remove(), timeout);
+  }
+};
+
+// Minimal updateProfileModal implementation
+async function updateProfileModal(updatedProfile) {
+  // Here you’d persist to Firebase or cache; for now just log
+  console.log('Profile updated:', updatedProfile);
+  // Example: EnhancedCache.saveToLocalStorageBulk('profile', updatedProfile);
+}
+
 // ===========================
 // DROPDOWN MANAGER (Hours tab fix)
 // ===========================
