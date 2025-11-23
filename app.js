@@ -2828,117 +2828,6 @@ function setupMarksFormHandlers() {
 // UPDATE FORM SETUP HANDLERS TO INCLUDE MARKS
 // ===========================
 
-function setupFormHandlers() {
-  console.log('🔧 Setting up form handlers with enhanced marks support...');
-  
-  StudentDropdownManager.init();
-  
-  const studentForm = document.getElementById('studentForm');
-  if (studentForm) {
-    studentForm.addEventListener('submit', handleStudentSubmit);
-    
-    const studentRateInput = document.getElementById('studentRate');
-    const defaultBaseRateInput = document.getElementById('defaultBaseRate');
-    
-    if (studentRateInput && defaultBaseRateInput && !studentRateInput.value) {
-      studentRateInput.value = defaultBaseRateInput.value || currentUserData?.defaultRate || '0';
-    }
-  }
-  
-  const hoursForm = document.getElementById('hoursForm');
-  if (hoursForm) {
-    hoursForm.addEventListener('submit', handleHoursSubmit);
-    
-    const baseRateInput = document.getElementById('baseRate');
-    const defaultBaseRateInput = document.getElementById('defaultBaseRate');
-    const hoursInput = document.getElementById('hoursWorked');
-    const studentDropdown = document.getElementById('hoursStudent');
-    
-    if (baseRateInput && defaultBaseRateInput && !baseRateInput.value) {
-      baseRateInput.value = defaultBaseRateInput.value || currentUserData?.defaultRate || '0';
-    }
-    
-    if (hoursInput) hoursInput.addEventListener('input', calculateTotalPay);
-    if (baseRateInput) baseRateInput.addEventListener('input', calculateTotalPay);
-    
-    const hoursTab = document.querySelector('[data-tab="hours"]');
-    if (hoursTab) {
-      hoursTab.addEventListener('click', async () => {
-        console.log('🎯 Hours tab activated, populating student dropdown...');
-        setTimeout(async () => {
-          await StudentDropdownManager.forceRefresh();
-          await populateHoursStudentDropdown();
-        }, 300);
-      });
-    }
-    
-    if (studentDropdown) {
-      studentDropdown.addEventListener('focus', async () => {
-        console.log('🎯 Hours form student dropdown focused');
-        await StudentDropdownManager.refreshAllDropdowns();
-      });
-    }
-    
-    calculateTotalPay();
-  }
-  
-  // FIX: Enhanced marks form setup
-  const marksForm = document.getElementById('marksForm');
-  if (marksForm) {
-    setupMarksFormHandlers();
-    
-    const studentDropdown = document.getElementById('marksStudent');
-    if (studentDropdown) {
-      studentDropdown.addEventListener('focus', async () => {
-        console.log('🎯 Marks form student dropdown focused');
-        await StudentDropdownManager.refreshAllDropdowns();
-      });
-    }
-    
-    // FIX: Initialize percentage calculation on marks tab activation
-    const marksTab = document.querySelector('[data-tab="marks"]');
-    if (marksTab) {
-      marksTab.addEventListener('click', () => {
-        setTimeout(() => {
-          calculateMarkPercentage(); // Initialize display
-        }, 300);
-      });
-    }
-  }
-  
-  const attendanceForm = document.getElementById('attendanceForm');
-  if (attendanceForm) {
-    attendanceForm.addEventListener('submit', handleAttendanceSubmit);
-    
-    const attendanceTab = document.querySelector('[data-tab="attendance"]');
-    if (attendanceTab) {
-      attendanceTab.addEventListener('click', async () => {
-        setTimeout(async () => {
-          console.log('🎯 Attendance tab opened, setting up enhanced features...');
-          await StudentDropdownManager.refreshAllDropdowns();
-          setupAttendanceTab();
-        }, 500);
-      });
-    }
-  }
-  
-  const paymentForm = document.getElementById('paymentForm');
-  if (paymentForm) {
-    paymentForm.addEventListener('submit', handlePaymentSubmit);
-    
-    const studentDropdown = document.getElementById('paymentStudent');
-    if (studentDropdown) {
-      studentDropdown.addEventListener('focus', async () => {
-        console.log('🎯 Payment form student dropdown focused');
-        await StudentDropdownManager.refreshAllDropdowns();
-      });
-    }
-  }
-  
-  setupFormStudentPopulation();
-  
-  console.log('✅ All form handlers with enhanced marks support initialized');
-}
 
 // ===========================
 // UPDATE INITIALIZATION TO SETUP MARKS FORM
@@ -3847,7 +3736,7 @@ function showDropdownError() {
 // ===========================
 
 function setupFormHandlers() {
-  console.log('🔧 Setting up form handlers with enhanced attendance support...');
+  console.log('🔧 Setting up form handlers with enhanced marks support...');
   
   StudentDropdownManager.init();
   
@@ -3900,15 +3789,26 @@ function setupFormHandlers() {
     calculateTotalPay();
   }
   
+  // FIX: Enhanced marks form setup
   const marksForm = document.getElementById('marksForm');
   if (marksForm) {
-    marksForm.addEventListener('submit', handleMarksSubmit);
+    setupMarksFormHandlers();
     
     const studentDropdown = document.getElementById('marksStudent');
     if (studentDropdown) {
       studentDropdown.addEventListener('focus', async () => {
         console.log('🎯 Marks form student dropdown focused');
         await StudentDropdownManager.refreshAllDropdowns();
+      });
+    }
+    
+    // FIX: Initialize percentage calculation on marks tab activation
+    const marksTab = document.querySelector('[data-tab="marks"]');
+    if (marksTab) {
+      marksTab.addEventListener('click', () => {
+        setTimeout(() => {
+          calculateMarkPercentage(); // Initialize display
+        }, 300);
       });
     }
   }
@@ -3944,8 +3844,9 @@ function setupFormHandlers() {
   
   setupFormStudentPopulation();
   
-  console.log('✅ All form handlers with enhanced attendance support initialized');
+  console.log('✅ All form handlers with enhanced marks support initialized');
 }
+
 
 function setupFormStudentPopulation() {
   console.log('🔧 Setting up student form population...');
