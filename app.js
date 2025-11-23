@@ -363,9 +363,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// ===========================
-// EXPORTS
-// ===========================
 (function exportGlobals() {
   const exports = {
     NotificationSystem,
@@ -386,8 +383,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeTheme,
     setupProfileModal
   };
+
   Object.entries(exports).forEach(([key, ref]) => {
-    if (typeof ref !== 'undefined') window[key  Object.entries(exports).forEach(([key, ref]) => {
     if (typeof ref !== 'undefined') {
       window[key] = ref;
     } else {
