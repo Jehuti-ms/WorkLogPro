@@ -5480,6 +5480,7 @@ async function initializeApp() {
       updateHeaderStats();
       refreshTimestamp();
       
+      
       console.log('✅ App initialization complete');
       
     } else {
