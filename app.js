@@ -97,6 +97,15 @@ function isDateInRange(entryDate, startDate, endDate) {
   return ed >= new Date(startDate) && ed <= new Date(endDate);
 }
 
+// Temporary stubs to prevent ReferenceErrors
+function updateProfileButton() {
+  console.warn('updateProfileButton is not yet implemented');
+}
+
+function injectThemeStyles() {
+  console.warn('injectThemeStyles is not yet implemented');
+}
+
 // ===========================
 // LOADING OVERLAY & STYLES
 // ===========================
