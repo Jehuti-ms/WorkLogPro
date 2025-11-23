@@ -3913,34 +3913,7 @@ function applyTheme(theme) {
 /**
  * Setup tab navigation system
  */
-function setupTabNavigation() {
-    console.log('🔧 Setting up tab navigation...');
-    
-    const tabButtons = document.querySelectorAll('.tab-button');
-    const tabPanes = document.querySelectorAll('.tab-pane');
-    
-    tabButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const targetTab = button.getAttribute('data-tab');
-            
-            // Update active tab button
-            tabButtons.forEach(btn => btn.classList.remove('active'));
-            button.classList.add('active');
-            
-            // Show target tab pane
-            tabPanes.forEach(pane => {
-                pane.classList.remove('active');
-                if (pane.id === targetTab) {
-                    pane.classList.add('active');
-                }
-            });
-            
-            console.log(`📱 Switched to tab: ${targetTab}`);
-        });
-    });
-    
-    console.log('✅ Tab navigation setup complete');
-}
+
 
 /**
  * Setup form handlers for all forms
