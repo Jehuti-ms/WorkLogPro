@@ -2418,7 +2418,7 @@ async function handleHoursSubmit(e) {
 }
 
 // ===========================
-// MARKS TAB FUNCTIONS
+// MARKS TAB FUNCTIONS (FIXED)
 // ===========================
 
 async function renderRecentMarksWithEdit(limit = 10) {
@@ -2445,16 +2445,23 @@ async function renderRecentMarksWithEdit(limit = 10) {
       return dateB - dateA;
     });
 
+    // FIX: Create a proper student map for lookup
     const studentMap = {};
     students.forEach(student => {
       studentMap[student.name || student.id] = student;
+      studentMap[student.id] = student; // Also map by ID for backward compatibility
     });
 
     let marksHTML = '';
     sortedMarks.slice(0, limit).forEach(entry => {
-      const student = studentMap[entry.student] || { name: entry.student, id: 'N/A' };
-      // FIX 2: Use formatStudentDisplay for consistent display
-      const studentDisplay = formatStudentDisplay(student);
+      // FIX: Better student lookup - try by name first, then by ID
+      let student = studentMap[entry.student];
+      if (!student && entry.student) {
+        // If not found by name, try to find by ID in the students array
+        student = students.find(s => s.id === entry.student) || { name: entry.student, id: 'N/A' };
+      }
+      
+      const studentDisplay = formatStudentDisplay(student || { name: entry.student, id: 'N/A' });
       
       marksHTML += `
         <div class="mark-entry" id="mark-entry-${entry.id}">
@@ -2467,7 +2474,7 @@ async function renderRecentMarksWithEdit(limit = 10) {
             </div>
           </div>
           <div class="muted">${formatDate(entry.date)}</div>
-          <div>Score: ${safeNumber(entry.score)}/${safeNumber(entry.max)} — ${safeNumber(entry.percentage).toFixed(2)}% — Grade: ${entry.grade || 'N/A'}</div>
+          <div>Score: ${safeNumber(entry.score)}/${safeNumber(entry.max)} — ${safeNumber(entry.percentage).toFixed(1)}% — Grade: ${entry.grade || 'N/A'}</div>
           ${entry.notes ? `<div class="muted">Notes: ${entry.notes}</div>` : ''}
         </div>
       `;
@@ -2481,8 +2488,39 @@ async function renderRecentMarksWithEdit(limit = 10) {
   }
 }
 
+// FIX: Add real-time percentage and grade calculation
+function calculateMarkPercentage() {
+  const score = safeNumber(document.getElementById('marksScore')?.value);
+  const max = safeNumber(document.getElementById('marksMax')?.value);
+  
+  let percentage = 0;
+  let grade = 'N/A';
+  
+  if (max > 0) {
+    percentage = (score / max) * 100;
+    grade = calculateGrade(percentage);
+  }
+  
+  // Update display elements if they exist
+  const percentageDisplay = document.getElementById('marksPercentageDisplay');
+  const gradeDisplay = document.getElementById('marksGradeDisplay');
+  
+  if (percentageDisplay) {
+    percentageDisplay.textContent = `${percentage.toFixed(1)}%`;
+  }
+  
+  if (gradeDisplay) {
+    gradeDisplay.textContent = grade;
+  }
+  
+  return { percentage, grade };
+}
+
+// FIX: Enhanced mark edit function with proper form handling
 async function startEditMark(id) {
   try {
+    console.log('🔧 Starting mark edit for:', id);
+    
     const marks = await EnhancedCache.loadCollection('marks');
     const entry = marks.find(m => m.id === id);
     
@@ -2493,6 +2531,9 @@ async function startEditMark(id) {
 
     currentEditMarksId = id;
     
+    console.log('📝 Editing mark entry:', entry);
+    
+    // FIX: Set form values
     document.getElementById('marksStudent').value = entry.student || '';
     document.getElementById('marksSubject').value = entry.subject || '';
     document.getElementById('marksTopic').value = entry.topic || '';
@@ -2501,8 +2542,23 @@ async function startEditMark(id) {
     document.getElementById('marksDate').value = entry.date || '';
     document.getElementById('marksNotes').value = entry.notes || '';
     
+    // FIX: Update percentage and grade display
+    const percentageDisplay = document.getElementById('marksPercentageDisplay');
+    const gradeDisplay = document.getElementById('marksGradeDisplay');
+    if (percentageDisplay) {
+      percentageDisplay.textContent = `${safeNumber(entry.percentage).toFixed(1)}%`;
+    }
+    if (gradeDisplay) {
+      gradeDisplay.textContent = entry.grade || 'N/A';
+    }
+    
     const submitBtn = document.querySelector('#marksForm button[type="submit"]');
-    // FIX 4: Remove existing cancel button before adding new one
+    if (!submitBtn) {
+      console.error('❌ Submit button not found in marks form');
+      return;
+    }
+    
+    // FIX: Remove existing cancel button before adding new one
     const existingCancelBtn = document.querySelector('#marksForm button[type="button"]');
     if (existingCancelBtn) {
       existingCancelBtn.remove();
@@ -2517,6 +2573,12 @@ async function startEditMark(id) {
     submitBtn.textContent = 'Update Mark';
     submitBtn.parentNode.appendChild(cancelBtn);
     
+    // FIX: Scroll to form
+    const marksForm = document.getElementById('marksForm');
+    if (marksForm) {
+      marksForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    
     NotificationSystem.notifyInfo('Edit mode activated. Update the form and click "Update Mark"');
     
   } catch (error) {
@@ -2525,20 +2587,39 @@ async function startEditMark(id) {
   }
 }
 
+// FIX: Enhanced cancel edit function
 function cancelEditMark() {
+  console.log('❌ Cancelling mark edit...');
+  
   currentEditMarksId = null;
+  
   const form = document.getElementById('marksForm');
-  form.reset();
+  if (form) {
+    form.reset();
+  } else {
+    console.warn('❌ marksForm not found for reset');
+  }
   
   const submitBtn = document.querySelector('#marksForm button[type="submit"]');
-  submitBtn.textContent = 'Add Mark';
+  if (submitBtn) {
+    submitBtn.textContent = 'Add Mark';
+  }
   
   const cancelBtn = document.querySelector('#marksForm button[type="button"]');
-  if (cancelBtn) cancelBtn.remove();
+  if (cancelBtn) {
+    cancelBtn.remove();
+  }
+  
+  // FIX: Reset percentage and grade display
+  const percentageDisplay = document.getElementById('marksPercentageDisplay');
+  const gradeDisplay = document.getElementById('marksGradeDisplay');
+  if (percentageDisplay) percentageDisplay.textContent = '0%';
+  if (gradeDisplay) gradeDisplay.textContent = 'N/A';
   
   NotificationSystem.notifyInfo('Edit cancelled');
 }
 
+// FIX: Enhanced delete mark function
 async function deleteMark(id) {
   if (!confirm('Are you sure you want to delete this mark?')) {
     return;
@@ -2546,21 +2627,34 @@ async function deleteMark(id) {
 
   try {
     const user = auth.currentUser;
-    if (!user) return;
+    if (!user) {
+      NotificationSystem.notifyError('Please log in to delete marks');
+      return;
+    }
 
     const marks = await EnhancedCache.loadCollection('marks');
     const entry = marks.find(m => m.id === id);
     
-    if (entry && entry._firebaseId) {
-      await deleteDoc(doc(db, "users", user.uid, "marks", entry._firebaseId));
+    if (!entry) {
+      NotificationSystem.notifyError('Mark entry not found');
+      return;
     }
 
+    // FIX: Delete from Firestore if it exists there
+    if (entry._firebaseId) {
+      await deleteDoc(doc(db, "users", user.uid, "marks", entry._firebaseId));
+      console.log('✅ Deleted mark from Firestore:', entry._firebaseId);
+    }
+
+    // FIX: Update local cache
     const updatedMarks = marks.filter(m => m.id !== id);
     cache.marks = updatedMarks;
     EnhancedCache.saveToLocalStorageBulk('marks', updatedMarks);
 
+    // FIX: Refresh UI
     await renderRecentMarksWithEdit();
-    // FIX 4: Refresh stats after deletion
+    
+    // FIX: Refresh stats
     EnhancedStats.forceRefresh();
     
     NotificationSystem.notifySuccess('Mark deleted successfully');
@@ -2571,15 +2665,27 @@ async function deleteMark(id) {
   }
 }
 
+// FIX: Enhanced marks submit handler
 async function handleMarksSubmit(e) {
   e.preventDefault();
   const user = auth.currentUser;
-  if (!user) return;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to save marks');
+    return;
+  }
 
   const formData = new FormData(e.target);
   const score = safeNumber(formData.get('marksScore'));
   const max = safeNumber(formData.get('marksMax'));
+  
+  // FIX: Validate inputs
+  if (score < 0 || max <= 0) {
+    NotificationSystem.notifyError('Please enter valid score and maximum values');
+    return;
+  }
+  
   const percentage = max > 0 ? (score / max) * 100 : 0;
+  const grade = calculateGrade(percentage);
 
   const marksData = {
     student: formData.get('marksStudent'),
@@ -2588,14 +2694,26 @@ async function handleMarksSubmit(e) {
     score: score,
     max: max,
     percentage: percentage,
-    grade: calculateGrade(percentage),
+    grade: grade,
     date: formData.get('marksDate'),
     dateIso: fmtDateISO(formData.get('marksDate')),
     notes: formData.get('marksNotes')
   };
 
+  // FIX: Validate required fields
+  if (!marksData.student) {
+    NotificationSystem.notifyError('Please select a student');
+    return;
+  }
+
+  if (!marksData.subject) {
+    NotificationSystem.notifyError('Please enter a subject');
+    return;
+  }
+
   try {
     if (currentEditMarksId) {
+      // FIX: Update existing mark
       const marks = await EnhancedCache.loadCollection('marks');
       const entryIndex = marks.findIndex(m => m.id === currentEditMarksId);
       
@@ -2605,10 +2723,13 @@ async function handleMarksSubmit(e) {
         marksData._firebaseId = existingEntry._firebaseId;
         marksData._synced = existingEntry._synced;
         
+        // FIX: Update in Firestore if it exists there
         if (existingEntry._firebaseId) {
           await updateDoc(doc(db, "users", user.uid, "marks", existingEntry._firebaseId), marksData);
+          console.log('✅ Updated mark in Firestore:', existingEntry._firebaseId);
         }
         
+        // FIX: Update local cache
         marks[entryIndex] = { ...marks[entryIndex], ...marksData };
         cache.marks = marks;
         EnhancedCache.saveToLocalStorageBulk('marks', marks);
@@ -2616,27 +2737,229 @@ async function handleMarksSubmit(e) {
         NotificationSystem.notifySuccess('Mark updated successfully');
         currentEditMarksId = null;
         
+        // FIX: Reset form and UI
         const submitBtn = document.querySelector('#marksForm button[type="submit"]');
-        submitBtn.textContent = 'Add Mark';
+        if (submitBtn) submitBtn.textContent = 'Add Mark';
+        
         const cancelBtn = document.querySelector('#marksForm button[type="button"]');
         if (cancelBtn) cancelBtn.remove();
         
         e.target.reset();
+        
+        // FIX: Reset percentage and grade display
+        const percentageDisplay = document.getElementById('marksPercentageDisplay');
+        const gradeDisplay = document.getElementById('marksGradeDisplay');
+        if (percentageDisplay) percentageDisplay.textContent = '0%';
+        if (gradeDisplay) gradeDisplay.textContent = 'N/A';
+      } else {
+        NotificationSystem.notifyError('Mark entry not found for editing');
+        return;
       }
     } else {
-      await EnhancedCache.saveWithBackgroundSync('marks', marksData);
-      FormAutoClear.handleSuccess('marksForm');
+      // FIX: Add new mark
+      const result = await EnhancedCache.saveWithBackgroundSync('marks', marksData);
+      if (result) {
+        FormAutoClear.handleSuccess('marksForm');
+        console.log('✅ New mark saved with ID:', result);
+      } else {
+        NotificationSystem.notifyError('Failed to save mark');
+        return;
+      }
     }
     
-    // FIX 4: Refresh stats after save/update
+    // FIX: Refresh stats and UI
     EnhancedStats.forceRefresh();
     await renderRecentMarksWithEdit();
     
   } catch (error) {
     console.error('Error saving mark:', error);
-    NotificationSystem.notifyError('Failed to save mark');
+    NotificationSystem.notifyError('Failed to save mark: ' + error.message);
   }
 }
+
+// ===========================
+// MARKS FORM SETUP ENHANCEMENTS
+// ===========================
+
+function setupMarksFormHandlers() {
+  const marksForm = document.getElementById('marksForm');
+  if (!marksForm) return;
+
+  // FIX: Add real-time calculation listeners
+  const scoreInput = document.getElementById('marksScore');
+  const maxInput = document.getElementById('marksMax');
+  
+  if (scoreInput) {
+    scoreInput.addEventListener('input', calculateMarkPercentage);
+  }
+  
+  if (maxInput) {
+    maxInput.addEventListener('input', calculateMarkPercentage);
+  }
+
+  // FIX: Ensure form submission is handled
+  marksForm.addEventListener('submit', handleMarksSubmit);
+  
+  // FIX: Initialize percentage and grade display
+  const percentageDisplay = document.getElementById('marksPercentageDisplay');
+  const gradeDisplay = document.getElementById('marksGradeDisplay');
+  
+  if (!percentageDisplay) {
+    // Create percentage display if it doesn't exist
+    const scoreGroup = document.querySelector('#marksScore').closest('.form-group');
+    if (scoreGroup) {
+      const percentageDiv = document.createElement('div');
+      percentageDiv.className = 'form-group';
+      percentageDiv.innerHTML = `
+        <label>Percentage & Grade:</label>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <span id="marksPercentageDisplay" style="font-weight: bold; color: var(--primary);">0%</span>
+          <span id="marksGradeDisplay" style="font-weight: bold; color: var(--secondary);">N/A</span>
+        </div>
+      `;
+      scoreGroup.parentNode.insertBefore(percentageDiv, scoreGroup.nextSibling);
+    }
+  }
+  
+  console.log('✅ Marks form handlers setup complete');
+}
+
+// ===========================
+// UPDATE FORM SETUP HANDLERS TO INCLUDE MARKS
+// ===========================
+
+function setupFormHandlers() {
+  console.log('🔧 Setting up form handlers with enhanced marks support...');
+  
+  StudentDropdownManager.init();
+  
+  const studentForm = document.getElementById('studentForm');
+  if (studentForm) {
+    studentForm.addEventListener('submit', handleStudentSubmit);
+    
+    const studentRateInput = document.getElementById('studentRate');
+    const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+    
+    if (studentRateInput && defaultBaseRateInput && !studentRateInput.value) {
+      studentRateInput.value = defaultBaseRateInput.value || currentUserData?.defaultRate || '0';
+    }
+  }
+  
+  const hoursForm = document.getElementById('hoursForm');
+  if (hoursForm) {
+    hoursForm.addEventListener('submit', handleHoursSubmit);
+    
+    const baseRateInput = document.getElementById('baseRate');
+    const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+    const hoursInput = document.getElementById('hoursWorked');
+    const studentDropdown = document.getElementById('hoursStudent');
+    
+    if (baseRateInput && defaultBaseRateInput && !baseRateInput.value) {
+      baseRateInput.value = defaultBaseRateInput.value || currentUserData?.defaultRate || '0';
+    }
+    
+    if (hoursInput) hoursInput.addEventListener('input', calculateTotalPay);
+    if (baseRateInput) baseRateInput.addEventListener('input', calculateTotalPay);
+    
+    const hoursTab = document.querySelector('[data-tab="hours"]');
+    if (hoursTab) {
+      hoursTab.addEventListener('click', async () => {
+        console.log('🎯 Hours tab activated, populating student dropdown...');
+        setTimeout(async () => {
+          await StudentDropdownManager.forceRefresh();
+          await populateHoursStudentDropdown();
+        }, 300);
+      });
+    }
+    
+    if (studentDropdown) {
+      studentDropdown.addEventListener('focus', async () => {
+        console.log('🎯 Hours form student dropdown focused');
+        await StudentDropdownManager.refreshAllDropdowns();
+      });
+    }
+    
+    calculateTotalPay();
+  }
+  
+  // FIX: Enhanced marks form setup
+  const marksForm = document.getElementById('marksForm');
+  if (marksForm) {
+    setupMarksFormHandlers();
+    
+    const studentDropdown = document.getElementById('marksStudent');
+    if (studentDropdown) {
+      studentDropdown.addEventListener('focus', async () => {
+        console.log('🎯 Marks form student dropdown focused');
+        await StudentDropdownManager.refreshAllDropdowns();
+      });
+    }
+    
+    // FIX: Initialize percentage calculation on marks tab activation
+    const marksTab = document.querySelector('[data-tab="marks"]');
+    if (marksTab) {
+      marksTab.addEventListener('click', () => {
+        setTimeout(() => {
+          calculateMarkPercentage(); // Initialize display
+        }, 300);
+      });
+    }
+  }
+  
+  const attendanceForm = document.getElementById('attendanceForm');
+  if (attendanceForm) {
+    attendanceForm.addEventListener('submit', handleAttendanceSubmit);
+    
+    const attendanceTab = document.querySelector('[data-tab="attendance"]');
+    if (attendanceTab) {
+      attendanceTab.addEventListener('click', async () => {
+        setTimeout(async () => {
+          console.log('🎯 Attendance tab opened, setting up enhanced features...');
+          await StudentDropdownManager.refreshAllDropdowns();
+          setupAttendanceTab();
+        }, 500);
+      });
+    }
+  }
+  
+  const paymentForm = document.getElementById('paymentForm');
+  if (paymentForm) {
+    paymentForm.addEventListener('submit', handlePaymentSubmit);
+    
+    const studentDropdown = document.getElementById('paymentStudent');
+    if (studentDropdown) {
+      studentDropdown.addEventListener('focus', async () => {
+        console.log('🎯 Payment form student dropdown focused');
+        await StudentDropdownManager.refreshAllDropdowns();
+      });
+    }
+  }
+  
+  setupFormStudentPopulation();
+  
+  console.log('✅ All form handlers with enhanced marks support initialized');
+}
+
+// ===========================
+// UPDATE INITIALIZATION TO SETUP MARKS FORM
+// ===========================
+
+// Add this to your existing initialization code
+function initializeMarksTab() {
+  console.log('🎯 Initializing marks tab features...');
+  
+  // Setup real-time percentage calculation
+  setupMarksFormHandlers();
+  
+  // Ensure percentage display is initialized
+  setTimeout(() => {
+    calculateMarkPercentage();
+  }, 1000);
+}
+
+// Update your main initialization to call this
+// In your existing initializeApp function, add:
+// initializeMarksTab();
 
 // ===========================
 // ATTENDANCE TAB FUNCTIONS
