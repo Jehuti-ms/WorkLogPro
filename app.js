@@ -3915,38 +3915,6 @@ function applyTheme(theme) {
  */
 
 
-/**
- * Setup form handlers for all forms
- */
-function setupFormHandlers() {
-    console.log('🔧 Setting up form handlers...');
-    
-    // Student form
-    const studentForm = document.getElementById('student-form');
-    if (studentForm) {
-        studentForm.addEventListener('submit', handleStudentSubmit);
-    }
-    
-    // Hours form
-    const hoursForm = document.getElementById('hours-form');
-    if (hoursForm) {
-        hoursForm.addEventListener('submit', handleHoursSubmit);
-    }
-    
-    // Marks form
-    const marksForm = document.getElementById('marks-form');
-    if (marksForm) {
-        marksForm.addEventListener('submit', handleMarksSubmit);
-    }
-    
-    // Attendance form
-    const attendanceForm = document.getElementById('attendance-form');
-    if (attendanceForm) {
-        attendanceForm.addEventListener('submit', handleAttendanceSubmit);
-    }
-    
-    console.log('✅ Form handlers setup complete');
-}
 
 /**
  * Setup profile modal functionality
