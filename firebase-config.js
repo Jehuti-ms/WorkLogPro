@@ -1,5 +1,5 @@
 // ===========================
-// FIREBASE CONFIGURATION
+// FIREBASE CONFIGURATION - Compatibility Version
 // ===========================
 
 // Firebase configuration
@@ -13,7 +13,11 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = firebase.initializeApp(firebaseConfig);
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+} else {
+    firebase.app(); // if already initialized, use that one
+}
 
 // Initialize Firebase services
 const auth = firebase.auth();
@@ -22,11 +26,8 @@ const storage = firebase.storage();
 
 // Enable offline persistence
 db.enablePersistence()
-  .then(() => {
-    console.log('✅ Auth persistence enabled');
-  })
   .catch((err) => {
-    console.error('❌ Auth persistence error:', err);
+      console.error('Firebase persistence error:', err);
   });
 
 console.log('✅ Firebase initialized successfully with project:', firebaseConfig.projectId);
