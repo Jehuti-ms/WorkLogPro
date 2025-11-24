@@ -1,25 +1,4 @@
 // ===========================
-// FIREBASE v9 IMPORTS - FIXED
-// ===========================
-
-import { auth, db } from './firebase-config.js';
-import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.1.0/firebase-auth.js';
-import { 
-    collection, 
-    doc, 
-    getDoc, 
-    getDocs, 
-    addDoc, 
-    setDoc,
-    updateDoc, 
-    deleteDoc,
-    query,
-    where,
-    orderBy,
-    limit 
-} from 'https://www.gstatic.com/firebasejs/9.1.0/firebase-firestore.js';
-
-// ===========================
 // GLOBAL VARIABLES
 // ===========================
 
@@ -181,16 +160,17 @@ function initializeTheme() {
 }
 
 // ===========================
-// AUTHENTICATION & USER PROFILE
+// AUTHENTICATION & USER PROFILE - v8 SYNTAX
 // ===========================
 
 async function loadUserProfile(userId) {
     console.log('👤 Loading user profile for:', userId);
     
     try {
-        const userDoc = await getDoc(doc(db, 'users', userId));
+        // v8 SYNTAX
+        const userDoc = await db.collection('users').doc(userId).get();
         
-        if (userDoc.exists()) {
+        if (userDoc.exists) {
             const userData = userDoc.data();
             console.log('✅ User profile loaded:', userData);
             
@@ -213,7 +193,8 @@ async function loadUserProfile(userId) {
                 className: ''
             };
             
-            await setDoc(doc(db, 'users', userId), defaultUserData);
+            // v8 SYNTAX
+            await db.collection('users').doc(userId).set(defaultUserData);
             
             currentUser = { ...defaultUserData, uid: userId };
             window.currentUser = currentUser;
@@ -374,7 +355,7 @@ function setupFloatingAddButton() {
 }
 
 // ===========================
-// FORM HANDLERS - v9 SYNTAX
+// FORM HANDLERS - v8 SYNTAX
 // ===========================
 
 async function handleStudentSubmit(e) {
@@ -392,7 +373,8 @@ async function handleStudentSubmit(e) {
             userId: currentUser.uid
         };
         
-        await addDoc(collection(db, 'students'), formData);
+        // v8 SYNTAX
+        await db.collection('students').add(formData);
         showNotification('Student added successfully!', 'success');
         e.target.reset();
         
@@ -420,7 +402,8 @@ async function handleHoursSubmit(e) {
             userId: currentUser.uid
         };
         
-        await addDoc(collection(db, 'hours'), formData);
+        // v8 SYNTAX
+        await db.collection('hours').add(formData);
         showNotification('Hours logged successfully!', 'success');
         e.target.reset();
         
@@ -449,7 +432,8 @@ async function handleMarksSubmit(e) {
             userId: currentUser.uid
         };
         
-        await addDoc(collection(db, 'marks'), formData);
+        // v8 SYNTAX
+        await db.collection('marks').add(formData);
         showNotification('Marks recorded successfully!', 'success');
         e.target.reset();
         
@@ -476,7 +460,8 @@ async function handleAttendanceSubmit(e) {
             userId: currentUser.uid
         };
         
-        await addDoc(collection(db, 'attendance'), formData);
+        // v8 SYNTAX
+        await db.collection('attendance').add(formData);
         showNotification('Attendance recorded successfully!', 'success');
         e.target.reset();
         
@@ -504,7 +489,8 @@ async function handleProfileSubmit(e) {
             updatedAt: new Date()
         };
         
-        await setDoc(doc(db, 'users', currentUser.uid), profileData, { merge: true });
+        // v8 SYNTAX
+        await db.collection('users').doc(currentUser.uid).set(profileData, { merge: true });
         
         currentUser = { ...currentUser, ...profileData };
         window.currentUser = currentUser;
@@ -521,20 +507,19 @@ async function handleProfileSubmit(e) {
 }
 
 // ===========================
-// DATA RENDERING FUNCTIONS - v9
+// DATA RENDERING FUNCTIONS - v8 SYNTAX
 // ===========================
 
 async function renderStudents() {
     console.log('👥 Rendering students...');
     
     try {
-        const q = query(
-            collection(db, 'students'),
-            where('userId', '==', currentUser.uid),
-            orderBy('createdAt', 'desc')
-        );
+        // v8 SYNTAX
+        const snapshot = await db.collection('students')
+            .where('userId', '==', currentUser.uid)
+            .orderBy('createdAt', 'desc')
+            .get();
         
-        const snapshot = await getDocs(q);
         students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
         const container = document.getElementById('students-container');
@@ -560,14 +545,13 @@ async function renderRecentHoursWithEdit() {
     console.log('⏰ Rendering recent hours...');
     
     try {
-        const q = query(
-            collection(db, 'hours'),
-            where('userId', '==', currentUser.uid),
-            orderBy('date', 'desc'),
-            limit(10)
-        );
+        // v8 SYNTAX
+        const snapshot = await db.collection('hours')
+            .where('userId', '==', currentUser.uid)
+            .orderBy('date', 'desc')
+            .limit(10)
+            .get();
         
-        const snapshot = await getDocs(q);
         hoursRecords = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
         const container = document.getElementById('recent-hours-container');
@@ -597,14 +581,13 @@ async function renderRecentMarksWithEdit() {
     console.log('📊 Rendering recent marks...');
     
     try {
-        const q = query(
-            collection(db, 'marks'),
-            where('userId', '==', currentUser.uid),
-            orderBy('date', 'desc'),
-            limit(10)
-        );
+        // v8 SYNTAX
+        const snapshot = await db.collection('marks')
+            .where('userId', '==', currentUser.uid)
+            .orderBy('date', 'desc')
+            .limit(10)
+            .get();
         
-        const snapshot = await getDocs(q);
         marksRecords = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
         const container = document.getElementById('recent-marks-container');
@@ -634,14 +617,13 @@ async function renderAttendanceRecentWithEdit() {
     console.log('✅ Rendering recent attendance...');
     
     try {
-        const q = query(
-            collection(db, 'attendance'),
-            where('userId', '==', currentUser.uid),
-            orderBy('date', 'desc'),
-            limit(10)
-        );
+        // v8 SYNTAX
+        const snapshot = await db.collection('attendance')
+            .where('userId', '==', currentUser.uid)
+            .orderBy('date', 'desc')
+            .limit(10)
+            .get();
         
-        const snapshot = await getDocs(q);
         attendanceRecords = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
         const container = document.getElementById('recent-attendance-container');
@@ -710,8 +692,9 @@ function getStudentName(studentId) {
 
 async function loadProfileData() {
     try {
-        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-        if (userDoc.exists()) {
+        // v8 SYNTAX
+        const userDoc = await db.collection('users').doc(currentUser.uid).get();
+        if (userDoc.exists) {
             const userData = userDoc.data();
             
             document.getElementById('profile-display-name').value = userData.displayName || '';
@@ -745,7 +728,7 @@ function refreshTimestamp() {
 }
 
 // ===========================
-// STUDENT DROPDOWN MANAGEMENT - v9
+// STUDENT DROPDOWN MANAGEMENT - v8 SYNTAX
 // ===========================
 
 const StudentDropdownManager = {
@@ -758,13 +741,12 @@ const StudentDropdownManager = {
         console.log('📋 Populating all student dropdowns...');
         
         try {
-            const q = query(
-                collection(db, 'students'),
-                where('userId', '==', currentUser.uid),
-                orderBy('name')
-            );
+            // v8 SYNTAX
+            const snapshot = await db.collection('students')
+                .where('userId', '==', currentUser.uid)
+                .orderBy('name')
+                .get();
             
-            const snapshot = await getDocs(q);
             students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             
             this.populateDropdown('hours-student', students);
@@ -850,17 +832,18 @@ const EnhancedStats = {
 };
 
 // ===========================
-// APP INITIALIZATION - v9
+// APP INITIALIZATION - v8 SYNTAX
 // ===========================
 
 async function initializeApp() {
-    console.log('🚀 Initializing WorkLog App with Firebase v9...');
+    console.log('🚀 Initializing WorkLog App with Firebase v8...');
     
     try {
         NotificationSystem.initNotificationStyles();
         initializeTheme();
         
-        onAuthStateChanged(auth, async (user) => {
+        // v8 SYNTAX - using global auth variable
+        auth.onAuthStateChanged(async (user) => {
             if (user) {
                 console.log('✅ User authenticated:', user.email);
                 
