@@ -1,12 +1,12 @@
 // ===========================
-// FIREBASE CONFIGURATION - Modular Version (v9+)
+// FIREBASE CONFIGURATION - v9 Modular
 // ===========================
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
-import { getFirestore, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
-import { getStorage } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-storage.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-analytics.js";
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.1.0/firebase-app.js';
+import { getAuth } from 'https://www.gstatic.com/firebasejs/9.1.0/firebase-auth.js';
+import { getFirestore, enableIndexedDbPersistence } from 'https://www.gstatic.com/firebasejs/9.1.0/firebase-firestore.js';
+import { getStorage } from 'https://www.gstatic.com/firebasejs/9.1.0/firebase-storage.js';
+import { getAnalytics } from 'https://www.gstatic.com/firebasejs/9.1.0/firebase-analytics.js';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -33,7 +33,7 @@ enableIndexedDbPersistence(db).catch((err) => {
   console.error('Firebase persistence error:', err);
 });
 
-console.log('✅ Firebase initialized successfully with project:', firebaseConfig.projectId);
+console.log('✅ Firebase v9.1 initialized successfully');
 
 // Export for use in other modules
 export { app, auth, db, storage, analytics };
