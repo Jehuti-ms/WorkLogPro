@@ -1,31 +1,43 @@
-// ===========================
-// FIREBASE CONFIGURATION - Use Original Working Config
-// ===========================
+// firebase-config.js - UPDATED WITH YOUR CONFIG
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { 
+  getFirestore, 
+  initializeFirestore,
+  persistentLocalCache
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-// Firebase configuration - FROM WHEN IT WAS WORKING
+// Your web app's Firebase configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyCxRv7j2d3o6yOq2N4Q7Y3w9zvL1eZ8X9A",
-    authDomain: "worklogpro-4284e.firebaseapp.com",
-    projectId: "worklogpro-4284e",
-    storageBucket: "worklogpro-4284e.firebasestorage.app",
-    messagingSenderId: "123456789012",
-    appId: "1:123456789012:web:abcdef123456"
+  apiKey: "AIzaSyDdLP_LgiC6EgzC3hUP_mGuNW4_BUEACs8",
+  authDomain: "worklogpro-4284e.firebaseapp.com",
+  projectId: "worklogpro-4284e",
+  storageBucket: "worklogpro-4284e.firebasestorage.app",
+  messagingSenderId: "299567233913",
+  appId: "1:299567233913:web:7232a5a5a8aa9b79948da8",
+  measurementId: "G-7JMG3LLJXX"
 };
 
 // Initialize Firebase
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
+const app = initializeApp(firebaseConfig);
 
-// Initialize Firebase services
-const auth = firebase.auth();
-const db = firebase.firestore();
-const storage = firebase.storage();
+// Initialize Firestore with new persistence method (no more warnings)
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache()
+});
 
-// Enable offline persistence
-db.enablePersistence()
-  .catch((err) => {
-      console.error('Firebase persistence error:', err);
+// Initialize Auth
+const auth = getAuth(app);
+
+// Set auth persistence
+setPersistence(auth, browserLocalPersistence)
+  .then(() => {
+    console.log("✅ Auth persistence enabled");
+  })
+  .catch((error) => {
+    console.error("❌ Auth persistence error:", error);
   });
 
-console.log('✅ Firebase initialized with ORIGINAL working config');
+console.log("✅ Firebase initialized successfully with project: worklogpro-4284e");
+
+export { auth, db };
