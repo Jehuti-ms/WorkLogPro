@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - WorkLog Pro</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>">
     <style>
+        /* Your existing styles remain the same */
         * {
             margin: 0;
             padding: 0;
@@ -121,6 +123,12 @@
             font-size: 14px;
             text-align: center;
             display: none;
+            margin-bottom: 15px;
+        }
+
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
         }
 
         body.dark {
@@ -176,10 +184,10 @@
             
             <div class="form-group">
                 <label for="login-password">Password</label>
-                <input type="password" id="login-password" required placeholder="Enter your password">
+                <input type="password" id="login-password" required placeholder="Enter your password" minlength="6">
             </div>
             
-            <button type="submit" class="auth-button">Sign In</button>
+            <button type="submit" class="auth-button" id="login-button">Sign In</button>
         </form>
 
         <form id="signup-form" class="auth-form" style="display: none;">
@@ -190,7 +198,7 @@
             
             <div class="form-group">
                 <label for="signup-password">Password</label>
-                <input type="password" id="signup-password" required placeholder="Create a password">
+                <input type="password" id="signup-password" required placeholder="Create a password (min. 6 characters)" minlength="6">
             </div>
             
             <div class="form-group">
@@ -198,7 +206,7 @@
                 <input type="text" id="signup-display-name" required placeholder="Enter your name">
             </div>
             
-            <button type="submit" class="auth-button">Create Account</button>
+            <button type="submit" class="auth-button" id="signup-button">Create Account</button>
         </form>
 
         <div class="auth-switch">
@@ -207,25 +215,10 @@
         </div>
     </div>
 
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
-    
-    <script>
-        // Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyCxRv7j2d3o6yOq2N4Q7Y3w9zvL1eZ8X9A",
-            authDomain: "worklogpro-4284e.firebaseapp.com",
-            projectId: "worklogpro-4284e",
-            storageBucket: "worklogpro-4284e.firebasestorage.app",
-            messagingSenderId: "123456789012",
-            appId: "1:123456789012:web:abcdef123456"
-        };
-
-        // Initialize Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
+    <script type="module">
+        import { auth, db } from './firebase-config.js';
+        import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
+        import { doc, setDoc } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
         // DOM elements
         const loginForm = document.getElementById('login-form');
@@ -233,6 +226,8 @@
         const switchButton = document.getElementById('switch-button');
         const switchText = document.getElementById('switch-text');
         const errorMessage = document.getElementById('error-message');
+        const loginButton = document.getElementById('login-button');
+        const signupButton = document.getElementById('signup-button');
 
         let isLogin = true;
 
@@ -254,6 +249,7 @@
             }
             
             errorMessage.style.display = 'none';
+            clearFormErrors();
         });
 
         // Handle login
@@ -263,12 +259,17 @@
             const email = document.getElementById('login-email').value;
             const password = document.getElementById('login-password').value;
             
+            if (!validateForm('login')) return;
+            
             try {
-                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                setLoading(true, 'login');
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 console.log('User logged in:', userCredential.user.email);
                 window.location.href = 'index.html';
             } catch (error) {
-                showError(error.message);
+                showError(getAuthErrorMessage(error));
+            } finally {
+                setLoading(false, 'login');
             }
         });
 
@@ -280,12 +281,15 @@
             const password = document.getElementById('signup-password').value;
             const displayName = document.getElementById('signup-display-name').value;
             
+            if (!validateForm('signup')) return;
+            
             try {
-                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-                await userCredential.user.updateProfile({ displayName });
+                setLoading(true, 'signup');
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                await updateProfile(userCredential.user, { displayName });
                 
                 // Create user document in Firestore
-                await db.collection('users').doc(userCredential.user.uid).set({
+                await setDoc(doc(db, 'users', userCredential.user.uid), {
                     email: email,
                     displayName: displayName,
                     createdAt: new Date(),
@@ -297,13 +301,78 @@
                 console.log('User created:', userCredential.user.email);
                 window.location.href = 'index.html';
             } catch (error) {
-                showError(error.message);
+                showError(getAuthErrorMessage(error));
+            } finally {
+                setLoading(false, 'signup');
             }
         });
 
         function showError(message) {
             errorMessage.textContent = message;
             errorMessage.style.display = 'block';
+        }
+
+        function clearFormErrors() {
+            errorMessage.style.display = 'none';
+        }
+
+        function setLoading(loading, formType) {
+            const button = formType === 'login' ? loginButton : signupButton;
+            const originalText = formType === 'login' ? 'Sign In' : 'Create Account';
+            
+            if (loading) {
+                button.textContent = 'Please wait...';
+                button.classList.add('loading');
+            } else {
+                button.textContent = originalText;
+                button.classList.remove('loading');
+            }
+        }
+
+        function validateForm(formType) {
+            const email = document.getElementById(`${formType}-email`).value;
+            const password = document.getElementById(`${formType}-password`).value;
+            
+            if (!email || !password) {
+                showError('Please fill in all fields');
+                return false;
+            }
+            
+            if (password.length < 6) {
+                showError('Password must be at least 6 characters long');
+                return false;
+            }
+            
+            if (formType === 'signup') {
+                const displayName = document.getElementById('signup-display-name').value;
+                if (!displayName) {
+                    showError('Please enter your display name');
+                    return false;
+                }
+            }
+            
+            return true;
+        }
+
+        function getAuthErrorMessage(error) {
+            switch (error.code) {
+                case 'auth/invalid-email':
+                    return 'Invalid email address';
+                case 'auth/user-disabled':
+                    return 'This account has been disabled';
+                case 'auth/user-not-found':
+                    return 'No account found with this email';
+                case 'auth/wrong-password':
+                    return 'Incorrect password';
+                case 'auth/email-already-in-use':
+                    return 'An account with this email already exists';
+                case 'auth/weak-password':
+                    return 'Password is too weak';
+                case 'auth/network-request-failed':
+                    return 'Network error. Please check your connection';
+                default:
+                    return 'Authentication failed. Please try again';
+            }
         }
 
         // Check if user is already logged in
