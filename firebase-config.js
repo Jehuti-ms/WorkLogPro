@@ -1,8 +1,14 @@
 // ===========================
-// FIREBASE CONFIGURATION
+// FIREBASE CONFIGURATION - Modular Version (v9+)
 // ===========================
 
-// Use the correct Firebase configuration from your project
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
+import { getFirestore, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+import { getStorage } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-storage.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-analytics.js";
+
+// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyDdLP_LgiC6EgzC3hUP_mGuNW4_BUEACs8",
   authDomain: "worklogpro-4284e.firebaseapp.com",
@@ -14,21 +20,20 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-} else {
-    firebase.app();
-}
+const app = initializeApp(firebaseConfig);
 
 // Initialize Firebase services
-const auth = firebase.auth();
-const db = firebase.firestore();
-const storage = firebase.storage();
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+const analytics = getAnalytics(app);
 
 // Enable offline persistence
-db.enablePersistence()
-  .catch((err) => {
-      console.error('Firebase persistence error:', err);
-  });
+enableIndexedDbPersistence(db).catch((err) => {
+  console.error('Firebase persistence error:', err);
+});
 
 console.log('✅ Firebase initialized successfully with project:', firebaseConfig.projectId);
+
+// Export for use in other modules
+export { app, auth, db, storage, analytics };
