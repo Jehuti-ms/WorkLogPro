@@ -215,177 +215,189 @@
         </div>
     </div>
 
-    <script type="module">
-        import { auth, db } from './firebase-config.js';
-        import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
-        import { doc, setDoc } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+   <script>
+    // Firebase configuration - MUST MATCH your firebase-config.js
+    const firebaseConfig = {
+        apiKey: "AIzaSyDdLP_LgiC6EgzC3hUP_mGuNW4_BUEACs8",
+        authDomain: "worklogpro-4284e.firebaseapp.com",
+        projectId: "worklogpro-4284e",
+        storageBucket: "worklogpro-4284e.firebasestorage.app",
+        messagingSenderId: "299567233913",
+        appId: "1:299567233913:web:7232a5a5a8aa9b79948da8",
+        measurementId: "G-7JMG3LLJXX"
+    };
 
-        // DOM elements
-        const loginForm = document.getElementById('login-form');
-        const signupForm = document.getElementById('signup-form');
-        const switchButton = document.getElementById('switch-button');
-        const switchText = document.getElementById('switch-text');
-        const errorMessage = document.getElementById('error-message');
-        const loginButton = document.getElementById('login-button');
-        const signupButton = document.getElementById('signup-button');
+    // Initialize Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
 
-        let isLogin = true;
+    // DOM elements
+    const loginForm = document.getElementById('login-form');
+    const signupForm = document.getElementById('signup-form');
+    const switchButton = document.getElementById('switch-button');
+    const switchText = document.getElementById('switch-text');
+    const errorMessage = document.getElementById('error-message');
+    const loginButton = document.getElementById('login-button');
+    const signupButton = document.getElementById('signup-button');
 
-        // Switch between login and signup
-        switchButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            isLogin = !isLogin;
-            
-            if (isLogin) {
-                loginForm.style.display = 'flex';
-                signupForm.style.display = 'none';
-                switchText.textContent = "Don't have an account?";
-                switchButton.textContent = "Sign up";
-            } else {
-                loginForm.style.display = 'none';
-                signupForm.style.display = 'flex';
-                switchText.textContent = "Already have an account?";
-                switchButton.textContent = "Sign in";
-            }
-            
-            errorMessage.style.display = 'none';
-            clearFormErrors();
-        });
+    let isLogin = true;
 
-        // Handle login
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-password').value;
-            
-            if (!validateForm('login')) return;
-            
-            try {
-                setLoading(true, 'login');
-                const userCredential = await signInWithEmailAndPassword(auth, email, password);
-                console.log('User logged in:', userCredential.user.email);
-                window.location.href = 'index.html';
-            } catch (error) {
-                showError(getAuthErrorMessage(error));
-            } finally {
-                setLoading(false, 'login');
-            }
-        });
+    // Switch between login and signup
+    switchButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        isLogin = !isLogin;
+        
+        if (isLogin) {
+            loginForm.style.display = 'flex';
+            signupForm.style.display = 'none';
+            switchText.textContent = "Don't have an account?";
+            switchButton.textContent = "Sign up";
+        } else {
+            loginForm.style.display = 'none';
+            signupForm.style.display = 'flex';
+            switchText.textContent = "Already have an account?";
+            switchButton.textContent = "Sign in";
+        }
+        
+        errorMessage.style.display = 'none';
+        clearFormErrors();
+    });
 
-        // Handle signup
-        signupForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
+    // Handle login
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        
+        if (!validateForm('login')) return;
+        
+        try {
+            setLoading(true, 'login');
+            const userCredential = await auth.signInWithEmailAndPassword(email, password);
+            console.log('User logged in:', userCredential.user.email);
+            window.location.href = 'index.html';
+        } catch (error) {
+            showError(getAuthErrorMessage(error));
+        } finally {
+            setLoading(false, 'login');
+        }
+    });
+
+    // Handle signup
+    signupForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const email = document.getElementById('signup-email').value;
+        const password = document.getElementById('signup-password').value;
+        const displayName = document.getElementById('signup-display-name').value;
+        
+        if (!validateForm('signup')) return;
+        
+        try {
+            setLoading(true, 'signup');
+            const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+            await userCredential.user.updateProfile({ displayName });
             
-            const email = document.getElementById('signup-email').value;
-            const password = document.getElementById('signup-password').value;
+            // Create user document in Firestore
+            await db.collection('users').doc(userCredential.user.uid).set({
+                email: email,
+                displayName: displayName,
+                createdAt: new Date(),
+                theme: 'dark',
+                breakDuration: 30,
+                currency: 'USD'
+            });
+            
+            console.log('User created:', userCredential.user.email);
+            window.location.href = 'index.html';
+        } catch (error) {
+            showError(getAuthErrorMessage(error));
+        } finally {
+            setLoading(false, 'signup');
+        }
+    });
+
+    function showError(message) {
+        errorMessage.textContent = message;
+        errorMessage.style.display = 'block';
+    }
+
+    function clearFormErrors() {
+        errorMessage.style.display = 'none';
+    }
+
+    function setLoading(loading, formType) {
+        const button = formType === 'login' ? loginButton : signupButton;
+        const originalText = formType === 'login' ? 'Sign In' : 'Create Account';
+        
+        if (loading) {
+            button.textContent = 'Please wait...';
+            button.classList.add('loading');
+        } else {
+            button.textContent = originalText;
+            button.classList.remove('loading');
+        }
+    }
+
+    function validateForm(formType) {
+        const email = document.getElementById(`${formType}-email`).value;
+        const password = document.getElementById(`${formType}-password`).value;
+        
+        if (!email || !password) {
+            showError('Please fill in all fields');
+            return false;
+        }
+        
+        if (password.length < 6) {
+            showError('Password must be at least 6 characters long');
+            return false;
+        }
+        
+        if (formType === 'signup') {
             const displayName = document.getElementById('signup-display-name').value;
-            
-            if (!validateForm('signup')) return;
-            
-            try {
-                setLoading(true, 'signup');
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                await updateProfile(userCredential.user, { displayName });
-                
-                // Create user document in Firestore
-                await setDoc(doc(db, 'users', userCredential.user.uid), {
-                    email: email,
-                    displayName: displayName,
-                    createdAt: new Date(),
-                    theme: 'dark',
-                    breakDuration: 30,
-                    currency: 'USD'
-                });
-                
-                console.log('User created:', userCredential.user.email);
-                window.location.href = 'index.html';
-            } catch (error) {
-                showError(getAuthErrorMessage(error));
-            } finally {
-                setLoading(false, 'signup');
-            }
-        });
-
-        function showError(message) {
-            errorMessage.textContent = message;
-            errorMessage.style.display = 'block';
-        }
-
-        function clearFormErrors() {
-            errorMessage.style.display = 'none';
-        }
-
-        function setLoading(loading, formType) {
-            const button = formType === 'login' ? loginButton : signupButton;
-            const originalText = formType === 'login' ? 'Sign In' : 'Create Account';
-            
-            if (loading) {
-                button.textContent = 'Please wait...';
-                button.classList.add('loading');
-            } else {
-                button.textContent = originalText;
-                button.classList.remove('loading');
-            }
-        }
-
-        function validateForm(formType) {
-            const email = document.getElementById(`${formType}-email`).value;
-            const password = document.getElementById(`${formType}-password`).value;
-            
-            if (!email || !password) {
-                showError('Please fill in all fields');
+            if (!displayName) {
+                showError('Please enter your display name');
                 return false;
             }
-            
-            if (password.length < 6) {
-                showError('Password must be at least 6 characters long');
-                return false;
-            }
-            
-            if (formType === 'signup') {
-                const displayName = document.getElementById('signup-display-name').value;
-                if (!displayName) {
-                    showError('Please enter your display name');
-                    return false;
-                }
-            }
-            
-            return true;
         }
+        
+        return true;
+    }
 
-        function getAuthErrorMessage(error) {
-            switch (error.code) {
-                case 'auth/invalid-email':
-                    return 'Invalid email address';
-                case 'auth/user-disabled':
-                    return 'This account has been disabled';
-                case 'auth/user-not-found':
-                    return 'No account found with this email';
-                case 'auth/wrong-password':
-                    return 'Incorrect password';
-                case 'auth/email-already-in-use':
-                    return 'An account with this email already exists';
-                case 'auth/weak-password':
-                    return 'Password is too weak';
-                case 'auth/network-request-failed':
-                    return 'Network error. Please check your connection';
-                default:
-                    return 'Authentication failed. Please try again';
-            }
+    function getAuthErrorMessage(error) {
+        switch (error.code) {
+            case 'auth/invalid-email':
+                return 'Invalid email address';
+            case 'auth/user-disabled':
+                return 'This account has been disabled';
+            case 'auth/user-not-found':
+                return 'No account found with this email';
+            case 'auth/wrong-password':
+                return 'Incorrect password';
+            case 'auth/email-already-in-use':
+                return 'An account with this email already exists';
+            case 'auth/weak-password':
+                return 'Password is too weak';
+            case 'auth/network-request-failed':
+                return 'Network error. Please check your connection';
+            default:
+                return 'Authentication failed. Please try again';
         }
+    }
 
-        // Check if user is already logged in
-        auth.onAuthStateChanged((user) => {
-            if (user) {
-                window.location.href = 'index.html';
-            }
-        });
+    // Check if user is already logged in
+    auth.onAuthStateChanged((user) => {
+        if (user) {
+            window.location.href = 'index.html';
+        }
+    });
 
-        // Initialize theme
-        const savedTheme = localStorage.getItem('worklog-theme') || 'dark';
-        document.documentElement.setAttribute('data-theme', savedTheme);
-        document.body.className = savedTheme;
-    </script>
+    // Initialize theme
+    const savedTheme = localStorage.getItem('worklog-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    document.body.className = savedTheme;
+</script>
 </body>
 </html>
