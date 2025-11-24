@@ -1,39 +1,31 @@
 // ===========================
-// FIREBASE CONFIGURATION - v9 Modular
+// FIREBASE CONFIGURATION - Use Original Working Config
 // ===========================
 
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.1.0/firebase-app.js';
-import { getAuth } from 'https://www.gstatic.com/firebasejs/9.1.0/firebase-auth.js';
-import { getFirestore, enableIndexedDbPersistence } from 'https://www.gstatic.com/firebasejs/9.1.0/firebase-firestore.js';
-import { getStorage } from 'https://www.gstatic.com/firebasejs/9.1.0/firebase-storage.js';
-import { getAnalytics } from 'https://www.gstatic.com/firebasejs/9.1.0/firebase-analytics.js';
-
-// Your web app's Firebase configuration
+// Firebase configuration - FROM WHEN IT WAS WORKING
 const firebaseConfig = {
-  apiKey: "AIzaSyDdLP_LgiC6EgzC3hUP_mGuNW4_BUEACs8",
-  authDomain: "worklogpro-4284e.firebaseapp.com",
-  projectId: "worklogpro-4284e",
-  storageBucket: "worklogpro-4284e.firebasestorage.app",
-  messagingSenderId: "299567233913",
-  appId: "1:299567233913:web:7232a5a5a8aa9b79948da8",
-  measurementId: "G-7JMG3LLJXX"
+    apiKey: "AIzaSyCxRv7j2d3o6yOq2N4Q7Y3w9zvL1eZ8X9A",
+    authDomain: "worklogpro-4284e.firebaseapp.com",
+    projectId: "worklogpro-4284e",
+    storageBucket: "worklogpro-4284e.firebasestorage.app",
+    messagingSenderId: "123456789012",
+    appId: "1:123456789012:web:abcdef123456"
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
 
 // Initialize Firebase services
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
-const analytics = getAnalytics(app);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const storage = firebase.storage();
 
 // Enable offline persistence
-enableIndexedDbPersistence(db).catch((err) => {
-  console.error('Firebase persistence error:', err);
-});
+db.enablePersistence()
+  .catch((err) => {
+      console.error('Firebase persistence error:', err);
+  });
 
-console.log('✅ Firebase v9.1 initialized successfully');
-
-// Export for use in other modules
-export { app, auth, db, storage, analytics };
+console.log('✅ Firebase initialized with ORIGINAL working config');
