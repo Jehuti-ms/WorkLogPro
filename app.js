@@ -1,5 +1,5 @@
 // ===========================
-// FIREBASE v9 IMPORTS
+// FIREBASE v9 IMPORTS - FIXED
 // ===========================
 
 import { auth, db } from './firebase-config.js';
