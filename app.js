@@ -1,4 +1,25 @@
 // ===========================
+// FIREBASE v9 IMPORTS
+// ===========================
+
+import { auth, db } from './firebase-config.js';
+import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.1.0/firebase-auth.js';
+import { 
+    collection, 
+    doc, 
+    getDoc, 
+    getDocs, 
+    addDoc, 
+    setDoc,
+    updateDoc, 
+    deleteDoc,
+    query,
+    where,
+    orderBy,
+    limit 
+} from 'https://www.gstatic.com/firebasejs/9.1.0/firebase-firestore.js';
+
+// ===========================
 // GLOBAL VARIABLES
 // ===========================
 
@@ -49,10 +70,8 @@ const NotificationSystem = {
         
         document.body.appendChild(notification);
         
-        // Trigger animation
         setTimeout(() => notification.classList.add('show'), 100);
         
-        // Auto remove
         setTimeout(() => {
             notification.classList.remove('show');
             setTimeout(() => {
@@ -88,7 +107,6 @@ function updateThemeButton() {
     const themeButton = document.querySelector('.theme-toggle button');
     if (!themeButton) return;
     
-    // Always show 🌓 regardless of theme
     themeButton.innerHTML = '🌓';
     themeButton.setAttribute('title', 'Toggle theme');
 }
@@ -110,7 +128,6 @@ function setupThemeToggle() {
     if (themeToggle) {
         console.log('🎯 Found theme toggle button');
         
-        // Set initial button state - always 🌓
         themeToggle.innerHTML = '🌓';
         themeToggle.setAttribute('title', 'Toggle theme');
         
@@ -152,7 +169,6 @@ function setupThemeToggle() {
 }
 
 function initializeTheme() {
-    // Load saved theme or default to light
     const savedTheme = localStorage.getItem('worklog-theme') || 'light';
     console.log('🎨 Initializing theme:', savedTheme);
     
@@ -172,19 +188,16 @@ async function loadUserProfile(userId) {
     console.log('👤 Loading user profile for:', userId);
     
     try {
-        const userDoc = await db.collection('users').doc(userId).get();
+        const userDoc = await getDoc(doc(db, 'users', userId));
         
-        if (userDoc.exists) {
+        if (userDoc.exists()) {
             const userData = userDoc.data();
             console.log('✅ User profile loaded:', userData);
             
-            // Store user data globally
             currentUser = { ...userData, uid: userId };
             window.currentUser = currentUser;
             
-            // Update UI with user data
             updateUserProfileUI(userData);
-            
             return userData;
         } else {
             console.log('⚠️ No user profile found, creating default...');
@@ -200,14 +213,12 @@ async function loadUserProfile(userId) {
                 className: ''
             };
             
-            await db.collection('users').doc(userId).set(defaultUserData);
+            await setDoc(doc(db, 'users', userId), defaultUserData);
             
-            // Store globally
             currentUser = { ...defaultUserData, uid: userId };
             window.currentUser = currentUser;
             
             updateUserProfileUI(defaultUserData);
-            
             return defaultUserData;
         }
     } catch (error) {
@@ -220,24 +231,27 @@ async function loadUserProfile(userId) {
 function updateUserProfileUI(userData) {
     console.log('🎨 Updating UI with user profile data...');
     
-    // Update user display name if element exists
     const userDisplayElement = document.getElementById('user-display-name');
     if (userDisplayElement && userData.displayName) {
         userDisplayElement.textContent = userData.displayName;
     }
     
-    // Update user email if element exists
     const userEmailElement = document.getElementById('user-email');
     if (userEmailElement && userData.email) {
         userEmailElement.textContent = userData.email;
     }
     
-    // Apply user theme preference
     if (userData.theme) {
         applyTheme(userData.theme);
     }
     
     console.log('✅ UI updated with user profile');
+}
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.className = theme;
+    localStorage.setItem('worklog-theme', theme);
 }
 
 // ===========================
@@ -254,11 +268,9 @@ function setupTabNavigation() {
         button.addEventListener('click', () => {
             const targetTab = button.getAttribute('data-tab');
             
-            // Update active tab button
             tabButtons.forEach(btn => btn.classList.remove('active'));
             button.classList.add('active');
             
-            // Show target tab pane
             tabPanes.forEach(pane => {
                 pane.classList.remove('active');
                 if (pane.id === targetTab) {
@@ -276,25 +288,21 @@ function setupTabNavigation() {
 function setupFormHandlers() {
     console.log('🔧 Setting up form handlers...');
     
-    // Student form
     const studentForm = document.getElementById('student-form');
     if (studentForm) {
         studentForm.addEventListener('submit', handleStudentSubmit);
     }
     
-    // Hours form
     const hoursForm = document.getElementById('hours-form');
     if (hoursForm) {
         hoursForm.addEventListener('submit', handleHoursSubmit);
     }
     
-    // Marks form
     const marksForm = document.getElementById('marks-form');
     if (marksForm) {
         marksForm.addEventListener('submit', handleMarksSubmit);
     }
     
-    // Attendance form
     const attendanceForm = document.getElementById('attendance-form');
     if (attendanceForm) {
         attendanceForm.addEventListener('submit', handleAttendanceSubmit);
@@ -328,7 +336,6 @@ function setupProfileModal() {
         profileForm.addEventListener('submit', handleProfileSubmit);
     }
     
-    // Close modal when clicking outside
     window.addEventListener('click', (event) => {
         if (event.target === profileModal) {
             profileModal.style.display = 'none';
@@ -357,7 +364,6 @@ function setupFloatingAddButton() {
         });
     }
     
-    // Close modal when clicking outside
     window.addEventListener('click', (event) => {
         if (event.target === quickAddModal) {
             quickAddModal.style.display = 'none';
@@ -368,7 +374,7 @@ function setupFloatingAddButton() {
 }
 
 // ===========================
-// FORM HANDLERS
+// FORM HANDLERS - v9 SYNTAX
 // ===========================
 
 async function handleStudentSubmit(e) {
@@ -386,11 +392,10 @@ async function handleStudentSubmit(e) {
             userId: currentUser.uid
         };
         
-        await db.collection('students').add(formData);
+        await addDoc(collection(db, 'students'), formData);
         showNotification('Student added successfully!', 'success');
         e.target.reset();
         
-        // Refresh student lists
         await renderStudents();
         manuallyRefreshStudentDropdowns();
         
@@ -415,11 +420,10 @@ async function handleHoursSubmit(e) {
             userId: currentUser.uid
         };
         
-        await db.collection('hours').add(formData);
+        await addDoc(collection(db, 'hours'), formData);
         showNotification('Hours logged successfully!', 'success');
         e.target.reset();
         
-        // Refresh hours display
         await renderRecentHoursWithEdit();
         updateHeaderStats();
         
@@ -445,11 +449,10 @@ async function handleMarksSubmit(e) {
             userId: currentUser.uid
         };
         
-        await db.collection('marks').add(formData);
+        await addDoc(collection(db, 'marks'), formData);
         showNotification('Marks recorded successfully!', 'success');
         e.target.reset();
         
-        // Refresh marks display
         await renderRecentMarksWithEdit();
         updateHeaderStats();
         
@@ -473,11 +476,10 @@ async function handleAttendanceSubmit(e) {
             userId: currentUser.uid
         };
         
-        await db.collection('attendance').add(formData);
+        await addDoc(collection(db, 'attendance'), formData);
         showNotification('Attendance recorded successfully!', 'success');
         e.target.reset();
         
-        // Refresh attendance display
         await renderAttendanceRecentWithEdit();
         updateHeaderStats();
         
@@ -502,13 +504,11 @@ async function handleProfileSubmit(e) {
             updatedAt: new Date()
         };
         
-        await db.collection('users').doc(currentUser.uid).set(profileData, { merge: true });
+        await setDoc(doc(db, 'users', currentUser.uid), profileData, { merge: true });
         
-        // Update global user data
         currentUser = { ...currentUser, ...profileData };
         window.currentUser = currentUser;
         
-        // Apply theme if changed
         applyTheme(profileData.theme);
         
         showNotification('Profile updated successfully!', 'success');
@@ -521,18 +521,20 @@ async function handleProfileSubmit(e) {
 }
 
 // ===========================
-// DATA RENDERING FUNCTIONS
+// DATA RENDERING FUNCTIONS - v9
 // ===========================
 
 async function renderStudents() {
     console.log('👥 Rendering students...');
     
     try {
-        const snapshot = await db.collection('students')
-            .where('userId', '==', currentUser.uid)
-            .orderBy('createdAt', 'desc')
-            .get();
+        const q = query(
+            collection(db, 'students'),
+            where('userId', '==', currentUser.uid),
+            orderBy('createdAt', 'desc')
+        );
         
+        const snapshot = await getDocs(q);
         students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
         const container = document.getElementById('students-container');
@@ -558,12 +560,14 @@ async function renderRecentHoursWithEdit() {
     console.log('⏰ Rendering recent hours...');
     
     try {
-        const snapshot = await db.collection('hours')
-            .where('userId', '==', currentUser.uid)
-            .orderBy('date', 'desc')
-            .limit(10)
-            .get();
+        const q = query(
+            collection(db, 'hours'),
+            where('userId', '==', currentUser.uid),
+            orderBy('date', 'desc'),
+            limit(10)
+        );
         
+        const snapshot = await getDocs(q);
         hoursRecords = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
         const container = document.getElementById('recent-hours-container');
@@ -593,12 +597,14 @@ async function renderRecentMarksWithEdit() {
     console.log('📊 Rendering recent marks...');
     
     try {
-        const snapshot = await db.collection('marks')
-            .where('userId', '==', currentUser.uid)
-            .orderBy('date', 'desc')
-            .limit(10)
-            .get();
+        const q = query(
+            collection(db, 'marks'),
+            where('userId', '==', currentUser.uid),
+            orderBy('date', 'desc'),
+            limit(10)
+        );
         
+        const snapshot = await getDocs(q);
         marksRecords = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
         const container = document.getElementById('recent-marks-container');
@@ -628,12 +634,14 @@ async function renderAttendanceRecentWithEdit() {
     console.log('✅ Rendering recent attendance...');
     
     try {
-        const snapshot = await db.collection('attendance')
-            .where('userId', '==', currentUser.uid)
-            .orderBy('date', 'desc')
-            .limit(10)
-            .get();
+        const q = query(
+            collection(db, 'attendance'),
+            where('userId', '==', currentUser.uid),
+            orderBy('date', 'desc'),
+            limit(10)
+        );
         
+        const snapshot = await getDocs(q);
         attendanceRecords = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         
         const container = document.getElementById('recent-attendance-container');
@@ -663,14 +671,12 @@ async function renderOverviewReports() {
     console.log('📈 Rendering overview reports...');
     
     try {
-        // Calculate basic stats
         const totalStudents = students.length;
         const totalHours = hoursRecords.reduce((sum, record) => sum + record.hours, 0);
         const totalMarks = marksRecords.length;
         const presentCount = attendanceRecords.filter(record => record.status === 'present').length;
         const attendanceRate = attendanceRecords.length > 0 ? (presentCount / attendanceRecords.length * 100).toFixed(1) : 0;
         
-        // Update stats cards
         updateStatCard('total-students', totalStudents);
         updateStatCard('total-hours', totalHours.toFixed(1));
         updateStatCard('total-marks', totalMarks);
@@ -704,18 +710,16 @@ function getStudentName(studentId) {
 
 async function loadProfileData() {
     try {
-        const userDoc = await db.collection('users').doc(currentUser.uid).get();
-        if (userDoc.exists) {
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+        if (userDoc.exists()) {
             const userData = userDoc.data();
             
-            // Populate form fields
             document.getElementById('profile-display-name').value = userData.displayName || '';
             document.getElementById('profile-school').value = userData.schoolName || '';
             document.getElementById('profile-class').value = userData.className || '';
             document.getElementById('profile-break-duration').value = userData.breakDuration || 30;
             document.getElementById('profile-currency').value = userData.currency || 'USD';
             
-            // Theme selection
             const themeSelect = document.getElementById('profile-theme');
             if (themeSelect) {
                 themeSelect.value = userData.theme || 'dark';
@@ -729,7 +733,6 @@ async function loadProfileData() {
 
 function updateHeaderStats() {
     console.log('📊 Updating header stats...');
-    // This will be called after data loads to update header displays
 }
 
 function refreshTimestamp() {
@@ -742,7 +745,7 @@ function refreshTimestamp() {
 }
 
 // ===========================
-// STUDENT DROPDOWN MANAGEMENT
+// STUDENT DROPDOWN MANAGEMENT - v9
 // ===========================
 
 const StudentDropdownManager = {
@@ -755,18 +758,18 @@ const StudentDropdownManager = {
         console.log('📋 Populating all student dropdowns...');
         
         try {
-            const snapshot = await db.collection('students')
-                .where('userId', '==', currentUser.uid)
-                .orderBy('name')
-                .get();
+            const q = query(
+                collection(db, 'students'),
+                where('userId', '==', currentUser.uid),
+                orderBy('name')
+            );
             
+            const snapshot = await getDocs(q);
             students = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             
-            // Populate all dropdowns
             this.populateDropdown('hours-student', students);
             this.populateDropdown('marks-student', students);
             this.populateDropdown('attendance-student', students);
-            // Add more dropdown IDs as needed
             
             console.log(`✅ Populated ${students.length} students into dropdowns`);
         } catch (error) {
@@ -831,49 +834,40 @@ function deleteAttendanceRecord(recordId) {
 const EnhancedCache = {
     loadCachedData() {
         console.log('💾 Loading cached data...');
-        // Implementation would go here
     }
 };
 
 const SyncBar = {
     init() {
         console.log('🔄 Initializing sync bar...');
-        // Implementation would go here
     }
 };
 
 const EnhancedStats = {
     init() {
         console.log('📊 Initializing enhanced stats...');
-        // Implementation would go here
     }
 };
 
 // ===========================
-// APP INITIALIZATION
+// APP INITIALIZATION - v9
 // ===========================
 
 async function initializeApp() {
-    console.log('🚀 Initializing WorkLog App...');
+    console.log('🚀 Initializing WorkLog App with Firebase v9...');
     
     try {
-        // Initialize notification system first
         NotificationSystem.initNotificationStyles();
-        
-        // Initialize theme
         initializeTheme();
         
-        // Setup authentication state listener
-        firebase.auth().onAuthStateChanged(async (user) => {
+        onAuthStateChanged(auth, async (user) => {
             if (user) {
                 console.log('✅ User authenticated:', user.email);
                 
                 try {
-                    // Load user profile and data
                     await loadUserProfile(user.uid);
                     EnhancedCache.loadCachedData();
                     
-                    // Initialize systems
                     setupTabNavigation();
                     setupFormHandlers();
                     setupProfileModal();
@@ -881,7 +875,6 @@ async function initializeApp() {
                     SyncBar.init();
                     EnhancedStats.init();
                     
-                    // Load and render initial data
                     await Promise.all([
                         renderStudents(),
                         renderRecentHoursWithEdit(),
@@ -890,10 +883,8 @@ async function initializeApp() {
                         renderOverviewReports()
                     ]);
                     
-                    // Populate dropdowns
                     await StudentDropdownManager.forceRefresh();
                     
-                    // Update UI
                     updateHeaderStats();
                     refreshTimestamp();
                     
@@ -921,3 +912,12 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('📄 DOM Content Loaded - Starting app initialization...');
     initializeApp();
 });
+
+// Make functions globally available for HTML onclick handlers
+window.editHoursRecord = editHoursRecord;
+window.deleteHoursRecord = deleteHoursRecord;
+window.editMarksRecord = editMarksRecord;
+window.deleteMarksRecord = deleteMarksRecord;
+window.editAttendanceRecord = editAttendanceRecord;
+window.deleteAttendanceRecord = deleteAttendanceRecord;
+window.manuallyRefreshStudentDropdowns = manuallyRefreshStudentDropdowns;
