@@ -20,7 +20,7 @@
 
 <!-- Your scripts -->
 <script src="firebase-config.js"></script>
-<script src="app.js"></script>
+ <script type="module" src="app.js"></script>
 </head>
 
 <body>
@@ -616,28 +616,42 @@
   <script type="module" src="app.js"></script>
 
   <!-- Auth Check -->
-  <script type="module">
-    import { auth, db, storage } from './firebase-config.js';
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-    console.log("🔐 Starting auth check on index.html...");
-
-    onAuthStateChanged(auth, user => {
-      if (user) {
-        console.log("✅ User authenticated:", user.email);
+ <!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WorkLog Pro - Teacher's Dashboard</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>">
+    
+    <!-- Your existing styles -->
+    <style>
+        /* Your CSS styles */
+    </style>
+</head>
+<body>
+    <!-- Your HTML content -->
+    
+    <!-- Convert app.js to module -->
+    <script type="module" src="app.js"></script>
+    
+    <!-- Auth Check Script -->
+    <script type="module">
+        import { auth } from './firebase-config.js';
+        import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.1.0/firebase-auth.js';
         
-        // Safe container access with null check
-        const container = document.querySelector(".container");
-        if (container) {
-          container.style.display = "block";
-        } else {
-          console.warn("⚠️ Container element not found");
-        }
-      } else {
-        console.log("🚫 No user authenticated - redirecting to login");
-        window.location.href = "auth.html";
-      }
-    });
-  </script>
+        console.log('🔐 Starting auth check on index.html...');
+        
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                console.log('✅ User authenticated:', user.email);
+            } else {
+                console.log('❌ No user signed in');
+                window.location.href = 'auth.html';
+            }
+        });
+    </script>
+</body>
+</html>
 </body>
 </html>
