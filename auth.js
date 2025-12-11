@@ -1,4 +1,4 @@
-// auth.js - Firebase Authentication Logic
+// auth.js - Firebase Authentication & Database Setup
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { 
   getAuth, 
@@ -7,12 +7,21 @@ import {
   sendPasswordResetEmail,
   signOut,
   onAuthStateChanged,
-  updateProfile
+  updateProfile,
+  setPersistence,
+  browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { 
   getFirestore, 
+  initializeFirestore,
+  persistentLocalCache,
   doc, 
-  setDoc 
+  setDoc,
+  collection,
+  getDocs,
+  getDoc,
+  updateDoc,
+  deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // Firebase configuration
@@ -27,39 +36,103 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
+console.log("🔥 Initializing Firebase...");
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
 
-// Export for use in other files
+// Initialize Firestore with persistence
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache()
+});
+
+// Initialize Auth
+const auth = getAuth(app);
+
+// Enable auth persistence
+setPersistence(auth, browserLocalPersistence)
+  .then(() => {
+    console.log("✅ Auth persistence enabled");
+  })
+  .catch((error) => {
+    console.error("❌ Auth persistence error:", error);
+  });
+
+console.log("✅ Firebase initialized successfully");
+
+// Export everything for use in other files
 export { 
+  // Core Firebase objects
   app, 
   auth, 
-  db, 
+  db,
+  
+  // Auth functions
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
+  sendPasswordResetEmail,
   signOut, 
   onAuthStateChanged,
-  updateProfile 
+  updateProfile,
+  setPersistence,
+  browserLocalPersistence,
+  
+  // Firestore functions
+  doc,
+  setDoc,
+  collection,
+  getDocs,
+  getDoc,
+  updateDoc,
+  deleteDoc,
+  initializeFirestore,
+  persistentLocalCache
 };
 
 // Auth state change listener
 onAuthStateChanged(auth, (user) => {
-  console.log("Auth state changed:", user ? `User: ${user.email}` : "No user");
-  
   const currentPage = window.location.pathname;
   
   if (user) {
-    // User is logged in
-    if (currentPage.includes('auth.html')) {
-      console.log("Redirecting to app...");
-      window.location.href = 'index.html';
+    console.log("🟢 User authenticated:", user.email);
+    
+    // If we're on login page, redirect to app
+    if (currentPage.includes('auth.html') || currentPage.endsWith('/')) {
+      console.log("📤 Redirecting to app...");
+      setTimeout(() => {
+        window.location.href = 'index.html';
+      }, 100);
     }
   } else {
-    // No user logged in
+    console.log("🔴 No user authenticated");
+    
+    // If we're on app page, redirect to login
     if (currentPage.includes('index.html')) {
-      console.log("Redirecting to login...");
-      window.location.href = 'auth.html';
+      console.log("📥 Redirecting to login...");
+      setTimeout(() => {
+        window.location.href = 'auth.html';
+      }, 100);
     }
   }
 });
+
+// Debug helper - can be called from browser console
+window.firebaseDebug = {
+  getCurrentUser: () => auth.currentUser,
+  getAuthState: () => new Promise((resolve) => {
+    onAuthStateChanged(auth, (user) => resolve(user));
+  }),
+  testConnection: async () => {
+    try {
+      console.log("Testing Firebase connection...");
+      console.log("App:", app.name);
+      console.log("Auth:", !!auth);
+      console.log("Firestore:", !!db);
+      console.log("Current user:", auth.currentUser?.email || "None");
+      return true;
+    } catch (error) {
+      console.error("Connection test failed:", error);
+      return false;
+    }
+  }
+};
+
+console.log("✅ auth.js loaded successfully");
