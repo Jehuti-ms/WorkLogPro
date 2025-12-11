@@ -1,407 +1,65 @@
-<!DOCTYPE html>
-<html lang="en" data-theme="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - WorkLog Pro</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+// auth.js - Firebase Authentication Logic
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { 
+  getAuth, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signOut,
+  onAuthStateChanged,
+  updateProfile
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { 
+  getFirestore, 
+  doc, 
+  setDoc 
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
+// Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyDdLP_LgiC6EgzC3hUP_mGuNW4_BUEACs8",
+  authDomain: "worklogpro-4284e.firebaseapp.com",
+  projectId: "worklogpro-4284e",
+  storageBucket: "worklogpro-4284e.firebasestorage.app",
+  messagingSenderId: "299567233913",
+  appId: "1:299567233913:web:7232a5a5a8aa9b79948da8",
+  measurementId: "G-7JMG3LLJXX"
+};
 
-        .auth-container {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
-            padding: 40px;
-            width: 100%;
-            max-width: 400px;
-        }
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-        .logo {
-            text-align: center;
-            margin-bottom: 30px;
-        }
+// Export for use in other files
+export { 
+  app, 
+  auth, 
+  db, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged,
+  updateProfile 
+};
 
-        .logo h1 {
-            color: #333;
-            font-size: 28px;
-            margin-bottom: 5px;
-        }
-
-        .logo p {
-            color: #666;
-            font-size: 14px;
-        }
-
-        .auth-form {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-
-        label {
-            font-weight: 600;
-            color: #333;
-            font-size: 14px;
-        }
-
-        input {
-            padding: 12px 15px;
-            border: 2px solid #e1e5e9;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.3s ease;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .auth-button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s ease;
-        }
-
-        .auth-button:hover {
-            transform: translateY(-2px);
-        }
-
-        .auth-button:active {
-            transform: translateY(0);
-        }
-
-        .auth-switch {
-            text-align: center;
-            margin-top: 20px;
-            color: #666;
-        }
-
-        .auth-switch a {
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 600;
-        }
-
-        .auth-switch a:hover {
-            text-decoration: underline;
-        }
-
-        .error-message {
-            background: #fee;
-            color: #c33;
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 14px;
-            text-align: center;
-            display: none;
-            margin-bottom: 15px;
-        }
-
-        .loading {
-            opacity: 0.7;
-            pointer-events: none;
-        }
-
-        body.dark {
-            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
-        }
-
-        body.dark .auth-container {
-            background: #2d3748;
-            color: white;
-        }
-
-        body.dark .logo h1 {
-            color: white;
-        }
-
-        body.dark .logo p {
-            color: #cbd5e0;
-        }
-
-        body.dark label {
-            color: white;
-        }
-
-        body.dark input {
-            background: #4a5568;
-            border-color: #4a5568;
-            color: white;
-        }
-
-        body.dark input:focus {
-            border-color: #667eea;
-        }
-
-        body.dark .auth-switch {
-            color: #cbd5e0;
-        }
-    </style>
-</head>
-<body>
-    <div class="auth-container">
-        <div class="logo">
-            <h1>WorkLog Pro</h1>
-            <p>Teacher's Productivity Companion</p>
-        </div>
-
-        <div id="error-message" class="error-message"></div>
-
-        <form id="login-form" class="auth-form">
-            <div class="form-group">
-                <label for="login-email">Email</label>
-                <input type="email" id="login-email" required placeholder="Enter your email">
-            </div>
-            
-            <div class="form-group">
-                <label for="login-password">Password</label>
-                <input type="password" id="login-password" required placeholder="Enter your password" minlength="6">
-            </div>
-            
-            <button type="submit" class="auth-button" id="login-button">Sign In</button>
-        </form>
-
-        <form id="signup-form" class="auth-form" style="display: none;">
-            <div class="form-group">
-                <label for="signup-email">Email</label>
-                <input type="email" id="signup-email" required placeholder="Enter your email">
-            </div>
-            
-            <div class="form-group">
-                <label for="signup-password">Password</label>
-                <input type="password" id="signup-password" required placeholder="Create a password (min. 6 characters)" minlength="6">
-            </div>
-            
-            <div class="form-group">
-                <label for="signup-display-name">Display Name</label>
-                <input type="text" id="signup-display-name" required placeholder="Enter your name">
-            </div>
-            
-            <button type="submit" class="auth-button" id="signup-button">Create Account</button>
-        </form>
-
-        <div class="auth-switch">
-            <span id="switch-text">Don't have an account?</span>
-            <a href="#" id="switch-button">Sign up</a>
-        </div>
-    </div>
-
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    
-    <script>
-        // Firebase configuration - MUST MATCH your firebase-config.js
-        const firebaseConfig = {
-            apiKey: "AIzaSyDdLP_LgiC6EgzC3hUP_mGuNW4_BUEACs8",
-            authDomain: "worklogpro-4284e.firebaseapp.com",
-            projectId: "worklogpro-4284e",
-            storageBucket: "worklogpro-4284e.firebasestorage.app",
-            messagingSenderId: "299567233913",
-            appId: "1:299567233913:web:7232a5a5a8aa9b79948da8",
-            measurementId: "G-7JMG3LLJXX"
-        };
-
-        // Initialize Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-
-        // DOM elements
-        const loginForm = document.getElementById('login-form');
-        const signupForm = document.getElementById('signup-form');
-        const switchButton = document.getElementById('switch-button');
-        const switchText = document.getElementById('switch-text');
-        const errorMessage = document.getElementById('error-message');
-        const loginButton = document.getElementById('login-button');
-        const signupButton = document.getElementById('signup-button');
-
-        let isLogin = true;
-
-        // Switch between login and signup
-        switchButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            isLogin = !isLogin;
-            
-            if (isLogin) {
-                loginForm.style.display = 'flex';
-                signupForm.style.display = 'none';
-                switchText.textContent = "Don't have an account?";
-                switchButton.textContent = "Sign up";
-            } else {
-                loginForm.style.display = 'none';
-                signupForm.style.display = 'flex';
-                switchText.textContent = "Already have an account?";
-                switchButton.textContent = "Sign in";
-            }
-            
-            errorMessage.style.display = 'none';
-            clearFormErrors();
-        });
-
-        // Handle login
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-password').value;
-            
-            if (!validateForm('login')) return;
-            
-            try {
-                setLoading(true, 'login');
-                const userCredential = await auth.signInWithEmailAndPassword(email, password);
-                console.log('User logged in:', userCredential.user.email);
-                window.location.href = 'index.html';
-            } catch (error) {
-                showError(getAuthErrorMessage(error));
-            } finally {
-                setLoading(false, 'login');
-            }
-        });
-
-        // Handle signup
-        signupForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const email = document.getElementById('signup-email').value;
-            const password = document.getElementById('signup-password').value;
-            const displayName = document.getElementById('signup-display-name').value;
-            
-            if (!validateForm('signup')) return;
-            
-            try {
-                setLoading(true, 'signup');
-                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-                await userCredential.user.updateProfile({ displayName });
-                
-                // Create user document in Firestore
-                await db.collection('users').doc(userCredential.user.uid).set({
-                    email: email,
-                    displayName: displayName,
-                    createdAt: new Date(),
-                    theme: 'dark',
-                    breakDuration: 30,
-                    currency: 'USD'
-                });
-                
-                console.log('User created:', userCredential.user.email);
-                window.location.href = 'index.html';
-            } catch (error) {
-                showError(getAuthErrorMessage(error));
-            } finally {
-                setLoading(false, 'signup');
-            }
-        });
-
-        function showError(message) {
-            errorMessage.textContent = message;
-            errorMessage.style.display = 'block';
-        }
-
-        function clearFormErrors() {
-            errorMessage.style.display = 'none';
-        }
-
-        function setLoading(loading, formType) {
-            const button = formType === 'login' ? loginButton : signupButton;
-            const originalText = formType === 'login' ? 'Sign In' : 'Create Account';
-            
-            if (loading) {
-                button.textContent = 'Please wait...';
-                button.classList.add('loading');
-            } else {
-                button.textContent = originalText;
-                button.classList.remove('loading');
-            }
-        }
-
-        function validateForm(formType) {
-            const email = document.getElementById(`${formType}-email`).value;
-            const password = document.getElementById(`${formType}-password`).value;
-            
-            if (!email || !password) {
-                showError('Please fill in all fields');
-                return false;
-            }
-            
-            if (password.length < 6) {
-                showError('Password must be at least 6 characters long');
-                return false;
-            }
-            
-            if (formType === 'signup') {
-                const displayName = document.getElementById('signup-display-name').value;
-                if (!displayName) {
-                    showError('Please enter your display name');
-                    return false;
-                }
-            }
-            
-            return true;
-        }
-
-        function getAuthErrorMessage(error) {
-            switch (error.code) {
-                case 'auth/invalid-email':
-                    return 'Invalid email address';
-                case 'auth/user-disabled':
-                    return 'This account has been disabled';
-                case 'auth/user-not-found':
-                    return 'No account found with this email';
-                case 'auth/wrong-password':
-                    return 'Incorrect password';
-                case 'auth/email-already-in-use':
-                    return 'An account with this email already exists';
-                case 'auth/weak-password':
-                    return 'Password is too weak';
-                case 'auth/network-request-failed':
-                    return 'Network error. Please check your connection';
-                default:
-                    return 'Authentication failed. Please try again';
-            }
-        }
-
-        // Check if user is already logged in
-        auth.onAuthStateChanged((user) => {
-            if (user) {
-                window.location.href = 'index.html';
-            }
-        });
-
-        // Initialize theme
-        const savedTheme = localStorage.getItem('worklog-theme') || 'dark';
-        document.documentElement.setAttribute('data-theme', savedTheme);
-        document.body.className = savedTheme;
-    </script>
-</body>
-</html>
+// Auth state change listener
+onAuthStateChanged(auth, (user) => {
+  console.log("Auth state changed:", user ? `User: ${user.email}` : "No user");
+  
+  const currentPage = window.location.pathname;
+  
+  if (user) {
+    // User is logged in
+    if (currentPage.includes('auth.html')) {
+      console.log("Redirecting to app...");
+      window.location.href = 'index.html';
+    }
+  } else {
+    // No user logged in
+    if (currentPage.includes('index.html')) {
+      console.log("Redirecting to login...");
+      window.location.href = 'auth.html';
+    }
+  }
+});
