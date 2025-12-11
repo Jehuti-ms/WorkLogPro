@@ -781,6 +781,146 @@
     const savedTheme = localStorage.getItem('worklog-theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
     document.body.className = savedTheme;
+
+   // =================== Tab switching functionality ==========================
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log("📋 Initializing tabs...");
+    
+    // Get all tab buttons and tab contents
+    const tabButtons = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tabcontent');
+    
+    // Function to switch tabs
+    function switchTab(tabName) {
+      console.log("Switching to tab:", tabName);
+      
+      // Hide all tab contents
+      tabContents.forEach(content => {
+        content.classList.remove('active');
+      });
+      
+      // Remove active class from all tab buttons
+      tabButtons.forEach(button => {
+        button.classList.remove('active');
+      });
+      
+      // Show the selected tab content
+      const selectedTab = document.getElementById(tabName);
+      if (selectedTab) {
+        selectedTab.classList.add('active');
+      }
+      
+      // Activate the clicked tab button
+      const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
+      if (activeButton) {
+        activeButton.classList.add('active');
+      }
+    }
+    
+    // Add click event to all tab buttons
+    tabButtons.forEach(button => {
+      button.addEventListener('click', function() {
+        const tabName = this.getAttribute('data-tab');
+        switchTab(tabName);
+      });
+    });
+    
+    // Initialize with Students tab active
+    switchTab('students');
+    
+    console.log("✅ Tabs initialized");
+    
+    // FAB (Floating Action Button) functionality
+    const fab = document.getElementById('floatingAddBtn');
+    const fabMenu = document.getElementById('fabMenu');
+    const fabOverlay = document.getElementById('fabOverlay');
+    
+    if (fab && fabMenu && fabOverlay) {
+      fab.addEventListener('click', function() {
+        const isActive = fabMenu.classList.contains('active');
+        
+        if (isActive) {
+          fabMenu.classList.remove('active');
+          fabOverlay.style.display = 'none';
+        } else {
+          fabMenu.classList.add('active');
+          fabOverlay.style.display = 'block';
+        }
+      });
+      
+      fabOverlay.addEventListener('click', function() {
+        fabMenu.classList.remove('active');
+        fabOverlay.style.display = 'none';
+      });
+      
+      // FAB menu items
+      const fabAddStudent = document.getElementById('fabAddStudent');
+      const fabAddHours = document.getElementById('fabAddHours');
+      const fabAddMark = document.getElementById('fabAddMark');
+      const fabAddAttendance = document.getElementById('fabAddAttendance');
+      
+      if (fabAddStudent) {
+        fabAddStudent.addEventListener('click', function() {
+          switchTab('students');
+          // Scroll to student form
+          document.getElementById('studentName')?.focus();
+          fabMenu.classList.remove('active');
+          fabOverlay.style.display = 'none';
+        });
+      }
+      
+      if (fabAddHours) {
+        fabAddHours.addEventListener('click', function() {
+          switchTab('hours');
+          // Scroll to hours form
+          document.getElementById('organization')?.focus();
+          fabMenu.classList.remove('active');
+          fabOverlay.style.display = 'none';
+        });
+      }
+      
+      if (fabAddMark) {
+        fabAddMark.addEventListener('click', function() {
+          switchTab('marks');
+          document.getElementById('marksStudent')?.focus();
+          fabMenu.classList.remove('active');
+          fabOverlay.style.display = 'none';
+        });
+      }
+      
+      if (fabAddAttendance) {
+        fabAddAttendance.addEventListener('click', function() {
+          switchTab('attendance');
+          document.getElementById('attendanceDate')?.focus();
+          fabMenu.classList.remove('active');
+          fabOverlay.style.display = 'none';
+        });
+      }
+    }
+    
+    // Theme toggle
+    const themeToggle = document.querySelector('.theme-toggle button');
+    if (themeToggle) {
+      themeToggle.addEventListener('click', function() {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('worklog-theme', newTheme);
+        
+        // Update button text
+        themeToggle.textContent = newTheme === 'dark' ? '🌓' : '🌞';
+      });
+    }
+    
+    // Auto-fill today's date in forms
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('workDate')?.setAttribute('value', today);
+    document.getElementById('marksDate')?.setAttribute('value', today);
+    document.getElementById('attendanceDate')?.setAttribute('value', today);
+    document.getElementById('paymentDate')?.setAttribute('value', today);
+  });
+
 </script>
 </body>
 </html>
