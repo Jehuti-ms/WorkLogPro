@@ -6,6 +6,7 @@
     <title>Login - WorkLog Pro</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>">
     <style>
+        /* Keep all your existing CSS styles */
         * {
             margin: 0;
             padding: 0;
@@ -214,27 +215,16 @@
         </div>
     </div>
 
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    
-    <script>
-        // Firebase configuration - MUST MATCH your firebase-config.js
-        const firebaseConfig = {
-            apiKey: "AIzaSyDdLP_LgiC6EgzC3hUP_mGuNW4_BUEACs8",
-            authDomain: "worklogpro-4284e.firebaseapp.com",
-            projectId: "worklogpro-4284e",
-            storageBucket: "worklogpro-4284e.firebasestorage.app",
-            messagingSenderId: "299567233913",
-            appId: "1:299567233913:web:7232a5a5a8aa9b79948da8",
-            measurementId: "G-7JMG3LLJXX"
-        };
-
-        // Initialize Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
+    <!-- Import auth.js as a module -->
+    <script type="module">
+        // Import Firebase functions from auth.js
+        import { 
+            auth, 
+            db, 
+            createUserWithEmailAndPassword, 
+            signInWithEmailAndPassword,
+            updateProfile 
+        } from './auth.js';
 
         // DOM elements
         const loginForm = document.getElementById('login-form');
@@ -279,9 +269,9 @@
             
             try {
                 setLoading(true, 'login');
-                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 console.log('User logged in:', userCredential.user.email);
-                window.location.href = 'index.html';
+                // auth.js will automatically redirect to index.html
             } catch (error) {
                 showError(getAuthErrorMessage(error));
             } finally {
@@ -301,21 +291,27 @@
             
             try {
                 setLoading(true, 'signup');
-                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-                await userCredential.user.updateProfile({ displayName });
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                
+                // Update user profile
+                await updateProfile(userCredential.user, { displayName: displayName });
                 
                 // Create user document in Firestore
-                await db.collection('users').doc(userCredential.user.uid).set({
+                const userDoc = {
                     email: email,
                     displayName: displayName,
                     createdAt: new Date(),
                     theme: 'dark',
                     breakDuration: 30,
                     currency: 'USD'
-                });
+                };
+                
+                // We need to import setDoc and doc from firebase-firestore
+                import { setDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+                await setDoc(doc(db, 'users', userCredential.user.uid), userDoc);
                 
                 console.log('User created:', userCredential.user.email);
-                window.location.href = 'index.html';
+                // auth.js will automatically redirect to index.html
             } catch (error) {
                 showError(getAuthErrorMessage(error));
             } finally {
@@ -387,16 +383,9 @@
                 case 'auth/network-request-failed':
                     return 'Network error. Please check your connection';
                 default:
-                    return 'Authentication failed. Please try again';
+                    return 'Authentication failed: ' + error.message;
             }
         }
-
-        // Check if user is already logged in
-        auth.onAuthStateChanged((user) => {
-            if (user) {
-                window.location.href = 'index.html';
-            }
-        });
 
         // Initialize theme
         const savedTheme = localStorage.getItem('worklog-theme') || 'dark';
