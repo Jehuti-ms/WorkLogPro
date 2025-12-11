@@ -216,181 +216,173 @@
     </div>
 
     <!-- Import auth.js as a module -->
-    <script type="module">
-        // Import Firebase functions from auth.js
-        import { 
-            auth, 
-            db, 
-            createUserWithEmailAndPassword, 
-            signInWithEmailAndPassword,
-            updateProfile 
-        } from './auth.js';
+   <script type="module">
+    // Import everything from auth.js
+    import { 
+        auth, 
+        db, 
+        createUserWithEmailAndPassword, 
+        signInWithEmailAndPassword,
+        updateProfile,
+        setDoc,
+        doc
+    } from './auth.js';
 
-        // DOM elements
-        const loginForm = document.getElementById('login-form');
-        const signupForm = document.getElementById('signup-form');
-        const switchButton = document.getElementById('switch-button');
-        const switchText = document.getElementById('switch-text');
-        const errorMessage = document.getElementById('error-message');
-        const loginButton = document.getElementById('login-button');
-        const signupButton = document.getElementById('signup-button');
+    // DOM elements
+    const loginForm = document.getElementById('login-form');
+    const signupForm = document.getElementById('signup-form');
+    const switchButton = document.getElementById('switch-button');
+    const switchText = document.getElementById('switch-text');
+    const errorMessage = document.getElementById('error-message');
+    const loginButton = document.getElementById('login-button');
+    const signupButton = document.getElementById('signup-button');
 
-        let isLogin = true;
+    let isLogin = true;
 
-        // Switch between login and signup
-        switchButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            isLogin = !isLogin;
-            
-            if (isLogin) {
-                loginForm.style.display = 'flex';
-                signupForm.style.display = 'none';
-                switchText.textContent = "Don't have an account?";
-                switchButton.textContent = "Sign up";
-            } else {
-                loginForm.style.display = 'none';
-                signupForm.style.display = 'flex';
-                switchText.textContent = "Already have an account?";
-                switchButton.textContent = "Sign in";
-            }
-            
-            errorMessage.style.display = 'none';
-            clearFormErrors();
-        });
-
-        // Handle login
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-password').value;
-            
-            if (!validateForm('login')) return;
-            
-            try {
-                setLoading(true, 'login');
-                const userCredential = await signInWithEmailAndPassword(auth, email, password);
-                console.log('User logged in:', userCredential.user.email);
-                // auth.js will automatically redirect to index.html
-            } catch (error) {
-                showError(getAuthErrorMessage(error));
-            } finally {
-                setLoading(false, 'login');
-            }
-        });
-
-        // Handle signup
-        signupForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const email = document.getElementById('signup-email').value;
-            const password = document.getElementById('signup-password').value;
-            const displayName = document.getElementById('signup-display-name').value;
-            
-            if (!validateForm('signup')) return;
-            
-            try {
-                setLoading(true, 'signup');
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                
-                // Update user profile
-                await updateProfile(userCredential.user, { displayName: displayName });
-                
-                // Create user document in Firestore
-                const userDoc = {
-                    email: email,
-                    displayName: displayName,
-                    createdAt: new Date(),
-                    theme: 'dark',
-                    breakDuration: 30,
-                    currency: 'USD'
-                };
-                
-                // We need to import setDoc and doc from firebase-firestore
-                import { setDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-                await setDoc(doc(db, 'users', userCredential.user.uid), userDoc);
-                
-                console.log('User created:', userCredential.user.email);
-                // auth.js will automatically redirect to index.html
-            } catch (error) {
-                showError(getAuthErrorMessage(error));
-            } finally {
-                setLoading(false, 'signup');
-            }
-        });
-
-        function showError(message) {
-            errorMessage.textContent = message;
-            errorMessage.style.display = 'block';
+    // Switch between login and signup
+    switchButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        isLogin = !isLogin;
+        
+        if (isLogin) {
+            loginForm.style.display = 'flex';
+            signupForm.style.display = 'none';
+            switchText.textContent = "Don't have an account?";
+            switchButton.textContent = "Sign up";
+        } else {
+            loginForm.style.display = 'none';
+            signupForm.style.display = 'flex';
+            switchText.textContent = "Already have an account?";
+            switchButton.textContent = "Sign in";
         }
+        
+        errorMessage.style.display = 'none';
+    });
 
-        function clearFormErrors() {
-            errorMessage.style.display = 'none';
+    // Handle login
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        
+        if (!email || !password) {
+            showError('Please fill in all fields');
+            return;
         }
-
-        function setLoading(loading, formType) {
-            const button = formType === 'login' ? loginButton : signupButton;
-            const originalText = formType === 'login' ? 'Sign In' : 'Create Account';
-            
-            if (loading) {
-                button.textContent = 'Please wait...';
-                button.classList.add('loading');
-            } else {
-                button.textContent = originalText;
-                button.classList.remove('loading');
-            }
+        
+        if (password.length < 6) {
+            showError('Password must be at least 6 characters');
+            return;
         }
-
-        function validateForm(formType) {
-            const email = document.getElementById(`${formType}-email`).value;
-            const password = document.getElementById(`${formType}-password`).value;
-            
-            if (!email || !password) {
-                showError('Please fill in all fields');
-                return false;
-            }
-            
-            if (password.length < 6) {
-                showError('Password must be at least 6 characters long');
-                return false;
-            }
-            
-            if (formType === 'signup') {
-                const displayName = document.getElementById('signup-display-name').value;
-                if (!displayName) {
-                    showError('Please enter your display name');
-                    return false;
-                }
-            }
-            
-            return true;
+        
+        try {
+            setLoading(true, 'login');
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            console.log('✅ Login successful');
+            // auth.js will handle redirect to index.html
+        } catch (error) {
+            showError(getAuthErrorMessage(error));
+        } finally {
+            setLoading(false, 'login');
         }
+    });
 
-        function getAuthErrorMessage(error) {
-            switch (error.code) {
-                case 'auth/invalid-email':
-                    return 'Invalid email address';
-                case 'auth/user-disabled':
-                    return 'This account has been disabled';
-                case 'auth/user-not-found':
-                    return 'No account found with this email';
-                case 'auth/wrong-password':
-                    return 'Incorrect password';
-                case 'auth/email-already-in-use':
-                    return 'An account with this email already exists';
-                case 'auth/weak-password':
-                    return 'Password is too weak';
-                case 'auth/network-request-failed':
-                    return 'Network error. Please check your connection';
-                default:
-                    return 'Authentication failed: ' + error.message;
-            }
+    // Handle signup
+    signupForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const email = document.getElementById('signup-email').value;
+        const password = document.getElementById('signup-password').value;
+        const displayName = document.getElementById('signup-display-name').value;
+        
+        if (!email || !password || !displayName) {
+            showError('Please fill in all fields');
+            return;
         }
+        
+        if (password.length < 6) {
+            showError('Password must be at least 6 characters');
+            return;
+        }
+        
+        try {
+            setLoading(true, 'signup');
+            
+            // 1. Create user account
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            
+            // 2. Update profile with display name
+            await updateProfile(userCredential.user, { displayName: displayName });
+            
+            // 3. Create user document in Firestore
+            const userDoc = {
+                email: email,
+                displayName: displayName,
+                createdAt: new Date(),
+                theme: 'dark',
+                defaultRate: 25.00,
+                currency: 'USD'
+            };
+            
+            await setDoc(doc(db, 'users', userCredential.user.uid), userDoc);
+            
+            console.log('✅ Account created successfully');
+            // auth.js will handle redirect to index.html
+        } catch (error) {
+            showError(getAuthErrorMessage(error));
+        } finally {
+            setLoading(false, 'signup');
+        }
+    });
 
-        // Initialize theme
-        const savedTheme = localStorage.getItem('worklog-theme') || 'dark';
-        document.documentElement.setAttribute('data-theme', savedTheme);
-        document.body.className = savedTheme;
-    </script>
+    function showError(message) {
+        errorMessage.textContent = message;
+        errorMessage.style.display = 'block';
+    }
+
+    function setLoading(loading, formType) {
+        const button = formType === 'login' ? loginButton : signupButton;
+        const originalText = formType === 'login' ? 'Sign In' : 'Create Account';
+        
+        if (loading) {
+            button.textContent = 'Please wait...';
+            button.disabled = true;
+            button.classList.add('loading');
+        } else {
+            button.textContent = originalText;
+            button.disabled = false;
+            button.classList.remove('loading');
+        }
+    }
+
+    function getAuthErrorMessage(error) {
+        switch (error.code) {
+            case 'auth/invalid-email':
+                return 'Invalid email address';
+            case 'auth/user-disabled':
+                return 'This account has been disabled';
+            case 'auth/user-not-found':
+                return 'No account found with this email';
+            case 'auth/wrong-password':
+                return 'Incorrect password';
+            case 'auth/email-already-in-use':
+                return 'An account with this email already exists';
+            case 'auth/weak-password':
+                return 'Password is too weak';
+            case 'auth/network-request-failed':
+                return 'Network error. Please check your connection';
+            default:
+                return 'Authentication failed: ' + error.message;
+        }
+    }
+
+    // Initialize theme
+    const savedTheme = localStorage.getItem('worklog-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    document.body.className = savedTheme;
+    
+    console.log("✅ auth.html script loaded");
+</script>
 </body>
 </html>
