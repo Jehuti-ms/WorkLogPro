@@ -606,82 +606,181 @@
 
   <!-- Auth Check -->
  <script type="module">
-    import { auth, onAuthStateChanged, signOut } from './auth.js';
+    // Import Firebase functions from auth.js
+    import { 
+        auth, 
+        db, 
+        createUserWithEmailAndPassword, 
+        signInWithEmailAndPassword,
+        updateProfile 
+    } from './auth.js';
     
-    console.log("🚀 Starting WorkLog Pro...");
-    
-    // Check auth state and setup UI
-    onAuthStateChanged(auth, (user) => {
-      console.log("🔐 Auth state:", user ? `Logged in as ${user.email}` : "Not logged in");
-      
-      if (user) {
-        // User is logged in - show the app
-        console.log("✅ User authenticated");
+    // Import Firestore functions directly
+    import { setDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // DOM elements
+    const loginForm = document.getElementById('login-form');
+    const signupForm = document.getElementById('signup-form');
+    const switchButton = document.getElementById('switch-button');
+    const switchText = document.getElementById('switch-text');
+    const errorMessage = document.getElementById('error-message');
+    const loginButton = document.getElementById('login-button');
+    const signupButton = document.getElementById('signup-button');
+
+    let isLogin = true;
+
+    // Switch between login and signup
+    switchButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        isLogin = !isLogin;
         
-        // Update user name in header
-        const userNameElement = document.getElementById('userName');
-        if (userNameElement) {
-          userNameElement.textContent = user.displayName || user.email;
+        if (isLogin) {
+            loginForm.style.display = 'flex';
+            signupForm.style.display = 'none';
+            switchText.textContent = "Don't have an account?";
+            switchButton.textContent = "Sign up";
+        } else {
+            loginForm.style.display = 'none';
+            signupForm.style.display = 'flex';
+            switchText.textContent = "Already have an account?";
+            switchButton.textContent = "Sign in";
         }
         
-        // Update profile modal email
-        const profileEmail = document.getElementById('profileUserEmail');
-        if (profileEmail) {
-          profileEmail.textContent = user.email;
-        }
-        
-        // Show the app container
-        const container = document.querySelector(".container");
-        if (container) {
-          container.style.display = "block";
-        }
-      } else {
-        // No user - auth.js will redirect to auth.html automatically
-        console.log("⏳ No user - waiting for redirect...");
-      }
+        errorMessage.style.display = 'none';
+        clearFormErrors();
     });
-    
-    // Handle logout
-    document.addEventListener('DOMContentLoaded', function() {
-      const logoutBtn = document.getElementById('logoutBtn');
-      if (logoutBtn) {
-        logoutBtn.addEventListener('click', async function() {
-          try {
-            console.log("🚪 Logging out...");
-            await signOut(auth);
-            console.log("✅ Logged out successfully");
-          } catch (error) {
-            console.error("❌ Logout error:", error);
-            alert('Logout failed: ' + error.message);
-          }
-        });
-      }
-      
-      // Profile modal functionality
-      const profileBtn = document.getElementById('profileBtn');
-      const profileModal = document.getElementById('profileModal');
-      const closeProfileModal = document.getElementById('closeProfileModal');
-      
-      if (profileBtn && profileModal) {
-        profileBtn.addEventListener('click', function() {
-          console.log("👤 Opening profile modal");
-          profileModal.style.display = 'block';
-        });
-      }
-      
-      if (closeProfileModal && profileModal) {
-        closeProfileModal.addEventListener('click', function() {
-          profileModal.style.display = 'none';
-        });
-      }
-      
-      // Close modal when clicking outside
-      window.addEventListener('click', function(event) {
-        if (profileModal && event.target === profileModal) {
-          profileModal.style.display = 'none';
+
+    // Handle login
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        
+        if (!validateForm('login')) return;
+        
+        try {
+            setLoading(true, 'login');
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            console.log('✅ User logged in:', userCredential.user.email);
+            // auth.js will automatically redirect to index.html
+        } catch (error) {
+            showError(getAuthErrorMessage(error));
+        } finally {
+            setLoading(false, 'login');
         }
-      });
     });
-  </script>
+
+    // Handle signup
+    signupForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const email = document.getElementById('signup-email').value;
+        const password = document.getElementById('signup-password').value;
+        const displayName = document.getElementById('signup-display-name').value;
+        
+        if (!validateForm('signup')) return;
+        
+        try {
+            setLoading(true, 'signup');
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            
+            // Update user profile
+            await updateProfile(userCredential.user, { displayName: displayName });
+            
+            // Create user document in Firestore
+            const userDoc = {
+                email: email,
+                displayName: displayName,
+                createdAt: new Date(),
+                theme: 'dark',
+                breakDuration: 30,
+                currency: 'USD'
+            };
+            
+            await setDoc(doc(db, 'users', userCredential.user.uid), userDoc);
+            
+            console.log('✅ User created:', userCredential.user.email);
+            // auth.js will automatically redirect to index.html
+        } catch (error) {
+            showError(getAuthErrorMessage(error));
+        } finally {
+            setLoading(false, 'signup');
+        }
+    });
+
+    function showError(message) {
+        errorMessage.textContent = message;
+        errorMessage.style.display = 'block';
+    }
+
+    function clearFormErrors() {
+        errorMessage.style.display = 'none';
+    }
+
+    function setLoading(loading, formType) {
+        const button = formType === 'login' ? loginButton : signupButton;
+        const originalText = formType === 'login' ? 'Sign In' : 'Create Account';
+        
+        if (loading) {
+            button.textContent = 'Please wait...';
+            button.classList.add('loading');
+        } else {
+            button.textContent = originalText;
+            button.classList.remove('loading');
+        }
+    }
+
+    function validateForm(formType) {
+        const email = document.getElementById(`${formType}-email`).value;
+        const password = document.getElementById(`${formType}-password`).value;
+        
+        if (!email || !password) {
+            showError('Please fill in all fields');
+            return false;
+        }
+        
+        if (password.length < 6) {
+            showError('Password must be at least 6 characters long');
+            return false;
+        }
+        
+        if (formType === 'signup') {
+            const displayName = document.getElementById('signup-display-name').value;
+            if (!displayName) {
+                showError('Please enter your display name');
+                return false;
+            }
+        }
+        
+        return true;
+    }
+
+    function getAuthErrorMessage(error) {
+        switch (error.code) {
+            case 'auth/invalid-email':
+                return 'Invalid email address';
+            case 'auth/user-disabled':
+                return 'This account has been disabled';
+            case 'auth/user-not-found':
+                return 'No account found with this email';
+            case 'auth/wrong-password':
+                return 'Incorrect password';
+            case 'auth/email-already-in-use':
+                return 'An account with this email already exists';
+            case 'auth/weak-password':
+                return 'Password is too weak';
+            case 'auth/network-request-failed':
+                return 'Network error. Please check your connection';
+            default:
+                return 'Authentication failed: ' + error.message;
+        }
+    }
+
+    // Initialize theme
+    const savedTheme = localStorage.getItem('worklog-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    document.body.className = savedTheme;
+</script>
 </body>
 </html>
