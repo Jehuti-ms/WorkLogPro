@@ -604,21 +604,23 @@
   <!-- Firebase and App Scripts -->
    <script type="module" src="app.js"></script>
 
-  <!-- Auth Check -->
  <script type="module">
-    // Import Firebase functions from auth.js
-    import { 
-        auth, 
-        db, 
-        createUserWithEmailAndPassword, 
-        signInWithEmailAndPassword,
-        updateProfile 
-    } from './auth.js';
-    
-    // Import Firestore functions directly
-    import { setDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  // Import Firebase functions from auth.js
+  import { 
+      auth, 
+      db, 
+      createUserWithEmailAndPassword, 
+      signInWithEmailAndPassword,
+      updateProfile 
+  } from './auth.js';
+  
+  // Import Firestore functions directly
+  import { setDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    // DOM elements
+  // DOM elements - WAIT FOR DOM TO BE READY
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log("📋 Initializing tabs and UI...");
+    
     const loginForm = document.getElementById('login-form');
     const signupForm = document.getElementById('signup-form');
     const switchButton = document.getElementById('switch-button');
@@ -629,206 +631,217 @@
 
     let isLogin = true;
 
-    // Switch between login and signup
-    switchButton.addEventListener('click', (e) => {
-        e.preventDefault();
-        isLogin = !isLogin;
-        
-        if (isLogin) {
-            loginForm.style.display = 'flex';
-            signupForm.style.display = 'none';
-            switchText.textContent = "Don't have an account?";
-            switchButton.textContent = "Sign up";
-        } else {
-            loginForm.style.display = 'none';
-            signupForm.style.display = 'flex';
-            switchText.textContent = "Already have an account?";
-            switchButton.textContent = "Sign in";
-        }
-        
-        errorMessage.style.display = 'none';
-        clearFormErrors();
-    });
+    // Only add event listeners if elements exist (for auth.html)
+    if (loginForm && signupForm && switchButton) {
+      // Switch between login and signup
+      switchButton.addEventListener('click', (e) => {
+          e.preventDefault();
+          isLogin = !isLogin;
+          
+          if (isLogin) {
+              loginForm.style.display = 'flex';
+              signupForm.style.display = 'none';
+              switchText.textContent = "Don't have an account?";
+              switchButton.textContent = "Sign up";
+          } else {
+              loginForm.style.display = 'none';
+              signupForm.style.display = 'flex';
+              switchText.textContent = "Already have an account?";
+              switchButton.textContent = "Sign in";
+          }
+          
+          errorMessage.style.display = 'none';
+          clearFormErrors();
+      });
 
-    // Handle login
-    loginForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const email = document.getElementById('login-email').value;
-        const password = document.getElementById('login-password').value;
-        
-        if (!validateForm('login')) return;
-        
-        try {
-            setLoading(true, 'login');
-            const userCredential = await signInWithEmailAndPassword(auth, email, password);
-            console.log('✅ User logged in:', userCredential.user.email);
-            // auth.js will automatically redirect to index.html
-        } catch (error) {
-            showError(getAuthErrorMessage(error));
-        } finally {
-            setLoading(false, 'login');
-        }
-    });
+      // Handle login
+      loginForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          
+          const email = document.getElementById('login-email').value;
+          const password = document.getElementById('login-password').value;
+          
+          if (!validateForm('login')) return;
+          
+          try {
+              setLoading(true, 'login');
+              const userCredential = await signInWithEmailAndPassword(auth, email, password);
+              console.log('✅ User logged in:', userCredential.user.email);
+              // auth.js will automatically redirect to index.html
+          } catch (error) {
+              showError(getAuthErrorMessage(error));
+          } finally {
+              setLoading(false, 'login');
+          }
+      });
 
-    // Handle signup
-    signupForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const email = document.getElementById('signup-email').value;
-        const password = document.getElementById('signup-password').value;
-        const displayName = document.getElementById('signup-display-name').value;
-        
-        if (!validateForm('signup')) return;
-        
-        try {
-            setLoading(true, 'signup');
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            
-            // Update user profile
-            await updateProfile(userCredential.user, { displayName: displayName });
-            
-            // Create user document in Firestore
-            const userDoc = {
-                email: email,
-                displayName: displayName,
-                createdAt: new Date(),
-                theme: 'dark',
-                breakDuration: 30,
-                currency: 'USD'
-            };
-            
-            await setDoc(doc(db, 'users', userCredential.user.uid), userDoc);
-            
-            console.log('✅ User created:', userCredential.user.email);
-            // auth.js will automatically redirect to index.html
-        } catch (error) {
-            showError(getAuthErrorMessage(error));
-        } finally {
-            setLoading(false, 'signup');
-        }
-    });
+      // Handle signup
+      signupForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          
+          const email = document.getElementById('signup-email').value;
+          const password = document.getElementById('signup-password').value;
+          const displayName = document.getElementById('signup-display-name').value;
+          
+          if (!validateForm('signup')) return;
+          
+          try {
+              setLoading(true, 'signup');
+              const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+              
+              // Update user profile
+              await updateProfile(userCredential.user, { displayName: displayName });
+              
+              // Create user document in Firestore
+              const userDoc = {
+                  email: email,
+                  displayName: displayName,
+                  createdAt: new Date(),
+                  theme: 'dark',
+                  breakDuration: 30,
+                  currency: 'USD'
+              };
+              
+              await setDoc(doc(db, 'users', userCredential.user.uid), userDoc);
+              
+              console.log('✅ User created:', userCredential.user.email);
+              // auth.js will automatically redirect to index.html
+          } catch (error) {
+              showError(getAuthErrorMessage(error));
+          } finally {
+              setLoading(false, 'signup');
+          }
+      });
 
-    function showError(message) {
-        errorMessage.textContent = message;
-        errorMessage.style.display = 'block';
+      function showError(message) {
+          if (errorMessage) {
+              errorMessage.textContent = message;
+              errorMessage.style.display = 'block';
+          }
+      }
+
+      function clearFormErrors() {
+          if (errorMessage) {
+              errorMessage.style.display = 'none';
+          }
+      }
+
+      function setLoading(loading, formType) {
+          const button = formType === 'login' ? loginButton : signupButton;
+          const originalText = formType === 'login' ? 'Sign In' : 'Create Account';
+          
+          if (button) {
+              if (loading) {
+                  button.textContent = 'Please wait...';
+                  button.classList.add('loading');
+              } else {
+                  button.textContent = originalText;
+                  button.classList.remove('loading');
+              }
+          }
+      }
+
+      function validateForm(formType) {
+          const email = document.getElementById(`${formType}-email`)?.value;
+          const password = document.getElementById(`${formType}-password`)?.value;
+          
+          if (!email || !password) {
+              showError('Please fill in all fields');
+              return false;
+          }
+          
+          if (password.length < 6) {
+              showError('Password must be at least 6 characters long');
+              return false;
+          }
+          
+          if (formType === 'signup') {
+              const displayName = document.getElementById('signup-display-name')?.value;
+              if (!displayName) {
+                  showError('Please enter your display name');
+                  return false;
+              }
+          }
+          
+          return true;
+      }
+
+      function getAuthErrorMessage(error) {
+          switch (error.code) {
+              case 'auth/invalid-email':
+                  return 'Invalid email address';
+              case 'auth/user-disabled':
+                  return 'This account has been disabled';
+              case 'auth/user-not-found':
+                  return 'No account found with this email';
+              case 'auth/wrong-password':
+                  return 'Incorrect password';
+              case 'auth/email-already-in-use':
+                  return 'An account with this email already exists';
+              case 'auth/weak-password':
+                  return 'Password is too weak';
+              case 'auth/network-request-failed':
+                  return 'Network error. Please check your connection';
+              default:
+                  return 'Authentication failed: ' + error.message;
+          }
+      }
     }
 
-    function clearFormErrors() {
-        errorMessage.style.display = 'none';
-    }
-
-    function setLoading(loading, formType) {
-        const button = formType === 'login' ? loginButton : signupButton;
-        const originalText = formType === 'login' ? 'Sign In' : 'Create Account';
-        
-        if (loading) {
-            button.textContent = 'Please wait...';
-            button.classList.add('loading');
-        } else {
-            button.textContent = originalText;
-            button.classList.remove('loading');
-        }
-    }
-
-    function validateForm(formType) {
-        const email = document.getElementById(`${formType}-email`).value;
-        const password = document.getElementById(`${formType}-password`).value;
-        
-        if (!email || !password) {
-            showError('Please fill in all fields');
-            return false;
-        }
-        
-        if (password.length < 6) {
-            showError('Password must be at least 6 characters long');
-            return false;
-        }
-        
-        if (formType === 'signup') {
-            const displayName = document.getElementById('signup-display-name').value;
-            if (!displayName) {
-                showError('Please enter your display name');
-                return false;
-            }
-        }
-        
-        return true;
-    }
-
-    function getAuthErrorMessage(error) {
-        switch (error.code) {
-            case 'auth/invalid-email':
-                return 'Invalid email address';
-            case 'auth/user-disabled':
-                return 'This account has been disabled';
-            case 'auth/user-not-found':
-                return 'No account found with this email';
-            case 'auth/wrong-password':
-                return 'Incorrect password';
-            case 'auth/email-already-in-use':
-                return 'An account with this email already exists';
-            case 'auth/weak-password':
-                return 'Password is too weak';
-            case 'auth/network-request-failed':
-                return 'Network error. Please check your connection';
-            default:
-                return 'Authentication failed: ' + error.message;
-        }
-    }
-
-    // Initialize theme
+    // Initialize theme (works for both pages)
     const savedTheme = localStorage.getItem('worklog-theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
     document.body.className = savedTheme;
 
-   // =================== Tab switching functionality ==========================
-  document.addEventListener('DOMContentLoaded', function() {
-    console.log("📋 Initializing tabs...");
-    
+    // =================== Tab switching functionality ==========================
     // Get all tab buttons and tab contents
     const tabButtons = document.querySelectorAll('.tab');
     const tabContents = document.querySelectorAll('.tabcontent');
     
-    // Function to switch tabs
-    function switchTab(tabName) {
-      console.log("Switching to tab:", tabName);
+    // Only initialize tabs if they exist (for index.html)
+    if (tabButtons.length > 0 && tabContents.length > 0) {
+      console.log("📋 Initializing tabs...");
       
-      // Hide all tab contents
-      tabContents.forEach(content => {
-        content.classList.remove('active');
-      });
+      // Function to switch tabs
+      function switchTab(tabName) {
+        console.log("Switching to tab:", tabName);
+        
+        // Hide all tab contents
+        tabContents.forEach(content => {
+          content.classList.remove('active');
+        });
+        
+        // Remove active class from all tab buttons
+        tabButtons.forEach(button => {
+          button.classList.remove('active');
+        });
+        
+        // Show the selected tab content
+        const selectedTab = document.getElementById(tabName);
+        if (selectedTab) {
+          selectedTab.classList.add('active');
+        }
+        
+        // Activate the clicked tab button
+        const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
+        if (activeButton) {
+          activeButton.classList.add('active');
+        }
+      }
       
-      // Remove active class from all tab buttons
+      // Add click event to all tab buttons
       tabButtons.forEach(button => {
-        button.classList.remove('active');
+        button.addEventListener('click', function() {
+          const tabName = this.getAttribute('data-tab');
+          switchTab(tabName);
+        });
       });
       
-      // Show the selected tab content
-      const selectedTab = document.getElementById(tabName);
-      if (selectedTab) {
-        selectedTab.classList.add('active');
-      }
+      // Initialize with Students tab active
+      switchTab('students');
       
-      // Activate the clicked tab button
-      const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
-      if (activeButton) {
-        activeButton.classList.add('active');
-      }
+      console.log("✅ Tabs initialized");
     }
-    
-    // Add click event to all tab buttons
-    tabButtons.forEach(button => {
-      button.addEventListener('click', function() {
-        const tabName = this.getAttribute('data-tab');
-        switchTab(tabName);
-      });
-    });
-    
-    // Initialize with Students tab active
-    switchTab('students');
-    
-    console.log("✅ Tabs initialized");
     
     // FAB (Floating Action Button) functionality
     const fab = document.getElementById('floatingAddBtn');
@@ -898,7 +911,7 @@
       }
     }
     
-    // Theme toggle
+    // Theme toggle - only if element exists
     const themeToggle = document.querySelector('.theme-toggle button');
     if (themeToggle) {
       themeToggle.addEventListener('click', function() {
@@ -913,14 +926,16 @@
       });
     }
     
-    // Auto-fill today's date in forms
+    // Auto-fill today's date in forms (only for index.html)
     const today = new Date().toISOString().split('T')[0];
-    document.getElementById('workDate')?.setAttribute('value', today);
-    document.getElementById('marksDate')?.setAttribute('value', today);
-    document.getElementById('attendanceDate')?.setAttribute('value', today);
-    document.getElementById('paymentDate')?.setAttribute('value', today);
+    ['workDate', 'marksDate', 'attendanceDate', 'paymentDate'].forEach(id => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.setAttribute('value', today);
+        element.value = today;
+      }
+    });
   });
-
 </script>
 </body>
 </html>
