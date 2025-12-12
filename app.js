@@ -3981,7 +3981,6 @@ function clearStudentForm() {
     
     NotificationSystem.notifyInfo('Attendance form cleared');
   }
-}
 
 // Add these other reset functions in the same section:
 function resetHoursForm() {
