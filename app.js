@@ -5393,5 +5393,6 @@ window.showWeeklyBreakdown = showWeeklyBreakdown;
 window.showBiWeeklyBreakdown = showBiWeeklyBreakdown;
 window.showMonthlyBreakdown = showMonthlyBreakdown;
 window.showSubjectBreakdown = showSubjectBreakdown;
+window.updateMarksPercentage = updateMarksPercentage;
 
 console.log('✅ worklog.js loaded successfully');
