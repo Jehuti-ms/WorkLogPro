@@ -237,6 +237,88 @@ const NotificationSystem = {
 };
 
 // ===========================
+// MODAL/UI CONTROL FUNCTIONS
+// ===========================
+async function showSyncStats() {
+  try {
+    const user = auth.currentUser;
+    if (!user) return;
+    
+    const cacheStatus = EnhancedCache.getCacheStatus();
+    const lastSync = cache.lastSync ? new Date(cache.lastSync).toLocaleString() : 'Never';
+    
+    const statsHTML = `
+      <div class="sync-stats">
+        <div class="stat-item">
+          <strong>Total Cached Items:</strong> ${cacheStatus.total}
+        </div>
+        <div class="stat-item">
+          <strong>Unsynced Items:</strong> ${cacheStatus.unsynced}
+        </div>
+        <div class="stat-item">
+          <strong>Last Sync:</strong> ${lastSync}
+        </div>
+        <div class="stat-item">
+          <strong>Auto-Sync:</strong> ${isAutoSyncEnabled ? 'Enabled' : 'Disabled'}
+        </div>
+        <div class="stat-item">
+          <strong>Cache Duration:</strong> 5 minutes
+        </div>
+      </div>
+      <div class="sync-actions" style="margin-top: 20px;">
+        <button onclick="SyncBar.performSync('manual')" class="btn btn-primary">
+          🔄 Force Sync Now
+        </button>
+        <button onclick="EnhancedCache.retryUnsyncedItems()" class="btn btn-secondary">
+          🔄 Retry Unsynced Items
+        </button>
+      </div>
+    `;
+    
+    openSyncStats(statsHTML);
+  } catch (error) {
+    console.error('Error loading sync stats:', error);
+    openSyncStats('<p class="error">Error loading sync statistics</p>');
+  }
+}
+
+function closeSyncStats() {
+  const modal = document.getElementById('syncStatsModal');
+  if (modal) {
+    modal.style.display = 'none';
+    document.body.classList.remove('modal-open');
+  }
+}
+
+// You might also want to add a function to open the sync stats modal
+function openSyncStats(content) {
+  const modal = document.getElementById('syncStatsModal');
+  const contentEl = document.getElementById('syncStatsContent');
+  
+  if (modal && contentEl) {
+    contentEl.innerHTML = content;
+    modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
+  }
+}
+
+// Also make sure you have the escape key handler for modals
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    const syncStatsModal = document.getElementById('syncStatsModal');
+    if (syncStatsModal && syncStatsModal.style.display === 'flex') {
+      closeSyncStats();
+    }
+    
+    const profileModal = document.getElementById('profileModal');
+    if (profileModal && profileModal.style.display === 'flex') {
+      profileModal.style.display = 'none';
+      document.body.classList.remove('modal-open');
+    }
+  }
+});
+
+// ===========================
 // CACHE SYSTEM
 // ===========================
 
@@ -866,6 +948,21 @@ function calculateGrade(percentage) {
   if (percentage >= 70) return 'C';
   if (percentage >= 60) return 'D';
   return 'F';
+}
+
+// Add this to app.js after the calculateGrade function
+function updateMarksPercentage() {
+  const score = parseFloat(document.getElementById('marksScore').value) || 0;
+  const max = parseFloat(document.getElementById('marksMax').value) || 0;
+  
+  if (max > 0) {
+    const percentage = (score / max) * 100;
+    document.getElementById('percentage').value = percentage.toFixed(1) + '%';
+    document.getElementById('grade').value = calculateGrade(percentage);
+  } else {
+    document.getElementById('percentage').value = '';
+    document.getElementById('grade').value = '';
+  }
 }
 
 function getLocalISODate() {
@@ -3854,6 +3951,90 @@ function clearAttendanceForm() {
   }
 }
 
+// ===========================
+// FORM CLEAR/RESET FUNCTIONS
+// ===========================
+
+function clearStudentForm() {
+  const form = document.getElementById('studentForm');
+  if (form) {
+    form.reset();
+    
+    // Reset specific fields to defaults if needed
+    const studentRateInput = document.getElementById('studentRate');
+    const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+    
+    if (studentRateInput && defaultBaseRateInput) {
+      studentRateInput.value = defaultBaseRateInput.value || currentUserData?.defaultRate || '0';
+    }
+    
+    NotificationSystem.notifyInfo('Student form cleared');
+  }
+}
+
+// Already existing function - make sure it's there
+function clearAttendanceForm() {
+  const form = document.getElementById('attendanceForm');
+  if (form) {
+    form.reset();
+    
+    const checkboxes = document.querySelectorAll('#attendanceStudents input[type="checkbox"]');
+    checkboxes.forEach(checkbox => {
+      checkbox.checked = false;
+      if (checkbox.parentElement) {
+        checkbox.parentElement.style.backgroundColor = '';
+        checkbox.parentElement.classList.remove('selected');
+      }
+    });
+    
+    updateSelectAllButton(false);
+    
+    const dateInput = document.getElementById('attendanceDate');
+    if (dateInput) {
+      dateInput.value = new Date().toISOString().split('T')[0];
+    }
+    
+    NotificationSystem.notifyInfo('Attendance form cleared');
+  }
+}
+
+// Add these other reset functions in the same section:
+function resetHoursForm() {
+  const form = document.getElementById('hoursForm') || 
+                document.querySelector('#hours form');
+  if (form) {
+    form.reset();
+    
+    // Reset rate to default
+    const baseRateInput = document.getElementById('baseRate');
+    const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+    if (baseRateInput && defaultBaseRateInput) {
+      baseRateInput.value = defaultBaseRateInput.value || currentUserData?.defaultRate || '0';
+    }
+    
+    calculateTotalPay(); // Recalculate to show $0.00
+    NotificationSystem.notifyInfo('Hours form cleared');
+  }
+}
+
+function resetMarksForm() {
+  const form = document.getElementById('marksForm');
+  if (form) {
+    form.reset();
+    document.getElementById('percentage').value = '';
+    document.getElementById('grade').value = '';
+    NotificationSystem.notifyInfo('Marks form cleared');
+  }
+}
+
+function resetPaymentForm() {
+  const form = document.getElementById('paymentForm');
+  if (form) {
+    form.reset();
+    NotificationSystem.notifyInfo('Payment form cleared');
+  }
+}
+
 function initializeDefaultRate(rate) {
   const baseRateInput = document.getElementById('baseRate');
   const studentRateInput = document.getElementById('studentRate');  
@@ -5212,8 +5393,13 @@ document.addEventListener('DOMContentLoaded', function() {
 window.NotificationSystem = NotificationSystem;
 window.debugStudentDropdowns = debugStudentDropdowns;
 window.manuallyRefreshStudentDropdowns = manuallyRefreshStudentDropdowns;
+window.showSyncStats = showSyncStats;
 window.selectAllStudents = selectAllStudents;
 window.clearAttendanceForm = clearAttendanceForm;
+window.clearStudentForm = clearStudentForm; 
+window.resetHoursForm = resetHoursForm; 
+window.resetMarksForm = resetMarksForm; 
+window.resetPaymentForm = resetPaymentForm; 
 window.saveDefaultRate = saveDefaultRate;
 window.applyDefaultRateToAll = applyDefaultRateToAll;
 window.useDefaultRate = useDefaultRate;
