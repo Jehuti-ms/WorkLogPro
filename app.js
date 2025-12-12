@@ -3971,22 +3971,7 @@ function clearStudentForm() {
     NotificationSystem.notifyInfo('Student form cleared');
   }
 }
-
-// Already existing function - make sure it's there
-function clearAttendanceForm() {
-  const form = document.getElementById('attendanceForm');
-  if (form) {
-    form.reset();
-    
-    const checkboxes = document.querySelectorAll('#attendanceStudents input[type="checkbox"]');
-    checkboxes.forEach(checkbox => {
-      checkbox.checked = false;
-      if (checkbox.parentElement) {
-        checkbox.parentElement.style.backgroundColor = '';
-        checkbox.parentElement.classList.remove('selected');
-      }
-    });
-    
+   
     updateSelectAllButton(false);
     
     const dateInput = document.getElementById('attendanceDate');
