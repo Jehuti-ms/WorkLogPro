@@ -3971,16 +3971,42 @@ function clearStudentForm() {
     NotificationSystem.notifyInfo('Student form cleared');
   }
 }
-   
-    updateSelectAllButton(false);
+
+function resetHoursForm() {
+  const form = document.getElementById('hoursForm') || 
+                document.querySelector('#hours form');
+  if (form) {
+    form.reset();
     
-    const dateInput = document.getElementById('attendanceDate');
-    if (dateInput) {
-      dateInput.value = new Date().toISOString().split('T')[0];
+    // Reset rate to default
+    const baseRateInput = document.getElementById('baseRate');
+    const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+    if (baseRateInput && defaultBaseRateInput) {
+      baseRateInput.value = defaultBaseRateInput.value || currentUserData?.defaultRate || '0';
     }
     
-    NotificationSystem.notifyInfo('Attendance form cleared');
+    calculateTotalPay(); // Recalculate to show $0.00
+    NotificationSystem.notifyInfo('Hours form cleared');
   }
+}
+
+function resetMarksForm() {
+  const form = document.getElementById('marksForm');
+  if (form) {
+    form.reset();
+    document.getElementById('percentage').value = '';
+    document.getElementById('grade').value = '';
+    NotificationSystem.notifyInfo('Marks form cleared');
+  }
+}
+
+function resetPaymentForm() {
+  const form = document.getElementById('paymentForm');
+  if (form) {
+    form.reset();
+    NotificationSystem.notifyInfo('Payment form cleared');
+  }
+}
 
 // Add these other reset functions in the same section:
 function resetHoursForm() {
