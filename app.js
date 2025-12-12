@@ -4008,12 +4008,6 @@ function resetPaymentForm() {
   }
 }
 
-    
-    calculateTotalPay(); // Recalculate to show $0.00
-    NotificationSystem.notifyInfo('Hours form cleared');
-  }
-}
-
 function resetMarksForm() {
   const form = document.getElementById('marksForm');
   if (form) {
