@@ -1005,6 +1005,21 @@ function formatDate(dateString) {
   }
 }
 
+// In app.js, after formatDate function
+function formatDateShort(dateString) {
+  if (!dateString) return 'N/A';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch {
+    return dateString;
+  }
+}
+
 function refreshTimestamp() {
   const now = new Date().toLocaleString();
   
