@@ -4008,19 +4008,6 @@ function resetPaymentForm() {
   }
 }
 
-// Add these other reset functions in the same section:
-function resetHoursForm() {
-  const form = document.getElementById('hoursForm') || 
-                document.querySelector('#hours form');
-  if (form) {
-    form.reset();
-    
-    // Reset rate to default
-    const baseRateInput = document.getElementById('baseRate');
-    const defaultBaseRateInput = document.getElementById('defaultBaseRate');
-    if (baseRateInput && defaultBaseRateInput) {
-      baseRateInput.value = defaultBaseRateInput.value || currentUserData?.defaultRate || '0';
-    }
     
     calculateTotalPay(); // Recalculate to show $0.00
     NotificationSystem.notifyInfo('Hours form cleared');
