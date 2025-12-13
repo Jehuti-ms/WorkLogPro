@@ -99,7 +99,7 @@ function formatDate(dateString) {
   }
 }
 
-/*function formatDateShort(dateString) {
+function formatDateShort(dateString) {
   if (!dateString) return 'N/A';
   try {
     const date = new Date(dateString);
@@ -111,7 +111,7 @@ function formatDate(dateString) {
   } catch {
     return dateString;
   }
-} */
+} 
 
 function calculateGrade(percentage) {
   if (percentage >= 90) return 'A';
@@ -3675,13 +3675,7 @@ function formatDateForDisplay(date) {
   });
 }
 
-function formatDateShort(date) {
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'UTC'
-  });
-}
+
 
 // Date Selection Modal
 function createDateSelectionModal(reportType, onConfirm, showMonthPicker = false) {
