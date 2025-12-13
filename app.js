@@ -1,5 +1,5 @@
 // ===========================
-// PAYMENT MANAGEMENT FUNCTIONS (CONTINUED)
+// PAYMENT MANAGEMENT FUNCTIONS (CONTINUED) - WITH SAFETY CHECKS
 // ===========================
 
 function cancelEditPayment() {
@@ -22,7 +22,12 @@ function cancelEditPayment() {
     cancelBtn.remove();
   }
   
-  NotificationSystem.notifyInfo('Edit cancelled');
+  // FIX: Add safety check for NotificationSystem
+  if (window.NotificationSystem) {
+    window.NotificationSystem.notifyInfo('Edit cancelled');
+  } else {
+    console.log('ℹ️ Edit cancelled');
+  }
 }
 
 async function deletePayment(id) {
@@ -865,5 +870,18 @@ window.quickAddPayment = quickAddPayment;
 
 document.addEventListener('DOMContentLoaded', () => {
   console.log('📄 DOM fully loaded and parsed');
+  
+  // FIX: Check if NotificationSystem exists, if not create a simple fallback
+  if (typeof NotificationSystem === 'undefined') {
+    console.warn('⚠️ NotificationSystem not found, creating simple fallback');
+    window.NotificationSystem = {
+      notifyInfo: (msg) => console.log('ℹ️ ' + msg),
+      notifySuccess: (msg) => console.log('✅ ' + msg),
+      notifyError: (msg) => console.log('❌ ' + msg),
+      notifyWarning: (msg) => console.log('⚠️ ' + msg),
+      initNotificationStyles: () => console.log('📱 Notification styles initialized')
+    };
+  }
+  
   initializeApp();
 });
