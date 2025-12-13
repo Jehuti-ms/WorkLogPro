@@ -409,6 +409,9 @@ window.generateReport = generateReport;
 window.exportReport = exportReport;
 window.printReport = printReport;
 window.formatDateShort = formatDateShort;
+window.exportData = exportData;
+window.importData = importData;
+window.clearAllData = clearAllData;
 
 // ==================== STARTUP ====================
 document.addEventListener('DOMContentLoaded', function() {
