@@ -1355,42 +1355,42 @@ function initializeTheme() {
 
 function injectThemeStyles() {
     if (!document.querySelector('#theme-button-styles')) {
-        const style = document.createElement('style');
-        style.id = 'theme-button-styles';
-        style.textContent = `
-            .theme-toggle button {
-                transition: all 0.3s ease !important;
-                border-radius: 50% !important;
-                width: 40px !important;
-                height: 40px !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                cursor: pointer !important;
-                background: var(--surface) !important;
-                border: 1px solid var(--border) !important;
-                font-size: 1.2em !important;
-            }
-            
-            .theme-toggle button:hover {
-                transform: scale(1.1) !important;
-                background: var(--border-light) !important;
-            }
-            
-            .theme-toggle button:active {
-                transform: scale(0.95) !important;
-            }
-            
-            @media (max-width: 768px) {
-                .theme-toggle button {
-                    width: 36px !important;
-                    height: 36px !important;
-                    font-size: 1.1em !important;
-                }
-            }
-        `;
-        document.head.appendChild(style);
-        console.log('✅ Theme button styles injected');
+      const style = document.createElement('style');
+      style.id = 'theme-button-styles';
+      style.textContent = `
+          .theme-toggle button {
+              transition: all 0.3s ease !important;
+              border-radius: 50% !important;
+              width: 40px !important;
+              height: 40px !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              cursor: pointer !important;
+              background: var(--surface) !important;
+              border: 1px solid var(--border) !important;
+              font-size: 1.2em !important;
+          }
+          
+          .theme-toggle button:hover {
+              transform: scale(1.1) !important;
+              background: var(--border-light) !important;
+          }
+          
+          .theme-toggle button:active {
+              transform: scale(0.95) !important;
+          }
+          
+          @media (max-width: 768px) {
+              .theme-toggle button {
+                  width: 36px !important;
+                  height: 36px !important;
+                  font-size: 1.1em !important;
+              }
+          }
+      `;
+      document.head.appendChild(style);
+      console.log('✅ Theme button styles injected');
     }
 }
 
@@ -3236,7 +3236,7 @@ function clearAttendanceForm() {
 }
 
 // ===========================
-// FORM CLEAR/RESET FUNCTIONS
+// FORM CLEAR/RESET FUNCTIONS (Fixed - removed duplicate functions)
 // ===========================
 
 function clearStudentForm() {
@@ -3272,6 +3272,7 @@ function resetHoursForm() {
   }
 }
 
+// FIXED: Only one resetMarksForm function
 function resetMarksForm() {
   const form = document.getElementById('marksForm');
   if (form) {
@@ -3282,24 +3283,7 @@ function resetMarksForm() {
   }
 }
 
-function resetPaymentForm() {
-  const form = document.getElementById('paymentForm');
-  if (form) {
-    form.reset();
-    safeNotify('Info', 'Payment form cleared');
-  }
-}
-
-function resetMarksForm() {
-  const form = document.getElementById('marksForm');
-  if (form) {
-    form.reset();
-    document.getElementById('percentage').value = '';
-    document.getElementById('grade').value = '';
-    safeNotify('Info', 'Marks form cleared');
-  }
-}
-
+// FIXED: Only one resetPaymentForm function
 function resetPaymentForm() {
   const form = document.getElementById('paymentForm');
   if (form) {
@@ -5380,4 +5364,4 @@ window.cancelEditPayment = cancelEditPayment;
 window.deletePayment = deletePayment;
 window.quickAddPayment = quickAddPayment;
 
-console.log('✅ worklog.js loaded successfully');
+console.log('✅ app.js loaded successfully');
