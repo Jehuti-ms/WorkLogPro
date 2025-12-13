@@ -1556,6 +1556,38 @@ async function deleteStudent(id) {
   }
 }
 
+function cancelEditStudent() {
+    console.log('Cancelling student edit...');
+    
+    // Reset the form
+    document.getElementById('studentForm').reset();
+    
+    // Hide the modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('addStudentModal'));
+    if (modal) {
+        modal.hide();
+    }
+    
+    // Reset any edit state variables
+    if (window.editingStudentId) {
+        window.editingStudentId = null;
+    }
+    
+    // Reset the submit button text if needed
+    const submitBtn = document.getElementById('submitStudentBtn');
+    if (submitBtn) {
+        submitBtn.textContent = 'Add Student';
+        submitBtn.classList.remove('btn-warning');
+        submitBtn.classList.add('btn-primary');
+    }
+    
+    // Clear any validation messages
+    const validationElements = document.querySelectorAll('.is-invalid, .invalid-feedback');
+    validationElements.forEach(el => {
+        el.classList.remove('is-invalid');
+        el.classList.remove('invalid-feedback');
+    });
+}
 // ===========================
 // HOURS TAB FUNCTIONS (Fixed to use safeNotify)
 // ===========================
