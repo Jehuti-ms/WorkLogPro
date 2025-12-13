@@ -99,7 +99,7 @@ function formatDate(dateString) {
   }
 }
 
-function formatDateShort(dateString) {
+/*function formatDateShort(dateString) {
   if (!dateString) return 'N/A';
   try {
     const date = new Date(dateString);
@@ -111,7 +111,7 @@ function formatDateShort(dateString) {
   } catch {
     return dateString;
   }
-}
+} */
 
 function calculateGrade(percentage) {
   if (percentage >= 90) return 'A';
