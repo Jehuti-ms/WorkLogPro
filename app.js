@@ -2171,7 +2171,7 @@ async function renderStudentBalancesWithEdit() {
   return isNaN(num) ? 0 : num;
 }*/
 
-function formatDate(dateString) {
+/*function formatDate(dateString) {
   if (!dateString) return 'No date';
   try {
     const date = new Date(dateString);
@@ -2183,7 +2183,7 @@ function formatDate(dateString) {
   } catch (e) {
     return 'Invalid date';
   }
-}
+} */
 
 function calculateGrade(percentage) {
   if (percentage >= 90) return 'A';
