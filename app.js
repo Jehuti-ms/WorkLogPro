@@ -2232,7 +2232,7 @@ function setupFormHandlers() {
 // ADD MISSING CLEAR FORM FUNCTIONS
 // ===========================
 
-function resetHoursForm() {
+/*function resetHoursForm() {
   const form = document.querySelector('#hours form');
   if (form) {
     form.reset();
@@ -2258,7 +2258,7 @@ function resetPaymentForm() {
     document.getElementById('paymentDate').value = new Date().toISOString().split('T')[0];
     NotificationSystem.notifyInfo('Payment form cleared');
   }
-}
+} */
 
 // ===========================
 // STUDENT DROPDOWN POPULATION
