@@ -643,6 +643,7 @@ const FormAutoClear = {
 // SYNC BAR SYSTEM
 // ===========================
 
+
 const SyncBar = {
   init() {
     this.setupAutoSyncToggle();
@@ -650,8 +651,8 @@ const SyncBar = {
     this.setupExportCloudButton();
     this.setupImportCloudButton();
     this.setupSyncStatsButton();
-    this.setupExportDataButton();
-    this.setupImportDataButton();
+    this.setupExportDataButton();  // This should work
+    this.setupImportDataButton();  // This should work
     this.setupClearAllButton();
     console.log('✅ Sync bar initialized');
   },
@@ -749,18 +750,18 @@ const SyncBar = {
     }
   },
 
-  setupExportDataButton() {
+   setupExportDataButton() {
     if (exportDataBtn) {
-      exportDataBtn.addEventListener('click', () => {
-        NotificationSystem.notifyInfo('Export data feature coming soon');
+      exportDataBtn.addEventListener('click', async () => {
+        await this.exportAllData();
       });
     }
   },
 
   setupImportDataButton() {
     if (importDataBtn) {
-      importDataBtn.addEventListener('click', () => {
-        NotificationSystem.notifyInfo('Import data feature coming soon');
+      importDataBtn.addEventListener('click', async () => {
+        await this.importAllData();
       });
     }
   },
@@ -800,6 +801,203 @@ const SyncBar = {
         recalcSummaryStats(user.uid),
         loadUserStats(user.uid)
       ]);
+
+      async exportAllData() {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        NotificationSystem.notifyError('Please log in to export data');
+        return;
+      }
+
+      NotificationSystem.notifyInfo('Preparing data export...');
+
+      // Collect all data from cache
+      const allData = {
+        students: cache.students,
+        hours: cache.hours,
+        marks: cache.marks,
+        attendance: cache.attendance,
+        payments: cache.payments,
+        metadata: {
+          exportedAt: new Date().toISOString(),
+          userEmail: user.email,
+          totalRecords: cache.students.length + cache.hours.length + cache.marks.length + 
+                        cache.attendance.length + cache.payments.length,
+          appVersion: '1.0.0'
+        }
+      };
+
+      // Convert to JSON
+      const jsonData = JSON.stringify(allData, null, 2);
+      
+      // Create download link
+      const blob = new Blob([jsonData], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `worklog_backup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      NotificationSystem.notifySuccess(`Data exported successfully! ${allData.metadata.totalRecords} records saved.`);
+      
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      NotificationSystem.notifyError('Failed to export data: ' + error.message);
+    }
+  },
+
+  async importAllData() {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        NotificationSystem.notifyError('Please log in to import data');
+        return;
+      }
+
+      // Create file input
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.style.display = 'none';
+      
+      input.onchange = async (event) => {
+        const file = event.target.files[0];
+        if (!file) {
+          NotificationSystem.notifyInfo('No file selected');
+          return;
+        }
+
+        if (confirm(`Are you sure you want to import data from ${file.name}? This will replace ALL current data.`)) {
+          try {
+            NotificationSystem.notifyInfo('Importing data...');
+            
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+              try {
+                const importedData = JSON.parse(e.target.result);
+                
+                // Validate the imported data structure
+                if (!importedData.students || !importedData.hours || !importedData.marks || 
+                    !importedData.attendance || !importedData.payments) {
+                  NotificationSystem.notifyError('Invalid backup file format');
+                  return;
+                }
+
+                // Clear existing cache
+                cache.students = [];
+                cache.hours = [];
+                cache.marks = [];
+                cache.attendance = [];
+                cache.payments = [];
+
+                // Import data collections
+                await this.importCollection('students', importedData.students, user.uid);
+                await this.importCollection('hours', importedData.hours, user.uid);
+                await this.importCollection('marks', importedData.marks, user.uid);
+                await this.importCollection('attendance', importedData.attendance, user.uid);
+                await this.importCollection('payments', importedData.payments, user.uid);
+
+                // Update local storage
+                EnhancedCache.saveToLocalStorageBulk('students', importedData.students);
+                EnhancedCache.saveToLocalStorageBulk('hours', importedData.hours);
+                EnhancedCache.saveToLocalStorageBulk('marks', importedData.marks);
+                EnhancedCache.saveToLocalStorageBulk('attendance', importedData.attendance);
+                EnhancedCache.saveToLocalStorageBulk('payments', importedData.payments);
+
+                // Update memory cache
+                cache.students = importedData.students;
+                cache.hours = importedData.hours;
+                cache.marks = importedData.marks;
+                cache.attendance = importedData.attendance;
+                cache.payments = importedData.payments;
+                cache.lastSync = Date.now();
+
+                // Refresh UI
+                await Promise.all([
+                  renderStudents(true),
+                  renderRecentHoursWithEdit(),
+                  renderRecentMarksWithEdit(),
+                  renderAttendanceRecentWithEdit(),
+                  renderPaymentActivityWithEdit(),
+                  renderStudentBalancesWithEdit(),
+                  populateStudentDropdowns()
+                ]);
+
+                // Refresh stats
+                if (typeof EnhancedStats !== 'undefined') {
+                  EnhancedStats.forceRefresh();
+                }
+
+                // Perform sync
+                await this.performSync('manual');
+
+                const totalRecords = importedData.students.length + importedData.hours.length + 
+                                   importedData.marks.length + importedData.attendance.length + 
+                                   importedData.payments.length;
+                
+                NotificationSystem.notifySuccess(`Data imported successfully! ${totalRecords} records loaded.`);
+
+              } catch (parseError) {
+                console.error('Error parsing imported data:', parseError);
+                NotificationSystem.notifyError('Invalid JSON file format');
+              }
+            };
+
+            reader.onerror = () => {
+              NotificationSystem.notifyError('Error reading file');
+            };
+
+            reader.readAsText(file);
+            
+          } catch (error) {
+            console.error('Error importing data:', error);
+            NotificationSystem.notifyError('Failed to import data: ' + error.message);
+          }
+        }
+        
+        // Clean up
+        document.body.removeChild(input);
+      };
+
+      document.body.appendChild(input);
+      input.click();
+
+    } catch (error) {
+      console.error('Error setting up import:', error);
+      NotificationSystem.notifyError('Failed to setup import: ' + error.message);
+    }
+  },
+
+  async importCollection(collectionName, items, uid) {
+    try {
+      const batch = writeBatch(db);
+      const collectionRef = collection(db, "users", uid, collectionName);
+      
+      // First, clear existing data
+      const existingDocs = await getDocs(collectionRef);
+      existingDocs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      
+      // Then add imported items
+      items.forEach(item => {
+        const { id, _id, _firebaseId, _synced, _cachedAt, ...cleanItem } = item;
+        const docRef = doc(collectionRef);
+        batch.set(docRef, cleanItem);
+      });
+      
+      await batch.commit();
+      console.log(`✅ Imported ${items.length} ${collectionName} to Firestore`);
+      
+    } catch (error) {
+      console.error(`Error importing ${collectionName}:`, error);
+      throw error;
+    }
+  },
 
       // Refresh all UI components
       try {
