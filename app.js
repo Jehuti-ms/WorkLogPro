@@ -1,4 +1,32 @@
 // ===========================
+// FIREBASE IMPORTS
+// ===========================
+// Make sure these match your firebase-config.js imports
+import { 
+  auth, 
+  db 
+} from './firebase-config.js';
+
+import { 
+  onAuthStateChanged,
+  signOut 
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+import { 
+  doc, 
+  getDoc, 
+  setDoc, 
+  updateDoc, 
+  deleteDoc,
+  collection, 
+  getDocs,
+  query,
+  where,
+  orderBy,
+  enableIndexedDbPersistence
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// ===========================
 // GLOBAL VARIABLES & STATE
 // ===========================
 
@@ -117,10 +145,26 @@ function cacheUIElements() {
     importButton: document.getElementById('import-button'),
     clearButton: document.getElementById('clear-button'),
     logoutButton: document.getElementById('logout-button'),
+    fixStatsButton: document.getElementById('fix-stats-button'),
     
     // User info
     userEmail: document.getElementById('user-email'),
-    memberSince: document.getElementById('member-since')
+    memberSince: document.getElementById('member-since'),
+    
+    // Form inputs
+    studentIdInput: document.getElementById('student-id'),
+    studentNameInput: document.getElementById('student-name'),
+    studentEmailInput: document.getElementById('student-email'),
+    studentPhoneInput: document.getElementById('student-phone'),
+    studentRateInput: document.getElementById('student-rate'),
+    studentNotesInput: document.getElementById('student-notes'),
+    
+    hourIdInput: document.getElementById('hour-id'),
+    hourStudentInput: document.getElementById('hour-student'),
+    hourDateInput: document.getElementById('hour-date'),
+    hourHoursInput: document.getElementById('hour-hours'),
+    hourRateInput: document.getElementById('hour-rate'),
+    hourNotesInput: document.getElementById('hour-notes')
   };
   
   console.log(`✅ Cached ${Object.keys(uiElements).length} UI elements`);
@@ -157,9 +201,11 @@ async function handleUserSignedIn(user) {
     await loadUserProfile(user.uid);
     await loadStudents(user.uid);
     await loadHours(user.uid);
-    await loadPayments(user.uid);
-    await loadAttendance(user.uid);
-    await loadMarks(user.uid);
+    
+    // Optional: Load other data
+    // await loadPayments(user.uid);
+    // await loadAttendance(user.uid);
+    // await loadMarks(user.uid);
     
     // Update stats
     updateAllStats();
@@ -225,7 +271,7 @@ async function loadUserProfile(uid, forceRefresh = false) {
     lastLogin: new Date().toISOString()
   };
   
-  // Try to load from Firestore if online and not forced to use cache
+  // Try to load from Firestore if online
   if (isOnline && !forceRefresh) {
     try {
       const userRef = doc(db, "users", uid);
@@ -451,11 +497,11 @@ async function editStudent(studentId) {
   
   // Populate form
   if (uiElements.studentForm) {
-    document.getElementById('student-id').value = student.id;
-    document.getElementById('student-name').value = student.name || '';
-    document.getElementById('student-email').value = student.email || '';
-    document.getElementById('student-phone').value = student.phone || '';
-    document.getElementById('student-rate').value = student.rate || currentUserData?.defaultRate || 50;
+    if (uiElements.studentIdInput) uiElements.studentIdInput.value = student.id;
+    if (uiElements.studentNameInput) uiElements.studentNameInput.value = student.name || '';
+    if (uiElements.studentEmailInput) uiElements.studentEmailInput.value = student.email || '';
+    if (uiElements.studentPhoneInput) uiElements.studentPhoneInput.value = student.phone || '';
+    if (uiElements.studentRateInput) uiElements.studentRateInput.value = student.rate || currentUserData?.defaultRate || 50;
     
     // Show form
     uiElements.studentForm.scrollIntoView({ behavior: 'smooth' });
@@ -626,102 +672,6 @@ async function saveHour(hourData) {
 }
 
 // ===========================
-// PAYMENTS FUNCTIONS
-// ===========================
-
-async function loadPayments(userId, forceRefresh = false) {
-  try {
-    const paymentsRef = collection(db, "users", userId, "payments");
-    const querySnapshot = await getDocs(paymentsRef);
-    
-    allPayments = [];
-    querySnapshot.forEach((doc) => {
-      allPayments.push({ id: doc.id, ...doc.data() });
-    });
-    
-    console.log(`✅ Loaded ${allPayments.length} payments from Firestore`);
-    cacheData(`payments_${userId}`, allPayments);
-    updatePaymentsTable();
-    
-    return allPayments;
-  } catch (error) {
-    console.warn('⚠️ Error loading payments:', error.message);
-    allPayments = getCachedData(`payments_${userId}`) || [];
-    return allPayments;
-  }
-}
-
-function updatePaymentsTable() {
-  const tableBody = document.querySelector('#payments-table tbody');
-  if (!tableBody) return;
-  
-  tableBody.innerHTML = '';
-  
-  if (allPayments.length === 0) {
-    const row = document.createElement('tr');
-    row.innerHTML = `<td colspan="6" class="no-data">No payments recorded yet.</td>`;
-    tableBody.appendChild(row);
-    return;
-  }
-  
-  allPayments.forEach(payment => {
-    const student = allStudents.find(s => s.id === payment.studentId);
-    const studentName = student ? student.name : 'Unknown Student';
-    
-    const row = document.createElement('tr');
-    row.innerHTML = `
-      <td>${formatDate(payment.date)}</td>
-      <td>${studentName}</td>
-      <td>$${payment.amount?.toFixed(2) || '0.00'}</td>
-      <td>${payment.method || '-'}</td>
-      <td>${payment.notes || '-'}</td>
-      <td>${payment.status || 'Pending'}</td>
-    `;
-    tableBody.appendChild(row);
-  });
-}
-
-// ===========================
-// ATTENDANCE & MARKS FUNCTIONS
-// ===========================
-
-async function loadAttendance(userId) {
-  try {
-    const attendanceRef = collection(db, "users", userId, "attendance");
-    const querySnapshot = await getDocs(attendanceRef);
-    
-    allAttendance = [];
-    querySnapshot.forEach((doc) => {
-      allAttendance.push({ id: doc.id, ...doc.data() });
-    });
-    
-    console.log(`✅ Loaded ${allAttendance.length} attendance records`);
-    return allAttendance;
-  } catch (error) {
-    console.warn('⚠️ Error loading attendance:', error.message);
-    return [];
-  }
-}
-
-async function loadMarks(userId) {
-  try {
-    const marksRef = collection(db, "users", userId, "marks");
-    const querySnapshot = await getDocs(marksRef);
-    
-    allMarks = [];
-    querySnapshot.forEach((doc) => {
-      allMarks.push({ id: doc.id, ...doc.data() });
-    });
-    
-    console.log(`✅ Loaded ${allMarks.length} marks records`);
-    return allMarks;
-  } catch (error) {
-    console.warn('⚠️ Error loading marks:', error.message);
-    return [];
-  }
-}
-
-// ===========================
 // STATS FUNCTIONS
 // ===========================
 
@@ -835,7 +785,6 @@ async function syncNow() {
     await loadUserProfile(user.uid, true);
     await loadStudents(user.uid, true);
     await loadHours(user.uid, true);
-    await loadPayments(user.uid, true);
     
     updateAllStats();
     
@@ -981,7 +930,7 @@ function switchTab(tabName) {
       updateHoursTable();
       break;
     case 'payments':
-      updatePaymentsTable();
+      // updatePaymentsTable(); // If implemented
       break;
   }
 }
@@ -995,18 +944,24 @@ function setupFormHandlers() {
       e.preventDefault();
       
       const studentData = {
-        id: document.getElementById('student-id').value || undefined,
-        name: document.getElementById('student-name').value,
-        email: document.getElementById('student-email').value,
-        phone: document.getElementById('student-phone').value,
-        rate: parseFloat(document.getElementById('student-rate').value) || currentUserData?.defaultRate || 50,
-        notes: document.getElementById('student-notes')?.value || ''
+        id: uiElements.studentIdInput?.value || undefined,
+        name: uiElements.studentNameInput?.value || '',
+        email: uiElements.studentEmailInput?.value || '',
+        phone: uiElements.studentPhoneInput?.value || '',
+        rate: parseFloat(uiElements.studentRateInput?.value) || currentUserData?.defaultRate || 50,
+        notes: uiElements.studentNotesInput?.value || ''
       };
+      
+      if (!studentData.name) {
+        showToast('Please enter a student name', 'error');
+        return;
+      }
       
       const saved = await saveStudent(studentData);
       if (saved) {
         uiElements.studentForm.reset();
-        document.getElementById('student-id').value = '';
+        if (uiElements.studentIdInput) uiElements.studentIdInput.value = '';
+        showToast('Student saved successfully!', 'success');
       }
     });
   }
@@ -1017,18 +972,29 @@ function setupFormHandlers() {
       e.preventDefault();
       
       const hourData = {
-        id: document.getElementById('hour-id').value || undefined,
-        studentId: document.getElementById('hour-student').value,
-        date: document.getElementById('hour-date').value,
-        hours: parseFloat(document.getElementById('hour-hours').value),
-        rate: parseFloat(document.getElementById('hour-rate').value) || undefined, // Will use student rate if not set
-        notes: document.getElementById('hour-notes').value
+        id: uiElements.hourIdInput?.value || undefined,
+        studentId: uiElements.hourStudentInput?.value || '',
+        date: uiElements.hourDateInput?.value || new Date().toISOString().split('T')[0],
+        hours: parseFloat(uiElements.hourHoursInput?.value) || 0,
+        rate: parseFloat(uiElements.hourRateInput?.value) || undefined,
+        notes: uiElements.hourNotesInput?.value || ''
       };
+      
+      if (!hourData.studentId) {
+        showToast('Please select a student', 'error');
+        return;
+      }
+      
+      if (!hourData.hours || hourData.hours <= 0) {
+        showToast('Please enter valid hours', 'error');
+        return;
+      }
       
       const saved = await saveHour(hourData);
       if (saved) {
         uiElements.hourForm.reset();
-        document.getElementById('hour-id').value = '';
+        if (uiElements.hourIdInput) uiElements.hourIdInput.value = '';
+        showToast('Hours saved successfully!', 'success');
       }
     });
   }
@@ -1079,12 +1045,20 @@ function setupEventListeners() {
     });
   }
   
+  // Fix Stats button
+  if (uiElements.fixStatsButton) {
+    uiElements.fixStatsButton.addEventListener('click', () => {
+      updateAllStats();
+      showToast('Stats refreshed', 'success');
+    });
+  }
+  
   // Logout button
   if (uiElements.logoutButton) {
     uiElements.logoutButton.addEventListener('click', async () => {
       if (confirm('Are you sure you want to log out?')) {
         try {
-          await auth.signOut();
+          await signOut(auth);
           showToast('Logged out successfully', 'success');
           showGuestUI();
         } catch (error) {
@@ -1186,6 +1160,7 @@ window.editStudent = editStudent;
 window.deleteStudent = deleteStudent;
 window.syncNow = syncNow;
 window.exportData = exportData;
+window.importData = importData;
 
 // Add CSS for animations
 if (!document.getElementById('toast-styles')) {
