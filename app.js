@@ -3489,6 +3489,11 @@ function useDefaultRateInHours() {
 }
 
 // ===========================
+// ADD THESE REPORT FUNCTIONS RIGHT BEFORE THE INITIALIZATION SECTION
+// Place them after the "FORM CLEARING FUNCTIONS" section and before "INITIALIZATION"
+// ===========================
+
+// ===========================
 // REPORT FUNCTIONS (FIXED)
 // ===========================
 
@@ -3538,30 +3543,30 @@ async function showWeeklyBreakdown() {
     });
 
     const reportHTML = `
-      <div style="padding: 20px; background: white; border-radius: 10px; max-width: 600px;">
-        <h3 style="color: #667eea; margin-top: 0;">📅 Weekly Breakdown</h3>
+      <div style="padding: 20px; background: var(--surface); border-radius: 10px; max-width: 600px; border: 1px solid var(--border);">
+        <h3 style="color: var(--primary); margin-top: 0;">📅 Weekly Breakdown</h3>
         <p><strong>Period:</strong> ${formatDate(weekStart)} - ${formatDate(now)}</p>
         
         <div style="display: flex; gap: 15px; margin: 20px 0;">
-          <div style="flex: 1; background: #f8f9fa; padding: 15px; border-radius: 8px;">
-            <div style="font-size: 24px; font-weight: bold; color: #667eea;">${totalHours.toFixed(1)}</div>
-            <div style="color: #666;">Total Hours</div>
+          <div style="flex: 1; background: var(--background); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+            <div style="font-size: 24px; font-weight: bold; color: var(--primary);">${totalHours.toFixed(1)}</div>
+            <div style="color: var(--muted);">Total Hours</div>
           </div>
-          <div style="flex: 1; background: #f8f9fa; padding: 15px; border-radius: 8px;">
-            <div style="font-size: 24px; font-weight: bold; color: #28a745;">$${totalEarnings.toFixed(2)}</div>
-            <div style="color: #666;">Total Earnings</div>
+          <div style="flex: 1; background: var(--background); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+            <div style="font-size: 24px; font-weight: bold; color: var(--success);">${fmtMoney(totalEarnings)}</div>
+            <div style="color: var(--muted);">Total Earnings</div>
           </div>
         </div>
 
-        <h4 style="color: #555; margin-top: 20px;">Daily Breakdown:</h4>
+        <h4 style="color: var(--text); margin-top: 20px;">Daily Breakdown:</h4>
         ${Object.entries(hoursByDay).map(([day, data]) => `
-          <div style="margin: 10px 0; padding: 15px; background: #f0f2f5; border-radius: 8px;">
-            <div style="font-weight: bold; color: #333;">${day}</div>
+          <div style="margin: 10px 0; padding: 15px; background: var(--background); border-radius: 8px; border: 1px solid var(--border);">
+            <div style="font-weight: bold; color: var(--text);">${day}</div>
             <div style="display: flex; justify-content: space-between; margin-top: 5px;">
               <span>${data.hours.toFixed(1)} hours</span>
-              <span style="font-weight: bold; color: #28a745;">$${data.earnings.toFixed(2)}</span>
+              <span style="font-weight: bold; color: var(--success);">${fmtMoney(data.earnings)}</span>
             </div>
-            <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
+            <div style="font-size: 0.9em; color: var(--muted); margin-top: 5px;">
               ${data.entries.length} session${data.entries.length !== 1 ? 's' : ''}
             </div>
           </div>
@@ -3627,30 +3632,30 @@ async function showBiWeeklyBreakdown() {
     });
 
     const reportHTML = `
-      <div style="padding: 20px; background: white; border-radius: 10px; max-width: 600px;">
-        <h3 style="color: #667eea; margin-top: 0;">📅 Bi-Weekly Breakdown</h3>
+      <div style="padding: 20px; background: var(--surface); border-radius: 10px; max-width: 600px; border: 1px solid var(--border);">
+        <h3 style="color: var(--primary); margin-top: 0;">📅 Bi-Weekly Breakdown</h3>
         <p><strong>Period:</strong> ${formatDate(twoWeeksAgo)} - ${formatDate(now)}</p>
         
         <div style="display: flex; gap: 15px; margin: 20px 0;">
-          <div style="flex: 1; background: #f8f9fa; padding: 15px; border-radius: 8px;">
-            <div style="font-size: 24px; font-weight: bold; color: #667eea;">${totalHours.toFixed(1)}</div>
-            <div style="color: #666;">Total Hours</div>
+          <div style="flex: 1; background: var(--background); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+            <div style="font-size: 24px; font-weight: bold; color: var(--primary);">${totalHours.toFixed(1)}</div>
+            <div style="color: var(--muted);">Total Hours</div>
           </div>
-          <div style="flex: 1; background: #f8f9fa; padding: 15px; border-radius: 8px;">
-            <div style="font-size: 24px; font-weight: bold; color: #28a745;">$${totalEarnings.toFixed(2)}</div>
-            <div style="color: #666;">Total Earnings</div>
+          <div style="flex: 1; background: var(--background); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+            <div style="font-size: 24px; font-weight: bold; color: var(--success);">${fmtMoney(totalEarnings)}</div>
+            <div style="color: var(--muted);">Total Earnings</div>
           </div>
         </div>
 
-        <h4 style="color: #555; margin-top: 20px;">Weekly Breakdown:</h4>
+        <h4 style="color: var(--text); margin-top: 20px;">Weekly Breakdown:</h4>
         ${Object.entries(hoursByWeek).map(([weekStart, data]) => `
-          <div style="margin: 10px 0; padding: 15px; background: #f0f2f5; border-radius: 8px;">
-            <div style="font-weight: bold; color: #333;">Week of ${weekStart}</div>
+          <div style="margin: 10px 0; padding: 15px; background: var(--background); border-radius: 8px; border: 1px solid var(--border);">
+            <div style="font-weight: bold; color: var(--text);">Week of ${weekStart}</div>
             <div style="display: flex; justify-content: space-between; margin-top: 5px;">
               <span>${data.hours.toFixed(1)} hours</span>
-              <span style="font-weight: bold; color: #28a745;">$${data.earnings.toFixed(2)}</span>
+              <span style="font-weight: bold; color: var(--success);">${fmtMoney(data.earnings)}</span>
             </div>
-            <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
+            <div style="font-size: 0.9em; color: var(--muted); margin-top: 5px;">
               ${data.entries.length} session${data.entries.length !== 1 ? 's' : ''}
             </div>
           </div>
@@ -3710,35 +3715,35 @@ async function showMonthlyBreakdown() {
     });
 
     const reportHTML = `
-      <div style="padding: 20px; background: white; border-radius: 10px; max-width: 600px;">
-        <h3 style="color: #667eea; margin-top: 0;">📅 Monthly Breakdown - ${now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h3>
+      <div style="padding: 20px; background: var(--surface); border-radius: 10px; max-width: 600px; border: 1px solid var(--border);">
+        <h3 style="color: var(--primary); margin-top: 0;">📅 Monthly Breakdown - ${now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h3>
         
         <div style="display: flex; gap: 15px; margin: 20px 0;">
-          <div style="flex: 1; background: #f8f9fa; padding: 15px; border-radius: 8px;">
-            <div style="font-size: 24px; font-weight: bold; color: #667eea;">${totalHours.toFixed(1)}</div>
-            <div style="color: #666;">Total Hours</div>
+          <div style="flex: 1; background: var(--background); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+            <div style="font-size: 24px; font-weight: bold; color: var(--primary);">${totalHours.toFixed(1)}</div>
+            <div style="color: var(--muted);">Total Hours</div>
           </div>
-          <div style="flex: 1; background: #f8f9fa; padding: 15px; border-radius: 8px;">
-            <div style="font-size: 24px; font-weight: bold; color: #28a745;">$${totalEarnings.toFixed(2)}</div>
-            <div style="color: #666;">Total Earnings</div>
+          <div style="flex: 1; background: var(--background); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+            <div style="font-size: 24px; font-weight: bold; color: var(--success);">${fmtMoney(totalEarnings)}</div>
+            <div style="color: var(--muted);">Total Earnings</div>
           </div>
-          <div style="flex: 1; background: #f8f9fa; padding: 15px; border-radius: 8px;">
-            <div style="font-size: 24px; font-weight: bold; color: #ff6b6b;">${Object.keys(hoursByStudent).length}</div>
-            <div style="color: #666;">Students</div>
+          <div style="flex: 1; background: var(--background); padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+            <div style="font-size: 24px; font-weight: bold; color: var(--warning);">${Object.keys(hoursByStudent).length}</div>
+            <div style="color: var(--muted);">Students</div>
           </div>
         </div>
 
-        <h4 style="color: #555; margin-top: 20px;">By Student:</h4>
+        <h4 style="color: var(--text); margin-top: 20px;">By Student:</h4>
         ${Object.entries(hoursByStudent)
           .sort((a, b) => b[1].earnings - a[1].earnings)
           .map(([student, data]) => `
-          <div style="margin: 10px 0; padding: 15px; background: #f0f2f5; border-radius: 8px;">
-            <div style="font-weight: bold; color: #333;">${student}</div>
+          <div style="margin: 10px 0; padding: 15px; background: var(--background); border-radius: 8px; border: 1px solid var(--border);">
+            <div style="font-weight: bold; color: var(--text);">${student}</div>
             <div style="display: flex; justify-content: space-between; margin-top: 5px;">
               <span>${data.hours.toFixed(1)} hours</span>
-              <span style="font-weight: bold; color: #28a745;">$${data.earnings.toFixed(2)}</span>
+              <span style="font-weight: bold; color: var(--success);">${fmtMoney(data.earnings)}</span>
             </div>
-            <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
+            <div style="font-size: 0.9em; color: var(--muted); margin-top: 5px;">
               ${data.entries.length} session${data.entries.length !== 1 ? 's' : ''}
             </div>
           </div>
@@ -3786,8 +3791,8 @@ async function showSubjectBreakdown() {
     });
 
     const reportHTML = `
-      <div style="padding: 20px; background: white; border-radius: 10px; max-width: 600px;">
-        <h3 style="color: #667eea; margin-top: 0;">📚 Subject Breakdown</h3>
+      <div style="padding: 20px; background: var(--surface); border-radius: 10px; max-width: 600px; border: 1px solid var(--border);">
+        <h3 style="color: var(--primary); margin-top: 0;">📚 Subject Breakdown</h3>
         <p><strong>Total Subjects:</strong> ${Object.keys(hoursBySubject).length}</p>
         
         ${Object.entries(hoursBySubject)
@@ -3795,23 +3800,23 @@ async function showSubjectBreakdown() {
           .map(([subject, data]) => {
             const avgRate = data.hours > 0 ? (data.earnings / data.hours).toFixed(2) : '0.00';
             return `
-            <div style="margin: 15px 0; padding: 20px; background: #f8f9fa; border-radius: 10px; border-left: 4px solid #667eea;">
+            <div style="margin: 15px 0; padding: 20px; background: var(--background); border-radius: 10px; border-left: 4px solid var(--primary); border: 1px solid var(--border);">
               <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
-                  <div style="font-weight: bold; color: #333; font-size: 1.1em;">${subject}</div>
-                  <div style="color: #666; margin-top: 5px;">
+                  <div style="font-weight: bold; color: var(--text); font-size: 1.1em;">${subject}</div>
+                  <div style="color: var(--muted); margin-top: 5px;">
                     ${data.students.size} student${data.students.size !== 1 ? 's' : ''} • 
                     ${data.entries.length} session${data.entries.length !== 1 ? 's' : ''}
                   </div>
                 </div>
                 <div style="text-align: right;">
-                  <div style="font-weight: bold; color: #28a745; font-size: 1.2em;">$${data.earnings.toFixed(2)}</div>
-                  <div style="color: #666; font-size: 0.9em;">${data.hours.toFixed(1)} hours</div>
+                  <div style="font-weight: bold; color: var(--success); font-size: 1.2em;">${fmtMoney(data.earnings)}</div>
+                  <div style="color: var(--muted); font-size: 0.9em;">${data.hours.toFixed(1)} hours</div>
                 </div>
               </div>
-              <div style="margin-top: 10px; padding: 8px; background: white; border-radius: 6px; font-size: 0.9em;">
-                <span style="color: #666;">Avg Rate: </span>
-                <span style="font-weight: bold; color: #667eea;">$${avgRate}/hour</span>
+              <div style="margin-top: 10px; padding: 8px; background: var(--surface); border-radius: 6px; font-size: 0.9em; border: 1px solid var(--border);">
+                <span style="color: var(--muted);">Avg Rate: </span>
+                <span style="font-weight: bold; color: var(--primary);">$${avgRate}/hour</span>
               </div>
             </div>
           `;
@@ -3826,8 +3831,6 @@ async function showSubjectBreakdown() {
     NotificationSystem.notifyError('Failed to generate subject breakdown');
   }
 }
-
-// Add this function with the other report functions:
 
 async function sendEmailReport() {
   try {
@@ -3922,18 +3925,18 @@ ${new Date().toLocaleString()}
       // Fallback: Show the email content in a modal
       const emailHTML = `
         <div style="padding: 20px;">
-          <h3 style="color: #667eea; margin-top: 0;">📧 Email Report</h3>
+          <h3 style="color: var(--primary); margin-top: 0;">📧 Email Report</h3>
           <p>Could not open email client automatically. Here's your report:</p>
           
-          <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
+          <div style="background: var(--surface); padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid var(--border);">
             <strong>Subject:</strong><br>
-            <code style="display: block; padding: 8px; background: white; border-radius: 4px; margin: 5px 0;">${emailSubject}</code>
+            <code style="display: block; padding: 8px; background: var(--background); border-radius: 4px; margin: 5px 0;">${emailSubject}</code>
           </div>
           
-          <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
+          <div style="background: var(--surface); padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid var(--border);">
             <strong>Body:</strong>
             <pre style="
-              background: white;
+              background: var(--background);
               padding: 15px;
               border-radius: 4px;
               margin: 10px 0;
@@ -3949,7 +3952,7 @@ ${new Date().toLocaleString()}
           <div style="margin-top: 20px;">
             <button onclick="copyToClipboard('${emailBody.replace(/'/g, "\\'")}')" style="
               padding: 10px 20px;
-              background: #28a745;
+              background: var(--success);
               color: white;
               border: none;
               border-radius: 6px;
@@ -3961,7 +3964,7 @@ ${new Date().toLocaleString()}
             
             <button onclick="window.open('mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}')" style="
               padding: 10px 20px;
-              background: #007bff;
+              background: var(--primary);
               color: white;
               border: none;
               border-radius: 6px;
@@ -3974,27 +3977,6 @@ ${new Date().toLocaleString()}
       `;
       
       showCustomModal('Email Report', emailHTML);
-      
-      // Add copy function to window
-      window.copyToClipboard = function(text) {
-        navigator.clipboard.writeText(text).then(() => {
-          NotificationSystem.notifySuccess('Report copied to clipboard!');
-        }).catch(err => {
-          console.error('Copy failed:', err);
-          // Fallback for older browsers
-          const textArea = document.createElement('textarea');
-          textArea.value = text;
-          document.body.appendChild(textArea);
-          textArea.select();
-          try {
-            document.execCommand('copy');
-            NotificationSystem.notifySuccess('Report copied to clipboard!');
-          } catch (e) {
-            NotificationSystem.notifyError('Could not copy text');
-          }
-          document.body.removeChild(textArea);
-        });
-      };
     }
 
   } catch (error) {
@@ -4025,23 +4007,24 @@ function showCustomModal(title, content) {
   
   const modalContent = document.createElement('div');
   modalContent.style.cssText = `
-    background: white;
+    background: var(--surface);
     border-radius: 12px;
     max-width: 90%;
     max-height: 90vh;
     overflow-y: auto;
     box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
   `;
   
   modalContent.innerHTML = `
-    <div style="padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
-      <h3 style="margin: 0; color: #333;">${title}</h3>
+    <div style="padding: 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+      <h3 style="margin: 0; color: var(--text);">${title}</h3>
       <button onclick="this.closest('[style*=\"position: fixed\"]').remove()" style="
         background: none;
         border: none;
         font-size: 24px;
         cursor: pointer;
-        color: #666;
+        color: var(--muted);
         padding: 5px;
         border-radius: 4px;
       ">&times;</button>
@@ -4167,155 +4150,622 @@ async function generatePDFReport() {
         <meta charset="UTF-8">
         <title>WorkLog Invoice Report - ${new Date().toLocaleDateString()}</title>
         <style>
-          /* ... (keep the same CSS styles from before) ... */
           body { 
             font-family: 'Segoe UI', Arial, sans-serif; 
             margin: 40px; 
             background: #f8f9fa;
             color: #333;
+            line-height: 1.6;
           }
-          /* ... (include all the CSS styles from the previous version) ... */
+          
+          .report-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #4f46e5;
+          }
+          
+          .report-header h1 {
+            color: #4f46e5;
+            margin-bottom: 10px;
+          }
+          
+          .report-meta {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 15px;
+            color: #666;
+            font-size: 0.9em;
+          }
+          
+          .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+          }
+          
+          .summary-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+          }
+          
+          .summary-card .value {
+            font-size: 28px;
+            font-weight: bold;
+            margin: 10px 0;
+          }
+          
+          .summary-card .label {
+            color: #64748b;
+            font-size: 0.9em;
+          }
+          
+          .section {
+            margin: 30px 0;
+          }
+          
+          .section h3 {
+            color: #4f46e5;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+          }
+          
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+          }
+          
+          th {
+            background: #f1f5f9;
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid #e2e8f0;
+            color: #475569;
+          }
+          
+          td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e2e8f0;
+          }
+          
+          tr:hover {
+            background: #f8fafc;
+          }
+          
+          .amount {
+            text-align: right;
+            font-weight: 500;
+          }
+          
+          .positive {
+            color: #10b981;
+          }
+          
+          .negative {
+            color: #ef4444;
+          }
+          
+          .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            text-align: center;
+            color: #64748b;
+            font-size: 0.9em;
+          }
+          
+          @media print {
+            body {
+              margin: 20px;
+            }
+            
+            .no-print {
+              display: none;
+            }
+            
+            .summary-cards {
+              page-break-inside: avoid;
+            }
+          }
         </style>
       </head>
       <body>
-        <div class="invoice-header">
+        <div class="report-header">
           <h1>📊 WorkLog Invoice Report</h1>
-          <div class="invoice-meta">
-            <div class="meta-item">
-              <span class="meta-label">Generated:</span>
-              <span class="meta-value">${new Date().toLocaleString()}</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">User:</span>
-              <span class="meta-value">${user.email}</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">Report Period:</span>
-              <span class="meta-value">All Time</span>
-            </div>
+          <div class="report-meta">
+            <div>Generated: ${new Date().toLocaleString()}</div>
+            <div>User: ${user.email}</div>
+            <div>Period: All Time</div>
           </div>
         </div>
         
-        <!-- ... (include all the HTML content from the previous version) ... -->
+        <div class="summary-cards">
+          <div class="summary-card">
+            <div class="value">${totalStudents}</div>
+            <div class="label">Total Students</div>
+          </div>
+          
+          <div class="summary-card">
+            <div class="value">${totalHours.toFixed(1)}</div>
+            <div class="label">Total Hours</div>
+          </div>
+          
+          <div class="summary-card">
+            <div class="value" style="color: #10b981;">${fmtMoney(totalEarnings)}</div>
+            <div class="label">Total Earnings</div>
+          </div>
+          
+          <div class="summary-card">
+            <div class="value" style="color: #8b5cf6;">${fmtMoney(totalPayments)}</div>
+            <div class="label">Payments Received</div>
+          </div>
+          
+          <div class="summary-card">
+            <div class="value" style="color: ${outstandingBalance > 0 ? '#f59e0b' : '#10b981'};">${fmtMoney(outstandingBalance)}</div>
+            <div class="label">Balance Due</div>
+          </div>
+        </div>
+        
+        ${hours.length > 0 ? `
+        <div class="section">
+          <h3>📈 Earnings Summary</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Student/Organization</th>
+                <th>Hours</th>
+                <th>Rate</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${hours.slice(0, 20).map(entry => `
+                <tr>
+                  <td>${formatDate(entry.date)}</td>
+                  <td>${entry.student || entry.organization || 'N/A'}</td>
+                  <td>${safeNumber(entry.hours).toFixed(1)}</td>
+                  <td>${fmtMoney(entry.rate)}</td>
+                  <td class="amount">${fmtMoney(entry.total || (entry.hours || 0) * (entry.rate || 0))}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+                       ${hours.length > 20 ? `
+            <tr>
+              <td colspan="5" style="text-align: center; color: #666; padding: 15px;">
+                ... and ${hours.length - 20} more entries
+              </td>
+            </tr>
+            ` : ''}
+          </table>
+        </div>
+        ` : ''}
+        
+        ${studentEarnings.length > 0 ? `
+        <div class="section">
+          <h3>🎓 Earnings by Student</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Total Hours</th>
+                <th>Total Earnings</th>
+                <th>Avg Rate/Hour</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${studentEarnings.slice(0, 10).map(student => {
+                const avgRate = student.totalHours > 0 ? (student.totalEarnings / student.totalHours).toFixed(2) : '0.00';
+                return `
+                <tr>
+                  <td><strong>${student.name}</strong></td>
+                  <td>${student.totalHours.toFixed(1)}</td>
+                  <td class="amount">${fmtMoney(student.totalEarnings)}</td>
+                  <td class="amount">$${avgRate}</td>
+                </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+        
+        ${dateReports.length > 0 ? `
+        <div class="section">
+          <h3>📅 Date-wise Breakdown</h3>
+          ${dateReports.slice(0, 5).map(report => `
+            <div style="margin: 20px 0; padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+              <h4 style="margin: 0 0 10px 0; color: #475569;">${report.date}</h4>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Organization</th>
+                    <th>Student</th>
+                    <th>Hours</th>
+                    <th>Rate</th>
+                    <th>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${report.entries.map(entry => `
+                    <tr>
+                      <td>${entry.organization}</td>
+                      <td>${entry.student}</td>
+                      <td>${entry.hours.toFixed(1)}</td>
+                      <td>${fmtMoney(entry.rate)}</td>
+                      <td class="amount">${fmtMoney(entry.total)}</td>
+                    </tr>
+                  `).join('')}
+                  <tr style="font-weight: bold; background: #f1f5f9;">
+                    <td colspan="2">Total for ${report.date}</td>
+                    <td>${report.totalHours.toFixed(1)}</td>
+                    <td>–</td>
+                    <td class="amount">${fmtMoney(report.totalAmount)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          `).join('')}
+        </div>
+        ` : ''}
+        
+        ${payments.length > 0 ? `
+        <div class="section">
+          <h3>💰 Recent Payments</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Student</th>
+                <th>Amount</th>
+                <th>Method</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${payments.slice(0, 10).map(payment => `
+                <tr>
+                  <td>${formatDate(payment.date)}</td>
+                  <td>${payment.student || 'N/A'}</td>
+                  <td class="amount positive">${fmtMoney(payment.amount)}</td>
+                  <td>${payment.method || 'N/A'}</td>
+                  <td>
+                    <span style="color: ${payment.status === 'Pending' ? '#f59e0b' : 
+                                      payment.status === 'Failed' ? '#ef4444' : '#10b981'};">
+                      ${payment.status || 'Completed'}
+                    </span>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+        
+        <div class="footer">
+          <p>Generated by WorkLog Pro - Teacher's Productivity Companion</p>
+          <p>Report ID: ${Date.now()} • ${new Date().toLocaleString()}</p>
+          <p style="font-size: 0.8em; margin-top: 10px; color: #94a3b8;">
+            This is an automated report. For any discrepancies, please contact the administrator.
+          </p>
+        </div>
         
         <script>
-          // Auto-print after a short delay
-          setTimeout(() => {
+          // Print functionality
+          function printReport() {
             window.print();
-          }, 1000);
+          }
         </script>
       </body>
       </html>
     `;
 
-    // Try to open in a new window - handle popup blockers
-    try {
-      const printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes');
+    // Create a new window and write the HTML
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(reportHTML);
+    printWindow.document.close();
+
+    // Wait for content to load then print
+    setTimeout(() => {
+      printWindow.print();
+      NotificationSystem.notifySuccess('PDF report generated successfully!');
       
-      if (!printWindow) {
-        // Popup blocked - show alternative
-        NotificationSystem.notifyWarning('Popup blocked. Please allow popups for PDF generation, or copy the URL below and open in new window:');
-        
-        // Create a download link as fallback
-        const blob = new Blob([reportHTML], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `WorkLog_Report_${new Date().toISOString().split('T')[0]}.html`;
-        link.textContent = 'Download HTML Report';
-        link.style.cssText = 'display: block; padding: 15px; background: #007bff; color: white; text-align: center; border-radius: 5px; text-decoration: none; margin: 20px 0;';
-        
-        showCustomModal('Report Generated', `
-          <div style="padding: 20px;">
-            <p>Popup was blocked. You can:</p>
-            <p>1. Download the HTML report and open it in your browser:</p>
-            <a href="${url}" download="WorkLog_Report.html" style="
-              display: inline-block;
-              padding: 12px 24px;
-              background: #007bff;
-              color: white;
-              text-decoration: none;
-              border-radius: 6px;
-              margin: 10px 0;
-            ">📥 Download HTML Report</a>
-            <p>2. Copy and paste this URL into a new browser tab:</p>
-            <input type="text" value="${url}" readonly style="
-              width: 100%;
-              padding: 10px;
-              margin: 10px 0;
-              border: 1px solid #ddd;
-              border-radius: 4px;
-              background: #f8f9fa;
-            ">
-            <button onclick="navigator.clipboard.writeText('${url}')" style="
-              padding: 8px 16px;
-              background: #6c757d;
-              color: white;
-              border: none;
-              border-radius: 4px;
-              cursor: pointer;
-            ">📋 Copy URL</button>
-          </div>
-        `);
-        
-        return;
-      }
-      
-      // Write content to the window
-      printWindow.document.write(reportHTML);
-      printWindow.document.close();
-      
-      // Wait for content to load
-      printWindow.onload = function() {
-        setTimeout(() => {
-          try {
-            printWindow.print();
-            NotificationSystem.notifySuccess('Invoice report generated successfully');
-          } catch (printError) {
-            console.error('Print error:', printError);
-            NotificationSystem.notifyInfo('Report opened in new window. Use browser print function (Ctrl+P)');
-          }
-        }, 500);
-      };
-      
-    } catch (windowError) {
-      console.error('Window error:', windowError);
-      NotificationSystem.notifyError('Could not open report window. Please check popup settings.');
-    }
+      // Ask user if they want to keep the window open
+      setTimeout(() => {
+        if (confirm('Report printed successfully. Close the print preview window?')) {
+          printWindow.close();
+        }
+      }, 1000);
+    }, 500);
 
   } catch (error) {
-    console.error('Error generating invoice report:', error);
-    NotificationSystem.notifyError('Failed to generate invoice report: ' + error.message);
+    console.error('Error generating PDF report:', error);
+    NotificationSystem.notifyError('Failed to generate PDF report: ' + error.message);
   }
 }
 
 // ===========================
-// ENHANCED REPORT FUNCTIONS
+// REPORT GENERATION UI BUTTONS
 // ===========================
 
-function setupReportButtons() {
-  // Add PDF and Email buttons to reports tab
-  const reportsTab = document.getElementById('reports');
-  if (reportsTab) {
-    // Check if buttons already exist
-    if (!document.getElementById('generatePdfBtn')) {
-      const actionButtons = `
-        <div class="report-actions" style="margin: 20px 0; display: flex; gap: 10px;">
-          <button id="generatePdfBtn" class="button primary" onclick="generatePDFReport()">
-            📄 Generate PDF Report
-          </button>
-          <button id="sendEmailBtn" class="button success" onclick="sendEmailReport()">
-            📧 Email Report
-          </button>
-        </div>
-      `;
-      
-      // Insert at the beginning of the reports tab
-      reportsTab.insertAdjacentHTML('afterbegin', actionButtons);
+function createReportButtons() {
+  const container = document.createElement('div');
+  container.style.cssText = `
+    display: flex;
+    gap: 10px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+  `;
+
+  const reports = [
+    {
+      label: '📅 Weekly',
+      title: 'Weekly Breakdown',
+      onClick: showWeeklyBreakdown,
+      color: 'var(--primary)'
+    },
+    {
+      label: '📊 Bi-Weekly',
+      title: 'Bi-Weekly Breakdown',
+      onClick: showBiWeeklyBreakdown,
+      color: 'var(--secondary)'
+    },
+    {
+      label: '📈 Monthly',
+      title: 'Monthly Breakdown',
+      onClick: showMonthlyBreakdown,
+      color: 'var(--warning)'
+    },
+    {
+      label: '📚 Subjects',
+      title: 'Subject Breakdown',
+      onClick: showSubjectBreakdown,
+      color: 'var(--success)'
+    },
+    {
+      label: '📧 Email',
+      title: 'Send Email Report',
+      onClick: sendEmailReport,
+      color: 'var(--info)'
+    },
+    {
+      label: '📄 PDF',
+      title: 'Generate PDF Report',
+      onClick: generatePDFReport,
+      color: 'var(--danger)'
     }
+  ];
+
+  reports.forEach(report => {
+    const button = document.createElement('button');
+    button.textContent = report.label;
+    button.title = report.title;
+    button.style.cssText = `
+      padding: 10px 16px;
+      background: ${report.color};
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s;
+      flex: 1;
+      min-width: 100px;
+    `;
+    
+    button.onmouseover = () => {
+      button.style.opacity = '0.9';
+      button.style.transform = 'translateY(-2px)';
+    };
+    button.onmouseout = () => {
+      button.style.opacity = '1';
+      button.style.transform = 'translateY(0)';
+    };
+    
+    button.onclick = report.onClick;
+    
+    container.appendChild(button);
+  });
+
+  return container;
+}
+
+// ===========================
+// INITIALIZATION - Add Report Buttons to UI
+// ===========================
+
+function initializeReportSection() {
+  // Wait for DOM to be ready
+  setTimeout(() => {
+    // Try to find a good place to add the report buttons
+    const mainContent = document.querySelector('#mainContent') || 
+                       document.querySelector('main') || 
+                       document.querySelector('.container') ||
+                       document.body;
+    
+    if (mainContent) {
+      // Look for existing sections to insert after
+      const existingSections = [
+        document.querySelector('#hoursEntrySection'),
+        document.querySelector('#recentActivity'),
+        document.querySelector('.card:first-child')
+      ].filter(Boolean);
+      
+      if (existingSections.length > 0) {
+        // Insert after the first existing section
+        const targetSection = existingSections[0];
+        const reportSection = document.createElement('div');
+        reportSection.style.cssText = `
+          margin: 30px 0;
+          padding: 20px;
+          background: var(--surface);
+          border-radius: 12px;
+          border: 1px solid var(--border);
+        `;
+        
+        reportSection.innerHTML = `
+          <h3 style="margin-top: 0; color: var(--primary); display: flex; align-items: center; gap: 10px;">
+            📊 Reports & Analytics
+          </h3>
+          <p style="color: var(--muted); margin-bottom: 20px;">
+            Generate detailed reports of your teaching activities, earnings, and student progress.
+          </p>
+        `;
+        
+        const buttonContainer = createReportButtons();
+        reportSection.appendChild(buttonContainer);
+        
+        // Add stats summary
+        const statsDiv = document.createElement('div');
+        statsDiv.style.cssText = `
+          display: flex;
+          gap: 15px;
+          margin-top: 20px;
+          flex-wrap: wrap;
+        `;
+        
+        const stats = [
+          { label: 'Quick Stats', value: 'Available', icon: '📈' },
+          { label: 'Export Formats', value: 'PDF, Email', icon: '📤' },
+          { label: 'Time Range', value: 'Customizable', icon: '⏰' },
+          { label: 'Data Privacy', value: 'Secure', icon: '🔒' }
+        ];
+        
+        stats.forEach(stat => {
+          const statDiv = document.createElement('div');
+          statDiv.style.cssText = `
+            flex: 1;
+            min-width: 120px;
+            background: var(--background);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid var(--border);
+          `;
+          
+          statDiv.innerHTML = `
+            <div style="font-size: 24px; margin-bottom: 8px;">${stat.icon}</div>
+            <div style="font-weight: bold; color: var(--text);">${stat.value}</div>
+            <div style="font-size: 0.9em; color: var(--muted); margin-top: 4px;">${stat.label}</div>
+          `;
+          
+          statsDiv.appendChild(statDiv);
+        });
+        
+        reportSection.appendChild(statsDiv);
+        
+        // Insert the report section
+        targetSection.parentNode.insertBefore(reportSection, targetSection.nextSibling);
+        
+        console.log('Report section added successfully');
+      } else {
+        // Fallback: add to main content
+        const reportSection = document.createElement('div');
+        reportSection.style.cssText = `
+          margin: 30px 0;
+          padding: 20px;
+          background: var(--surface);
+          border-radius: 12px;
+          border: 1px solid var(--border);
+        `;
+        
+        reportSection.innerHTML = `
+          <h3 style="margin-top: 0; color: var(--primary);">📊 Reports & Analytics</h3>
+          <p style="color: var(--muted); margin-bottom: 20px;">
+            Generate detailed reports and analytics for your teaching activities.
+          </p>
+        `;
+        
+        reportSection.appendChild(createReportButtons());
+        mainContent.insertBefore(reportSection, mainContent.firstChild);
+      }
+    } else {
+      console.warn('Could not find main content area to add report buttons');
+    }
+  }, 1000);
+}
+
+// ===========================
+// ENHANCED SAFE NUMBER FUNCTION
+// ===========================
+
+function safeNumber(value) {
+  if (value === null || value === undefined || value === '') return 0;
+  const num = Number(value);
+  return isNaN(num) ? 0 : num;
+}
+
+// ===========================
+// FORMAT DATE FUNCTION
+// ===========================
+
+function formatDate(dateString) {
+  if (!dateString) return 'Unknown Date';
+  
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch {
+    return dateString;
   }
 }
 
+// ===========================
+// FORMAT MONEY FUNCTION
+// ===========================
+
+function fmtMoney(amount) {
+  const num = safeNumber(amount);
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(num);
+}
+
+// ===========================
+// COPY TO CLIPBOARD HELPER
+// ===========================
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    NotificationSystem.notifySuccess('Copied to clipboard!');
+  }).catch(err => {
+    console.error('Failed to copy: ', err);
+    NotificationSystem.notifyError('Failed to copy to clipboard');
+  });
+}
+
+// ===========================
+// INITIALIZE ON LOAD
+// ===========================
+
+// Wait for the page to load before initializing
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeReportSection);
+} else {
+  initializeReportSection();
+}
+
+// Also try to initialize after a delay (in case DOM loads dynamically)
+setTimeout(initializeReportSection, 2000);
+
+console.log('Report functions loaded successfully!');
 // ===========================
 // INITIALIZATION
 // ===========================
