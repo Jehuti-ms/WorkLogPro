@@ -1146,18 +1146,26 @@ async function deleteStudent(id) {
 // USER PROFILE FUNCTIONS
 // ===========================
 
-// Add this flag at the top of your file
-let isFirestoreInitialized = false;
+// Add these at the top of your app.js file
+let profileLoadAttempts = 0;
+const MAX_PROFILE_ATTEMPTS = 3;
+let currentProfileLoadPromise = null;
 
 async function loadUserProfile(uid) {
   console.log('👤 Loading user profile for:', uid);
   
+  // Return existing promise if already loading
+  if (currentProfileLoadPromise) {
+    console.log('⏳ Profile already loading, returning existing promise');
+    return currentProfileLoadPromise;
+  }
+  
   const user = auth.currentUser;
   
-  // Check if we're offline first
-  if (!navigator.onLine) {
-    console.log('📴 Offline mode - using cached data');
-    return getCachedProfile(uid, user);
+  // Check if user exists
+  if (!user) {
+    console.error('❌ No authenticated user found');
+    return createFallbackProfile(uid);
   }
   
   let memberSince = localStorage.getItem('memberSince');
@@ -1166,123 +1174,125 @@ async function loadUserProfile(uid) {
     localStorage.setItem('memberSince', memberSince);
   }
   
-  const fallbackProfile = {
-    email: user?.email || '',
-    createdAt: memberSince,
-    defaultRate: parseFloat(localStorage.getItem('userDefaultRate')) || 0,
-    memberSince: memberSince,
-    uid: uid
-  };
+  const fallbackProfile = createFallbackProfile(uid, user, memberSince);
   
-  try {
-    // Initialize Firestore with offline persistence if not done
-    await ensureFirestoreReady();
-    
-    const userRef = doc(db, "users", uid);
-    const userSnap = await getDoc(userRef);
-    
-    if (userSnap.exists()) {
-      currentUserData = { uid, ...userSnap.data() };
+  // Create and store the promise
+  currentProfileLoadPromise = (async () => {
+    try {
+      // Try to load from Firestore
+      const userRef = doc(db, "users", uid);
+      const userSnap = await getDoc(userRef);
       
-      if (!currentUserData.memberSince) {
-        currentUserData.memberSince = memberSince;
-        await updateDoc(userRef, { memberSince: memberSince });
+      if (userSnap.exists()) {
+        currentUserData = { uid, ...userSnap.data() };
+        
+        // Ensure required fields exist
+        if (!currentUserData.memberSince) {
+          currentUserData.memberSince = memberSince;
+          await updateDoc(userRef, { memberSince: memberSince });
+        }
+        
+        if (!currentUserData.email && user.email) {
+          currentUserData.email = user.email;
+          await updateDoc(userRef, { email: user.email });
+        }
+        
+        console.log('✅ User profile loaded from Firestore for:', user.email);
+        
+        // Cache the profile
+        cacheProfileData(uid, currentUserData);
+        profileLoadAttempts = 0; // Reset attempts on success
+        
+        return currentUserData;
+      } else {
+        // Create new profile
+        const profileToCreate = {
+          email: user.email || '',
+          createdAt: new Date().toISOString(),
+          lastLogin: new Date().toISOString(),
+          memberSince: memberSince,
+          defaultRate: parseFloat(localStorage.getItem('userDefaultRate')) || 0
+        };
+        
+        await setDoc(userRef, profileToCreate);
+        
+        currentUserData = { uid, ...profileToCreate };
+        console.log('✅ Created new user profile for:', user.email);
+        
+        cacheProfileData(uid, currentUserData);
+        profileLoadAttempts = 0;
+        
+        return currentUserData;
+      }
+    } catch (err) {
+      console.warn("⚠️ Error loading user profile:", err.message);
+      
+      // Increment attempts
+      profileLoadAttempts++;
+      
+      // If we've tried too many times, use cache
+      if (profileLoadAttempts >= MAX_PROFILE_ATTEMPTS) {
+        console.log('🔄 Max attempts reached, using cached data');
+        return getCachedProfile(uid) || fallbackProfile;
       }
       
-      console.log('✅ User profile loaded from Firestore for:', user.email);
-      
-      if (currentUserData.defaultRate !== undefined) {
-        localStorage.setItem('userDefaultRate', currentUserData.defaultRate.toString());
+      // Try to use cached data
+      const cachedProfile = getCachedProfile(uid);
+      if (cachedProfile) {
+        console.log('📦 Using cached profile data');
+        return cachedProfile;
       }
       
-      // Cache the profile
-      cacheProfile(uid, currentUserData);
-      
-      return currentUserData;
-    } else {
-      const profileToCreate = {
-        ...fallbackProfile,
-        lastLogin: new Date().toISOString(),
-        memberSince: memberSince
-      };
-      
-      await setDoc(userRef, profileToCreate);
-      
-      currentUserData = { uid, ...profileToCreate };
-      console.log('✅ Created new user profile for:', user.email);
-      
-      // Cache the new profile
-      cacheProfile(uid, currentUserData);
-      
-      return currentUserData;
+      console.log('🔄 Using fallback profile data');
+      return fallbackProfile;
+    } finally {
+      // Clear the promise so next call will try again
+      currentProfileLoadPromise = null;
     }
-  } catch (err) {
-    console.warn("⚠️ Error loading user profile, using cached data:", err.message);
-    return getCachedProfile(uid, user, fallbackProfile);
-  }
+  })();
+  
+  return currentProfileLoadPromise;
 }
 
 // ===========================
 // HELPER FUNCTIONS
 // ===========================
 
-async function ensureFirestoreReady() {
-  if (isFirestoreInitialized) return;
+function createFallbackProfile(uid, user = null, memberSince = null) {
+  const fallbackMemberSince = memberSince || localStorage.getItem('memberSince') || new Date().toISOString();
   
-  try {
-    // Enable offline persistence
-    await enableIndexedDbPersistence(db);
-    console.log('✅ Firestore offline persistence enabled');
-    isFirestoreInitialized = true;
-  } catch (err) {
-    if (err.code === 'failed-precondition') {
-      console.warn('⚠️ Multiple tabs open, persistence can only be enabled in one tab');
-    } else if (err.code === 'unimplemented') {
-      console.warn('⚠️ Browser doesn\'t support persistence');
-    } else {
-      console.error('❌ Error enabling persistence:', err);
-    }
-    isFirestoreInitialized = true; // Still mark as initialized
-  }
-}
-
-function getCachedProfile(uid, user, fallbackProfile = null) {
-  const cachedKey = `cached_profile_${uid}`;
-  const cachedData = localStorage.getItem(cachedKey);
-  
-  if (cachedData) {
-    try {
-      const profile = JSON.parse(cachedData);
-      console.log('📦 Using cached profile data');
-      return profile;
-    } catch (e) {
-      console.log('❌ Error parsing cached profile');
-    }
-  }
-  
-  // Return fallback if no cache
-  if (fallbackProfile) {
-    return fallbackProfile;
-  }
-  
-  // Create basic fallback
   return {
+    uid: uid,
     email: user?.email || '',
-    createdAt: new Date().toISOString(),
+    createdAt: fallbackMemberSince,
     defaultRate: parseFloat(localStorage.getItem('userDefaultRate')) || 0,
-    memberSince: localStorage.getItem('memberSince') || new Date().toISOString(),
-    uid: uid
+    memberSince: fallbackMemberSince,
+    lastLogin: new Date().toISOString()
   };
 }
 
-function cacheProfile(uid, profileData) {
-  const cacheKey = `cached_profile_${uid}`;
+function cacheProfileData(uid, profileData) {
   try {
+    const cacheKey = `cached_profile_${uid}`;
     localStorage.setItem(cacheKey, JSON.stringify(profileData));
     console.log('💾 Profile cached locally');
   } catch (e) {
-    console.warn('⚠️ Could not cache profile (localStorage may be full)');
+    console.warn('⚠️ Could not cache profile:', e.message);
   }
+}
+
+function getCachedProfile(uid) {
+  try {
+    const cacheKey = `cached_profile_${uid}`;
+    const cachedData = localStorage.getItem(cacheKey);
+    
+    if (cachedData) {
+      return JSON.parse(cachedData);
+    }
+  } catch (e) {
+    console.warn('⚠️ Error reading cached profile:', e.message);
+  }
+  return null;
 }
 
 // ===========================
@@ -1364,89 +1374,44 @@ async function checkAuthStatus() {
 }
 
 // ===========================
-// INITIALIZATION
+// INITIALIZATION FIXES
 // ===========================
 
-async function initializeApp() {
-  console.log('🚀 Initializing WorkLog App...');
-  
-  // Initialize notification system first
-  NotificationSystem.initNotificationStyles();
-  
-  // Check auth status with timeout
-  let user = null;
-  try {
-    // Wait for auth state to be determined
-    user = await new Promise((resolve) => {
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
-        unsubscribe();
-        resolve(user);
-      });
-      
-      // Timeout after 3 seconds
-      setTimeout(() => {
-        unsubscribe();
-        resolve(null);
-      }, 3000);
-    });
-  } catch (error) {
-    console.error('❌ Auth check error:', error);
-    user = null;
+// Also update your initialization to prevent multiple calls
+let isAppInitializing = false;
+
+async function fullAppInitialization(user) {
+  // Prevent multiple initializations
+  if (isAppInitializing) {
+    console.log('⏳ App already initializing, skipping...');
+    return;
   }
   
-  if (user) {
-    console.log('✅ User authenticated:', user.email, 'UID:', user.uid);
+  isAppInitializing = true;
+  
+  try {
+    console.log(`🔄 Starting full app initialization for user: ${user.email}`);
     
-    // Load user profile and data
-    await loadUserProfile(user.uid);
-    EnhancedCache.loadCachedData();
+    // Load profile first
+    const profile = await loadUserProfile(user.uid);
     
-    // Initialize systems
+    // Update UI with profile data
+    updateUserUI(profile);
+    
+    // Load other data sequentially to prevent race conditions
+    await loadStudents(user.uid);
+    await loadHours(user.uid);
+    
+    // Initialize other components
     setupTabNavigation();
     setupFormHandlers();
-    EnhancedStats.init();
+    enhancedStatsSystem();
     
-    // Load and render initial data
-    await Promise.all([
-      renderStudents(),
-      renderRecentHoursWithEdit(),
-      populateStudentDropdowns()
-    ]);
-    
-    // Refresh stats
-    EnhancedStats.forceRefresh();
-    
-    console.log('✅ App initialization complete');
-    
-  } else {
-    console.log('⚠️ No user signed in or auth timeout');
-    
-    // Check if we're already on the auth page
-    if (window.location.pathname.includes('auth.html')) {
-      console.log('Already on auth page');
-      return;
-    }
-    
-    // Try to check if auth.html exists before redirecting
-    try {
-      const response = await fetch('auth.html');
-      if (response.ok) {
-        console.log('Redirecting to auth.html...');
-        window.location.href = 'auth.html';
-      } else {
-        console.error('auth.html not found, staying on page');
-        // Initialize without auth
-        setupTabNavigation();
-        setupFormHandlers();
-        NotificationSystem.notifyWarning('Working in offline mode. Data will be saved locally only.');
-      }
-    } catch (error) {
-      console.error('Error checking for auth.html:', error);
-      // Initialize without auth
-      setupTabNavigation();
-      setupFormHandlers();
-      NotificationSystem.notifyInfo('Working offline. Sign in to sync across devices.');
-    }
+    console.log('✅ Full app initialization complete');
+  } catch (error) {
+    console.error('❌ Error during app initialization:', error);
+  } finally {
+    isAppInitializing = false;
   }
 }
 
