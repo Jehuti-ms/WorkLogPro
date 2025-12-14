@@ -1146,10 +1146,19 @@ async function deleteStudent(id) {
 // USER PROFILE FUNCTIONS
 // ===========================
 
+// Add this flag at the top of your file
+let isFirestoreInitialized = false;
+
 async function loadUserProfile(uid) {
   console.log('👤 Loading user profile for:', uid);
   
   const user = auth.currentUser;
+  
+  // Check if we're offline first
+  if (!navigator.onLine) {
+    console.log('📴 Offline mode - using cached data');
+    return getCachedProfile(uid, user);
+  }
   
   let memberSince = localStorage.getItem('memberSince');
   if (!memberSince) {
@@ -1161,10 +1170,14 @@ async function loadUserProfile(uid) {
     email: user?.email || '',
     createdAt: memberSince,
     defaultRate: parseFloat(localStorage.getItem('userDefaultRate')) || 0,
-    memberSince: memberSince
+    memberSince: memberSince,
+    uid: uid
   };
   
   try {
+    // Initialize Firestore with offline persistence if not done
+    await ensureFirestoreReady();
+    
     const userRef = doc(db, "users", uid);
     const userSnap = await getDoc(userRef);
     
@@ -1182,6 +1195,9 @@ async function loadUserProfile(uid) {
         localStorage.setItem('userDefaultRate', currentUserData.defaultRate.toString());
       }
       
+      // Cache the profile
+      cacheProfile(uid, currentUserData);
+      
       return currentUserData;
     } else {
       const profileToCreate = {
@@ -1194,12 +1210,78 @@ async function loadUserProfile(uid) {
       
       currentUserData = { uid, ...profileToCreate };
       console.log('✅ Created new user profile for:', user.email);
+      
+      // Cache the new profile
+      cacheProfile(uid, currentUserData);
+      
       return currentUserData;
     }
   } catch (err) {
-    console.error("❌ Error loading user profile:", err);
-    console.log('🔄 Using cached profile data');
+    console.warn("⚠️ Error loading user profile, using cached data:", err.message);
+    return getCachedProfile(uid, user, fallbackProfile);
+  }
+}
+
+// ===========================
+// HELPER FUNCTIONS
+// ===========================
+
+async function ensureFirestoreReady() {
+  if (isFirestoreInitialized) return;
+  
+  try {
+    // Enable offline persistence
+    await enableIndexedDbPersistence(db);
+    console.log('✅ Firestore offline persistence enabled');
+    isFirestoreInitialized = true;
+  } catch (err) {
+    if (err.code === 'failed-precondition') {
+      console.warn('⚠️ Multiple tabs open, persistence can only be enabled in one tab');
+    } else if (err.code === 'unimplemented') {
+      console.warn('⚠️ Browser doesn\'t support persistence');
+    } else {
+      console.error('❌ Error enabling persistence:', err);
+    }
+    isFirestoreInitialized = true; // Still mark as initialized
+  }
+}
+
+function getCachedProfile(uid, user, fallbackProfile = null) {
+  const cachedKey = `cached_profile_${uid}`;
+  const cachedData = localStorage.getItem(cachedKey);
+  
+  if (cachedData) {
+    try {
+      const profile = JSON.parse(cachedData);
+      console.log('📦 Using cached profile data');
+      return profile;
+    } catch (e) {
+      console.log('❌ Error parsing cached profile');
+    }
+  }
+  
+  // Return fallback if no cache
+  if (fallbackProfile) {
     return fallbackProfile;
+  }
+  
+  // Create basic fallback
+  return {
+    email: user?.email || '',
+    createdAt: new Date().toISOString(),
+    defaultRate: parseFloat(localStorage.getItem('userDefaultRate')) || 0,
+    memberSince: localStorage.getItem('memberSince') || new Date().toISOString(),
+    uid: uid
+  };
+}
+
+function cacheProfile(uid, profileData) {
+  const cacheKey = `cached_profile_${uid}`;
+  try {
+    localStorage.setItem(cacheKey, JSON.stringify(profileData));
+    console.log('💾 Profile cached locally');
+  } catch (e) {
+    console.warn('⚠️ Could not cache profile (localStorage may be full)');
   }
 }
 
