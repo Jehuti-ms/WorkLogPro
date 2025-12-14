@@ -3378,7 +3378,10 @@ document.addEventListener('DOMContentLoaded', function() {
   initializeApp();
 });
 
-// Export functions for global access
+// ===========================
+// EXPORT FUNCTIONS FOR GLOBAL ACCESS
+// ===========================
+
 window.NotificationSystem = NotificationSystem;
 window.saveDefaultRate = saveDefaultRate;
 window.useDefaultRate = useDefaultRate;
@@ -3388,12 +3391,7 @@ window.selectAllStudents = function() {
   checkboxes.forEach(cb => cb.checked = true);
   NotificationSystem.notifySuccess(`Selected all ${checkboxes.length} students`);
 };
-window.showWeeklyBreakdown = showWeeklyBreakdown;
-window.showBiWeeklyBreakdown = showBiWeeklyBreakdown;
-window.showMonthlyBreakdown = showMonthlyBreakdown;
-window.showSubjectBreakdown = showSubjectBreakdown;
-window.generatePDFReport = generatePDFReport;
-window.sendEmailReport = sendEmailReport;
+window.clearStudentForm = clearStudentForm;
 window.clearAttendanceForm = function() {
   const form = document.getElementById('attendanceForm');
   if (form) {
@@ -3403,5 +3401,14 @@ window.clearAttendanceForm = function() {
     NotificationSystem.notifyInfo('Attendance form cleared');
   }
 };
+window.resetHoursForm = resetHoursForm;
+window.resetMarksForm = resetMarksForm;
+window.resetPaymentForm = resetPaymentForm;
+window.showWeeklyBreakdown = showWeeklyBreakdown;
+window.showBiWeeklyBreakdown = showBiWeeklyBreakdown;
+window.showMonthlyBreakdown = showMonthlyBreakdown;
+window.showSubjectBreakdown = showSubjectBreakdown;
+window.generatePDFReport = generatePDFReport;
+window.sendEmailReport = sendEmailReport;
 
 console.log('✅ app.js loaded successfully');
