@@ -1812,7 +1812,7 @@ async function renderStudentBalancesWithEdit() {
 }
 
 // ===========================
-// STUDENT FORM FUNCTIONS (FIXED)
+// STUDENT FORM FUNCTIONS (REPLACE EXISTING FUNCTION)
 // ===========================
 
 async function handleStudentSubmit(e) {
@@ -1889,6 +1889,282 @@ function clearStudentForm() {
 }
 
 // ===========================
+// UPDATED HOURS FORM FUNCTIONS (REPLACE IF EXISTS)
+// ===========================
+
+async function handleHoursSubmit(e) {
+  if (e) e.preventDefault();
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to log hours');
+    return;
+  }
+
+  const hoursData = {
+    organization: document.getElementById('organization').value,
+    workType: document.getElementById('workType').value,
+    subject: document.getElementById('workSubject').value,
+    student: document.getElementById('hoursStudent').value,
+    hours: safeNumber(document.getElementById('hoursWorked').value),
+    rate: safeNumber(document.getElementById('baseRate').value),
+    total: safeNumber(document.getElementById('hoursWorked').value) * safeNumber(document.getElementById('baseRate').value),
+    date: document.getElementById('workDate').value,
+    dateIso: fmtDateISO(document.getElementById('workDate').value),
+    createdAt: new Date().toISOString()
+  };
+
+  // Validate required fields
+  if (!hoursData.organization || !hoursData.hours || !hoursData.rate || !hoursData.date) {
+    NotificationSystem.notifyError('Please fill in all required fields (Organization, Hours, Rate, Date)');
+    return;
+  }
+
+  try {
+    const result = await EnhancedCache.saveWithBackgroundSync('hours', hoursData);
+    
+    if (result) {
+      NotificationSystem.notifySuccess('Hours logged successfully!');
+      
+      // Clear form
+      if (e && e.target) {
+        e.target.reset();
+      }
+      
+      // Reset date to today
+      document.getElementById('workDate').value = new Date().toISOString().split('T')[0];
+      
+      // Refresh UI
+      await renderRecentHoursWithEdit();
+      
+      // Refresh stats
+      if (typeof EnhancedStats !== 'undefined') {
+        EnhancedStats.forceRefresh();
+      }
+    }
+    
+  } catch (error) {
+    console.error('Error saving hours:', error);
+    NotificationSystem.notifyError('Failed to save hours: ' + error.message);
+  }
+}
+
+function resetHoursForm() {
+  const form = document.querySelector('#hours form');
+  if (form) {
+    form.reset();
+    document.getElementById('workDate').value = new Date().toISOString().split('T')[0];
+    calculateTotalPay();
+    NotificationSystem.notifyInfo('Hours form cleared');
+  }
+}
+
+// ===========================
+// UPDATED MARKS FORM FUNCTIONS (REPLACE IF EXISTS)
+// ===========================
+
+async function handleMarksSubmit(e) {
+  if (e) e.preventDefault();
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to add marks');
+    return;
+  }
+
+  const score = safeNumber(document.getElementById('marksScore').value);
+  const max = safeNumber(document.getElementById('marksMax').value);
+  const percentage = max > 0 ? (score / max) * 100 : 0;
+
+  const marksData = {
+    student: document.getElementById('marksStudent').value,
+    subject: document.getElementById('marksSubject').value,
+    topic: document.getElementById('marksTopic').value,
+    score: score,
+    max: max,
+    percentage: percentage,
+    grade: calculateGrade(percentage),
+    date: document.getElementById('marksDate').value,
+    dateIso: fmtDateISO(document.getElementById('marksDate').value),
+    notes: document.getElementById('marksNotes').value,
+    createdAt: new Date().toISOString()
+  };
+
+  // Validate required fields
+  if (!marksData.student || !marksData.subject || !marksData.topic || !marksData.date) {
+    NotificationSystem.notifyError('Please fill in all required fields (Student, Subject, Topic, Date)');
+    return;
+  }
+
+  try {
+    const result = await EnhancedCache.saveWithBackgroundSync('marks', marksData);
+    
+    if (result) {
+      NotificationSystem.notifySuccess('Mark added successfully!');
+      
+      // Clear form
+      if (e && e.target) {
+        e.target.reset();
+      }
+      
+      // Refresh UI
+      await renderRecentMarksWithEdit();
+      
+      // Refresh stats
+      if (typeof EnhancedStats !== 'undefined') {
+        EnhancedStats.forceRefresh();
+      }
+    }
+    
+  } catch (error) {
+    console.error('Error saving mark:', error);
+    NotificationSystem.notifyError('Failed to save mark: ' + error.message);
+  }
+}
+
+function resetMarksForm() {
+  const form = document.getElementById('marksForm');
+  if (form) {
+    form.reset();
+    document.getElementById('marksDate').value = new Date().toISOString().split('T')[0];
+    NotificationSystem.notifyInfo('Marks form cleared');
+  }
+}
+
+// ===========================
+// ATTENDANCE FORM FUNCTIONS (REPLACE IF EXISTS)
+// ===========================
+
+async function handleAttendanceSubmit(e) {
+  if (e) e.preventDefault();
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to record attendance');
+    return;
+  }
+
+  const presentCheckboxes = document.querySelectorAll('#attendanceStudents input[type="checkbox"]:checked');
+  const presentStudents = Array.from(presentCheckboxes).map(cb => cb.value);
+
+  const attendanceData = {
+    subject: document.getElementById('attendanceSubject').value,
+    topic: document.getElementById('attendanceTopic').value,
+    present: presentStudents,
+    date: document.getElementById('attendanceDate').value,
+    dateIso: fmtDateISO(document.getElementById('attendanceDate').value),
+    notes: document.getElementById('attendanceNotes').value,
+    createdAt: new Date().toISOString()
+  };
+
+  // Validate required fields
+  if (!attendanceData.subject || !attendanceData.date) {
+    NotificationSystem.notifyError('Please fill in all required fields (Subject, Date)');
+    return;
+  }
+
+  try {
+    const result = await EnhancedCache.saveWithBackgroundSync('attendance', attendanceData);
+    
+    if (result) {
+      NotificationSystem.notifySuccess('Attendance recorded successfully!');
+      
+      // Clear form
+      if (e && e.target) {
+        e.target.reset();
+      }
+      
+      // Clear checkboxes
+      presentCheckboxes.forEach(cb => cb.checked = false);
+      
+      // Reset date to today
+      document.getElementById('attendanceDate').value = new Date().toISOString().split('T')[0];
+      
+      // Refresh UI
+      await renderAttendanceRecentWithEdit();
+      
+      // Refresh stats
+      if (typeof EnhancedStats !== 'undefined') {
+        EnhancedStats.forceRefresh();
+      }
+    }
+    
+  } catch (error) {
+    console.error('Error saving attendance:', error);
+    NotificationSystem.notifyError('Failed to save attendance: ' + error.message);
+  }
+}
+
+// ===========================
+// PAYMENT FORM FUNCTIONS (REPLACE IF EXISTS)
+// ===========================
+
+async function handlePaymentSubmit(e) {
+  if (e) e.preventDefault();
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to record payments');
+    return;
+  }
+
+  const paymentData = {
+    student: document.getElementById('paymentStudent').value,
+    amount: safeNumber(document.getElementById('paymentAmount').value),
+    method: document.getElementById('paymentMethod').value,
+    date: document.getElementById('paymentDate').value,
+    dateIso: fmtDateISO(document.getElementById('paymentDate').value),
+    notes: document.getElementById('paymentNotes').value,
+    createdAt: new Date().toISOString()
+  };
+
+  // Validate required fields
+  if (!paymentData.student || !paymentData.amount || !paymentData.date) {
+    NotificationSystem.notifyError('Please fill in all required fields (Student, Amount, Date)');
+    return;
+  }
+
+  if (paymentData.amount <= 0) {
+    NotificationSystem.notifyError('Please enter a valid amount greater than 0');
+    return;
+  }
+
+  try {
+    const result = await EnhancedCache.saveWithBackgroundSync('payments', paymentData);
+    
+    if (result) {
+      NotificationSystem.notifySuccess('Payment recorded successfully!');
+      
+      // Clear form
+      if (e && e.target) {
+        e.target.reset();
+      }
+      
+      // Reset date to today
+      document.getElementById('paymentDate').value = new Date().toISOString().split('T')[0];
+      
+      // Refresh UI
+      await renderPaymentActivityWithEdit();
+      await renderStudentBalancesWithEdit();
+      
+      // Refresh stats
+      if (typeof EnhancedStats !== 'undefined') {
+        EnhancedStats.forceRefresh();
+      }
+    }
+    
+  } catch (error) {
+    console.error('Error saving payment:', error);
+    NotificationSystem.notifyError('Failed to save payment: ' + error.message);
+  }
+}
+
+function resetPaymentForm() {
+  const form = document.getElementById('paymentForm');
+  if (form) {
+    form.reset();
+    document.getElementById('paymentDate').value = new Date().toISOString().split('T')[0];
+    NotificationSystem.notifyInfo('Payment form cleared');
+  }
+}
+
+// ===========================
 // UPDATED FORM SETUP HANDLERS
 // ===========================
 
@@ -1950,128 +2226,6 @@ function setupFormHandlers() {
   });
   
   console.log('✅ Form handlers initialized');
-}
-
-// ===========================
-// UPDATED HOURS FORM FUNCTIONS
-// ===========================
-
-async function handleHoursSubmit(e) {
-  if (e) e.preventDefault();
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError('Please log in to log hours');
-    return;
-  }
-
-  const hoursData = {
-    organization: document.getElementById('organization').value,
-    workType: document.getElementById('workType').value,
-    subject: document.getElementById('workSubject').value,
-    student: document.getElementById('hoursStudent').value,
-    hours: safeNumber(document.getElementById('hoursWorked').value),
-    rate: safeNumber(document.getElementById('baseRate').value),
-    total: safeNumber(document.getElementById('hoursWorked').value) * safeNumber(document.getElementById('baseRate').value),
-    date: document.getElementById('workDate').value,
-    dateIso: fmtDateISO(document.getElementById('workDate').value),
-    createdAt: new Date().toISOString()
-  };
-
-  // Validate required fields
-  if (!hoursData.organization || !hoursData.hours || !hoursData.rate || !hoursData.date) {
-    NotificationSystem.notifyError('Please fill in all required fields (Organization, Hours, Rate, Date)');
-    return;
-  }
-
-  try {
-    const result = await EnhancedCache.saveWithBackgroundSync('hours', hoursData);
-    
-    if (result) {
-      NotificationSystem.notifySuccess('Hours logged successfully!');
-      
-      // Clear form
-      if (e && e.target) {
-        e.target.reset();
-      }
-      
-      // Reset date to today
-      document.getElementById('workDate').value = new Date().toISOString().split('T')[0];
-      
-      // Refresh UI
-      await renderRecentHoursWithEdit();
-      
-      // Refresh stats
-      if (typeof EnhancedStats !== 'undefined') {
-        EnhancedStats.forceRefresh();
-      }
-    }
-    
-  } catch (error) {
-    console.error('Error saving hours:', error);
-    NotificationSystem.notifyError('Failed to save hours: ' + error.message);
-  }
-}
-
-// ===========================
-// UPDATED MARKS FORM FUNCTIONS
-// ===========================
-
-async function handleMarksSubmit(e) {
-  if (e) e.preventDefault();
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError('Please log in to add marks');
-    return;
-  }
-
-  const score = safeNumber(document.getElementById('marksScore').value);
-  const max = safeNumber(document.getElementById('marksMax').value);
-  const percentage = max > 0 ? (score / max) * 100 : 0;
-
-  const marksData = {
-    student: document.getElementById('marksStudent').value,
-    subject: document.getElementById('marksSubject').value,
-    topic: document.getElementById('marksTopic').value,
-    score: score,
-    max: max,
-    percentage: percentage,
-    grade: calculateGrade(percentage),
-    date: document.getElementById('marksDate').value,
-    dateIso: fmtDateISO(document.getElementById('marksDate').value),
-    notes: document.getElementById('marksNotes').value,
-    createdAt: new Date().toISOString()
-  };
-
-  // Validate required fields
-  if (!marksData.student || !marksData.subject || !marksData.topic || !marksData.date) {
-    NotificationSystem.notifyError('Please fill in all required fields (Student, Subject, Topic, Date)');
-    return;
-  }
-
-  try {
-    const result = await EnhancedCache.saveWithBackgroundSync('marks', marksData);
-    
-    if (result) {
-      NotificationSystem.notifySuccess('Mark added successfully!');
-      
-      // Clear form
-      if (e && e.target) {
-        e.target.reset();
-      }
-      
-      // Refresh UI
-      await renderRecentMarksWithEdit();
-      
-      // Refresh stats
-      if (typeof EnhancedStats !== 'undefined') {
-        EnhancedStats.forceRefresh();
-      }
-    }
-    
-  } catch (error) {
-    console.error('Error saving mark:', error);
-    NotificationSystem.notifyError('Failed to save mark: ' + error.message);
-  }
 }
 
 // ===========================
@@ -2278,44 +2432,57 @@ function showDropdownError() {
 }
 
 // ===========================
-// FORM SETUP HANDLERS
+// UPDATED FORM SETUP HANDLERS (REPLACE EXISTING FUNCTION)
 // ===========================
 
 function setupFormHandlers() {
   console.log('🔧 Setting up form handlers...');
   
+  // Student Form - TWO WAYS TO SUBMIT:
   const studentForm = document.getElementById('studentForm');
+  const studentSubmitBtn = document.getElementById('studentSubmitBtn');
+  
   if (studentForm) {
+    // Remove any existing listeners first
+    studentForm.removeEventListener('submit', handleStudentSubmit);
+    // Method 1: Form submit event
     studentForm.addEventListener('submit', handleStudentSubmit);
   }
   
+  if (studentSubmitBtn) {
+    // Remove any existing listeners first
+    studentSubmitBtn.removeEventListener('click', handleStudentSubmit);
+    // Method 2: Button click event (backup)
+    studentSubmitBtn.addEventListener('click', handleStudentSubmit);
+  }
+  
+  // Hours Form
   const hoursForm = document.getElementById('hoursForm');
   if (hoursForm) {
+    hoursForm.removeEventListener('submit', handleHoursSubmit);
     hoursForm.addEventListener('submit', handleHoursSubmit);
   }
   
+  // Marks Form
   const marksForm = document.getElementById('marksForm');
   if (marksForm) {
+    marksForm.removeEventListener('submit', handleMarksSubmit);
     marksForm.addEventListener('submit', handleMarksSubmit);
   }
   
+  // Attendance Form
   const attendanceForm = document.getElementById('attendanceForm');
   if (attendanceForm) {
+    attendanceForm.removeEventListener('submit', handleAttendanceSubmit);
     attendanceForm.addEventListener('submit', handleAttendanceSubmit);
   }
   
+  // Payment Form
   const paymentForm = document.getElementById('paymentForm');
   if (paymentForm) {
+    paymentForm.removeEventListener('submit', handlePaymentSubmit);
     paymentForm.addEventListener('submit', handlePaymentSubmit);
   }
-  
-  // Set today's date for date inputs
-  const today = new Date().toISOString().split('T')[0];
-  document.querySelectorAll('input[type="date"]').forEach(input => {
-    if (!input.value) {
-      input.value = today;
-    }
-  });
   
   // Set up hours calculation
   const hoursInput = document.getElementById('hoursWorked');
@@ -2324,6 +2491,14 @@ function setupFormHandlers() {
     hoursInput.addEventListener('input', calculateTotalPay);
     rateInput.addEventListener('input', calculateTotalPay);
   }
+  
+  // Set today's date for all date inputs
+  const today = new Date().toISOString().split('T')[0];
+  document.querySelectorAll('input[type="date"]').forEach(input => {
+    if (!input.value) {
+      input.value = today;
+    }
+  });
   
   console.log('✅ Form handlers initialized');
 }
