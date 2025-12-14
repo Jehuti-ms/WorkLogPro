@@ -796,6 +796,8 @@ async function syncNow() {
 }
 
 async function exportData() {
+  console.log('📤 Exporting data...');
+  
   const user = auth.currentUser;
   if (!user) {
     showToast('Please sign in to export', 'error');
@@ -803,9 +805,14 @@ async function exportData() {
   }
   
   try {
+    // Show loading
+    showToast('Preparing export...', 'info');
+    
+    // Gather data
     const exportData = {
-      version: '1.0',
+      version: '2.0',
       exportedAt: new Date().toISOString(),
+      app: 'WorkLog Pro',
       user: {
         email: user.email,
         uid: user.uid
@@ -813,66 +820,138 @@ async function exportData() {
       data: {
         students: allStudents,
         hours: allHours,
-        payments: allPayments,
-        attendance: allAttendance,
-        marks: allMarks
+        payments: allPayments || [],
+        attendance: allAttendance || [],
+        marks: allMarks || []
+      },
+      stats: {
+        totalStudents: allStudents.length,
+        totalHours: allHours.reduce((sum, h) => sum + (h.hours || 0), 0),
+        totalEarnings: allHours.reduce((sum, hour) => {
+          const student = allStudents.find(s => s.id === hour.studentId);
+          const rate = hour.rate || student?.rate || currentUserData?.defaultRate || 0;
+          return sum + (hour.hours * rate);
+        }, 0),
+        lastUpdated: new Date().toISOString()
       }
     };
     
+    // Convert to JSON
     const dataStr = JSON.stringify(exportData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
+    
+    // Create download
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
     
     const link = document.createElement('a');
     link.href = url;
-    link.download = `worklog_backup_${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `WorkLog_Export_${user.email}_${new Date().toISOString().split('T')[0]}.json`;
+    
+    // Add to page, click, and remove
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
     
-    URL.revokeObjectURL(url);
+    // Clean up
+    setTimeout(() => URL.revokeObjectURL(url), 100);
     
-    showToast('Data exported successfully!', 'success');
+    console.log('✅ Export complete:', {
+      students: allStudents.length,
+      hours: allHours.length
+    });
+    
+    showToast(`Exported ${allStudents.length} students & ${allHours.length} hours`, 'success');
+    
   } catch (error) {
     console.error('❌ Export error:', error);
-    showToast('Export failed', 'error');
+    showToast('Export failed: ' + error.message, 'error');
   }
 }
 
 async function importData(file) {
+  console.log('📥 Importing from file:', file.name, file.size, 'bytes');
+  
   const user = auth.currentUser;
   if (!user) {
     showToast('Please sign in to import', 'error');
     return false;
   }
   
-  if (!file) {
-    showToast('Please select a file to import', 'error');
-    return false;
-  }
+  showToast('Reading import file...', 'info');
   
   try {
+    // Read file
     const text = await file.text();
     const importData = JSON.parse(text);
     
-    // Validate import data
-    if (!importData.data || !importData.data.students) {
-      showToast('Invalid backup file format', 'error');
-      return false;
+    console.log('📄 File parsed:', {
+      version: importData.version,
+      hasStudents: !!importData.data?.students,
+      studentCount: importData.data?.students?.length || 0,
+      hourCount: importData.data?.hours?.length || 0
+    });
+    
+    // Validate
+    if (!importData.data || !Array.isArray(importData.data.students)) {
+      throw new Error('Invalid file format. Missing students data.');
     }
     
-    showToast('Importing data...', 'info');
+    if (importData.data.students.length === 0) {
+      throw new Error('File contains no student data.');
+    }
+    
+    showToast(`Importing ${importData.data.students.length} students...`, 'info');
+    
+    let importedStudents = 0;
+    let importedHours = 0;
+    let errors = [];
     
     // Import students
     for (const student of importData.data.students) {
-      await saveStudent(student);
+      try {
+        await saveStudent(student);
+        importedStudents++;
+      } catch (error) {
+        errors.push(`Student ${student.name || student.id}: ${error.message}`);
+        console.warn('Student import error:', student.name, error);
+      }
     }
     
-    // Import hours
-    for (const hour of importData.data.hours || []) {
-      await saveHour(hour);
+    // Import hours if available
+    if (importData.data.hours && Array.isArray(importData.data.hours)) {
+      showToast(`Importing ${importData.data.hours.length} hours...`, 'info');
+      
+      for (const hour of importData.data.hours) {
+        try {
+          await saveHour(hour);
+          importedHours++;
+        } catch (error) {
+          errors.push(`Hour ${hour.id}: ${error.message}`);
+          console.warn('Hour import error:', hour.id, error);
+        }
+      }
     }
     
-    showToast('Import complete!', 'success');
+    // Reload data
+    await loadStudents(user.uid, true);
+    await loadHours(user.uid, true);
+    updateAllStats();
+    
+    console.log('✅ Import complete:', {
+      students: importedStudents,
+      hours: importedHours,
+      errors: errors.length
+    });
+    
+    if (errors.length > 0) {
+      showToast(`Imported ${importedStudents} students, ${importedHours} hours (${errors.length} errors)`, 'warning');
+      console.log('Import errors:', errors);
+    } else {
+      showToast(`Successfully imported ${importedStudents} students and ${importedHours} hours`, 'success');
+    }
+    
     return true;
+    
   } catch (error) {
     console.error('❌ Import error:', error);
     showToast('Import failed: ' + error.message, 'error');
@@ -1003,88 +1082,79 @@ function setupFormHandlers() {
 }
 
 function setupEventListeners() {
-  console.log('🔗 Setting up event listeners...');
+  console.log('🔗 Setting up event listeners with CORRECT IDs...');
   
-  // Sync button
-  if (uiElements.syncButton) {
-    uiElements.syncButton.addEventListener('click', syncNow);
-  }
+  // Setup all buttons with your actual IDs
+  setupButtonsWithCorrectIDs();
   
-  // Export button
-  if (uiElements.exportButton) {
-    uiElements.exportButton.addEventListener('click', exportData);
-  }
+  // Setup FAB system
+  setupFABSystem();
   
-  // Import button
-  if (uiElements.importButton) {
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = '.json';
-    fileInput.style.display = 'none';
-    document.body.appendChild(fileInput);
-    
-    uiElements.importButton.addEventListener('click', () => {
-      fileInput.click();
-    });
-    
-    fileInput.addEventListener('change', async (e) => {
-      if (e.target.files[0]) {
-        await importData(e.target.files[0]);
-        fileInput.value = '';
-      }
-    });
-  }
+  // Setup tab buttons
+  setupTabButtons();
   
-  // Clear button
-  if (uiElements.clearButton) {
-    uiElements.clearButton.addEventListener('click', () => {
-      if (confirm('Are you sure you want to clear all cached data? This will not delete your cloud data.')) {
-        clearAllCache();
-        showToast('Cache cleared', 'info');
-      }
-    });
-  }
+  // Setup form handlers
+  setupFormHandlers();
   
-  // Fix Stats button
-  if (uiElements.fixStatsButton) {
-    uiElements.fixStatsButton.addEventListener('click', () => {
-      updateAllStats();
-      showToast('Stats refreshed', 'success');
-    });
-  }
+  // Network listeners
+  window.addEventListener('online', handleOnline);
+  window.addEventListener('offline', handleOffline);
   
-  // Logout button
-  if (uiElements.logoutButton) {
-    uiElements.logoutButton.addEventListener('click', async () => {
-      if (confirm('Are you sure you want to log out?')) {
-        try {
-          await signOut(auth);
-          showToast('Logged out successfully', 'success');
-          showGuestUI();
-        } catch (error) {
-          console.error('❌ Logout error:', error);
-          showToast('Logout failed', 'error');
-        }
-      }
-    });
-  }
-  
-  console.log('✅ Event listeners set up');
+  console.log('✅ All event listeners set up');
 }
 
-function setupNetworkListeners() {
-  window.addEventListener('online', () => {
-    console.log('🌐 Online - syncing data...');
-    showToast('Back online! Syncing data...', 'info');
-    
-    if (auth.currentUser) {
-      setTimeout(() => syncNow(), 2000);
+function setupButtonsWithCorrectIDs() {
+  console.log('⚡ Setting up buttons with your actual IDs...');
+  
+  // Create file input for imports
+  const importFileInput = document.createElement('input');
+  importFileInput.type = 'file';
+  importFileInput.accept = '.json';
+  importFileInput.style.display = 'none';
+  importFileInput.id = 'global-import-input';
+  document.body.appendChild(importFileInput);
+  
+  importFileInput.addEventListener('change', async (e) => {
+    if (e.target.files[0]) {
+      console.log('📄 File selected:', e.target.files[0].name);
+      await importData(e.target.files[0]);
     }
   });
   
-  window.addEventListener('offline', () => {
-    console.log('📴 Offline - using cached data');
-    showToast('Offline. Using cached data.', 'warning');
+  // Map of button IDs to functions
+  const buttonMap = {
+    'syncBtn': syncNow,
+    'exportCloudBtn': exportData,
+    'exportDataBtn': exportData,
+    'importCloudBtn': () => importFileInput.click(),
+    'importDataBtn': () => importFileInput.click(),
+    'syncStatsBtn': () => { updateAllStats(); showToast('Stats refreshed', 'success'); },
+    'clearDataBtn': () => {
+      if (confirm('Clear ALL local data?')) {
+        localStorage.clear();
+        showToast('Cache cleared', 'success');
+        setTimeout(() => location.reload(), 1000);
+      }
+    },
+    'logoutBtn': async () => {
+      if (confirm('Log out?')) {
+        try {
+          await auth.signOut();
+          showToast('Logged out', 'success');
+        } catch (error) {
+          showToast('Logout error', 'error');
+        }
+      }
+    }
+  };
+  
+  // Apply handlers
+  Object.entries(buttonMap).forEach(([id, handler]) => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.onclick = handler;
+      console.log(`✅ ${id} connected`);
+    }
   });
 }
 
