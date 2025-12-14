@@ -2296,6 +2296,12 @@ function switchTab(tabName) {
   if (targetTab) {
     targetTab.classList.add('active');
     targetTab.style.display = 'block';
+    
+    // Special setup for reports tab
+    if (tabName === 'reports') {
+      setupReportButtons();
+    }
+    
     console.log(`✅ Successfully showing: ${tabName}`);
   } else {
     console.error(`❌ Tab content not found: ${tabName}`);
@@ -2394,6 +2400,629 @@ function useDefaultRateInHours() {
 }
 
 // ===========================
+// REPORT FUNCTIONS
+// ===========================
+
+function showWeeklyBreakdown() {
+  NotificationSystem.notifyInfo('Weekly breakdown feature coming soon');
+}
+
+function showBiWeeklyBreakdown() {
+  NotificationSystem.notifyInfo('Bi-weekly breakdown feature coming soon');
+}
+
+function showMonthlyBreakdown() {
+  NotificationSystem.notifyInfo('Monthly breakdown feature coming soon');
+}
+
+function showSubjectBreakdown() {
+  NotificationSystem.notifyInfo('Subject breakdown feature coming soon');
+}
+
+// ===========================
+// PDF AND EMAIL FUNCTIONS
+// ===========================
+
+async function generatePDFReport() {
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      NotificationSystem.notifyError('Please log in to generate reports');
+      return;
+    }
+
+    NotificationSystem.notifyInfo('Generating PDF report...');
+
+    // Collect data for the report
+    const [students, hours, marks, payments, attendance] = await Promise.all([
+      EnhancedCache.loadCollection('students'),
+      EnhancedCache.loadCollection('hours'),
+      EnhancedCache.loadCollection('marks'),
+      EnhancedCache.loadCollection('payments'),
+      EnhancedCache.loadCollection('attendance')
+    ]);
+
+    // Calculate summary statistics
+    const totalStudents = students.length;
+    const totalHours = hours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
+    const totalEarnings = hours.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
+    const totalPayments = payments.reduce((sum, payment) => sum + safeNumber(payment.amount), 0);
+    const outstandingBalance = Math.max(totalEarnings - totalPayments, 0);
+
+    // Group hours by date for invoice-style reporting
+    const hoursByDate = {};
+    hours.forEach(entry => {
+      const date = entry.date || 'Unknown Date';
+      if (!hoursByDate[date]) {
+        hoursByDate[date] = {
+          date: date,
+          entries: [],
+          totalHours: 0,
+          totalAmount: 0
+        };
+      }
+      const entryHours = safeNumber(entry.hours);
+      const entryRate = safeNumber(entry.rate);
+      const entryTotal = entryHours * entryRate;
+      
+      hoursByDate[date].entries.push({
+        organization: entry.organization || 'N/A',
+        student: entry.student || 'N/A',
+        hours: entryHours,
+        rate: entryRate,
+        total: entryTotal,
+        subject: entry.subject || 'N/A',
+        workType: entry.workType || 'N/A'
+      });
+      
+      hoursByDate[date].totalHours += entryHours;
+      hoursByDate[date].totalAmount += entryTotal;
+    });
+
+    // Convert to array and sort by date (newest first)
+    const dateReports = Object.values(hoursByDate)
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    // Group earnings by student
+    const earningsByStudent = {};
+    hours.forEach(entry => {
+      const studentName = entry.student || 'Unknown';
+      const earnings = safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0));
+      if (!earningsByStudent[studentName]) {
+        earningsByStudent[studentName] = {
+          name: studentName,
+          totalHours: 0,
+          totalEarnings: 0,
+          entries: []
+        };
+      }
+      earningsByStudent[studentName].totalHours += safeNumber(entry.hours);
+      earningsByStudent[studentName].totalEarnings += earnings;
+      earningsByStudent[studentName].entries.push({
+        date: entry.date,
+        hours: safeNumber(entry.hours),
+        rate: safeNumber(entry.rate),
+        total: earnings,
+        subject: entry.subject
+      });
+    });
+
+    // Sort students by total earnings (highest first)
+    const studentEarnings = Object.values(earningsByStudent)
+      .sort((a, b) => b.totalEarnings - a.totalEarnings);
+
+    // Create HTML content for the PDF
+    const reportHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>WorkLog Invoice Report - ${new Date().toLocaleDateString()}</title>
+        <style>
+          body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            margin: 40px; 
+            background: #f8f9fa;
+            color: #333;
+          }
+          
+          .invoice-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+          }
+          
+          .invoice-header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+          }
+          
+          .invoice-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+          }
+          
+          .meta-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+          }
+          
+          .meta-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+          }
+          
+          .meta-value {
+            font-size: 1.1em;
+            font-weight: bold;
+          }
+          
+          h1 { color: white; border-bottom: none; padding-bottom: 0; }
+          h2 { 
+            color: #333; 
+            margin-top: 40px; 
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+          }
+          
+          h3 {
+            color: #555;
+            margin-top: 30px;
+            background: #f0f2f5;
+            padding: 12px 15px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          }
+          
+          .summary { 
+            background: white; 
+            padding: 25px; 
+            border-radius: 12px; 
+            margin: 30px 0; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+          }
+          
+          .stat-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
+            gap: 20px; 
+            margin: 25px 0; 
+          }
+          
+          .stat-card { 
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px; 
+            border-radius: 10px; 
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+            text-align: center;
+            border: 1px solid #dee2e6;
+            transition: transform 0.3s ease;
+          }
+          
+          .stat-card:hover {
+            transform: translateY(-5px);
+          }
+          
+          .stat-value { 
+            font-size: 28px; 
+            font-weight: bold; 
+            color: #667eea; 
+            margin-bottom: 5px;
+          }
+          
+          .stat-label { 
+            font-size: 14px; 
+            color: #6c757d; 
+            margin-top: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          
+          table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin: 25px 0; 
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+          }
+          
+          th { 
+            background: #667eea; 
+            color: white; 
+            padding: 15px; 
+            text-align: left; 
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          
+          td { 
+            padding: 12px 15px; 
+            border-bottom: 1px solid #e9ecef; 
+          }
+          
+          tr:hover { 
+            background: #f8f9fa; 
+          }
+          
+          .total-row {
+            background: #f0f2f5 !important;
+            font-weight: bold;
+            color: #333;
+          }
+          
+          .date-total {
+            background: #e3f2fd;
+            padding: 8px 15px;
+            border-radius: 6px;
+            font-weight: bold;
+            color: #1976d2;
+          }
+          
+          .invoice-section {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin: 30px 0;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+          }
+          
+          .invoice-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #e9ecef;
+          }
+          
+          .invoice-item:last-child {
+            border-bottom: none;
+          }
+          
+          .invoice-details {
+            flex: 1;
+          }
+          
+          .invoice-amount {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 1.1em;
+          }
+          
+          .currency {
+            color: #28a745;
+            font-weight: bold;
+          }
+          
+          .footer { 
+            margin-top: 50px; 
+            text-align: center; 
+            color: #6c757d; 
+            font-size: 13px;
+            padding: 20px;
+            border-top: 1px solid #dee2e6;
+          }
+          
+          .print-button {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 25px;
+            text-decoration: none;
+            margin-top: 20px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+          }
+          
+          @media print {
+            body { 
+              margin: 20px; 
+              background: white;
+            }
+            
+            .print-button { 
+              display: none; 
+            }
+            
+            .stat-card {
+              box-shadow: none;
+              border: 1px solid #ddd;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="invoice-header">
+          <h1>📊 WorkLog Invoice Report</h1>
+          <div class="invoice-meta">
+            <div class="meta-item">
+              <span class="meta-label">Generated:</span>
+              <span class="meta-value">${new Date().toLocaleString()}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">User:</span>
+              <span class="meta-value">${user.email}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Report Period:</span>
+              <span class="meta-value">All Time</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="summary">
+          <h2>Financial Summary</h2>
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-value">${totalStudents}</div>
+              <div class="stat-label">Total Students</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">${totalHours.toFixed(1)}</div>
+              <div class="stat-label">Total Hours</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" style="color: #28a745;">$${totalEarnings.toFixed(2)}</div>
+              <div class="stat-label">Total Earnings</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" style="color: ${outstandingBalance > 0 ? '#dc3545' : '#28a745'};">$${outstandingBalance.toFixed(2)}</div>
+              <div class="stat-label">Outstanding Balance</div>
+            </div>
+          </div>
+        </div>
+        
+        ${dateReports.length > 0 ? `
+        <div class="invoice-section">
+          <h2>📅 Daily Invoice Breakdown (${dateReports.length} days)</h2>
+          ${dateReports.map(dateReport => `
+            <div style="margin-bottom: 30px;">
+              <h3>
+                <span>${formatDate(dateReport.date)}</span>
+                <span class="date-total">${dateReport.totalHours.toFixed(1)} hrs • $${dateReport.totalAmount.toFixed(2)}</span>
+              </h3>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>Organization/Subject</th>
+                    <th>Work Type</th>
+                    <th>Hours</th>
+                    <th>Rate</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${dateReport.entries.map(entry => `
+                    <tr>
+                      <td>${entry.student}</td>
+                      <td>${entry.organization}</td>
+                      <td>${entry.workType}</td>
+                      <td>${entry.hours.toFixed(1)}</td>
+                      <td>$${entry.rate.toFixed(2)}/hr</td>
+                      <td class="currency">$${entry.total.toFixed(2)}</td>
+                    </tr>
+                  `).join('')}
+                  <tr class="total-row">
+                    <td colspan="3"><strong>Daily Total:</strong></td>
+                    <td><strong>${dateReport.totalHours.toFixed(1)} hrs</strong></td>
+                    <td></td>
+                    <td class="currency"><strong>$${dateReport.totalAmount.toFixed(2)}</strong></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          `).join('')}
+        </div>
+        ` : ''}
+        
+        ${studentEarnings.length > 0 ? `
+        <div class="invoice-section">
+          <h2>👥 Student Earnings Summary</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Total Hours</th>
+                <th>Average Rate</th>
+                <th>Total Earnings</th>
+                <th>Sessions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${studentEarnings.map(student => {
+                const avgRate = student.totalHours > 0 ? (student.totalEarnings / student.totalHours) : 0;
+                return `
+                  <tr>
+                    <td><strong>${student.name}</strong></td>
+                    <td>${student.totalHours.toFixed(1)}</td>
+                    <td>$${avgRate.toFixed(2)}/hr</td>
+                    <td class="currency">$${student.totalEarnings.toFixed(2)}</td>
+                    <td>${student.entries.length}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+        
+        ${students.length > 0 ? `
+        <div class="invoice-section">
+          <h2>👤 Student Directory</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Hourly Rate</th>
+                <th>Member Since</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${students.map(student => `
+                <tr>
+                  <td><strong>${student.name || 'N/A'}</strong></td>
+                  <td>${student.email || 'N/A'}</td>
+                  <td>${student.phone || 'N/A'}</td>
+                  <td>$${student.rate || '0.00'}</td>
+                  <td>${formatDate(student.createdAt)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+        
+        <div class="footer">
+          <p><strong>WorkLog Pro - Teacher's Productivity Companion</strong></p>
+          <p>Generated on ${new Date().toLocaleString()} | Total Records: ${hours.length + students.length + payments.length}</p>
+          <p>© ${new Date().getFullYear()} - All rights reserved</p>
+          <a href="javascript:window.print()" class="print-button">🖨️ Print / Save as PDF</a>
+        </div>
+        
+        <script>
+          // Auto-print after a short delay
+          setTimeout(() => {
+            window.print();
+          }, 1000);
+        </script>
+      </body>
+      </html>
+    `;
+
+    // Open the report in a new window
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(reportHTML);
+    printWindow.document.close();
+    
+    // Auto-print after content loads
+    printWindow.onload = function() {
+      setTimeout(() => {
+        printWindow.print();
+      }, 500);
+    };
+    
+    NotificationSystem.notifySuccess('Invoice report generated successfully. Opening for printing...');
+
+  } catch (error) {
+    console.error('Error generating invoice report:', error);
+    NotificationSystem.notifyError('Failed to generate invoice report');
+  }
+}
+
+async function sendEmailReport() {
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      NotificationSystem.notifyError('Please log in to send email reports');
+      return;
+    }
+
+    // Collect data for the report
+    const [students, hours, payments] = await Promise.all([
+      EnhancedCache.loadCollection('students'),
+      EnhancedCache.loadCollection('hours'),
+      EnhancedCache.loadCollection('payments')
+    ]);
+
+    // Calculate summary
+    const totalStudents = students.length;
+    const totalHours = hours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
+    const totalEarnings = hours.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
+    const totalPayments = payments.reduce((sum, payment) => sum + safeNumber(payment.amount), 0);
+    const outstandingBalance = Math.max(totalEarnings - totalPayments, 0);
+
+    // Create email content
+    const emailSubject = `WorkLog Report - ${new Date().toLocaleDateString()}`;
+    const emailBody = `
+WorkLog Report
+Generated: ${new Date().toLocaleString()}
+User: ${user.email}
+
+SUMMARY:
+========
+• Total Students: ${totalStudents}
+• Total Hours: ${totalHours.toFixed(1)}
+• Total Earnings: $${totalEarnings.toFixed(2)}
+• Total Payments: $${totalPayments.toFixed(2)}
+• Outstanding Balance: $${outstandingBalance.toFixed(2)}
+
+RECENT ACTIVITY:
+===============
+${hours.length > 0 ? `Recent Hours (last ${Math.min(5, hours.length)}):\n` + 
+  hours.slice(0, 5).map(entry => 
+    `  • ${formatDate(entry.date)}: ${entry.organization || 'N/A'} - ${safeNumber(entry.hours)}h - $${safeNumber(entry.total).toFixed(2)}`
+  ).join('\n') : 'No hours logged yet.'}
+
+${payments.length > 0 ? `\nRecent Payments (last ${Math.min(5, payments.length)}):\n` + 
+  payments.slice(0, 5).map(payment => 
+    `  • ${formatDate(payment.date)}: ${payment.student || 'N/A'} - $${safeNumber(payment.amount).toFixed(2)}`
+  ).join('\n') : '\nNo payments recorded yet.'}
+
+Thank you for using WorkLog Pro!
+https://worklogpro.com
+`;
+
+    // Create mailto link
+    const mailtoLink = `mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+    
+    // Open email client
+    window.location.href = mailtoLink;
+    
+    NotificationSystem.notifyInfo('Email client opened with report data. Please send the email manually.');
+
+  } catch (error) {
+    console.error('Error sending email report:', error);
+    NotificationSystem.notifyError('Failed to prepare email report');
+  }
+}
+
+// ===========================
+// ENHANCED REPORT FUNCTIONS
+// ===========================
+
+function setupReportButtons() {
+  // Add PDF and Email buttons to reports tab
+  const reportsTab = document.getElementById('reports');
+  if (reportsTab) {
+    // Check if buttons already exist
+    if (!document.getElementById('generatePdfBtn')) {
+      const actionButtons = `
+        <div class="report-actions" style="margin: 20px 0; display: flex; gap: 10px;">
+          <button id="generatePdfBtn" class="button primary" onclick="generatePDFReport()">
+            📄 Generate PDF Report
+          </button>
+          <button id="sendEmailBtn" class="button success" onclick="sendEmailReport()">
+            📧 Email Report
+          </button>
+        </div>
+      `;
+      
+      // Insert at the beginning of the reports tab
+      reportsTab.insertAdjacentHTML('afterbegin', actionButtons);
+    }
+  }
+}
+
+// ===========================
 // INITIALIZATION
 // ===========================
 
@@ -2417,6 +3046,7 @@ async function initializeApp() {
       setupFormHandlers();
       setupProfileModal();
       setupFloatingAddButton();
+      setupReportButtons();
       SyncBar.init();
       
       // Load and render initial data
@@ -2463,5 +3093,11 @@ window.selectAllStudents = function() {
   checkboxes.forEach(cb => cb.checked = true);
   NotificationSystem.notifySuccess(`Selected all ${checkboxes.length} students`);
 };
+window.showWeeklyBreakdown = showWeeklyBreakdown;
+window.showBiWeeklyBreakdown = showBiWeeklyBreakdown;
+window.showMonthlyBreakdown = showMonthlyBreakdown;
+window.showSubjectBreakdown = showSubjectBreakdown;
+window.generatePDFReport = generatePDFReport;
+window.sendEmailReport = sendEmailReport;
 
 console.log('✅ app.js loaded successfully');
