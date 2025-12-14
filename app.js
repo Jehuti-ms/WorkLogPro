@@ -589,7 +589,7 @@ async function exportData() {
   }
   
   try {
-    const exportData = {
+    const exportPayload = {
       version: '2.0',
       exportedAt: new Date().toISOString(),
       user: {
@@ -605,7 +605,7 @@ async function exportData() {
       }
     };
     
-    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataStr = JSON.stringify(exportPayload, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     
