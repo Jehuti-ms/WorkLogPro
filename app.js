@@ -1,4 +1,72 @@
 // ===========================
+// LOADING MANAGEMENT SYSTEM
+// ===========================
+const LoadingManager = {
+  // Track loading states
+  states: {
+    profile: { loading: false, promise: null, lastLoad: 0 },
+    students: { loading: false, promise: null, lastLoad: 0 },
+    hours: { loading: false, promise: null, lastLoad: 0 },
+    stats: { loading: false, promise: null, lastLoad: 0 }
+  },
+  
+  // Configuration
+  config: {
+    minLoadInterval: 2000, // Minimum time between loads (2 seconds)
+    maxRetries: 2,
+    cacheDuration: 5 * 60 * 1000 // 5 minutes cache
+  },
+  
+  // Check if we should load data
+  shouldLoad(dataType, force = false) {
+    const state = this.states[dataType];
+    const now = Date.now();
+    
+    // If already loading, return false unless forced
+    if (state.loading && !force) {
+      console.log(`⏳ ${dataType} already loading, skipping...`);
+      return false;
+    }
+    
+    // If recently loaded and not forced, use cache
+    if (!force && (now - state.lastLoad) < this.config.minLoadInterval) {
+      console.log(`🔄 ${dataType} recently loaded (${Math.round((now - state.lastLoad)/1000)}s ago), using cache`);
+      return false;
+    }
+    
+    return true;
+  },
+  
+  // Mark as loading
+  startLoading(dataType) {
+    this.states[dataType].loading = true;
+    this.states[dataType].lastLoad = Date.now();
+  },
+  
+  // Mark as finished
+  finishLoading(dataType) {
+    this.states[dataType].loading = false;
+  },
+  
+  // Set promise reference
+  setPromise(dataType, promise) {
+    this.states[dataType].promise = promise;
+  },
+  
+  // Get existing promise
+  getPromise(dataType) {
+    return this.states[dataType].promise;
+  },
+  
+  // Clear all loading states
+  reset() {
+    Object.keys(this.states).forEach(key => {
+      this.states[key] = { loading: false, promise: null, lastLoad: 0 };
+    });
+  }
+};
+
+// ===========================
 // IMPORTS - FIREBASE V10
 // ===========================
 
@@ -448,6 +516,169 @@ const EnhancedCache = {
     }
   }
 };
+
+// Cache management helpers
+function cacheStudentsData(userId, students) {
+  try {
+    const cacheKey = `cached_students_${userId}`;
+    localStorage.setItem(cacheKey, JSON.stringify({
+      data: students,
+      timestamp: Date.now()
+    }));
+  } catch (e) {
+    console.warn('⚠️ Could not cache students:', e.message);
+  }
+}
+
+function getCachedStudents(userId) {
+  try {
+    const cacheKey = `cached_students_${userId}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      // Check if cache is still valid (5 minutes)
+      if (Date.now() - parsed.timestamp < 5 * 60 * 1000) {
+        return parsed.data;
+      }
+    }
+  } catch (e) {
+    console.warn('⚠️ Error reading cached students:', e.message);
+  }
+  return null;
+}
+
+// Similar functions for hours and profile...
+function cacheHoursData(userId, hours) {
+  try {
+    const cacheKey = `cached_hours_${userId}`;
+    localStorage.setItem(cacheKey, JSON.stringify({
+      data: hours,
+      timestamp: Date.now()
+    }));
+  } catch (e) {
+    console.warn('⚠️ Could not cache hours:', e.message);
+  }
+}
+
+function getCachedHours(userId) {
+  try {
+    const cacheKey = `cached_hours_${userId}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Date.now() - parsed.timestamp < 5 * 60 * 1000) {
+        return parsed.data;
+      }
+    }
+  } catch (e) {
+    console.warn('⚠️ Error reading cached hours:', e.message);
+  }
+  return null;
+}
+
+// ===========================
+// LOAD FUNCTIONS
+// ===========================
+async function loadStudents(userId, forceRefresh = false) {
+  console.log('📚 Loading students for user:', userId);
+  
+  // Check loading manager
+  if (!LoadingManager.shouldLoad('students', forceRefresh)) {
+    const existingPromise = LoadingManager.getPromise('students');
+    if (existingPromise) return existingPromise;
+    return getCachedStudents(userId) || [];
+  }
+  
+  LoadingManager.startLoading('students');
+  
+  const loadPromise = (async () => {
+    try {
+      const studentsRef = collection(db, "users", userId, "students");
+      const querySnapshot = await getDocs(studentsRef);
+      
+      const students = [];
+      querySnapshot.forEach((doc) => {
+        students.push({ id: doc.id, ...doc.data() });
+      });
+      
+      console.log(`✅ Loaded ${students.length} students from Firestore`);
+      
+      // Cache and update UI
+      cacheStudentsData(userId, students);
+      updateStudentsUI(students);
+      
+      return students;
+    } catch (error) {
+      console.warn('⚠️ Error loading students:', error.message);
+      
+      // Try cached data
+      const cachedStudents = getCachedStudents(userId);
+      if (cachedStudents && cachedStudents.length > 0) {
+        console.log(`📦 Using ${cachedStudents.length} cached students`);
+        updateStudentsUI(cachedStudents);
+        return cachedStudents;
+      }
+      
+      console.log('🔄 No students found');
+      updateStudentsUI([]);
+      return [];
+    } finally {
+      LoadingManager.finishLoading('students');
+    }
+  })();
+  
+  LoadingManager.setPromise('students', loadPromise);
+  return loadPromise;
+}
+
+async function loadHours(userId, forceRefresh = false) {
+  console.log('⏰ Loading hours for user:', userId);
+  
+  // Check loading manager
+  if (!LoadingManager.shouldLoad('hours', forceRefresh)) {
+    const existingPromise = LoadingManager.getPromise('hours');
+    if (existingPromise) return existingPromise;
+    return getCachedHours(userId) || [];
+  }
+  
+  LoadingManager.startLoading('hours');
+  
+  const loadPromise = (async () => {
+    try {
+      const hoursRef = collection(db, "users", userId, "hours");
+      const querySnapshot = await getDocs(hoursRef);
+      
+      const hours = [];
+      querySnapshot.forEach((doc) => {
+        hours.push({ id: doc.id, ...doc.data() });
+      });
+      
+      console.log(`✅ Loaded ${hours.length} hours from Firestore`);
+      
+      // Cache and update
+      cacheHoursData(userId, hours);
+      
+      return hours;
+    } catch (error) {
+      console.warn('⚠️ Error loading hours:', error.message);
+      
+      // Try cached data
+      const cachedHours = getCachedHours(userId);
+      if (cachedHours && cachedHours.length > 0) {
+        console.log(`📦 Using ${cachedHours.length} cached hours`);
+        return cachedHours;
+      }
+      
+      console.log('🔄 No hours found');
+      return [];
+    } finally {
+      LoadingManager.finishLoading('hours');
+    }
+  })();
+  
+  LoadingManager.setPromise('hours', loadPromise);
+  return loadPromise;
+}
 
 // ===========================
 // UTILITY FUNCTIONS
@@ -1145,113 +1376,61 @@ async function deleteStudent(id) {
 // ===========================
 // USER PROFILE FUNCTIONS
 // ===========================
-
-// Add these at the top of your app.js file
-let profileLoadAttempts = 0;
-const MAX_PROFILE_ATTEMPTS = 3;
-let currentProfileLoadPromise = null;
-
-async function loadUserProfile(uid) {
+async function loadUserProfile(uid, forceRefresh = false) {
   console.log('👤 Loading user profile for:', uid);
   
-  // Return existing promise if already loading
-  if (currentProfileLoadPromise) {
-    console.log('⏳ Profile already loading, returning existing promise');
-    return currentProfileLoadPromise;
+  // Check loading manager
+  if (!LoadingManager.shouldLoad('profile', forceRefresh)) {
+    const existingPromise = LoadingManager.getPromise('profile');
+    if (existingPromise) return existingPromise;
+    return getCachedProfile(uid);
   }
   
   const user = auth.currentUser;
-  
-  // Check if user exists
   if (!user) {
     console.error('❌ No authenticated user found');
     return createFallbackProfile(uid);
   }
   
-  let memberSince = localStorage.getItem('memberSince');
-  if (!memberSince) {
-    memberSince = new Date().toISOString();
-    localStorage.setItem('memberSince', memberSince);
-  }
+  LoadingManager.startLoading('profile');
   
-  const fallbackProfile = createFallbackProfile(uid, user, memberSince);
-  
-  // Create and store the promise
-  currentProfileLoadPromise = (async () => {
+  const loadPromise = (async () => {
     try {
-      // Try to load from Firestore
+      // Your existing profile loading logic...
       const userRef = doc(db, "users", uid);
       const userSnap = await getDoc(userRef);
       
       if (userSnap.exists()) {
         currentUserData = { uid, ...userSnap.data() };
-        
-        // Ensure required fields exist
-        if (!currentUserData.memberSince) {
-          currentUserData.memberSince = memberSince;
-          await updateDoc(userRef, { memberSince: memberSince });
-        }
-        
-        if (!currentUserData.email && user.email) {
-          currentUserData.email = user.email;
-          await updateDoc(userRef, { email: user.email });
-        }
-        
         console.log('✅ User profile loaded from Firestore for:', user.email);
-        
-        // Cache the profile
         cacheProfileData(uid, currentUserData);
-        profileLoadAttempts = 0; // Reset attempts on success
-        
         return currentUserData;
       } else {
-        // Create new profile
+        // Create new profile...
         const profileToCreate = {
           email: user.email || '',
           createdAt: new Date().toISOString(),
           lastLogin: new Date().toISOString(),
-          memberSince: memberSince,
+          memberSince: localStorage.getItem('memberSince') || new Date().toISOString(),
           defaultRate: parseFloat(localStorage.getItem('userDefaultRate')) || 0
         };
         
         await setDoc(userRef, profileToCreate);
-        
         currentUserData = { uid, ...profileToCreate };
         console.log('✅ Created new user profile for:', user.email);
-        
         cacheProfileData(uid, currentUserData);
-        profileLoadAttempts = 0;
-        
         return currentUserData;
       }
     } catch (err) {
       console.warn("⚠️ Error loading user profile:", err.message);
-      
-      // Increment attempts
-      profileLoadAttempts++;
-      
-      // If we've tried too many times, use cache
-      if (profileLoadAttempts >= MAX_PROFILE_ATTEMPTS) {
-        console.log('🔄 Max attempts reached, using cached data');
-        return getCachedProfile(uid) || fallbackProfile;
-      }
-      
-      // Try to use cached data
-      const cachedProfile = getCachedProfile(uid);
-      if (cachedProfile) {
-        console.log('📦 Using cached profile data');
-        return cachedProfile;
-      }
-      
-      console.log('🔄 Using fallback profile data');
-      return fallbackProfile;
+      return getCachedProfile(uid) || createFallbackProfile(uid, user);
     } finally {
-      // Clear the promise so next call will try again
-      currentProfileLoadPromise = null;
+      LoadingManager.finishLoading('profile');
     }
   })();
   
-  return currentProfileLoadPromise;
+  LoadingManager.setPromise('profile', loadPromise);
+  return loadPromise;
 }
 
 // ===========================
@@ -1495,3 +1674,91 @@ document.addEventListener('DOMContentLoaded', function() {
   // Use the safer initialization method
   checkAuthAndInitialize();
 });
+
+// Add this to prevent multiple initializations
+let appInitialized = false;
+let appInitializationPromise = null;
+
+async function checkAuthAndInitialize() {
+  console.log('🔍 Checking authentication...');
+  
+  // If already initializing, return the existing promise
+  if (appInitializationPromise && !appInitialized) {
+    console.log('⏳ App initialization in progress...');
+    return appInitializationPromise;
+  }
+  
+  // If already initialized, skip
+  if (appInitialized) {
+    console.log('✅ App already initialized');
+    return;
+  }
+  
+  // Create initialization promise
+  appInitializationPromise = (async () => {
+    try {
+      console.log('🔄 Starting app initialization...');
+      
+      // Reset loading manager
+      LoadingManager.reset();
+      
+      // Check auth state
+      onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          console.log(`✅ User is signed in: ${user.email}`);
+          
+          // SEQUENTIAL LOADING - one at a time
+          try {
+            // 1. Load profile first
+            const profile = await loadUserProfile(user.uid);
+            
+            // 2. Wait a bit before next load
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // 3. Load students
+            const students = await loadStudents(user.uid);
+            
+            // 4. Wait before hours
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // 5. Load hours
+            const hours = await loadHours(user.uid);
+            
+            // 6. Update stats
+            await updateAllStats(students, hours);
+            
+            // 7. Initialize UI components
+            setupTabNavigation();
+            setupFormHandlers();
+            
+            console.log(`✅ App initialization complete. Loaded: ${students.length} students, ${hours.length} hours`);
+            appInitialized = true;
+            
+          } catch (error) {
+            console.error('❌ Error during sequential loading:', error);
+          }
+        } else {
+          console.log('👤 No user signed in');
+          showGuestUI();
+        }
+      });
+      
+    } catch (error) {
+      console.error('❌ App initialization error:', error);
+      appInitialized = false;
+      appInitializationPromise = null;
+    }
+  })();
+  
+  return appInitializationPromise;
+}
+function debugLoadingStates() {
+  console.log('📊 Loading States Debug:');
+  Object.entries(LoadingManager.states).forEach(([key, state]) => {
+    const timeAgo = state.lastLoad ? 
+      `${Math.round((Date.now() - state.lastLoad)/1000)}s ago` : 
+      'never';
+    console.log(`  ${key}: loading=${state.loading}, lastLoad=${timeAgo}`);
+  });
+}
+
