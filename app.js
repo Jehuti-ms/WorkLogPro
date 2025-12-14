@@ -29,28 +29,6 @@ let isAutoSyncEnabled = false;
 let currentUserData = null;
 let currentEditStudentId = null;
 let currentEditHoursId = null;
-let currentEditMarksId = null;
-let currentEditAttendanceId = null;
-let currentEditPaymentId = null;
-
-// DOM Elements (safe access)
-function getElement(id) {
-  const element = document.getElementById(id);
-  if (!element) console.warn(`⚠️ Element not found: ${id}`);
-  return element;
-}
-
-const syncIndicator = getElement("syncIndicator");
-const autoSyncCheckbox = getElement("autoSyncCheckbox");
-const autoSyncText = getElement("autoSyncText");
-const syncMessageLine = getElement("syncMessageLine");
-const syncBtn = getElement("syncBtn");
-const exportCloudBtn = getElement("exportCloudBtn");
-const importCloudBtn = getElement("importCloudBtn");
-const syncStatsBtn = getElement("syncStatsBtn");
-const exportDataBtn = getElement("exportDataBtn");
-const importDataBtn = getElement("importDataBtn");
-const clearDataBtn = getElement("clearDataBtn");
 
 // ===========================
 // NOTIFICATION SYSTEM
@@ -244,19 +222,15 @@ const NotificationSystem = {
 const cache = {
   students: [],
   hours: [],
-  marks: [],
-  attendance: [],
-  payments: [],
   lastSync: null
 };
-
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 const EnhancedCache = {
   async saveWithBackgroundSync(collectionName, data, id = null) {
     const user = auth.currentUser;
     if (!user) {
       console.error('❌ No user authenticated for cache save');
+      NotificationSystem.notifyError('Please sign in to save data');
       return false;
     }
 
@@ -277,7 +251,7 @@ const EnhancedCache = {
         this.backgroundFirebaseSync(collectionName, cacheItem, user.uid);
       }, 100);
       
-      console.log(`✅ ${collectionName} saved to cache`);
+      console.log(`✅ ${collectionName} saved to cache for user: ${user.email}`);
       return itemId;
     } catch (error) {
       console.error(`❌ Cache save failed for ${collectionName}:`, error);
@@ -354,7 +328,7 @@ const EnhancedCache = {
   },
 
   loadCachedData() {
-    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
+    const collections = ['students', 'hours'];
     collections.forEach(collectionName => {
       const key = `worklog_${collectionName}`;
       try {
@@ -374,10 +348,15 @@ const EnhancedCache = {
   },
 
   async retryUnsyncedItems() {
-    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
+    const collections = ['students', 'hours'];
     const user = auth.currentUser;
-    if (!user) return;
+    if (!user) {
+      console.log('🔄 No user found for retry - will try again later');
+      return;
+    }
 
+    console.log(`🔄 Retrying sync for user: ${user.email}`);
+    
     collections.forEach(collectionName => {
       const key = `worklog_${collectionName}`;
       try {
@@ -398,29 +377,27 @@ const EnhancedCache = {
   async loadCollection(collectionName, forceRefresh = false) {
     const user = auth.currentUser;
     if (!user) {
-      console.log(`❌ No user for ${collectionName} load`);
+      console.log(`❌ No user for ${collectionName} load - checking localStorage`);
       return this.loadFromLocalStorage(collectionName);
     }
 
-    console.log(`🔄 Loading ${collectionName} - forceRefresh: ${forceRefresh}`);
+    console.log(`🔄 Loading ${collectionName} for user: ${user.email}`);
 
     // 1. Check memory cache first
     if (!forceRefresh && Array.isArray(cache[collectionName]) && cache[collectionName].length > 0) {
-      console.log(`📁 Using memory cache for ${collectionName}: ${cache[collectionName].length} items`);
       return cache[collectionName];
     }
 
     // 2. Check localStorage cache
     const localStorageData = this.loadFromLocalStorage(collectionName);
     if (!forceRefresh && localStorageData.length > 0) {
-      console.log(`💾 Using localStorage cache for ${collectionName}: ${localStorageData.length} items`);
       cache[collectionName] = localStorageData;
       return localStorageData;
     }
 
     // 3. Load from Firestore
     try {
-      console.log(`☁️ Loading ${collectionName} from Firestore...`);
+      console.log(`☁️ Loading ${collectionName} from Firestore for user: ${user.uid}`);
       const querySnapshot = await getDocs(collection(db, "users", user.uid, collectionName));
       const data = [];
       
@@ -444,9 +421,7 @@ const EnhancedCache = {
       console.error(`❌ Error loading ${collectionName} from Firestore:`, error);
       
       // Fallback to localStorage
-      const fallbackData = this.loadFromLocalStorage(collectionName);
-      console.log(`🔄 Using fallback data for ${collectionName}: ${fallbackData.length} items`);
-      return fallbackData;
+      return this.loadFromLocalStorage(collectionName);
     }
   },
 
@@ -517,14 +492,6 @@ function calculateTotalPay() {
   }
 }
 
-function calculateGrade(percentage) {
-  if (percentage >= 90) return 'A';
-  if (percentage >= 80) return 'B';
-  if (percentage >= 70) return 'C';
-  if (percentage >= 60) return 'D';
-  return 'F';
-}
-
 function formatDate(dateString) {
   if (!dateString) return 'Never';
   try {
@@ -556,18 +523,6 @@ function formatStudentDisplay(student) {
   return 'Unknown Student';
 }
 
-function findStudentByNameOrId(students, identifier) {
-  if (!identifier) return null;
-  
-  let student = students.find(s => s.name === identifier);
-  
-  if (!student) {
-    student = students.find(s => s.id === identifier);
-  }
-  
-  return student;
-}
-
 // ===========================
 // ENHANCED REAL-TIME STATS SYSTEM
 // ===========================
@@ -582,9 +537,6 @@ const EnhancedStats = {
   setupStatsUpdaters() {
     this.updateStudentStats = this.debounce(() => this.calculateStudentStats(), 500);
     this.updateHoursStats = this.debounce(() => this.calculateHoursStats(), 500);
-    this.updateMarksStats = this.debounce(() => this.calculateMarksStats(), 500);
-    this.updateAttendanceStats = this.debounce(() => this.calculateAttendanceStats(), 500);
-    this.updatePaymentStats = this.debounce(() => this.calculatePaymentStats(), 500);
   },
 
   debounce(func, wait) {
@@ -610,10 +562,7 @@ const EnhancedStats = {
     try {
       await Promise.all([
         this.calculateStudentStats(),
-        this.calculateHoursStats(),
-        this.calculateMarksStats(),
-        this.calculateAttendanceStats(),
-        this.calculatePaymentStats()
+        this.calculateHoursStats()
       ]);
       console.log('✅ All stats refreshed');
     } catch (error) {
@@ -690,72 +639,6 @@ const EnhancedStats = {
     }
   },
 
-  async calculateMarksStats() {
-    try {
-      const marks = await EnhancedCache.loadCollection('marks');
-      const marksCount = marks.length;
-      
-      let avgPercentage = 0;
-      if (marksCount > 0) {
-        const totalPercentage = marks.reduce((sum, mark) => sum + safeNumber(mark.percentage), 0);
-        avgPercentage = totalPercentage / marksCount;
-      }
-      
-      this.updateElement('marksCount', marksCount);
-      this.updateElement('avgMarks', avgPercentage.toFixed(1));
-      
-    } catch (error) {
-      console.error('Error calculating marks stats:', error);
-    }
-  },
-
-  async calculateAttendanceStats() {
-    try {
-      const attendance = await EnhancedCache.loadCollection('attendance');
-      const attendanceCount = attendance.length;
-      
-      let lastSessionDate = null;
-      if (attendanceCount > 0) {
-        const sortedAttendance = attendance.sort((a, b) => {
-          const dateA = new Date(a.date || a.dateIso);
-          const dateB = new Date(b.date || b.dateIso);
-          return dateB - dateA;
-        });
-        
-        lastSessionDate = sortedAttendance[0].date || sortedAttendance[0].dateIso;
-      }
-      
-      this.updateElement('attendanceCount', attendanceCount);
-      this.updateElement('lastSessionDate', lastSessionDate ? formatDate(lastSessionDate) : 'Never');
-      
-    } catch (error) {
-      console.error('Error calculating attendance stats:', error);
-    }
-  },
-
-  async calculatePaymentStats() {
-    try {
-      const payments = await EnhancedCache.loadCollection('payments');
-      const now = new Date();
-      
-      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      
-      const monthlyPayments = payments
-        .filter(payment => {
-          const paymentDate = payment.date || '';
-          return paymentDate.startsWith(currentMonth);
-        })
-        .reduce((sum, payment) => sum + safeNumber(payment.amount), 0);
-      
-      const totalPayments = payments.reduce((sum, payment) => sum + safeNumber(payment.amount), 0);
-      
-      this.updateElement('monthlyPayments', `$${fmtMoney(monthlyPayments)}`);
-      
-    } catch (error) {
-      console.error('Error calculating payment stats:', error);
-    }
-  },
-
   updateElement(id, value) {
     const element = document.getElementById(id);
     if (element) {
@@ -766,227 +649,6 @@ const EnhancedStats = {
   forceRefresh() {
     console.log('🔄 Forcing stats refresh...');
     this.refreshAllStats();
-  }
-};
-
-// ===========================
-// SYNC BAR SYSTEM
-// ===========================
-
-const SyncBar = {
-  init() {
-    this.setupAutoSyncToggle();
-    this.setupSyncNowButton();
-    this.setupExportCloudButton();
-    this.setupImportCloudButton();
-    this.setupSyncStatsButton();
-    this.setupExportDataButton();
-    this.setupImportDataButton();
-    this.setupClearAllButton();
-    console.log('✅ Sync bar initialized');
-  },
-
-  setupAutoSyncToggle() {
-    if (autoSyncCheckbox) {
-      const savedAutoSync = localStorage.getItem('autoSyncEnabled') === 'true';
-      isAutoSyncEnabled = savedAutoSync;
-      autoSyncCheckbox.checked = savedAutoSync;
-      
-      if (savedAutoSync) {
-        autoSyncText.textContent = 'Auto';
-        if (syncIndicator) {
-          syncIndicator.style.backgroundColor = '#10b981';
-          syncIndicator.classList.add('sync-connected');
-        }
-        this.startAutoSync();
-      } else {
-        autoSyncText.textContent = 'Manual';
-        if (syncIndicator) {
-          syncIndicator.style.backgroundColor = '#ef4444';
-          syncIndicator.classList.remove('sync-connected');
-        }
-      }
-
-      autoSyncCheckbox.addEventListener('change', (e) => {
-        isAutoSyncEnabled = e.target.checked;
-        localStorage.setItem('autoSyncEnabled', isAutoSyncEnabled.toString());
-        
-        if (isAutoSyncEnabled) {
-          autoSyncText.textContent = 'Auto';
-          if (syncIndicator) {
-            syncIndicator.style.backgroundColor = '#10b981';
-            syncIndicator.classList.add('sync-connected');
-          }
-          this.startAutoSync();
-          NotificationSystem.notifySuccess('Auto-sync enabled');
-        } else {
-          autoSyncText.textContent = 'Manual';
-          if (syncIndicator) {
-            syncIndicator.style.backgroundColor = '#ef4444';
-            syncIndicator.classList.remove('sync-connected');
-          }
-          this.stopAutoSync();
-          NotificationSystem.notifyInfo('Auto-sync disabled');
-        }
-      });
-    }
-  },
-
-  startAutoSync() {
-    this.stopAutoSync();
-    this.performSync('auto');
-    autoSyncInterval = setInterval(() => this.performSync('auto'), 60000);
-  },
-
-  stopAutoSync() {
-    if (autoSyncInterval) {
-      clearInterval(autoSyncInterval);
-      autoSyncInterval = null;
-    }
-  },
-
-  setupSyncNowButton() {
-    if (syncBtn) {
-      syncBtn.addEventListener('click', async () => {
-        await this.performSync('manual');
-      });
-    }
-  },
-
-  setupExportCloudButton() {
-    if (exportCloudBtn) {
-      exportCloudBtn.addEventListener('click', async () => {
-        NotificationSystem.notifyInfo('Export to cloud feature coming soon');
-      });
-    }
-  },
-
-  setupImportCloudButton() {
-    if (importCloudBtn) {
-      importCloudBtn.addEventListener('click', async () => {
-        NotificationSystem.notifyInfo('Import from cloud feature coming soon');
-      });
-    }
-  },
-
-  setupSyncStatsButton() {
-    if (syncStatsBtn) {
-      syncStatsBtn.addEventListener('click', async () => {
-        const user = auth.currentUser;
-        if (user) {
-          await recalcSummaryStats(user.uid);
-          NotificationSystem.notifySuccess('Stats recalculated');
-        }
-      });
-    }
-  },
-
-  setupExportDataButton() {
-    if (exportDataBtn) {
-      exportDataBtn.addEventListener('click', () => {
-        NotificationSystem.notifyInfo('Export data feature coming soon');
-      });
-    }
-  },
-
-  setupImportDataButton() {
-    if (importDataBtn) {
-      importDataBtn.addEventListener('click', () => {
-        NotificationSystem.notifyInfo('Import data feature coming soon');
-      });
-    }
-  },
-
-  setupClearAllButton() {
-    if (clearDataBtn) {
-      clearDataBtn.addEventListener('click', () => {
-        if (confirm('Are you sure you want to clear all local data? This cannot be undone.')) {
-          localStorage.clear();
-          Object.keys(cache).forEach(key => {
-            if (Array.isArray(cache[key])) {
-              cache[key] = [];
-            } else {
-              cache[key] = null;
-            }
-          });
-          NotificationSystem.notifySuccess('All local data cleared');
-          setTimeout(() => location.reload(), 1000);
-        }
-      });
-    }
-  },
-
-  async performSync(mode = 'manual') {
-    const user = auth.currentUser;
-    if (!user) {
-      NotificationSystem.notifyError('Please log in to sync');
-      return;
-    }
-
-    try {
-      if (syncIndicator) {
-        syncIndicator.classList.remove('sync-connected', 'sync-error');
-        syncIndicator.classList.add('sync-active');
-      }
-      if (syncMessageLine) {
-        syncMessageLine.textContent = `Status: ${mode === 'auto' ? 'Auto-syncing' : 'Manual syncing'}...`;
-      }
-
-      await Promise.all([
-        recalcSummaryStats(user.uid),
-        loadUserStats(user.uid)
-      ]);
-
-      // Refresh UI components
-      const refreshTasks = [
-        renderStudents(),
-        renderRecentHoursWithEdit(),
-        renderRecentMarksWithEdit(),
-        renderAttendanceRecentWithEdit(),
-        renderPaymentActivityWithEdit(),
-        renderStudentBalancesWithEdit(),
-        populateStudentDropdowns()
-      ];
-
-      for (const task of refreshTasks) {
-        try {
-          await task;
-        } catch (e) {
-          console.warn('UI refresh failed:', e);
-        }
-      }
-
-      // Update timestamp
-      const now = new Date().toLocaleString();
-      if (syncMessageLine) syncMessageLine.textContent = `Status: Last synced at ${now}`;
-      if (document.getElementById('statUpdated')) {
-        document.getElementById('statUpdated').textContent = now;
-      }
-
-      if (syncIndicator) {
-        syncIndicator.classList.remove('sync-active');
-        if (isAutoSyncEnabled) {
-          syncIndicator.classList.add('sync-connected');
-        }
-      }
-
-      EnhancedStats.forceRefresh();
-      NotificationSystem.notifySuccess(`${mode === 'auto' ? 'Auto-' : ''}Sync completed`);
-      console.log('✅ Sync completed');
-
-    } catch (error) {
-      console.error(`❌ ${mode} sync failed:`, error);
-      
-      if (syncIndicator) {
-        syncIndicator.classList.remove('sync-active', 'sync-connected');
-        syncIndicator.classList.add('sync-error');
-      }
-      if (syncMessageLine) {
-        syncMessageLine.textContent = `Status: Sync failed - ${error.message}`;
-      }
-      
-      NotificationSystem.notifyError(`Sync failed: ${error.message}`);
-    }
   }
 };
 
@@ -1101,6 +763,10 @@ async function renderRecentHoursWithEdit(limit = 10) {
   }
 }
 
+// ===========================
+// HOURS MANAGEMENT FUNCTIONS
+// ===========================
+
 async function startEditHours(id) {
   try {
     const hours = await EnhancedCache.loadCollection('hours');
@@ -1181,10 +847,47 @@ function cancelEditHours() {
   NotificationSystem.notifyInfo('Edit cancelled');
 }
 
+async function deleteHours(id) {
+  if (!confirm('Are you sure you want to delete this hours entry?')) {
+    return;
+  }
+
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      NotificationSystem.notifyError('Please sign in to delete hours');
+      return;
+    }
+
+    const hours = await EnhancedCache.loadCollection('hours');
+    const entry = hours.find(h => h.id === id);
+    
+    if (entry && entry._firebaseId) {
+      await deleteDoc(doc(db, "users", user.uid, "hours", entry._firebaseId));
+    }
+
+    const updatedHours = hours.filter(h => h.id !== id);
+    cache.hours = updatedHours;
+    EnhancedCache.saveToLocalStorageBulk('hours', updatedHours);
+
+    await renderRecentHoursWithEdit();
+    EnhancedStats.forceRefresh();
+    
+    NotificationSystem.notifySuccess('Hours entry deleted successfully');
+    
+  } catch (error) {
+    console.error('Error deleting hours:', error);
+    NotificationSystem.notifyError('Failed to delete hours entry');
+  }
+}
+
 async function handleHoursSubmit(e) {
   e.preventDefault();
   const user = auth.currentUser;
-  if (!user) return;
+  if (!user) {
+    NotificationSystem.notifyError('Please sign in to log hours');
+    return;
+  }
 
   const formData = new FormData(e.target);
   const hours = safeNumber(formData.get('hoursWorked'));
@@ -1254,7 +957,10 @@ async function handleHoursSubmit(e) {
 
 async function populateStudentDropdowns() {
   const user = auth.currentUser;
-  if (!user) return;
+  if (!user) {
+    console.log('❌ No user found for dropdown population');
+    return;
+  }
 
   try {
     const students = await EnhancedCache.loadCollection('students');
@@ -1395,7 +1101,10 @@ function setupFormHandlers() {
 async function handleStudentSubmit(e) {
     e.preventDefault();
     const user = auth.currentUser;
-    if (!user) return;
+    if (!user) {
+        NotificationSystem.notifyError('Please sign in to add students');
+        return;
+    }
 
     const formData = new FormData(e.target);
     const studentData = {
@@ -1434,111 +1143,6 @@ async function deleteStudent(id) {
 }
 
 // ===========================
-// FIRESTORE DATA FUNCTIONS
-// ===========================
-
-async function loadUserStats(uid) {
-  console.log('📊 Loading user stats for:', uid);
-  try {
-    const statsRef = doc(db, "users", uid);
-    const statsSnap = await getDoc(statsRef);
-
-    if (statsSnap.exists()) {
-      const stats = statsSnap.data();
-      
-      if (document.getElementById('statStudents')) {
-        document.getElementById('statStudents').textContent = stats.students ?? 0;
-      }
-      if (document.getElementById('statHours')) {
-        document.getElementById('statHours').textContent = stats.hours ?? 0;
-      }
-      if (document.getElementById('statEarnings')) {
-        const earnings = stats.earnings != null ? fmtMoney(stats.earnings) : "0.00";
-        document.getElementById('statEarnings').textContent = `$${earnings}`;
-      }
-    } else {
-      console.log('📊 No stats found, creating default stats...');
-      await setDoc(statsRef, { 
-        students: 0, 
-        hours: 0, 
-        earnings: 0,
-        lastSync: new Date().toLocaleString()
-      });
-      
-      if (document.getElementById('statStudents')) document.getElementById('statStudents').textContent = 0;
-      if (document.getElementById('statHours')) document.getElementById('statHours').textContent = 0;
-      if (document.getElementById('statEarnings')) document.getElementById('statEarnings').textContent = "$0.00";
-    }
-
-    console.log('✅ User stats loaded successfully');
-    
-  } catch (err) {
-    console.error("❌ Error loading stats:", err);
-    if (syncMessageLine) syncMessageLine.textContent = "Status: Offline – stats unavailable";
-  }
-}
-
-async function recalcSummaryStats(uid) {
-  try {
-    console.log('🔄 Recalculating summary stats for:', uid);
-    
-    const [studentsSnap, hoursSnap] = await Promise.all([
-      getDocs(collection(db, "users", uid, "students")),
-      getDocs(collection(db, "users", uid, "hours"))
-    ]);
-
-    const studentsCount = studentsSnap.size;
-    let totalHours = 0;
-    let totalEarnings = 0;
-
-    hoursSnap.forEach(h => {
-      const d = h.data();
-      totalHours += safeNumber(d.hours);
-      totalEarnings += safeNumber(d.total);
-    });
-
-    console.log('📊 Calculated stats:', {
-      students: studentsCount,
-      hours: totalHours,
-      earnings: totalEarnings
-    });
-
-    await updateUserStats(uid, {
-      students: studentsCount,
-      hours: totalHours,
-      earnings: totalEarnings,
-      lastSync: new Date().toLocaleString()
-    });
-    
-    console.log('✅ Summary stats recalculated successfully');
-  } catch (err) {
-    console.error("❌ Error recalculating stats:", err);
-  }
-}
-
-async function updateUserStats(uid, newStats) {
-  try {
-    const statsRef = doc(db, "users", uid);
-    await setDoc(statsRef, newStats, { merge: true });
-
-    if (newStats.students !== undefined) {
-      const statStudents = document.getElementById('statStudents');
-      if (statStudents) statStudents.textContent = newStats.students;
-    }
-    if (newStats.hours !== undefined) {
-      const statHours = document.getElementById('statHours');
-      if (statHours) statHours.textContent = newStats.hours;
-    }
-    if (newStats.earnings !== undefined) {
-      const statEarnings = document.getElementById('statEarnings');
-      if (statEarnings) statEarnings.textContent = `$${fmtMoney(newStats.earnings)}`;
-    }
-  } catch (err) {
-    console.error("❌ Error updating stats:", err);
-  }
-}
-
-// ===========================
 // USER PROFILE FUNCTIONS
 // ===========================
 
@@ -1572,7 +1176,7 @@ async function loadUserProfile(uid) {
         await updateDoc(userRef, { memberSince: memberSince });
       }
       
-      console.log('✅ User profile loaded from Firestore');
+      console.log('✅ User profile loaded from Firestore for:', user.email);
       
       if (currentUserData.defaultRate !== undefined) {
         localStorage.setItem('userDefaultRate', currentUserData.defaultRate.toString());
@@ -1589,6 +1193,7 @@ async function loadUserProfile(uid) {
       await setDoc(userRef, profileToCreate);
       
       currentUserData = { uid, ...profileToCreate };
+      console.log('✅ Created new user profile for:', user.email);
       return currentUserData;
     }
   } catch (err) {
@@ -1664,6 +1269,19 @@ function switchTab(tabName) {
 }
 
 // ===========================
+// AUTHENTICATION CHECK
+// ===========================
+
+async function checkAuthStatus() {
+  return new Promise((resolve) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      unsubscribe();
+      resolve(user);
+    });
+  });
+}
+
+// ===========================
 // INITIALIZATION
 // ===========================
 
@@ -1673,38 +1291,37 @@ async function initializeApp() {
   // Initialize notification system first
   NotificationSystem.initNotificationStyles();
   
-  // Setup authentication state listener
-  onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      console.log('✅ User authenticated:', user.email);
-      
-      // Load user profile and data
-      await loadUserProfile(user.uid);
-      EnhancedCache.loadCachedData();
-      
-      // Initialize systems
-      setupTabNavigation();
-      setupFormHandlers();
-      SyncBar.init();
-      EnhancedStats.init();
-      
-      // Load and render initial data
-      await Promise.all([
-        renderStudents(),
-        renderRecentHoursWithEdit(),
-        populateStudentDropdowns()
-      ]);
-      
-      // Refresh stats
-      EnhancedStats.forceRefresh();
-      
-      console.log('✅ App initialization complete');
-      
-    } else {
-      console.log('❌ No user signed in, redirecting to auth...');
-      window.location.href = "auth.html";
-    }
-  });
+  // Check auth status immediately
+  const user = await checkAuthStatus();
+  
+  if (user) {
+    console.log('✅ User authenticated:', user.email, 'UID:', user.uid);
+    
+    // Load user profile and data
+    await loadUserProfile(user.uid);
+    EnhancedCache.loadCachedData();
+    
+    // Initialize systems
+    setupTabNavigation();
+    setupFormHandlers();
+    EnhancedStats.init();
+    
+    // Load and render initial data
+    await Promise.all([
+      renderStudents(),
+      renderRecentHoursWithEdit(),
+      populateStudentDropdowns()
+    ]);
+    
+    // Refresh stats
+    EnhancedStats.forceRefresh();
+    
+    console.log('✅ App initialization complete');
+    
+  } else {
+    console.log('❌ No user signed in, redirecting to auth...');
+    window.location.href = "auth.html";
+  }
 }
 
 // Start the app when DOM is loaded
