@@ -2166,10 +2166,10 @@ async function renderStudentBalancesWithEdit() {
 // HELPER FUNCTIONS
 // ===========================
 
-function safeNumber(value) {
+/*function safeNumber(value) {
   const num = parseFloat(value);
   return isNaN(num) ? 0 : num;
-}
+}*/
 
 function formatDate(dateString) {
   if (!dateString) return 'No date';
