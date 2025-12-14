@@ -642,8 +642,6 @@ const FormAutoClear = {
 // ===========================
 // SYNC BAR SYSTEM
 // ===========================
-
-
 const SyncBar = {
   init() {
     this.setupAutoSyncToggle();
@@ -722,22 +720,64 @@ const SyncBar = {
     }
   },
 
-  setupExportCloudButton() {
-    if (exportCloudBtn) {
-      exportCloudBtn.addEventListener('click', async () => {
-        NotificationSystem.notifyInfo('Export to cloud feature coming soon');
-      });
-    }
-  },
+ setupExportCloudButton() {
+  if (exportCloudBtn) {
+    exportCloudBtn.addEventListener('click', async () => {
+      try {
+        const user = auth.currentUser;
+        if (!user) {
+          NotificationSystem.notifyError('Please log in to export to cloud');
+          return;
+        }
+        
+        NotificationSystem.notifyInfo('Syncing data to cloud...');
+        await this.performSync('manual');
+        NotificationSystem.notifySuccess('Data synced to cloud successfully!');
+      } catch (error) {
+        NotificationSystem.notifyError('Failed to sync to cloud: ' + error.message);
+      }
+    });
+  }
+},
 
-  setupImportCloudButton() {
-    if (importCloudBtn) {
-      importCloudBtn.addEventListener('click', async () => {
-        NotificationSystem.notifyInfo('Import from cloud feature coming soon');
-      });
-    }
-  },
-
+setupImportCloudButton() {
+  if (importCloudBtn) {
+    importCloudBtn.addEventListener('click', async () => {
+      try {
+        const user = auth.currentUser;
+        if (!user) {
+          NotificationSystem.notifyError('Please log in to import from cloud');
+          return;
+        }
+        
+        NotificationSystem.notifyInfo('Syncing data from cloud...');
+        await Promise.all([
+          EnhancedCache.loadCollection('students', true),
+          EnhancedCache.loadCollection('hours', true),
+          EnhancedCache.loadCollection('marks', true),
+          EnhancedCache.loadCollection('attendance', true),
+          EnhancedCache.loadCollection('payments', true)
+        ]);
+        
+        // Refresh UI
+        await Promise.all([
+          renderStudents(true),
+          renderRecentHoursWithEdit(),
+          renderRecentMarksWithEdit(),
+          renderAttendanceRecentWithEdit(),
+          renderPaymentActivityWithEdit(),
+          renderStudentBalancesWithEdit(),
+          populateStudentDropdowns()
+        ]);
+        
+        NotificationSystem.notifySuccess('Data synced from cloud successfully!');
+      } catch (error) {
+        NotificationSystem.notifyError('Failed to sync from cloud: ' + error.message);
+      }
+    });
+  }
+},
+  
   setupSyncStatsButton() {
     if (syncStatsBtn) {
       syncStatsBtn.addEventListener('click', async () => {
