@@ -1679,52 +1679,6 @@ function debugLoadingStates() {
   });
 }
 
-// ===========================
-// FIX FOR MISSING AUTH.HTML
-// ===========================
 
-// Alternative: Create a simple inline auth check
-function checkAuthAndInitialize() {
-  // Check if we're on the index page
-  if (window.location.pathname.includes('index.html') || 
-      window.location.pathname === '/' || 
-      window.location.pathname.endsWith('.github.io/') ||
-      window.location.pathname.endsWith('.github.io/WorkLogPro/')) {
-    
-    // Check auth state
-    onAuthStateChanged(auth, (user) => {
-      if (user) {
-        console.log('✅ User is signed in:', user.email);
-        // User is signed in, continue with app initialization
-        fullAppInitialization(user);
-      } else {
-        console.log('⚠️ No user signed in');
-        
-        // Check if auth.html exists
-        fetch('auth.html')
-          .then(response => {
-            if (response.ok) {
-              console.log('Redirecting to auth.html');
-              window.location.href = 'auth.html';
-            } else {
-              console.log('auth.html not found, continuing in offline mode');
-              setupTabNavigation();
-              setupFormHandlers();
-              NotificationSystem.notifyInfo('Working offline. Sign in to sync across devices.');
-            }
-          })
-          .catch(error => {
-            console.log('Error checking auth.html, continuing offline:', error);
-            setupTabNavigation();
-            setupFormHandlers();
-            NotificationSystem.notifyInfo('Working offline. Sign in to sync across devices.');
-          });
-      }
-    });
-  } else if (window.location.pathname.includes('auth.html')) {
-    // We're on the auth page, let auth.html handle its own logic
-    console.log('On auth page');
-  }
-}
 
 
