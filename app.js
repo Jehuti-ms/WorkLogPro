@@ -1,187 +1,128 @@
 // ===========================
 // FIREBASE IMPORTS
 // ===========================
-// Make sure these match your firebase-config.js imports
-import { 
-  auth, 
-  db 
-} from './firebase-config.js';
-
+import { auth, db } from './firebase-config.js';
 import { 
   onAuthStateChanged,
   signOut 
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
 import { 
-  doc, 
-  getDoc, 
-  setDoc, 
-  updateDoc, 
-  deleteDoc,
-  collection, 
-  getDocs,
-  query,
-  where,
-  orderBy,
-  enableIndexedDbPersistence
+  doc, getDoc, setDoc, updateDoc, deleteDoc,
+  collection, getDocs, addDoc,
+  query, where, orderBy
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ===========================
-// GLOBAL VARIABLES & STATE
+// GLOBAL STATE
 // ===========================
-
-// Global state
 let currentUserData = null;
 let allStudents = [];
 let allHours = [];
 let allPayments = [];
 let allAttendance = [];
 let allMarks = [];
-
-// UI Elements cache
-let uiElements = {};
-
-// Loading states
-let isLoading = {
-  app: false,
-  profile: false,
-  students: false,
-  hours: false,
-  payments: false,
-  stats: false
-};
+let isLoading = false;
 
 // ===========================
-// INITIALIZATION
+// 1. TOAST/MESSAGE SYSTEM
 // ===========================
-
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('📄 DOM Content Loaded - Starting app...');
-  initializeApp();
-});
-
-async function initializeApp() {
-  if (isLoading.app) {
-    console.log('⏳ App already initializing...');
-    return;
+function showToast(message, type = 'info', duration = 5000) {
+  console.log(`📢 ${type.toUpperCase()}: ${message}`);
+  
+  // Remove existing toasts
+  const existingToasts = document.querySelectorAll('.toast');
+  if (existingToasts.length > 3) {
+    existingToasts[0].remove();
   }
   
-  isLoading.app = true;
-  console.log('🚀 Initializing WorkLog App...');
-  
-  try {
-    // Initialize UI first
-    await initializeUI();
-    
-    // Check authentication
-    await checkAuthAndInitialize();
-    
-    // Setup network listeners
-    setupNetworkListeners();
-    
-    console.log('✅ App initialization complete');
-  } catch (error) {
-    console.error('❌ App initialization failed:', error);
-  } finally {
-    isLoading.app = false;
+  // Create toast container if needed
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 10000;
+      max-width: 350px;
+    `;
+    document.body.appendChild(container);
   }
+  
+  // Create toast
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.style.cssText = `
+    background: ${type === 'success' ? '#10b981' : 
+                 type === 'error' ? '#ef4444' : 
+                 type === 'warning' ? '#f59e0b' : '#3b82f6'};
+    color: white;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    animation: toastSlideIn 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  `;
+  
+  // Add icon based on type
+  const icon = document.createElement('span');
+  icon.textContent = type === 'success' ? '✅' : 
+                     type === 'error' ? '❌' : 
+                     type === 'warning' ? '⚠️' : 'ℹ️';
+  
+  const text = document.createElement('span');
+  text.textContent = message;
+  
+  toast.appendChild(icon);
+  toast.appendChild(text);
+  container.appendChild(toast);
+  
+  // Auto remove
+  setTimeout(() => {
+    toast.style.animation = 'toastSlideOut 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
 }
 
-async function initializeUI() {
-  console.log('🎨 Initializing UI...');
-  
-  try {
-    // Cache UI elements
-    cacheUIElements();
-    
-    // Initialize tabs
-    initializeTabs();
-    
-    // Setup form handlers
-    setupFormHandlers();
-    
-    // Setup event listeners
-    setupEventListeners();
-    
-    console.log('✅ UI initialized');
-  } catch (error) {
-    console.error('❌ UI initialization failed:', error);
-  }
-}
-
-function cacheUIElements() {
-  console.log('🔍 Caching UI elements...');
-  
-  uiElements = {
-    // Main sections
-    guestSection: document.getElementById('guest-section'),
-    userSection: document.getElementById('user-section'),
-    
-    // Stats
-    studentCount: document.getElementById('student-count'),
-    hourCount: document.getElementById('hour-count'),
-    avgRate: document.getElementById('avg-rate'),
-    totalEarnings: document.getElementById('total-earnings'),
-    
-    // Tabs
-    tabButtons: document.querySelectorAll('.tab-button'),
-    tabContents: document.querySelectorAll('.tab-content'),
-    
-    // Forms
-    studentForm: document.getElementById('student-form'),
-    hourForm: document.getElementById('hour-form'),
-    paymentForm: document.getElementById('payment-form'),
-    attendanceForm: document.getElementById('attendance-form'),
-    markForm: document.getElementById('mark-form'),
-    
-    // Tables
-    studentsTable: document.getElementById('students-table'),
-    hoursTable: document.getElementById('hours-table'),
-    paymentsTable: document.getElementById('payments-table'),
-    
-    // Buttons
-    syncButton: document.getElementById('sync-button'),
-    exportButton: document.getElementById('export-button'),
-    importButton: document.getElementById('import-button'),
-    clearButton: document.getElementById('clear-button'),
-    logoutButton: document.getElementById('logout-button'),
-    fixStatsButton: document.getElementById('fix-stats-button'),
-    
-    // User info
-    userEmail: document.getElementById('user-email'),
-    memberSince: document.getElementById('member-since'),
-    
-    // Form inputs
-    studentIdInput: document.getElementById('student-id'),
-    studentNameInput: document.getElementById('student-name'),
-    studentEmailInput: document.getElementById('student-email'),
-    studentPhoneInput: document.getElementById('student-phone'),
-    studentRateInput: document.getElementById('student-rate'),
-    studentNotesInput: document.getElementById('student-notes'),
-    
-    hourIdInput: document.getElementById('hour-id'),
-    hourStudentInput: document.getElementById('hour-student'),
-    hourDateInput: document.getElementById('hour-date'),
-    hourHoursInput: document.getElementById('hour-hours'),
-    hourRateInput: document.getElementById('hour-rate'),
-    hourNotesInput: document.getElementById('hour-notes')
-  };
-  
-  console.log(`✅ Cached ${Object.keys(uiElements).length} UI elements`);
+// Add CSS for toast animations
+if (!document.getElementById('toast-styles')) {
+  const style = document.createElement('style');
+  style.id = 'toast-styles';
+  style.textContent = `
+    @keyframes toastSlideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes toastSlideOut {
+      from { transform: translateX(0); opacity: 1; }
+      to { transform: translateX(100%); opacity: 0; }
+    }
+  `;
+  document.head.appendChild(style);
 }
 
 // ===========================
-// AUTHENTICATION
+// 2. AUTHENTICATION & USER STATE
 // ===========================
-
-async function checkAuthAndInitialize() {
-  console.log('🔍 Checking authentication...');
-  
+async function checkAuthState() {
   return new Promise((resolve) => {
     onAuthStateChanged(auth, async (user) => {
       if (user) {
-        console.log(`✅ User signed in: ${user.email}`);
-        await handleUserSignedIn(user);
+        console.log(`✅ User authenticated: ${user.email}`);
+        
+        // Update UI immediately
+        updateUserUI(user);
+        
+        // Load user profile
+        await loadUserProfile(user.uid);
+        
+        // Load user data
+        await loadUserData(user.uid);
+        
         resolve(true);
       } else {
         console.log('👤 No user signed in');
@@ -192,209 +133,244 @@ async function checkAuthAndInitialize() {
   });
 }
 
-async function handleUserSignedIn(user) {
+function updateUserUI(user) {
+  console.log('🎨 Updating UI for user:', user.email);
+  
+  // Hide guest section, show user section
+  const guestSection = document.getElementById('guest-section');
+  const userSection = document.getElementById('user-section');
+  
+  if (guestSection) guestSection.style.display = 'none';
+  if (userSection) userSection.style.display = 'block';
+  
+  // Update user info
+  const userEmail = document.getElementById('user-email');
+  const profileBtn = document.getElementById('profileBtn');
+  
+  if (userEmail) userEmail.textContent = user.email;
+  if (profileBtn) profileBtn.textContent = `👤 ${user.email.split('@')[0]}`;
+}
+
+function showGuestUI() {
+  const guestSection = document.getElementById('guest-section');
+  const userSection = document.getElementById('user-section');
+  
+  if (guestSection) guestSection.style.display = 'block';
+  if (userSection) userSection.style.display = 'none';
+}
+
+// ===========================
+// 3. USER PROFILE MANAGEMENT
+// ===========================
+async function loadUserProfile(userId) {
+  if (isLoading) return;
+  isLoading = true;
+  
+  console.log('👤 Loading user profile:', userId);
+  
   try {
-    showUserUI();
-    updateUserInfo(user);
+    // Try Firestore first
+    const userRef = doc(db, "users", userId);
+    const userSnap = await getDoc(userRef);
     
-    // Load all data sequentially
-    await loadUserProfile(user.uid);
-    await loadStudents(user.uid);
-    await loadHours(user.uid);
+    if (userSnap.exists()) {
+      currentUserData = { uid: userId, ...userSnap.data() };
+      console.log('✅ Profile loaded from Firestore');
+      
+      // Cache it
+      localStorage.setItem(`user_profile_${userId}`, JSON.stringify(currentUserData));
+      
+      // Update default rate if exists
+      if (currentUserData.defaultRate) {
+        localStorage.setItem('userDefaultRate', currentUserData.defaultRate.toString());
+      }
+      
+    } else {
+      // Create new profile
+      const user = auth.currentUser;
+      const newProfile = {
+        email: user.email,
+        createdAt: new Date().toISOString(),
+        lastLogin: new Date().toISOString(),
+        memberSince: new Date().toISOString(),
+        defaultRate: 50
+      };
+      
+      await setDoc(userRef, newProfile);
+      currentUserData = { uid: userId, ...newProfile };
+      console.log('✅ New profile created');
+      
+      // Cache it
+      localStorage.setItem(`user_profile_${userId}`, JSON.stringify(currentUserData));
+    }
     
-    // Optional: Load other data
-    // await loadPayments(user.uid);
-    // await loadAttendance(user.uid);
-    // await loadMarks(user.uid);
+  } catch (error) {
+    console.warn('⚠️ Error loading profile, using cache:', error.message);
+    
+    // Try cache
+    const cached = localStorage.getItem(`user_profile_${userId}`);
+    if (cached) {
+      currentUserData = JSON.parse(cached);
+      console.log('📦 Using cached profile');
+    } else {
+      // Create minimal profile
+      const user = auth.currentUser;
+      currentUserData = {
+        uid: userId,
+        email: user.email,
+        defaultRate: 50,
+        createdAt: new Date().toISOString()
+      };
+    }
+  } finally {
+    isLoading = false;
+  }
+  
+  return currentUserData;
+}
+
+// ===========================
+// 4. DATA LOADING
+// ===========================
+async function loadUserData(userId) {
+  console.log('📊 Loading user data for:', userId);
+  
+  try {
+    // Load students
+    await loadStudents(userId);
+    
+    // Load hours
+    await loadHours(userId);
     
     // Update stats
     updateAllStats();
     
     console.log('✅ User data loaded successfully');
+    showToast('Data loaded successfully', 'success');
+    
   } catch (error) {
     console.error('❌ Error loading user data:', error);
-    showToast('Error loading data. Working in offline mode.', 'error');
+    showToast('Error loading data', 'error');
   }
 }
-
-function showGuestUI() {
-  if (uiElements.guestSection) uiElements.guestSection.style.display = 'block';
-  if (uiElements.userSection) uiElements.userSection.style.display = 'none';
-}
-
-function showUserUI() {
-  if (uiElements.guestSection) uiElements.guestSection.style.display = 'none';
-  if (uiElements.userSection) uiElements.userSection.style.display = 'block';
-}
-
-function updateUserInfo(user) {
-  if (uiElements.userEmail) {
-    uiElements.userEmail.textContent = user.email;
-  }
-  
-  if (uiElements.memberSince && currentUserData?.memberSince) {
-    const date = new Date(currentUserData.memberSince);
-    uiElements.memberSince.textContent = date.toLocaleDateString();
-  }
-}
-
-// ===========================
-// USER PROFILE FUNCTIONS
-// ===========================
-
-async function loadUserProfile(uid, forceRefresh = false) {
-  if (isLoading.profile && !forceRefresh) {
-    console.log('⏳ Profile already loading...');
-    return currentUserData;
-  }
-  
-  isLoading.profile = true;
-  console.log('👤 Loading user profile for:', uid);
-  
-  const user = auth.currentUser;
-  if (!user) {
-    console.error('❌ No authenticated user');
-    isLoading.profile = false;
-    return null;
-  }
-  
-  // Check if we're online
-  const isOnline = navigator.onLine;
-  
-  // Create fallback profile
-  const fallbackProfile = {
-    uid: uid,
-    email: user.email || '',
-    createdAt: new Date().toISOString(),
-    defaultRate: parseFloat(localStorage.getItem('userDefaultRate')) || 50,
-    memberSince: localStorage.getItem('memberSince') || new Date().toISOString(),
-    lastLogin: new Date().toISOString()
-  };
-  
-  // Try to load from Firestore if online
-  if (isOnline && !forceRefresh) {
-    try {
-      const userRef = doc(db, "users", uid);
-      const userSnap = await getDoc(userRef);
-      
-      if (userSnap.exists()) {
-        currentUserData = { uid, ...userSnap.data() };
-        console.log('✅ Profile loaded from Firestore');
-        
-        // Ensure required fields
-        if (!currentUserData.memberSince) {
-          currentUserData.memberSince = fallbackProfile.memberSince;
-          await updateDoc(userRef, { memberSince: currentUserData.memberSince });
-        }
-        
-        if (!currentUserData.defaultRate) {
-          currentUserData.defaultRate = fallbackProfile.defaultRate;
-          await updateDoc(userRef, { defaultRate: currentUserData.defaultRate });
-        }
-        
-        // Update last login
-        await updateDoc(userRef, {
-          lastLogin: new Date().toISOString()
-        });
-        
-      } else {
-        // Create new profile
-        console.log('🆕 Creating new user profile...');
-        const newProfile = {
-          email: user.email,
-          createdAt: new Date().toISOString(),
-          lastLogin: new Date().toISOString(),
-          memberSince: fallbackProfile.memberSince,
-          defaultRate: fallbackProfile.defaultRate,
-          settings: {}
-        };
-        
-        await setDoc(userRef, newProfile);
-        currentUserData = { uid, ...newProfile };
-        console.log('✅ New profile created');
-      }
-      
-      // Cache profile locally
-      cacheData(`profile_${uid}`, currentUserData);
-      
-      // Update default rate in localStorage
-      if (currentUserData.defaultRate) {
-        localStorage.setItem('userDefaultRate', currentUserData.defaultRate.toString());
-      }
-      
-    } catch (error) {
-      console.warn('⚠️ Error loading profile from Firestore:', error.message);
-      // Fall back to cached data
-      currentUserData = getCachedData(`profile_${uid}`) || fallbackProfile;
-    }
-  } else {
-    // Offline mode - use cached data
-    console.log('📴 Offline - using cached profile');
-    currentUserData = getCachedData(`profile_${uid}`) || fallbackProfile;
-  }
-  
-  isLoading.profile = false;
-  return currentUserData;
-}
-
-// ===========================
-// STUDENT FUNCTIONS
-// ===========================
 
 async function loadStudents(userId, forceRefresh = false) {
-  if (isLoading.students && !forceRefresh) {
-    console.log('⏳ Students already loading...');
-    return allStudents;
-  }
+  console.log('📚 Loading students...');
   
-  isLoading.students = true;
-  console.log('📚 Loading students for user:', userId);
-  
-  const isOnline = navigator.onLine;
-  
-  // Try to load from Firestore if online
-  if (isOnline && !forceRefresh) {
-    try {
-      const studentsRef = collection(db, "users", userId, "students");
-      const querySnapshot = await getDocs(studentsRef);
-      
-      allStudents = [];
-      querySnapshot.forEach((doc) => {
-        allStudents.push({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt || new Date().toISOString()
-        });
-      });
-      
-      console.log(`✅ Loaded ${allStudents.length} students from Firestore`);
-      
-      // Cache locally
-      cacheData(`students_${userId}`, allStudents);
-      
-      // Update UI
-      updateStudentsTable();
-      updateStudentDropdowns();
-      
-    } catch (error) {
-      console.warn('⚠️ Error loading students from Firestore:', error.message);
-      // Fall back to cached data
-      allStudents = getCachedData(`students_${userId}`) || [];
+  // Check cache first (unless forced)
+  const cacheKey = `students_${userId}`;
+  if (!forceRefresh) {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      // Use cache if less than 5 minutes old
+      if (Date.now() - parsed.timestamp < 5 * 60 * 1000) {
+        allStudents = parsed.data;
+        updateStudentsTable();
+        updateStudentDropdowns();
+        console.log(`📦 Using cached students (${allStudents.length})`);
+        return allStudents;
+      }
     }
-  } else {
-    // Offline mode
-    console.log('📴 Offline - using cached students');
-    allStudents = getCachedData(`students_${userId}`) || [];
   }
   
-  // Update UI even with empty data
+  try {
+    // Try Firestore
+    const studentsRef = collection(db, "users", userId, "students");
+    const querySnapshot = await getDocs(studentsRef);
+    
+    allStudents = [];
+    querySnapshot.forEach((doc) => {
+      allStudents.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    console.log(`✅ Loaded ${allStudents.length} students from Firestore`);
+    
+    // Cache results
+    localStorage.setItem(cacheKey, JSON.stringify({
+      data: allStudents,
+      timestamp: Date.now()
+    }));
+    
+  } catch (error) {
+    console.warn('⚠️ Error loading students:', error.message);
+    
+    // Fall back to cache
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      allStudents = parsed.data || [];
+      console.log(`📦 Fell back to cached students (${allStudents.length})`);
+    } else {
+      allStudents = [];
+    }
+  }
+  
   updateStudentsTable();
   updateStudentDropdowns();
-  
-  isLoading.students = false;
   return allStudents;
 }
 
+async function loadHours(userId, forceRefresh = false) {
+  console.log('⏰ Loading hours...');
+  
+  // Check cache
+  const cacheKey = `hours_${userId}`;
+  if (!forceRefresh) {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Date.now() - parsed.timestamp < 5 * 60 * 1000) {
+        allHours = parsed.data;
+        updateHoursTable();
+        console.log(`📦 Using cached hours (${allHours.length})`);
+        return allHours;
+      }
+    }
+  }
+  
+  try {
+    const hoursRef = collection(db, "users", userId, "hours");
+    const querySnapshot = await getDocs(hoursRef);
+    
+    allHours = [];
+    querySnapshot.forEach((doc) => {
+      allHours.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    console.log(`✅ Loaded ${allHours.length} hours from Firestore`);
+    
+    // Cache
+    localStorage.setItem(cacheKey, JSON.stringify({
+      data: allHours,
+      timestamp: Date.now()
+    }));
+    
+  } catch (error) {
+    console.warn('⚠️ Error loading hours:', error.message);
+    
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      allHours = parsed.data || [];
+    } else {
+      allHours = [];
+    }
+  }
+  
+  updateHoursTable();
+  return allHours;
+}
+
+// ===========================
+// 5. UI UPDATES
+// ===========================
 function updateStudentsTable() {
   const tableBody = document.querySelector('#students-table tbody');
   if (!tableBody) return;
@@ -403,7 +379,7 @@ function updateStudentsTable() {
   
   if (allStudents.length === 0) {
     const row = document.createElement('tr');
-    row.innerHTML = `<td colspan="5" class="no-data">No students found. Add your first student!</td>`;
+    row.innerHTML = `<td colspan="5" class="no-data">No students yet. Add your first student!</td>`;
     tableBody.appendChild(row);
     return;
   }
@@ -411,10 +387,10 @@ function updateStudentsTable() {
   allStudents.forEach(student => {
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td>${student.name || 'Unnamed Student'}</td>
+      <td>${student.name || 'Unnamed'}</td>
       <td>${student.email || '-'}</td>
       <td>${student.phone || '-'}</td>
-      <td>$${student.rate || currentUserData?.defaultRate || 0}/hr</td>
+      <td>$${student.rate || currentUserData?.defaultRate || 50}/hr</td>
       <td>
         <button class="btn-small btn-edit" onclick="editStudent('${student.id}')">Edit</button>
         <button class="btn-small btn-delete" onclick="deleteStudent('${student.id}')">Delete</button>
@@ -422,163 +398,23 @@ function updateStudentsTable() {
     `;
     tableBody.appendChild(row);
   });
-  
-  console.log(`✅ Updated students table with ${allStudents.length} students`);
 }
 
 function updateStudentDropdowns() {
-  const studentSelects = document.querySelectorAll('select[name="studentId"], .student-select');
+  const studentSelects = document.querySelectorAll('select[name="studentId"]');
   
   studentSelects.forEach(select => {
     const currentValue = select.value;
-    
     select.innerHTML = '<option value="">Select Student</option>';
     
     allStudents.forEach(student => {
       const option = document.createElement('option');
       option.value = student.id;
       option.textContent = student.name || `Student ${student.id.substring(0, 6)}`;
-      option.selected = (student.id === currentValue);
+      if (student.id === currentValue) option.selected = true;
       select.appendChild(option);
     });
   });
-  
-  console.log(`✅ Updated ${studentSelects.length} student dropdowns`);
-}
-
-async function saveStudent(studentData) {
-  const user = auth.currentUser;
-  if (!user) {
-    showToast('Please sign in to save students', 'error');
-    return false;
-  }
-  
-  try {
-    const studentsRef = collection(db, "users", user.uid, "students");
-    const studentId = studentData.id || `student_${Date.now()}`;
-    
-    const studentToSave = {
-      ...studentData,
-      id: undefined, // Remove id from data since it's the document ID
-      updatedAt: new Date().toISOString(),
-      createdAt: studentData.createdAt || new Date().toISOString()
-    };
-    
-    if (studentData.id) {
-      // Update existing
-      await updateDoc(doc(studentsRef, studentData.id), studentToSave);
-      console.log('✅ Student updated:', studentData.id);
-    } else {
-      // Create new
-      await setDoc(doc(studentsRef, studentId), studentToSave);
-      console.log('✅ Student created:', studentId);
-    }
-    
-    // Reload students
-    await loadStudents(user.uid, true);
-    updateAllStats();
-    
-    showToast('Student saved successfully!', 'success');
-    return true;
-    
-  } catch (error) {
-    console.error('❌ Error saving student:', error);
-    showToast('Error saving student', 'error');
-    return false;
-  }
-}
-
-async function editStudent(studentId) {
-  const student = allStudents.find(s => s.id === studentId);
-  if (!student) {
-    showToast('Student not found', 'error');
-    return;
-  }
-  
-  // Populate form
-  if (uiElements.studentForm) {
-    if (uiElements.studentIdInput) uiElements.studentIdInput.value = student.id;
-    if (uiElements.studentNameInput) uiElements.studentNameInput.value = student.name || '';
-    if (uiElements.studentEmailInput) uiElements.studentEmailInput.value = student.email || '';
-    if (uiElements.studentPhoneInput) uiElements.studentPhoneInput.value = student.phone || '';
-    if (uiElements.studentRateInput) uiElements.studentRateInput.value = student.rate || currentUserData?.defaultRate || 50;
-    
-    // Show form
-    uiElements.studentForm.scrollIntoView({ behavior: 'smooth' });
-    showToast(`Editing student: ${student.name}`, 'info');
-  }
-}
-
-async function deleteStudent(studentId) {
-  if (!confirm('Are you sure you want to delete this student? This will also delete their hours and payments.')) {
-    return;
-  }
-  
-  const user = auth.currentUser;
-  if (!user) return;
-  
-  try {
-    const studentRef = doc(db, "users", user.uid, "students", studentId);
-    await deleteDoc(studentRef);
-    
-    console.log('✅ Student deleted:', studentId);
-    
-    // Reload data
-    await loadStudents(user.uid, true);
-    updateAllStats();
-    
-    showToast('Student deleted successfully', 'success');
-  } catch (error) {
-    console.error('❌ Error deleting student:', error);
-    showToast('Error deleting student', 'error');
-  }
-}
-
-// ===========================
-// HOURS FUNCTIONS
-// ===========================
-
-async function loadHours(userId, forceRefresh = false) {
-  if (isLoading.hours && !forceRefresh) {
-    console.log('⏳ Hours already loading...');
-    return allHours;
-  }
-  
-  isLoading.hours = true;
-  console.log('⏰ Loading hours for user:', userId);
-  
-  const isOnline = navigator.onLine;
-  
-  if (isOnline && !forceRefresh) {
-    try {
-      const hoursRef = collection(db, "users", userId, "hours");
-      const querySnapshot = await getDocs(hoursRef);
-      
-      allHours = [];
-      querySnapshot.forEach((doc) => {
-        allHours.push({
-          id: doc.id,
-          ...doc.data(),
-          date: doc.data().date || new Date().toISOString().split('T')[0]
-        });
-      });
-      
-      console.log(`✅ Loaded ${allHours.length} hours from Firestore`);
-      cacheData(`hours_${userId}`, allHours);
-      updateHoursTable();
-      
-    } catch (error) {
-      console.warn('⚠️ Error loading hours from Firestore:', error.message);
-      allHours = getCachedData(`hours_${userId}`) || [];
-    }
-  } else {
-    console.log('📴 Offline - using cached hours');
-    allHours = getCachedData(`hours_${userId}`) || [];
-  }
-  
-  updateHoursTable();
-  isLoading.hours = false;
-  return allHours;
 }
 
 function updateHoursTable() {
@@ -589,7 +425,7 @@ function updateHoursTable() {
   
   if (allHours.length === 0) {
     const row = document.createElement('tr');
-    row.innerHTML = `<td colspan="6" class="no-data">No hours logged yet. Add your first hour entry!</td>`;
+    row.innerHTML = `<td colspan="6" class="no-data">No hours logged yet</td>`;
     tableBody.appendChild(row);
     return;
   }
@@ -601,9 +437,9 @@ function updateHoursTable() {
   
   sortedHours.forEach(hour => {
     const student = allStudents.find(s => s.id === hour.studentId);
-    const studentName = student ? student.name : 'Unknown Student';
-    const rate = hour.rate || student?.rate || currentUserData?.defaultRate || 0;
-    const earnings = hour.hours * rate;
+    const studentName = student ? student.name : 'Unknown';
+    const rate = hour.rate || student?.rate || currentUserData?.defaultRate || 50;
+    const earnings = (hour.hours || 0) * rate;
     
     const row = document.createElement('tr');
     row.innerHTML = `
@@ -616,8 +452,87 @@ function updateHoursTable() {
     `;
     tableBody.appendChild(row);
   });
+}
+
+function updateAllStats() {
+  console.log('📊 Updating statistics...');
   
-  console.log(`✅ Updated hours table with ${allHours.length} entries`);
+  // Student count
+  const studentCount = document.getElementById('student-count');
+  if (studentCount) studentCount.textContent = allStudents.length;
+  
+  // Total hours
+  const totalHours = allHours.reduce((sum, hour) => sum + (hour.hours || 0), 0);
+  const hourCount = document.getElementById('hour-count');
+  if (hourCount) hourCount.textContent = totalHours.toFixed(1);
+  
+  // Average rate
+  const validRates = allStudents.filter(s => s.rate > 0).map(s => s.rate);
+  const avgRate = validRates.length > 0 
+    ? validRates.reduce((a, b) => a + b, 0) / validRates.length
+    : currentUserData?.defaultRate || 50;
+  
+  const avgRateElement = document.getElementById('avg-rate');
+  if (avgRateElement) avgRateElement.textContent = `$${avgRate.toFixed(2)}/session`;
+  
+  // Total earnings
+  const totalEarnings = allHours.reduce((sum, hour) => {
+    const student = allStudents.find(s => s.id === hour.studentId);
+    const rate = hour.rate || student?.rate || currentUserData?.defaultRate || 50;
+    return sum + ((hour.hours || 0) * rate);
+  }, 0);
+  
+  const totalEarningsElement = document.getElementById('total-earnings');
+  if (totalEarningsElement) totalEarningsElement.textContent = `$${totalEarnings.toFixed(2)}`;
+  
+  console.log(`✅ Stats: ${allStudents.length} students, ${totalHours} hours, $${totalEarnings.toFixed(2)} earnings`);
+}
+
+// ===========================
+// 6. DATA OPERATIONS
+// ===========================
+async function saveStudent(studentData) {
+  const user = auth.currentUser;
+  if (!user) {
+    showToast('Please sign in to save students', 'error');
+    return false;
+  }
+  
+  try {
+    const studentsRef = collection(db, "users", user.uid, "students");
+    
+    if (studentData.id) {
+      // Update existing
+      const studentRef = doc(studentsRef, studentData.id);
+      await updateDoc(studentRef, {
+        ...studentData,
+        id: undefined,
+        updatedAt: new Date().toISOString()
+      });
+      console.log('✅ Student updated:', studentData.id);
+    } else {
+      // Create new
+      const newStudentRef = doc(studentsRef);
+      await setDoc(newStudentRef, {
+        ...studentData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+      console.log('✅ Student created:', newStudentRef.id);
+    }
+    
+    // Reload students
+    await loadStudents(user.uid, true);
+    updateAllStats();
+    
+    showToast('Student saved successfully', 'success');
+    return true;
+    
+  } catch (error) {
+    console.error('❌ Error saving student:', error);
+    showToast('Error saving student: ' + error.message, 'error');
+    return false;
+  }
 }
 
 async function saveHour(hourData) {
@@ -627,174 +542,43 @@ async function saveHour(hourData) {
     return false;
   }
   
-  if (!hourData.studentId) {
-    showToast('Please select a student', 'error');
-    return false;
-  }
-  
-  if (!hourData.hours || hourData.hours <= 0) {
-    showToast('Please enter valid hours', 'error');
-    return false;
-  }
-  
   try {
     const hoursRef = collection(db, "users", user.uid, "hours");
-    const hourId = hourData.id || `hour_${Date.now()}`;
-    
-    const hourToSave = {
-      ...hourData,
-      id: undefined,
-      date: hourData.date || new Date().toISOString().split('T')[0],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
     
     if (hourData.id) {
-      await updateDoc(doc(hoursRef, hourData.id), hourToSave);
+      const hourRef = doc(hoursRef, hourData.id);
+      await updateDoc(hourRef, {
+        ...hourData,
+        id: undefined,
+        updatedAt: new Date().toISOString()
+      });
       console.log('✅ Hour updated:', hourData.id);
     } else {
-      await setDoc(doc(hoursRef, hourId), hourToSave);
-      console.log('✅ Hour created:', hourId);
+      const newHourRef = doc(hoursRef);
+      await setDoc(newHourRef, {
+        ...hourData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+      console.log('✅ Hour created:', newHourRef.id);
     }
     
-    // Reload hours
     await loadHours(user.uid, true);
     updateAllStats();
     
-    showToast('Hours saved successfully!', 'success');
+    showToast('Hours saved successfully', 'success');
     return true;
     
   } catch (error) {
     console.error('❌ Error saving hours:', error);
-    showToast('Error saving hours', 'error');
+    showToast('Error saving hours: ' + error.message, 'error');
     return false;
   }
 }
 
 // ===========================
-// STATS FUNCTIONS
+// 7. IMPORT/EXPORT SYSTEM
 // ===========================
-
-function updateAllStats() {
-  console.log('📊 Updating all statistics...');
-  
-  if (isLoading.stats) return;
-  isLoading.stats = true;
-  
-  try {
-    // Student count
-    if (uiElements.studentCount) {
-      uiElements.studentCount.textContent = allStudents.length;
-    }
-    
-    // Hour count
-    const totalHours = allHours.reduce((sum, hour) => sum + (hour.hours || 0), 0);
-    if (uiElements.hourCount) {
-      uiElements.hourCount.textContent = totalHours.toFixed(1);
-    }
-    
-    // Average rate
-    const validStudents = allStudents.filter(s => s.rate && s.rate > 0);
-    const avgStudentRate = validStudents.length > 0 
-      ? validStudents.reduce((sum, s) => sum + s.rate, 0) / validStudents.length
-      : currentUserData?.defaultRate || 50;
-    
-    if (uiElements.avgRate) {
-      uiElements.avgRate.textContent = `$${avgStudentRate.toFixed(2)}/session`;
-    }
-    
-    // Total earnings
-    const totalEarnings = allHours.reduce((sum, hour) => {
-      const student = allStudents.find(s => s.id === hour.studentId);
-      const rate = hour.rate || student?.rate || currentUserData?.defaultRate || 0;
-      return sum + (hour.hours * rate);
-    }, 0);
-    
-    if (uiElements.totalEarnings) {
-      uiElements.totalEarnings.textContent = `$${totalEarnings.toFixed(2)}`;
-    }
-    
-    console.log(`✅ Stats updated: ${allStudents.length} students, ${totalHours} hours, $${totalEarnings.toFixed(2)} earnings`);
-    
-  } catch (error) {
-    console.error('❌ Error updating stats:', error);
-  } finally {
-    isLoading.stats = false;
-  }
-}
-
-// ===========================
-// CACHE MANAGEMENT
-// ===========================
-
-function cacheData(key, data) {
-  try {
-    localStorage.setItem(`cache_${key}`, JSON.stringify({
-      data: data,
-      timestamp: Date.now()
-    }));
-  } catch (error) {
-    console.warn(`⚠️ Could not cache ${key}:`, error.message);
-  }
-}
-
-function getCachedData(key) {
-  try {
-    const cached = localStorage.getItem(`cache_${key}`);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      // Check if cache is fresh (less than 1 hour old)
-      if (Date.now() - parsed.timestamp < 60 * 60 * 1000) {
-        return parsed.data;
-      }
-    }
-  } catch (error) {
-    console.warn(`⚠️ Error reading cached ${key}:`, error.message);
-  }
-  return null;
-}
-
-function clearAllCache() {
-  const keysToRemove = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key.startsWith('cache_')) {
-      keysToRemove.push(key);
-    }
-  }
-  
-  keysToRemove.forEach(key => localStorage.removeItem(key));
-  console.log(`🧹 Cleared ${keysToRemove.length} cached items`);
-}
-
-// ===========================
-// SYNC & IMPORT/EXPORT
-// ===========================
-
-async function syncNow() {
-  const user = auth.currentUser;
-  if (!user) {
-    showToast('Please sign in to sync', 'error');
-    return;
-  }
-  
-  showToast('Syncing data...', 'info');
-  
-  try {
-    // Force refresh all data
-    await loadUserProfile(user.uid, true);
-    await loadStudents(user.uid, true);
-    await loadHours(user.uid, true);
-    
-    updateAllStats();
-    
-    showToast('Sync complete!', 'success');
-  } catch (error) {
-    console.error('❌ Sync error:', error);
-    showToast('Sync failed', 'error');
-  }
-}
-
 async function exportData() {
   console.log('📤 Exporting data...');
   
@@ -805,14 +589,9 @@ async function exportData() {
   }
   
   try {
-    // Show loading
-    showToast('Preparing export...', 'info');
-    
-    // Gather data
     const exportData = {
       version: '2.0',
       exportedAt: new Date().toISOString(),
-      app: 'WorkLog Pro',
       user: {
         email: user.email,
         uid: user.uid
@@ -820,47 +599,26 @@ async function exportData() {
       data: {
         students: allStudents,
         hours: allHours,
-        payments: allPayments || [],
-        attendance: allAttendance || [],
-        marks: allMarks || []
-      },
-      stats: {
-        totalStudents: allStudents.length,
-        totalHours: allHours.reduce((sum, h) => sum + (h.hours || 0), 0),
-        totalEarnings: allHours.reduce((sum, hour) => {
-          const student = allStudents.find(s => s.id === hour.studentId);
-          const rate = hour.rate || student?.rate || currentUserData?.defaultRate || 0;
-          return sum + (hour.hours * rate);
-        }, 0),
-        lastUpdated: new Date().toISOString()
+        payments: allPayments,
+        attendance: allAttendance,
+        marks: allMarks
       }
     };
     
-    // Convert to JSON
     const dataStr = JSON.stringify(exportData, null, 2);
-    
-    // Create download
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     
     const link = document.createElement('a');
     link.href = url;
-    link.download = `WorkLog_Export_${user.email}_${new Date().toISOString().split('T')[0]}.json`;
-    
-    // Add to page, click, and remove
+    link.download = `worklog_backup_${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     
-    // Clean up
     setTimeout(() => URL.revokeObjectURL(url), 100);
     
-    console.log('✅ Export complete:', {
-      students: allStudents.length,
-      hours: allHours.length
-    });
-    
-    showToast(`Exported ${allStudents.length} students & ${allHours.length} hours`, 'success');
+    showToast(`Exported ${allStudents.length} students and ${allHours.length} hours`, 'success');
     
   } catch (error) {
     console.error('❌ Export error:', error);
@@ -869,7 +627,7 @@ async function exportData() {
 }
 
 async function importData(file) {
-  console.log('📥 Importing from file:', file.name, file.size, 'bytes');
+  console.log('📥 Importing data from:', file.name);
   
   const user = auth.currentUser;
   if (!user) {
@@ -880,40 +638,27 @@ async function importData(file) {
   showToast('Reading import file...', 'info');
   
   try {
-    // Read file
     const text = await file.text();
     const importData = JSON.parse(text);
     
-    console.log('📄 File parsed:', {
-      version: importData.version,
-      hasStudents: !!importData.data?.students,
-      studentCount: importData.data?.students?.length || 0,
-      hourCount: importData.data?.hours?.length || 0
-    });
-    
     // Validate
     if (!importData.data || !Array.isArray(importData.data.students)) {
-      throw new Error('Invalid file format. Missing students data.');
-    }
-    
-    if (importData.data.students.length === 0) {
-      throw new Error('File contains no student data.');
+      throw new Error('Invalid backup file format');
     }
     
     showToast(`Importing ${importData.data.students.length} students...`, 'info');
     
-    let importedStudents = 0;
-    let importedHours = 0;
-    let errors = [];
+    let importedCount = 0;
+    let errorCount = 0;
     
     // Import students
     for (const student of importData.data.students) {
       try {
         await saveStudent(student);
-        importedStudents++;
+        importedCount++;
       } catch (error) {
-        errors.push(`Student ${student.name || student.id}: ${error.message}`);
-        console.warn('Student import error:', student.name, error);
+        console.warn('Failed to import student:', error);
+        errorCount++;
       }
     }
     
@@ -924,30 +669,20 @@ async function importData(file) {
       for (const hour of importData.data.hours) {
         try {
           await saveHour(hour);
-          importedHours++;
         } catch (error) {
-          errors.push(`Hour ${hour.id}: ${error.message}`);
-          console.warn('Hour import error:', hour.id, error);
+          console.warn('Failed to import hour:', error);
         }
       }
     }
     
     // Reload data
     await loadStudents(user.uid, true);
-    await loadHours(user.uid, true);
     updateAllStats();
     
-    console.log('✅ Import complete:', {
-      students: importedStudents,
-      hours: importedHours,
-      errors: errors.length
-    });
-    
-    if (errors.length > 0) {
-      showToast(`Imported ${importedStudents} students, ${importedHours} hours (${errors.length} errors)`, 'warning');
-      console.log('Import errors:', errors);
+    if (errorCount > 0) {
+      showToast(`Imported ${importedCount} students (${errorCount} errors)`, 'warning');
     } else {
-      showToast(`Successfully imported ${importedStudents} students and ${importedHours} hours`, 'success');
+      showToast(`Successfully imported ${importedCount} students`, 'success');
     }
     
     return true;
@@ -960,75 +695,66 @@ async function importData(file) {
 }
 
 // ===========================
-// UI FUNCTIONS
+// 8. BUTTON & FAB SYSTEM
 // ===========================
-
-function initializeTabs() {
-  console.log('📑 Initializing tabs...');
+function setupAllButtons() {
+  console.log('🎯 Setting up ALL buttons...');
   
-  if (!uiElements.tabButtons || !uiElements.tabContents) {
-    console.warn('⚠️ Tab elements not found');
-    return;
-  }
+  // Create file input for imports
+  const importFileInput = document.createElement('input');
+  importFileInput.type = 'file';
+  importFileInput.accept = '.json';
+  importFileInput.style.display = 'none';
+  importFileInput.id = 'import-file-input';
+  document.body.appendChild(importFileInput);
   
-  uiElements.tabButtons.forEach(button => {
-    button.addEventListener('click', () => {
-      const tabName = button.getAttribute('data-tab');
-      switchTab(tabName);
-    });
+  importFileInput.addEventListener('change', async (e) => {
+    if (e.target.files[0]) {
+      console.log('📄 File selected for import:', e.target.files[0].name);
+      await importData(e.target.files[0]);
+    }
   });
   
-  // Show first tab by default
-  if (uiElements.tabButtons.length > 0) {
-    const firstTab = uiElements.tabButtons[0].getAttribute('data-tab');
-    switchTab(firstTab);
-  }
-}
-
-function switchTab(tabName) {
-  console.log(`🔄 Switching to tab: ${tabName}`);
-  
-  // Update active tab button
-  uiElements.tabButtons.forEach(button => {
-    const isActive = button.getAttribute('data-tab') === tabName;
-    button.classList.toggle('active', isActive);
-  });
-  
-  // Show active tab content
-  uiElements.tabContents.forEach(content => {
-    const isActive = content.id === `${tabName}-tab`;
-    content.style.display = isActive ? 'block' : 'none';
-  });
-  
-  // Load tab-specific data if needed
-  switch (tabName) {
-    case 'students':
-      updateStudentsTable();
-      break;
-    case 'hours':
-      updateHoursTable();
-      break;
-    case 'payments':
-      // updatePaymentsTable(); // If implemented
-      break;
-  }
-}
-
-function setupFormHandlers() {
-  console.log('📝 Setting up form handlers...');
-  
-  // Student form
-  if (uiElements.studentForm) {
-    uiElements.studentForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
+  // Map buttons to functions
+  const buttonMap = {
+    // Sync/Export/Import buttons
+    'syncBtn': syncNow,
+    'exportCloudBtn': exportData,
+    'exportDataBtn': exportData,
+    'importCloudBtn': () => importFileInput.click(),
+    'importDataBtn': () => importFileInput.click(),
+    'syncStatsBtn': () => { updateAllStats(); showToast('Stats refreshed', 'success'); },
+    'clearDataBtn': () => {
+      if (confirm('Clear ALL local cached data?')) {
+        localStorage.clear();
+        showToast('Cache cleared', 'success');
+        setTimeout(() => location.reload(), 1000);
+      }
+    },
+    'logoutBtn': async () => {
+      if (confirm('Are you sure you want to log out?')) {
+        try {
+          await signOut(auth);
+          showToast('Logged out successfully', 'success');
+        } catch (error) {
+          console.error('Logout error:', error);
+          showToast('Logout failed', 'error');
+        }
+      }
+    },
+    
+    // Student form
+    'studentSubmitBtn': async () => {
+      const form = document.getElementById('student-form');
+      if (!form) return;
       
+      const formData = new FormData(form);
       const studentData = {
-        id: uiElements.studentIdInput?.value || undefined,
-        name: uiElements.studentNameInput?.value || '',
-        email: uiElements.studentEmailInput?.value || '',
-        phone: uiElements.studentPhoneInput?.value || '',
-        rate: parseFloat(uiElements.studentRateInput?.value) || currentUserData?.defaultRate || 50,
-        notes: uiElements.studentNotesInput?.value || ''
+        id: formData.get('student-id') || undefined,
+        name: formData.get('student-name'),
+        email: formData.get('student-email'),
+        phone: formData.get('student-phone'),
+        rate: parseFloat(formData.get('student-rate')) || currentUserData?.defaultRate || 50
       };
       
       if (!studentData.name) {
@@ -1036,27 +762,24 @@ function setupFormHandlers() {
         return;
       }
       
-      const saved = await saveStudent(studentData);
-      if (saved) {
-        uiElements.studentForm.reset();
-        if (uiElements.studentIdInput) uiElements.studentIdInput.value = '';
-        showToast('Student saved successfully!', 'success');
-      }
-    });
-  }
-  
-  // Hour form
-  if (uiElements.hourForm) {
-    uiElements.hourForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
+      await saveStudent(studentData);
+      form.reset();
+      document.getElementById('student-id')?.value = '';
+    },
+    
+    // Hour form
+    'logHoursBtn': async () => {
+      const form = document.getElementById('hour-form');
+      if (!form) return;
       
+      const formData = new FormData(form);
       const hourData = {
-        id: uiElements.hourIdInput?.value || undefined,
-        studentId: uiElements.hourStudentInput?.value || '',
-        date: uiElements.hourDateInput?.value || new Date().toISOString().split('T')[0],
-        hours: parseFloat(uiElements.hourHoursInput?.value) || 0,
-        rate: parseFloat(uiElements.hourRateInput?.value) || undefined,
-        notes: uiElements.hourNotesInput?.value || ''
+        id: formData.get('hour-id') || undefined,
+        studentId: formData.get('hour-student'),
+        date: formData.get('hour-date') || new Date().toISOString().split('T')[0],
+        hours: parseFloat(formData.get('hour-hours')) || 0,
+        rate: parseFloat(formData.get('hour-rate')) || undefined,
+        notes: formData.get('hour-notes')
       };
       
       if (!hourData.studentId) {
@@ -1069,23 +792,20 @@ function setupFormHandlers() {
         return;
       }
       
-      const saved = await saveHour(hourData);
-      if (saved) {
-        uiElements.hourForm.reset();
-        if (uiElements.hourIdInput) uiElements.hourIdInput.value = '';
-        showToast('Hours saved successfully!', 'success');
-      }
-    });
-  }
+      await saveHour(hourData);
+      form.reset();
+      document.getElementById('hour-id')?.value = '';
+    }
+  };
   
-  console.log('✅ Form handlers set up');
-}
-
-function setupEventListeners() {
-  console.log('🔗 Setting up event listeners with CORRECT IDs...');
-  
-  // Setup all buttons with your actual IDs
-  setupButtonsWithCorrectIDs();
+  // Apply button handlers
+  Object.entries(buttonMap).forEach(([id, handler]) => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.onclick = handler;
+      console.log(`✅ ${id} connected`);
+    }
+  });
   
   // Setup FAB system
   setupFABSystem();
@@ -1093,63 +813,60 @@ function setupEventListeners() {
   // Setup tab buttons
   setupTabButtons();
   
-  // Setup form handlers
-  setupFormHandlers();
-  
-  // Network listeners
-  window.addEventListener('online', handleOnline);
-  window.addEventListener('offline', handleOffline);
-  
-  console.log('✅ All event listeners set up');
+  console.log('✅ All buttons configured');
 }
 
-function setupButtonsWithCorrectIDs() {
-  console.log('⚡ Setting up buttons with your actual IDs...');
+function setupFABSystem() {
+  console.log('🌀 Setting up FAB system...');
   
-  // Create file input for imports
-  const importFileInput = document.createElement('input');
-  importFileInput.type = 'file';
-  importFileInput.accept = '.json';
-  importFileInput.style.display = 'none';
-  importFileInput.id = 'global-import-input';
-  document.body.appendChild(importFileInput);
+  const floatingAddBtn = document.getElementById('floatingAddBtn');
+  const fabMenu = document.querySelector('.fab-menu, .fab-container');
   
-  importFileInput.addEventListener('change', async (e) => {
-    if (e.target.files[0]) {
-      console.log('📄 File selected:', e.target.files[0].name);
-      await importData(e.target.files[0]);
-    }
-  });
+  if (floatingAddBtn && fabMenu) {
+    floatingAddBtn.onclick = () => {
+      const isHidden = fabMenu.style.display === 'none' || !fabMenu.style.display;
+      fabMenu.style.display = isHidden ? 'flex' : 'none';
+      console.log('➕ FAB menu toggled');
+    };
+    console.log('✅ Main FAB connected');
+  }
   
-  // Map of button IDs to functions
-  const buttonMap = {
-    'syncBtn': syncNow,
-    'exportCloudBtn': exportData,
-    'exportDataBtn': exportData,
-    'importCloudBtn': () => importFileInput.click(),
-    'importDataBtn': () => importFileInput.click(),
-    'syncStatsBtn': () => { updateAllStats(); showToast('Stats refreshed', 'success'); },
-    'clearDataBtn': () => {
-      if (confirm('Clear ALL local data?')) {
-        localStorage.clear();
-        showToast('Cache cleared', 'success');
-        setTimeout(() => location.reload(), 1000);
-      }
-    },
-    'logoutBtn': async () => {
-      if (confirm('Log out?')) {
-        try {
-          await auth.signOut();
-          showToast('Logged out', 'success');
-        } catch (error) {
-          showToast('Logout error', 'error');
+  // FAB items
+  const fabItems = {
+    'fabAddStudent': () => {
+      console.log('👤 Add Student FAB clicked');
+      switchTab('students');
+      setTimeout(() => {
+        const nameInput = document.getElementById('student-name');
+        if (nameInput) {
+          nameInput.focus();
+          nameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-      }
+      }, 300);
+    },
+    'fabAddHours': () => {
+      console.log('⏱️ Log Hours FAB clicked');
+      switchTab('hours');
+      setTimeout(() => {
+        const dateInput = document.getElementById('hour-date');
+        if (dateInput) {
+          dateInput.value = new Date().toISOString().split('T')[0];
+          dateInput.focus();
+          dateInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 300);
+    },
+    'fabAddMark': () => {
+      console.log('📝 Add Mark FAB clicked');
+      switchTab('marks');
+    },
+    'fabAddAttendance': () => {
+      console.log('✅ Take Attendance FAB clicked');
+      switchTab('attendance');
     }
   };
   
-  // Apply handlers
-  Object.entries(buttonMap).forEach(([id, handler]) => {
+  Object.entries(fabItems).forEach(([id, handler]) => {
     const btn = document.getElementById(id);
     if (btn) {
       btn.onclick = handler;
@@ -1158,95 +875,209 @@ function setupButtonsWithCorrectIDs() {
   });
 }
 
-// ===========================
-// UTILITY FUNCTIONS
-// ===========================
+function setupTabButtons() {
+  console.log('📑 Setting up tab buttons...');
+  
+  const tabButtons = document.querySelectorAll('.tab');
+  tabButtons.forEach(btn => {
+    btn.onclick = () => {
+      const text = btn.textContent.trim().toLowerCase();
+      let tabName = '';
+      
+      if (text.includes('student')) tabName = 'students';
+      else if (text.includes('hour')) tabName = 'hours';
+      else if (text.includes('mark')) tabName = 'marks';
+      else if (text.includes('attendance')) tabName = 'attendance';
+      else if (text.includes('payment')) tabName = 'payments';
+      else if (text.includes('report')) tabName = 'reports';
+      
+      if (tabName) {
+        console.log(`📑 Switching to ${tabName} tab`);
+        switchTab(tabName);
+      }
+    };
+  });
+  
+  console.log(`✅ ${tabButtons.length} tab buttons connected`);
+}
 
-function formatDate(dateString) {
-  if (!dateString) return '-';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
+function switchTab(tabName) {
+  console.log(`📑 Switching to tab: ${tabName}`);
+  
+  // Hide all tab contents
+  document.querySelectorAll('.tab-content').forEach(el => {
+    el.style.display = 'none';
+  });
+  
+  // Show selected tab
+  const tabContent = document.getElementById(`${tabName}-tab`);
+  if (tabContent) tabContent.style.display = 'block';
+  
+  // Update active tab buttons
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  
+  // Find and activate matching tab button
+  document.querySelectorAll('.tab').forEach(tab => {
+    const text = tab.textContent.trim().toLowerCase();
+    if (text.includes(tabName.toLowerCase())) {
+      tab.classList.add('active');
+    }
   });
 }
 
-function showToast(message, type = 'info') {
-  console.log(`📢 Toast (${type}): ${message}`);
+// ===========================
+// 9. SYNC FUNCTION
+// ===========================
+async function syncNow() {
+  console.log('🔄 Syncing data...');
   
-  // Create or get toast container
-  let toastContainer = document.getElementById('toast-container');
-  if (!toastContainer) {
-    toastContainer = document.createElement('div');
-    toastContainer.id = 'toast-container';
-    toastContainer.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      z-index: 10000;
-      max-width: 300px;
-    `;
-    document.body.appendChild(toastContainer);
+  const user = auth.currentUser;
+  if (!user) {
+    showToast('Please sign in to sync', 'error');
+    return;
   }
   
-  // Create toast element
-  const toast = document.createElement('div');
-  toast.className = `toast toast-${type}`;
-  toast.textContent = message;
-  toast.style.cssText = `
-    background: ${type === 'success' ? '#4CAF50' : 
-                 type === 'error' ? '#f44336' : 
-                 type === 'warning' ? '#ff9800' : '#2196F3'};
-    color: white;
-    padding: 12px 20px;
-    margin-bottom: 10px;
-    border-radius: 4px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    animation: slideIn 0.3s ease;
-  `;
+  showToast('Syncing data...', 'info');
   
-  toastContainer.appendChild(toast);
-  
-  // Remove toast after 5 seconds
-  setTimeout(() => {
-    if (toast.parentNode) {
-      toast.style.animation = 'slideOut 0.3s ease';
-      setTimeout(() => {
-        if (toast.parentNode) {
-          toast.parentNode.removeChild(toast);
-        }
-      }, 300);
-    }
-  }, 5000);
+  try {
+    // Force refresh all data
+    await loadUserProfile(user.uid);
+    await loadStudents(user.uid, true);
+    await loadHours(user.uid, true);
+    
+    updateAllStats();
+    
+    showToast('Sync complete!', 'success');
+    
+  } catch (error) {
+    console.error('❌ Sync error:', error);
+    showToast('Sync failed: ' + error.message, 'error');
+  }
 }
 
 // ===========================
-// GLOBAL EXPORTS
+// 10. UTILITY FUNCTIONS
 // ===========================
+function formatDate(dateString) {
+  if (!dateString) return '-';
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch {
+    return dateString;
+  }
+}
 
-// Make functions available globally for onclick handlers
-window.editStudent = editStudent;
-window.deleteStudent = deleteStudent;
+// ===========================
+// 11. INITIALIZATION
+// ===========================
+async function initializeApp() {
+  console.log('🚀 Initializing WorkLog App...');
+  
+  try {
+    // Check auth state
+    await checkAuthState();
+    
+    // Setup all buttons and event listeners
+    setupAllButtons();
+    
+    // Setup network listeners
+    window.addEventListener('online', () => {
+      console.log('🌐 Online');
+      showToast('Back online!', 'success');
+      if (auth.currentUser) {
+        setTimeout(syncNow, 2000);
+      }
+    });
+    
+    window.addEventListener('offline', () => {
+      console.log('📴 Offline');
+      showToast('Working offline', 'warning');
+    });
+    
+    console.log('✅ App initialization complete');
+    showToast('App ready!', 'success');
+    
+  } catch (error) {
+    console.error('❌ App initialization failed:', error);
+    showToast('App initialization failed', 'error');
+  }
+}
+
+// ===========================
+// 12. GLOBAL EXPORTS
+// ===========================
+// Make functions available globally for onclick handlers in HTML
+window.editStudent = async (studentId) => {
+  const student = allStudents.find(s => s.id === studentId);
+  if (!student) {
+    showToast('Student not found', 'error');
+    return;
+  }
+  
+  // Populate form
+  const form = document.getElementById('student-form');
+  if (form) {
+    document.getElementById('student-id').value = student.id;
+    document.getElementById('student-name').value = student.name || '';
+    document.getElementById('student-email').value = student.email || '';
+    document.getElementById('student-phone').value = student.phone || '';
+    document.getElementById('student-rate').value = student.rate || currentUserData?.defaultRate || 50;
+    
+    // Switch to students tab and scroll to form
+    switchTab('students');
+    setTimeout(() => {
+      form.scrollIntoView({ behavior: 'smooth' });
+    }, 300);
+    
+    showToast(`Editing student: ${student.name}`, 'info');
+  }
+};
+
+window.deleteStudent = async (studentId) => {
+  if (!confirm('Are you sure you want to delete this student?')) {
+    return;
+  }
+  
+  const user = auth.currentUser;
+  if (!user) return;
+  
+  try {
+    const studentRef = doc(db, "users", user.uid, "students", studentId);
+    await deleteDoc(studentRef);
+    
+    console.log('✅ Student deleted:', studentId);
+    
+    // Reload students
+    await loadStudents(user.uid, true);
+    updateAllStats();
+    
+    showToast('Student deleted successfully', 'success');
+    
+  } catch (error) {
+    console.error('❌ Error deleting student:', error);
+    showToast('Error deleting student', 'error');
+  }
+};
+
+// Also export other functions that might be called from HTML
 window.syncNow = syncNow;
 window.exportData = exportData;
-window.importData = importData;
+window.showToast = showToast;
+window.switchTab = switchTab;
 
-// Add CSS for animations
-if (!document.getElementById('toast-styles')) {
-  const style = document.createElement('style');
-  style.id = 'toast-styles';
-  style.textContent = `
-    @keyframes slideIn {
-      from { transform: translateX(100%); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
-    }
-    @keyframes slideOut {
-      from { transform: translateX(0); opacity: 1; }
-      to { transform: translateX(100%); opacity: 0; }
-    }
-  `;
-  document.head.appendChild(style);
-}
+// ===========================
+// 13. START THE APP
+// ===========================
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('📄 DOM Content Loaded');
+  initializeApp();
+});
 
 console.log('✅ app.js loaded successfully');
