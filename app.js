@@ -1291,8 +1291,26 @@ async function initializeApp() {
   // Initialize notification system first
   NotificationSystem.initNotificationStyles();
   
-  // Check auth status immediately
-  const user = await checkAuthStatus();
+  // Check auth status with timeout
+  let user = null;
+  try {
+    // Wait for auth state to be determined
+    user = await new Promise((resolve) => {
+      const unsubscribe = onAuthStateChanged(auth, (user) => {
+        unsubscribe();
+        resolve(user);
+      });
+      
+      // Timeout after 3 seconds
+      setTimeout(() => {
+        unsubscribe();
+        resolve(null);
+      }, 3000);
+    });
+  } catch (error) {
+    console.error('❌ Auth check error:', error);
+    user = null;
+  }
   
   if (user) {
     console.log('✅ User authenticated:', user.email, 'UID:', user.uid);
@@ -1319,23 +1337,114 @@ async function initializeApp() {
     console.log('✅ App initialization complete');
     
   } else {
-    console.log('❌ No user signed in, redirecting to auth...');
-    window.location.href = "auth.html";
+    console.log('⚠️ No user signed in or auth timeout');
+    
+    // Check if we're already on the auth page
+    if (window.location.pathname.includes('auth.html')) {
+      console.log('Already on auth page');
+      return;
+    }
+    
+    // Try to check if auth.html exists before redirecting
+    try {
+      const response = await fetch('auth.html');
+      if (response.ok) {
+        console.log('Redirecting to auth.html...');
+        window.location.href = 'auth.html';
+      } else {
+        console.error('auth.html not found, staying on page');
+        // Initialize without auth
+        setupTabNavigation();
+        setupFormHandlers();
+        NotificationSystem.notifyWarning('Working in offline mode. Data will be saved locally only.');
+      }
+    } catch (error) {
+      console.error('Error checking for auth.html:', error);
+      // Initialize without auth
+      setupTabNavigation();
+      setupFormHandlers();
+      NotificationSystem.notifyInfo('Working offline. Sign in to sync across devices.');
+    }
   }
+}
+
+// ===========================
+// FIX FOR MISSING AUTH.HTML
+// ===========================
+
+// Alternative: Create a simple inline auth check
+function checkAuthAndInitialize() {
+  // Check if we're on the index page
+  if (window.location.pathname.includes('index.html') || 
+      window.location.pathname === '/' || 
+      window.location.pathname.endsWith('.github.io/') ||
+      window.location.pathname.endsWith('.github.io/WorkLogPro/')) {
+    
+    // Check auth state
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log('✅ User is signed in:', user.email);
+        // User is signed in, continue with app initialization
+        fullAppInitialization(user);
+      } else {
+        console.log('⚠️ No user signed in');
+        
+        // Check if auth.html exists
+        fetch('auth.html')
+          .then(response => {
+            if (response.ok) {
+              console.log('Redirecting to auth.html');
+              window.location.href = 'auth.html';
+            } else {
+              console.log('auth.html not found, continuing in offline mode');
+              setupTabNavigation();
+              setupFormHandlers();
+              NotificationSystem.notifyInfo('Working offline. Sign in to sync across devices.');
+            }
+          })
+          .catch(error => {
+            console.log('Error checking auth.html, continuing offline:', error);
+            setupTabNavigation();
+            setupFormHandlers();
+            NotificationSystem.notifyInfo('Working offline. Sign in to sync across devices.');
+          });
+      }
+    });
+  } else if (window.location.pathname.includes('auth.html')) {
+    // We're on the auth page, let auth.html handle its own logic
+    console.log('On auth page');
+  }
+}
+
+async function fullAppInitialization(user) {
+  console.log('🔄 Starting full app initialization for user:', user.email);
+  
+  // Load user profile and data
+  await loadUserProfile(user.uid);
+  EnhancedCache.loadCachedData();
+  
+  // Initialize systems
+  setupTabNavigation();
+  setupFormHandlers();
+  EnhancedStats.init();
+  
+  // Load and render initial data
+  await Promise.all([
+    renderStudents(),
+    renderRecentHoursWithEdit(),
+    populateStudentDropdowns()
+  ]);
+  
+  // Refresh stats
+  EnhancedStats.forceRefresh();
+  
+  console.log('✅ Full app initialization complete');
 }
 
 // Start the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('📄 DOM Content Loaded - Starting app initialization...');
-  initializeApp();
+  console.log('📄 DOM Content Loaded - Starting app...');
+  
+  // Use the safer initialization method
+  checkAuthAndInitialize();
 });
-
-// Export functions for global access
-window.NotificationSystem = NotificationSystem;
-window.startEditHours = startEditHours;
-window.cancelEditHours = cancelEditHours;
-window.deleteHours = deleteHours;
-window.editStudent = editStudent;
-window.deleteStudent = deleteStudent;
-
-console.log('✅ app.js loaded successfully');
