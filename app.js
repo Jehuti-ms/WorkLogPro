@@ -2239,15 +2239,27 @@ async function handleStudentSubmit(e) {
         return;
     }
 
-    // Get form values
-    const studentName = document.getElementById('studentName').value;
-    const studentId = document.getElementById('studentId').value;
-    const studentGender = document.getElementById('studentGender').value;
-    const studentEmail = document.getElementById('studentEmail').value;
-    const studentPhone = document.getElementById('studentPhone').value;
-    const studentBaseRate = document.getElementById('studentBaseRate').value;
+    // Get form values with proper validation
+    const studentNameField = document.getElementById('studentName');
+    const studentIdField = document.getElementById('studentId');
+    const studentGenderField = document.getElementById('studentGender');
+    const studentSubjectField = document.getElementById('studentSubject');
+    const studentEmailField = document.getElementById('studentEmail');
+    const studentPhoneField = document.getElementById('studentPhone');
+    const studentRateField = document.getElementById('studentBaseRate') || document.getElementById('studentRate');
+    const studentNotesField = document.getElementById('studentNotes');
 
-    // Validate required fields
+    // Validate required fields exist
+    if (!studentNameField || !studentIdField || !studentGenderField) {
+        NotificationSystem.notifyError('Form fields not found. Please refresh the page.');
+        return;
+    }
+
+    const studentName = studentNameField.value.trim();
+    const studentId = studentIdField.value.trim();
+    const studentGender = studentGenderField.value;
+
+    // Validate required fields have values
     if (!studentName || !studentId || !studentGender) {
         NotificationSystem.notifyError('Please fill in all required fields (Name, ID, Gender)');
         return;
@@ -2257,9 +2269,12 @@ async function handleStudentSubmit(e) {
         name: studentName,
         studentId: studentId,
         gender: studentGender,
-        email: studentEmail || '',
-        phone: studentPhone || '',
-        rate: safeNumber(studentBaseRate) || 0,
+        subject: studentSubjectField ? studentSubjectField.value : '',
+        email: studentEmailField ? studentEmailField.value : '',
+        phone: studentPhoneField ? studentPhoneField.value : '',
+        rate: studentRateField ? safeNumber(studentRateField.value) : 0,
+        hourlyRate: studentRateField ? safeNumber(studentRateField.value) : 0,
+        notes: studentNotesField ? studentNotesField.value : '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     };
@@ -2273,18 +2288,22 @@ async function handleStudentSubmit(e) {
             NotificationSystem.notifySuccess(`Student "${studentName}" added successfully!`);
             
             // Clear form
-            clearStudentForm();
+            const form = document.getElementById('studentForm');
+            if (form) {
+                form.reset();
+            }
             
             // Refresh UI
             await renderStudents();
-            
-            // Refresh dropdowns
             await populateStudentDropdowns();
             
             // Refresh stats
             if (typeof EnhancedStats !== 'undefined') {
                 EnhancedStats.forceRefresh();
             }
+            
+            // Recalculate stats
+            await recalcSummaryStats(user.uid);
         } else {
             NotificationSystem.notifyError('Failed to save student. Please try again.');
         }
@@ -2315,22 +2334,51 @@ async function handleHoursSubmit(e) {
     return;
   }
 
+  // Get form fields with validation
+  const organizationField = document.getElementById('organization');
+  const workTypeField = document.getElementById('workType');
+  const workSubjectField = document.getElementById('workSubject');
+  const hoursStudentField = document.getElementById('hoursStudent');
+  const hoursWorkedField = document.getElementById('hoursWorked');
+  const baseRateField = document.getElementById('baseRate');
+  const workDateField = document.getElementById('workDate');
+  const hoursNotesField = document.getElementById('hoursNotes');
+
+  if (!organizationField || !hoursWorkedField || !baseRateField || !workDateField) {
+    NotificationSystem.notifyError('Form fields not found. Please refresh the page.');
+    return;
+  }
+
+  const hours = safeNumber(hoursWorkedField.value);
+  const rate = safeNumber(baseRateField.value);
+
+  if (hours <= 0) {
+    NotificationSystem.notifyError('Please enter valid hours greater than 0');
+    return;
+  }
+
+  if (rate <= 0) {
+    NotificationSystem.notifyError('Please enter valid rate greater than 0');
+    return;
+  }
+
   const hoursData = {
-    organization: document.getElementById('organization').value,
-    workType: document.getElementById('workType').value,
-    subject: document.getElementById('workSubject').value,
-    student: document.getElementById('hoursStudent').value,
-    hours: safeNumber(document.getElementById('hoursWorked').value),
-    rate: safeNumber(document.getElementById('baseRate').value),
-    total: safeNumber(document.getElementById('hoursWorked').value) * safeNumber(document.getElementById('baseRate').value),
-    date: document.getElementById('workDate').value,
-    dateIso: fmtDateISO(document.getElementById('workDate').value),
+    organization: organizationField.value,
+    workType: workTypeField ? workTypeField.value : '',
+    subject: workSubjectField ? workSubjectField.value : '',
+    student: hoursStudentField ? hoursStudentField.value : '',
+    hours: hours,
+    rate: rate,
+    total: hours * rate,
+    date: workDateField.value,
+    dateIso: fmtDateISO(workDateField.value),
+    notes: hoursNotesField ? hoursNotesField.value : '',
     createdAt: new Date().toISOString()
   };
 
   // Validate required fields
-  if (!hoursData.organization || !hoursData.hours || !hoursData.rate || !hoursData.date) {
-    NotificationSystem.notifyError('Please fill in all required fields (Organization, Hours, Rate, Date)');
+  if (!hoursData.organization || !hoursData.date) {
+    NotificationSystem.notifyError('Please fill in all required fields (Organization, Date)');
     return;
   }
 
@@ -2341,20 +2389,18 @@ async function handleHoursSubmit(e) {
       NotificationSystem.notifySuccess('Hours logged successfully!');
       
       // Clear form
-      if (e && e.target) {
-        e.target.reset();
+      const form = document.getElementById('hoursForm');
+      if (form) {
+        form.reset();
+        // Reset date to today
+        workDateField.value = new Date().toISOString().split('T'),[object Object],;
       }
-      
-      // Reset date to today
-      document.getElementById('workDate').value = new Date().toISOString().split('T')[0];
       
       // Refresh UI
       await renderRecentHoursWithEdit();
       
       // Refresh stats
-      if (typeof EnhancedStats !== 'undefined') {
-        EnhancedStats.forceRefresh();
-      }
+      await recalcSummaryStats(user.uid);
     }
     
   } catch (error) {
@@ -2385,27 +2431,48 @@ async function handleMarksSubmit(e) {
     return;
   }
 
-  const score = safeNumber(document.getElementById('marksScore').value);
-  const max = safeNumber(document.getElementById('marksMax').value);
+  // Get form fields with validation
+  const marksStudentField = document.getElementById('marksStudent');
+  const marksSubjectField = document.getElementById('marksSubject');
+  const marksTopicField = document.getElementById('marksTopic');
+  const marksScoreField = document.getElementById('marksScore') || document.getElementById('marks');
+  const marksMaxField = document.getElementById('marksMax') || document.getElementById('maxMarks');
+  const marksDateField = document.getElementById('marksDate');
+  const marksNotesField = document.getElementById('marksNotes');
+
+  if (!marksStudentField || !marksSubjectField || !marksScoreField || !marksMaxField || !marksDateField) {
+    NotificationSystem.notifyError('Form fields not found. Please refresh the page.');
+    return;
+  }
+
+  const score = safeNumber(marksScoreField.value);
+  const max = safeNumber(marksMaxField.value);
   const percentage = max > 0 ? (score / max) * 100 : 0;
 
   const marksData = {
-    student: document.getElementById('marksStudent').value,
-    subject: document.getElementById('marksSubject').value,
-    topic: document.getElementById('marksTopic').value,
+    student: marksStudentField.value,
+    subject: marksSubjectField.value,
+    topic: marksTopicField ? marksTopicField.value : '',
     score: score,
+    marks: score,
     max: max,
+    maxMarks: max,
     percentage: percentage,
     grade: calculateGrade(percentage),
-    date: document.getElementById('marksDate').value,
-    dateIso: fmtDateISO(document.getElementById('marksDate').value),
-    notes: document.getElementById('marksNotes').value,
+    date: marksDateField.value,
+    dateIso: fmtDateISO(marksDateField.value),
+    notes: marksNotesField ? marksNotesField.value : '',
     createdAt: new Date().toISOString()
   };
 
   // Validate required fields
-  if (!marksData.student || !marksData.subject || !marksData.topic || !marksData.date) {
-    NotificationSystem.notifyError('Please fill in all required fields (Student, Subject, Topic, Date)');
+  if (!marksData.student || !marksData.subject || !marksData.date) {
+    NotificationSystem.notifyError('Please fill in all required fields (Student, Subject, Date)');
+    return;
+  }
+
+  if (max <= 0) {
+    NotificationSystem.notifyError('Please enter valid maximum marks greater than 0');
     return;
   }
 
@@ -2413,20 +2480,17 @@ async function handleMarksSubmit(e) {
     const result = await EnhancedCache.saveWithBackgroundSync('marks', marksData);
     
     if (result) {
-      NotificationSystem.notifySuccess('Mark added successfully!');
+      NotificationSystem.notifySuccess(`Mark added: ${score}/${max} (${percentage.toFixed(1)}%) - Grade ${marksData.grade}`);
       
       // Clear form
-      if (e && e.target) {
-        e.target.reset();
+      const form = document.getElementById('marksForm');
+      if (form) {
+        form.reset();
+        marksDateField.value = new Date().toISOString().split('T'),[object Object],;
       }
       
       // Refresh UI
       await renderRecentMarksWithEdit();
-      
-      // Refresh stats
-      if (typeof EnhancedStats !== 'undefined') {
-        EnhancedStats.forceRefresh();
-      }
     }
     
   } catch (error) {
@@ -2456,16 +2520,29 @@ async function handleAttendanceSubmit(e) {
     return;
   }
 
+  const attendanceSubjectField = document.getElementById('attendanceSubject');
+  const attendanceTopicField = document.getElementById('attendanceTopic');
+  const attendanceDateField = document.getElementById('attendanceDate');
+  const attendanceNotesField = document.getElementById('attendanceNotes');
+
+  if (!attendanceSubjectField || !attendanceDateField) {
+    NotificationSystem.notifyError('Form fields not found. Please refresh the page.');
+    return;
+  }
+
   const presentCheckboxes = document.querySelectorAll('#attendanceStudents input[type="checkbox"]:checked');
   const presentStudents = Array.from(presentCheckboxes).map(cb => cb.value);
+  const totalStudents = document.querySelectorAll('#attendanceStudents input[type="checkbox"]').length;
 
   const attendanceData = {
-    subject: document.getElementById('attendanceSubject').value,
-    topic: document.getElementById('attendanceTopic').value,
+    subject: attendanceSubjectField.value,
+    topic: attendanceTopicField ? attendanceTopicField.value : '',
     present: presentStudents,
-    date: document.getElementById('attendanceDate').value,
-    dateIso: fmtDateISO(document.getElementById('attendanceDate').value),
-    notes: document.getElementById('attendanceNotes').value,
+    totalStudents: totalStudents,
+    date: attendanceDateField.value,
+    dateIso: fmtDateISO(attendanceDateField.value),
+    notes: attendanceNotesField ? attendanceNotesField.value : '',
+    status: presentStudents.length > 0 ? 'present' : 'absent',
     createdAt: new Date().toISOString()
   };
 
@@ -2479,26 +2556,20 @@ async function handleAttendanceSubmit(e) {
     const result = await EnhancedCache.saveWithBackgroundSync('attendance', attendanceData);
     
     if (result) {
-      NotificationSystem.notifySuccess('Attendance recorded successfully!');
+      NotificationSystem.notifySuccess(`Attendance recorded: ${presentStudents.length}/${totalStudents} present`);
       
       // Clear form
-      if (e && e.target) {
-        e.target.reset();
+      const form = document.getElementById('attendanceForm');
+      if (form) {
+        form.reset();
+        attendanceDateField.value = new Date().toISOString().split('T'),[object Object],;
       }
       
       // Clear checkboxes
       presentCheckboxes.forEach(cb => cb.checked = false);
       
-      // Reset date to today
-      document.getElementById('attendanceDate').value = new Date().toISOString().split('T')[0];
-      
       // Refresh UI
       await renderAttendanceRecentWithEdit();
-      
-      // Refresh stats
-      if (typeof EnhancedStats !== 'undefined') {
-        EnhancedStats.forceRefresh();
-      }
     }
     
   } catch (error) {
@@ -2519,23 +2590,38 @@ async function handlePaymentSubmit(e) {
     return;
   }
 
+  const paymentStudentField = document.getElementById('paymentStudent') || document.getElementById('studentSelectPayment');
+  const paymentAmountField = document.getElementById('paymentAmount');
+  const paymentMethodField = document.getElementById('paymentMethod');
+  const paymentDateField = document.getElementById('paymentDate');
+  const paymentNotesField = document.getElementById('paymentNotes');
+
+  if (!paymentStudentField || !paymentAmountField || !paymentDateField) {
+    NotificationSystem.notifyError('Form fields not found. Please refresh the page.');
+    return;
+  }
+
+  const amount = safeNumber(paymentAmountField.value);
+
   const paymentData = {
-    student: document.getElementById('paymentStudent').value,
-    amount: safeNumber(document.getElementById('paymentAmount').value),
-    method: document.getElementById('paymentMethod').value,
-    date: document.getElementById('paymentDate').value,
-    dateIso: fmtDateISO(document.getElementById('paymentDate').value),
-    notes: document.getElementById('paymentNotes').value,
+    student: paymentStudentField.value,
+    amount: amount,
+    method: paymentMethodField ? paymentMethodField.value : 'Cash',
+    paymentMethod: paymentMethodField ? paymentMethodField.value : 'Cash',
+    date: paymentDateField.value,
+    dateIso: fmtDateISO(paymentDateField.value),
+    notes: paymentNotesField ? paymentNotesField.value : '',
+    status: 'Completed',
     createdAt: new Date().toISOString()
   };
 
   // Validate required fields
-  if (!paymentData.student || !paymentData.amount || !paymentData.date) {
-    NotificationSystem.notifyError('Please fill in all required fields (Student, Amount, Date)');
+  if (!paymentData.student || !paymentData.date) {
+    NotificationSystem.notifyError('Please fill in all required fields (Student, Date)');
     return;
   }
 
-  if (paymentData.amount <= 0) {
+  if (amount <= 0) {
     NotificationSystem.notifyError('Please enter a valid amount greater than 0');
     return;
   }
@@ -2544,24 +2630,18 @@ async function handlePaymentSubmit(e) {
     const result = await EnhancedCache.saveWithBackgroundSync('payments', paymentData);
     
     if (result) {
-      NotificationSystem.notifySuccess('Payment recorded successfully!');
+      NotificationSystem.notifySuccess(`Payment recorded: ${fmtMoney(amount)} from ${paymentData.student}`);
       
       // Clear form
-      if (e && e.target) {
-        e.target.reset();
+      const form = document.getElementById('paymentForm');
+      if (form) {
+        form.reset();
+        paymentDateField.value = new Date().toISOString().split('T'),[object Object],;
       }
-      
-      // Reset date to today
-      document.getElementById('paymentDate').value = new Date().toISOString().split('T')[0];
       
       // Refresh UI
       await renderPaymentActivityWithEdit();
       await renderStudentBalancesWithEdit();
-      
-      // Refresh stats
-      if (typeof EnhancedStats !== 'undefined') {
-        EnhancedStats.forceRefresh();
-      }
     }
     
   } catch (error) {
@@ -2579,6 +2659,30 @@ function resetPaymentForm() {
   }
 }
 
+// ===========================
+// FIX: ADD ENHANCED STATS OBJECT (if missing)
+// ===========================
+
+const EnhancedStats = {
+  async forceRefresh() {
+    const user = auth.currentUser;
+    if (!user) return;
+    
+    try {
+      await recalcSummaryStats(user.uid);
+      await loadUserStats(user.uid);
+      updateHeaderStats();
+      console.log('✅ Stats refreshed');
+    } catch (error) {
+      console.error('Error refreshing stats:', error);
+    }
+  }
+};
+
+// Make it globally accessible
+window.EnhancedStats = EnhancedStats;
+
+console.log('✅ All fixes applied successfully!');
 
 
 // ===========================
@@ -3830,6 +3934,30 @@ async function showSubjectBreakdown() {
     console.error('Error generating subject breakdown:', error);
     NotificationSystem.notifyError('Failed to generate subject breakdown');
   }
+}
+
+function setupReportButtons() {
+  console.log('🔧 Setting up report buttons...');
+  
+  const reportButtons = {
+    'weeklyReportBtn': showWeeklyBreakdown,
+    'biWeeklyReportBtn': showBiWeeklyBreakdown,
+    'monthlyReportBtn': showMonthlyBreakdown,
+    'subjectReportBtn': showSubjectBreakdown,
+    'pdfReportBtn': generatePDFReport,
+    'emailReportBtn': sendEmailReport
+  };
+  
+  Object.keys(reportButtons).forEach(btnId => {
+    const btn = document.getElementById(btnId);
+    if (btn) {
+      btn.removeEventListener('click', reportButtons[btnId]);
+      btn.addEventListener('click', reportButtons[btnId]);
+      console.log(`✅ Report button setup: ${btnId}`);
+    }
+  });
+  
+  console.log('✅ Report buttons initialized');
 }
 
 async function sendEmailReport() {
