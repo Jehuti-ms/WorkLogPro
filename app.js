@@ -4051,6 +4051,8 @@ ${new Date().toLocaleString()}
       console.error('Error opening email client:', error);
       
       // Fallback: Show the email content in a modal
+      const emailBodyEscaped = emailBody.replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/\n/g, '\\n');
+      
       const emailHTML = `
         <div style="padding: 20px;">
           <h3 style="color: var(--primary); margin-top: 0;">📧 Email Report</h3>
@@ -4078,7 +4080,7 @@ ${new Date().toLocaleString()}
           </div>
           
           <div style="margin-top: 20px;">
-            <button onclick="copyToClipboard('${emailBody.replace(/'/g, "\\'")}')" style="
+            <button onclick="copyEmailReportText()" style="
               padding: 10px 20px;
               background: var(--success);
               color: white;
@@ -4090,7 +4092,7 @@ ${new Date().toLocaleString()}
               📋 Copy Report Text
             </button>
             
-            <button onclick="window.open('mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}')" style="
+            <button onclick="window.open('${mailtoLink}')" style="
               padding: 10px 20px;
               background: var(--primary);
               color: white;
@@ -4104,6 +4106,9 @@ ${new Date().toLocaleString()}
         </div>
       `;
       
+      // Store email body in a temporary global variable for copying
+      window._tempEmailBody = emailBody;
+      
       showCustomModal('Email Report', emailHTML);
     }
 
@@ -4112,6 +4117,7 @@ ${new Date().toLocaleString()}
     NotificationSystem.notifyError('Failed to prepare email report: ' + error.message);
   }
 }
+
 
 // ===========================
 // MODAL HELPER FUNCTION
@@ -4706,6 +4712,21 @@ function createReportButtons() {
 }
 
 // ===========================
+// ADD THIS HELPER FUNCTION FOR EMAIL COPYING
+// ===========================
+
+function copyEmailReportText() {
+  if (window._tempEmailBody) {
+    copyToClipboard(window._tempEmailBody);
+    delete window._tempEmailBody; // Clean up
+  } else {
+    NotificationSystem.notifyError('Report text not available');
+  }
+}
+
+
+
+// ===========================
 // INITIALIZATION - Add Report Buttons to UI
 // ===========================
 
@@ -4871,13 +4892,61 @@ function fmtMoney(amount) {
 // ===========================
 
 function copyToClipboard(text) {
-  navigator.clipboard.writeText(text).then(() => {
-    NotificationSystem.notifySuccess('Copied to clipboard!');
-  }).catch(err => {
-    console.error('Failed to copy: ', err);
-    NotificationSystem.notifyError('Failed to copy to clipboard');
-  });
+  if (!text) {
+    NotificationSystem.notifyError('No text to copy');
+    return;
+  }
+  
+  // Method 1: Modern Clipboard API
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(() => {
+      NotificationSystem.notifySuccess('Copied to clipboard!');
+    }).catch(err => {
+      console.error('Clipboard API failed:', err);
+      fallbackCopyToClipboard(text);
+    });
+  } else {
+    // Method 2: Fallback for older browsers
+    fallbackCopyToClipboard(text);
+  }
 }
+
+function fallbackCopyToClipboard(text) {
+  try {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.cssText = 'position: fixed; top: -9999px; left: -9999px;';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+      const successful = document.execCommand('copy');
+      if (successful) {
+        NotificationSystem.notifySuccess('Copied to clipboard!');
+      } else {
+        NotificationSystem.notifyError('Failed to copy to clipboard');
+      }
+    } catch (err) {
+      console.error('Fallback copy failed:', err);
+      NotificationSystem.notifyError('Failed to copy to clipboard');
+    }
+    
+    document.body.removeChild(textArea);
+  } catch (error) {
+    console.error('Copy to clipboard error:', error);
+    NotificationSystem.notifyError('Failed to copy to clipboard');
+  }
+}
+
+// ===========================
+// EXPORT ADDITIONAL FUNCTIONS
+// ===========================
+
+window.copyEmailReportText = copyEmailReportText;
+window.copyToClipboard = copyToClipboard;
+
+console.log('✅ Email report functions fixed');
 
 // ===========================
 // INITIALIZE ON LOAD
