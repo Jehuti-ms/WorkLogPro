@@ -1,74 +1,112 @@
-// service-worker.js - Improved version
-const CACHE_NAME = 'worklog-v3';
-const urlsToCache = [
-  '/Attendance-Track-v2/',
+// service-worker.js - Fixed version
+const CACHE_NAME = 'worklog-v4';
+const APP_SHELL = [
+  '/Attendance-Track-v2/',  // Your app root
   '/Attendance-Track-v2/index.html',
-  '/Attendance-Track-v2/manifest.json',
   '/Attendance-Track-v2/firebase-config.js',
   '/Attendance-Track-v2/app.js',
+  '/Attendance-Track-v2/manifest.json'
+];
+
+// External resources to cache
+const EXTERNAL_RESOURCES = [
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js',
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js',
   'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js'
 ];
 
+// Debug function
+function log(message, data = null) {
+  console.log(`🛠️ Service Worker: ${message}`, data || '');
+}
+
 self.addEventListener('install', (event) => {
-  console.log('🛠️ Service Worker: Installing...');
+  log('Installing...');
   
-  // Skip waiting to activate immediately
+  // Force the waiting service worker to become active
   self.skipWaiting();
   
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('📦 Service Worker: Caching app shell');
-        // Use Promise.all to handle individual cache requests
-        const cachePromises = urlsToCache.map(url => {
+        log('Caching app shell');
+        
+        // Cache local files first
+        const cachePromises = APP_SHELL.map(url => {
           return cache.add(url).catch(err => {
-            console.warn(`⚠️ Failed to cache: ${url}`, err);
-            // Continue even if some files fail to cache
+            log(`Warning: Failed to cache ${url}`, err.message);
+            return null; // Don't fail the entire install
           });
         });
-        return Promise.all(cachePromises);
+        
+        return Promise.all(cachePromises).then(() => {
+          log('Local files cached');
+          
+          // Cache external resources
+          const externalPromises = EXTERNAL_RESOURCES.map(url => {
+            return fetch(url)
+              .then(response => {
+                if (response.ok) {
+                  return cache.put(url, response);
+                }
+                return null;
+              })
+              .catch(err => {
+                log(`Warning: Failed to cache external ${url}`, err.message);
+                return null;
+              });
+          });
+          
+          return Promise.all(externalPromises);
+        });
       })
       .then(() => {
-        console.log('✅ Service Worker: Installation complete');
+        log('Installation complete');
         return self.skipWaiting();
       })
       .catch(err => {
-        console.error('❌ Service Worker: Installation failed', err);
+        log('Installation failed', err);
+        // Even if caching fails, continue with activation
+        return self.skipWaiting();
       })
   );
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('🚀 Service Worker: Activating...');
+  log('Activating...');
   
-  // Delete old caches
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
-            console.log(`🗑️ Service Worker: Deleting old cache ${cacheName}`);
+            log(`Deleting old cache: ${cacheName}`);
             return caches.delete(cacheName);
           }
         })
       );
     }).then(() => {
-      console.log('✅ Service Worker: Activated and ready');
+      log('Activated and ready');
       return self.clients.claim();
     })
   );
 });
 
 self.addEventListener('fetch', (event) => {
-  // Skip cross-origin requests
-  if (!event.request.url.startsWith(self.location.origin)) {
+  // Skip non-GET requests
+  if (event.request.method !== 'GET') {
     return;
   }
   
-  // Skip non-GET requests
-  if (event.request.method !== 'GET') {
+  // Skip browser extensions
+  if (event.request.url.startsWith('chrome-extension://')) {
+    return;
+  }
+  
+  // Skip Firebase and other external APIs
+  if (event.request.url.includes('firestore.googleapis.com') ||
+      event.request.url.includes('firebaseio.com') ||
+      event.request.url.includes('googleapis.com/auth')) {
     return;
   }
   
@@ -77,36 +115,52 @@ self.addEventListener('fetch', (event) => {
       .then((cachedResponse) => {
         // Return cached response if found
         if (cachedResponse) {
-          console.log(`📦 Service Worker: Serving from cache: ${event.request.url}`);
+          log(`Cache hit: ${event.request.url}`);
           return cachedResponse;
         }
         
         // Otherwise fetch from network
-        return fetch(event.request)
+        return fetch(event.request.clone())
           .then((response) => {
-            // Don't cache if not a valid response
+            // Only cache successful responses
             if (!response || response.status !== 200 || response.type !== 'basic') {
               return response;
             }
             
-            // Clone the response
+            // Clone the response for caching
             const responseToCache = response.clone();
             
-            // Cache the new response
+            // Cache the response
             caches.open(CACHE_NAME)
               .then((cache) => {
                 cache.put(event.request, responseToCache);
-                console.log(`💾 Service Worker: Caching new resource: ${event.request.url}`);
+                log(`Cached new resource: ${event.request.url}`);
+              })
+              .catch(err => {
+                log(`Failed to cache ${event.request.url}`, err);
               });
             
             return response;
           })
           .catch((error) => {
-            console.error('❌ Service Worker: Fetch failed:', error);
-            // Return a fallback for specific pages
+            log(`Network error for ${event.request.url}`, error);
+            
+            // For navigation requests, return the cached index.html
             if (event.request.mode === 'navigate') {
-              return caches.match('/Attendance-Track-v2/index.html');
+              return caches.match('/Attendance-Track-v2/index.html')
+                .then(indexResponse => {
+                  if (indexResponse) {
+                    log('Serving fallback index.html');
+                    return indexResponse;
+                  }
+                  return new Response('Network error occurred', {
+                    status: 408,
+                    headers: { 'Content-Type': 'text/plain' }
+                  });
+                });
             }
+            
+            // For other requests, return error
             return new Response('Network error occurred', {
               status: 408,
               headers: { 'Content-Type': 'text/plain' }
@@ -122,16 +176,17 @@ self.addEventListener('message', (event) => {
   }
 });
 
-// Background sync for offline data
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'sync-data') {
-    console.log('🔄 Service Worker: Background sync triggered');
-    event.waitUntil(syncData());
-  }
-});
+// Background sync event (if supported)
+if ('sync' in self.registration) {
+  self.addEventListener('sync', (event) => {
+    if (event.tag === 'sync-data') {
+      log('Background sync triggered');
+      event.waitUntil(syncData());
+    }
+  });
+}
 
 async function syncData() {
-  console.log('🔄 Service Worker: Syncing data...');
-  // This would sync any pending data
-  // You can add your sync logic here
+  log('Syncing data in background...');
+  // Implement your background sync logic here
 }
