@@ -2902,72 +2902,75 @@ function setupFormHandlers() {
 }
 
 // ===========================
-// EDIT AND DELETE BUTTON HANDLERS
+// DEFINITIVE ID CONFIGURATION
 // ===========================
 
-function setupEditDeleteHandlers() {
-  console.log('🔧 Setting up edit/delete handlers...');
-  
-  // Setup student edit/delete buttons
-  document.querySelectorAll('.edit-student-btn').forEach(button => {
-    button.removeEventListener('click', handleStudentEdit);
-    button.addEventListener('click', handleStudentEdit);
-  });
-  
-  document.querySelectorAll('.delete-student-btn').forEach(button => {
-    button.removeEventListener('click', handleStudentDelete);
-    button.addEventListener('click', handleStudentDelete);
-  });
-  
-  // Setup hours edit/delete buttons
-  document.querySelectorAll('.edit-hours-btn').forEach(button => {
-    button.removeEventListener('click', handleHoursEdit);
-    button.addEventListener('click', handleHoursEdit);
-  });
-  
-  document.querySelectorAll('.delete-hours-btn').forEach(button => {
-    button.removeEventListener('click', handleHoursDelete);
-    button.addEventListener('click', handleHoursDelete);
-  });
-  
-  // Setup marks edit/delete buttons
-  document.querySelectorAll('.edit-marks-btn').forEach(button => {
-    button.removeEventListener('click', handleMarksEdit);
-    button.addEventListener('click', handleMarksEdit);
-  });
-  
-  document.querySelectorAll('.delete-marks-btn').forEach(button => {
-    button.removeEventListener('click', handleMarksDelete);
-    button.addEventListener('click', handleMarksDelete);
-  });
-  
-  // Setup attendance edit/delete buttons
-  document.querySelectorAll('.edit-attendance-btn').forEach(button => {
-    button.removeEventListener('click', handleAttendanceEdit);
-    button.addEventListener('click', handleAttendanceEdit);
-  });
-  
-  document.querySelectorAll('.delete-attendance-btn').forEach(button => {
-    button.removeEventListener('click', handleAttendanceDelete);
-    button.addEventListener('click', handleAttendanceDelete);
-  });
-  
-  // Setup payment edit/delete buttons
-  document.querySelectorAll('.edit-payment-btn').forEach(button => {
-    button.removeEventListener('click', handlePaymentEdit);
-    button.addEventListener('click', handlePaymentEdit);
-  });
-  
-  document.querySelectorAll('.delete-payment-btn').forEach(button => {
-    button.removeEventListener('click', handlePaymentDelete);
-    button.addEventListener('click', handlePaymentDelete);
-  });
-  
-  console.log('✅ Edit/delete handlers initialized');
-}
+// Student Form IDs (MUST match HTML exactly)
+const STUDENT_FORM_IDS = {
+  name: 'studentName',
+  id: 'studentId',
+  gender: 'studentGender',
+  subject: 'studentSubject',
+  email: 'studentEmail',
+  phone: 'studentPhone',
+  rate: 'studentRate', // Changed to single ID
+  notes: 'studentNotes',
+  submitBtn: 'studentSubmitBtn',
+  form: 'studentForm'
+};
+
+// Hours Form IDs (MUST match HTML exactly)
+const HOURS_FORM_IDS = {
+  organization: 'organization',
+  workType: 'workType',
+  subject: 'workSubject',
+  student: 'hoursStudent',
+  hours: 'hoursWorked',
+  rate: 'baseRate',
+  date: 'workDate',
+  notes: 'hoursNotes',
+  submitBtn: 'hoursSubmitBtn',
+  form: 'hoursForm',
+  totalPay: 'totalPay'
+};
+
+// Marks Form IDs (MUST match HTML exactly)
+const MARKS_FORM_IDS = {
+  student: 'marksStudent',
+  subject: 'marksSubject',
+  topic: 'marksTopic',
+  score: 'marksScore', // Unified to one ID
+  max: 'marksMax', // Unified to one ID
+  date: 'marksDate',
+  notes: 'marksNotes',
+  submitBtn: 'marksSubmitBtn',
+  form: 'marksForm'
+};
+
+// Attendance Form IDs (MUST match HTML exactly)
+const ATTENDANCE_FORM_IDS = {
+  subject: 'attendanceSubject',
+  topic: 'attendanceTopic',
+  date: 'attendanceDate',
+  notes: 'attendanceNotes',
+  studentsContainer: 'attendanceStudents',
+  submitBtn: 'attendanceSubmitBtn',
+  form: 'attendanceForm'
+};
+
+// Payment Form IDs (MUST match HTML exactly)
+const PAYMENT_FORM_IDS = {
+  student: 'paymentStudent', // Unified to one ID
+  amount: 'paymentAmount',
+  method: 'paymentMethod',
+  date: 'paymentDate',
+  notes: 'paymentNotes',
+  submitBtn: 'paymentSubmitBtn',
+  form: 'paymentForm'
+};
 
 // ===========================
-// STUDENT EDIT/DELETE HANDLERS
+// UPDATED STUDENT EDIT/DELETE HANDLERS WITH CONSISTENT IDs
 // ===========================
 
 async function handleStudentEdit(event) {
@@ -2988,32 +2991,167 @@ async function handleStudentEdit(event) {
       return;
     }
     
-    // Fill the student form with existing data
-    document.getElementById('studentName').value = student.name || '';
-    document.getElementById('studentSubject').value = student.subject || '';
-    document.getElementById('studentRate').value = student.hourlyRate || '';
-    document.getElementById('studentNotes').value = student.notes || '';
+    console.log('Editing student:', student);
+    
+    // Fill the student form with existing data using consistent IDs
+    const studentNameField = document.getElementById(STUDENT_FORM_IDS.name);
+    const studentIdField = document.getElementById(STUDENT_FORM_IDS.id);
+    const studentGenderField = document.getElementById(STUDENT_FORM_IDS.gender);
+    const studentSubjectField = document.getElementById(STUDENT_FORM_IDS.subject);
+    const studentEmailField = document.getElementById(STUDENT_FORM_IDS.email);
+    const studentPhoneField = document.getElementById(STUDENT_FORM_IDS.phone);
+    const studentRateField = document.getElementById(STUDENT_FORM_IDS.rate);
+    const studentNotesField = document.getElementById(STUDENT_FORM_IDS.notes);
+    
+    // Check which fields actually exist and set values
+    const fields = [
+      { field: studentNameField, value: student.name || '' },
+      { field: studentIdField, value: student.studentId || '' },
+      { field: studentGenderField, value: student.gender || '' },
+      { field: studentSubjectField, value: student.subject || '' },
+      { field: studentEmailField, value: student.email || '' },
+      { field: studentPhoneField, value: student.phone || '' },
+      { field: studentRateField, value: student.rate || student.hourlyRate || '' },
+      { field: studentNotesField, value: student.notes || '' }
+    ];
+    
+    fields.forEach(({ field, value }) => {
+      if (field) {
+        field.value = value;
+      } else {
+        console.warn('Form field not found:', field);
+      }
+    });
     
     // Set the editing mode
-    const studentForm = document.getElementById('studentForm');
-    studentForm.dataset.editingId = studentId;
+    const studentForm = document.getElementById(STUDENT_FORM_IDS.form);
+    if (studentForm) {
+      studentForm.dataset.editingId = studentId;
+      
+      // Scroll to form
+      studentForm.scrollIntoView({ behavior: 'smooth' });
+    }
     
     // Change button text
-    const submitBtn = document.getElementById('studentSubmitBtn');
+    const submitBtn = document.getElementById(STUDENT_FORM_IDS.submitBtn);
     if (submitBtn) {
       submitBtn.textContent = 'Update Student';
       submitBtn.classList.remove('btn-primary');
       submitBtn.classList.add('btn-warning');
+      
+      // Update click handler to handle update instead of create
+      submitBtn.onclick = async function(e) {
+        e.preventDefault();
+        await updateStudent(studentId);
+      };
     }
-    
-    // Scroll to form
-    document.getElementById('studentForm').scrollIntoView({ behavior: 'smooth' });
     
     NotificationSystem.notifyInfo(`Editing student: ${student.name}`);
     
   } catch (error) {
     console.error('Error editing student:', error);
     NotificationSystem.notifyError('Failed to edit student: ' + error.message);
+  }
+}
+
+async function updateStudent(studentId) {
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to update student');
+    return;
+  }
+
+  // Get form values with proper validation using consistent IDs
+  const studentNameField = document.getElementById(STUDENT_FORM_IDS.name);
+  const studentIdField = document.getElementById(STUDENT_FORM_IDS.id);
+  const studentGenderField = document.getElementById(STUDENT_FORM_IDS.gender);
+  const studentSubjectField = document.getElementById(STUDENT_FORM_IDS.subject);
+  const studentEmailField = document.getElementById(STUDENT_FORM_IDS.email);
+  const studentPhoneField = document.getElementById(STUDENT_FORM_IDS.phone);
+  const studentRateField = document.getElementById(STUDENT_FORM_IDS.rate);
+  const studentNotesField = document.getElementById(STUDENT_FORM_IDS.notes);
+
+  // Validate required fields exist
+  const requiredFields = [
+    { field: studentNameField, name: 'Name' },
+    { field: studentIdField, name: 'ID' },
+    { field: studentGenderField, name: 'Gender' }
+  ];
+  
+  for (const { field, name } of requiredFields) {
+    if (!field) {
+      NotificationSystem.notifyError(`${name} field not found. Please refresh the page.`);
+      return;
+    }
+  }
+
+  const studentName = studentNameField.value.trim();
+  const newStudentId = studentIdField.value.trim();
+  const studentGender = studentGenderField.value;
+
+  // Validate required fields have values
+  if (!studentName || !newStudentId || !studentGender) {
+    NotificationSystem.notifyError('Please fill in all required fields (Name, ID, Gender)');
+    return;
+  }
+
+  const studentData = {
+    name: studentName,
+    studentId: newStudentId,
+    gender: studentGender,
+    subject: studentSubjectField ? studentSubjectField.value : '',
+    email: studentEmailField ? studentEmailField.value : '',
+    phone: studentPhoneField ? studentPhoneField.value : '',
+    rate: studentRateField ? safeNumber(studentRateField.value) : 0,
+    hourlyRate: studentRateField ? safeNumber(studentRateField.value) : 0,
+    notes: studentNotesField ? studentNotesField.value : '',
+    updatedAt: new Date().toISOString()
+  };
+
+  console.log('📝 Updating student:', studentData);
+
+  try {
+    // Update in Firestore
+    await updateDoc(doc(db, "users", user.uid, "students", studentId), studentData);
+    
+    // Update cache
+    const index = cache.students.findIndex(s => s.id === studentId);
+    if (index !== -1) {
+      cache.students[index] = {
+        ...cache.students[index],
+        ...studentData,
+        id: studentId
+      };
+      EnhancedCache.saveToLocalStorageBulk('students', cache.students);
+    }
+    
+    NotificationSystem.notifySuccess(`Student "${studentName}" updated successfully!`);
+    
+    // Reset form and button
+    const studentForm = document.getElementById(STUDENT_FORM_IDS.form);
+    if (studentForm) {
+      studentForm.reset();
+      delete studentForm.dataset.editingId;
+    }
+    
+    const submitBtn = document.getElementById(STUDENT_FORM_IDS.submitBtn);
+    if (submitBtn) {
+      submitBtn.textContent = 'Add Student';
+      submitBtn.classList.remove('btn-warning');
+      submitBtn.classList.add('btn-primary');
+      submitBtn.onclick = handleStudentSubmit;
+    }
+    
+    // Refresh UI
+    await renderStudents();
+    await populateStudentDropdowns();
+    
+    // Refresh stats
+    await recalcSummaryStats(user.uid);
+    
+  } catch (error) {
+    console.error('Error updating student:', error);
+    NotificationSystem.notifyError('Failed to update student: ' + error.message);
   }
 }
 
@@ -3036,11 +3174,11 @@ async function handleStudentDelete(event) {
       return;
     }
     
-    // Delete from Firestore
-    await deleteDoc(doc(db, "users", user.uid, "students", studentId));
-    
-    // Delete associated records
+    // First delete associated records
     await deleteAssociatedRecords(user.uid, studentId);
+    
+    // Then delete the student
+    await deleteDoc(doc(db, "users", user.uid, "students", studentId));
     
     // Update cache
     cache.students = cache.students.filter(s => s.id !== studentId);
@@ -3061,352 +3199,544 @@ async function handleStudentDelete(event) {
 }
 
 // ===========================
-// HELPER FUNCTION TO DELETE ASSOCIATED RECORDS
+// UPDATED STUDENT FORM HANDLER WITH CONSISTENT IDs
 // ===========================
 
-async function deleteAssociatedRecords(uid, studentId) {
-  try {
-    const batch = writeBatch(db);
+async function handleStudentSubmit(e) {
+    if (e) e.preventDefault();
     
-    // Delete hours
-    const hoursQuery = query(
-      collection(db, "users", uid, "hours"),
-      where("studentId", "==", studentId)
-    );
-    const hoursSnapshot = await getDocs(hoursQuery);
-    hoursSnapshot.forEach(doc => batch.delete(doc.ref));
-    
-    // Delete marks
-    const marksQuery = query(
-      collection(db, "users", uid, "marks"),
-      where("studentId", "==", studentId)
-    );
-    const marksSnapshot = await getDocs(marksQuery);
-    marksSnapshot.forEach(doc => batch.delete(doc.ref));
-    
-    // Delete attendance
-    const attendanceQuery = query(
-      collection(db, "users", uid, "attendance"),
-      where("studentId", "==", studentId)
-    );
-    const attendanceSnapshot = await getDocs(attendanceQuery);
-    attendanceSnapshot.forEach(doc => batch.delete(doc.ref));
-    
-    // Delete payments
-    const paymentsQuery = query(
-      collection(db, "users", uid, "payments"),
-      where("studentId", "==", studentId)
-    );
-    const paymentsSnapshot = await getDocs(paymentsQuery);
-    paymentsSnapshot.forEach(doc => batch.delete(doc.ref));
-    
-    await batch.commit();
-    console.log(`✅ Deleted all records for student ${studentId}`);
-    
-  } catch (error) {
-    console.error('Error deleting associated records:', error);
-    throw error;
-  }
-}
-
-// ===========================
-// HOURS EDIT/DELETE HANDLERS
-// ===========================
-
-async function handleHoursEdit(event) {
-  event.preventDefault();
-  const button = event.target.closest('.edit-hours-btn');
-  if (!button) return;
-  
-  const hoursId = button.dataset.id;
-  if (!hoursId) return;
-  
-  try {
-    const hourEntry = cache.hours.find(h => h.id === hoursId);
-    if (!hourEntry) return;
-    
-    // Fill the hours form
-    document.getElementById('hoursStudent').value = hourEntry.studentId || '';
-    document.getElementById('workDate').value = hourEntry.date || '';
-    document.getElementById('hoursWorked').value = hourEntry.hours || '';
-    document.getElementById('baseRate').value = hourEntry.rate || '';
-    document.getElementById('hoursNotes').value = hourEntry.notes || '';
-    
-    // Set editing mode
-    const hoursForm = document.getElementById('hoursForm');
-    hoursForm.dataset.editingId = hoursId;
-    
-    // Scroll to form
-    hoursForm.scrollIntoView({ behavior: 'smooth' });
-    
-    NotificationSystem.notifyInfo('Editing hours entry');
-    
-  } catch (error) {
-    console.error('Error editing hours:', error);
-    NotificationSystem.notifyError('Failed to edit hours: ' + error.message);
-  }
-}
-
-async function handleHoursDelete(event) {
-  event.preventDefault();
-  const button = event.target.closest('.delete-hours-btn');
-  if (!button) return;
-  
-  const hoursId = button.dataset.id;
-  
-  if (!confirm('Are you sure you want to delete this hours entry?')) {
-    return;
-  }
-  
-  try {
     const user = auth.currentUser;
     if (!user) {
-      NotificationSystem.notifyError('Please log in to delete hours');
-      return;
+        NotificationSystem.notifyError('Please log in to add students');
+        return;
     }
+
+    // Get form values using consistent IDs
+    const studentNameField = document.getElementById(STUDENT_FORM_IDS.name);
+    const studentIdField = document.getElementById(STUDENT_FORM_IDS.id);
+    const studentGenderField = document.getElementById(STUDENT_FORM_IDS.gender);
+    const studentSubjectField = document.getElementById(STUDENT_FORM_IDS.subject);
+    const studentEmailField = document.getElementById(STUDENT_FORM_IDS.email);
+    const studentPhoneField = document.getElementById(STUDENT_FORM_IDS.phone);
+    const studentRateField = document.getElementById(STUDENT_FORM_IDS.rate);
+    const studentNotesField = document.getElementById(STUDENT_FORM_IDS.notes);
+
+    // Validate required fields exist
+    const requiredFields = [
+        { field: studentNameField, name: 'Name' },
+        { field: studentIdField, name: 'ID' },
+        { field: studentGenderField, name: 'Gender' }
+    ];
     
-    await deleteDoc(doc(db, "users", user.uid, "hours", hoursId));
-    
-    cache.hours = cache.hours.filter(h => h.id !== hoursId);
-    EnhancedCache.saveToLocalStorageBulk('hours', cache.hours);
-    
-    await renderRecentHoursWithEdit();
-    await recalcSummaryStats(user.uid);
-    
-    NotificationSystem.notifySuccess('Hours entry deleted successfully');
-    
-  } catch (error) {
-    console.error('Error deleting hours:', error);
-    NotificationSystem.notifyError('Failed to delete hours: ' + error.message);
-  }
+    for (const { field, name } of requiredFields) {
+        if (!field) {
+            NotificationSystem.notifyError(`${name} field not found. Please refresh the page.`);
+            return;
+        }
+    }
+
+    const studentName = studentNameField.value.trim();
+    const studentId = studentIdField.value.trim();
+    const studentGender = studentGenderField.value;
+
+    // Validate required fields have values
+    if (!studentName || !studentId || !studentGender) {
+        NotificationSystem.notifyError('Please fill in all required fields (Name, ID, Gender)');
+        return;
+    }
+
+    const studentData = {
+        name: studentName,
+        studentId: studentId,
+        gender: studentGender,
+        subject: studentSubjectField ? studentSubjectField.value : '',
+        email: studentEmailField ? studentEmailField.value : '',
+        phone: studentPhoneField ? studentPhoneField.value : '',
+        rate: studentRateField ? safeNumber(studentRateField.value) : 0,
+        hourlyRate: studentRateField ? safeNumber(studentRateField.value) : 0,
+        notes: studentNotesField ? studentNotesField.value : '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    };
+
+    console.log('📝 Adding student:', studentData);
+
+    try {
+        const result = await EnhancedCache.saveWithBackgroundSync('students', studentData);
+        
+        if (result) {
+            NotificationSystem.notifySuccess(`Student "${studentName}" added successfully!`);
+            
+            // Clear form
+            const form = document.getElementById(STUDENT_FORM_IDS.form);
+            if (form) {
+                form.reset();
+            }
+            
+            // Refresh UI
+            await renderStudents();
+            await populateStudentDropdowns();
+            
+            // Refresh stats
+            if (typeof EnhancedStats !== 'undefined') {
+                EnhancedStats.forceRefresh();
+            }
+            
+            // Recalculate stats
+            await recalcSummaryStats(user.uid);
+        } else {
+            NotificationSystem.notifyError('Failed to save student. Please try again.');
+        }
+        
+    } catch (error) {
+        console.error('Error adding student:', error);
+        NotificationSystem.notifyError('Failed to add student: ' + error.message);
+    }
 }
 
 // ===========================
-// MARKS EDIT/DELETE HANDLERS
+// UPDATED HOURS FORM HANDLER WITH CONSISTENT IDs
 // ===========================
 
-async function handleMarksEdit(event) {
-  event.preventDefault();
-  const button = event.target.closest('.edit-marks-btn');
-  if (!button) return;
-  
-  const marksId = button.dataset.id;
-  if (!marksId) return;
-  
-  try {
-    const marksEntry = cache.marks.find(m => m.id === marksId);
-    if (!marksEntry) return;
-    
-    // Fill the marks form
-    document.getElementById('marksStudent').value = marksEntry.studentId || '';
-    document.getElementById('marksDate').value = marksEntry.date || '';
-    document.getElementById('marksScore').value = marksEntry.marks || '';
-    document.getElementById('marksMax').value = marksEntry.maxMarks || '';
-    document.getElementById('marksNotes').value = marksEntry.notes || '';
-    
-    // Set editing mode
-    const marksForm = document.getElementById('marksForm');
-    marksForm.dataset.editingId = marksId;
-    
-    // Scroll to form
-    marksForm.scrollIntoView({ behavior: 'smooth' });
-    
-    NotificationSystem.notifyInfo('Editing marks entry');
-    
-  } catch (error) {
-    console.error('Error editing marks:', error);
-    NotificationSystem.notifyError('Failed to edit marks: ' + error.message);
-  }
-}
-
-async function handleMarksDelete(event) {
-  event.preventDefault();
-  const button = event.target.closest('.delete-marks-btn');
-  if (!button) return;
-  
-  const marksId = button.dataset.id;
-  
-  if (!confirm('Are you sure you want to delete this marks entry?')) {
+async function handleHoursSubmit(e) {
+  if (e) e.preventDefault();
+  const user = auth.currentUser;
+  if (!user) {
+    NotificationSystem.notifyError('Please log in to log hours');
     return;
   }
+
+  const hoursForm = document.getElementById(HOURS_FORM_IDS.form);
+  const isEditing = hoursForm && hoursForm.dataset.editingId;
   
-  try {
-    const user = auth.currentUser;
-    if (!user) {
-      NotificationSystem.notifyError('Please log in to delete marks');
+  // Get form fields using consistent IDs
+  const organizationField = document.getElementById(HOURS_FORM_IDS.organization);
+  const workTypeField = document.getElementById(HOURS_FORM_IDS.workType);
+  const workSubjectField = document.getElementById(HOURS_FORM_IDS.subject);
+  const hoursStudentField = document.getElementById(HOURS_FORM_IDS.student);
+  const hoursWorkedField = document.getElementById(HOURS_FORM_IDS.hours);
+  const baseRateField = document.getElementById(HOURS_FORM_IDS.rate);
+  const workDateField = document.getElementById(HOURS_FORM_IDS.date);
+  const hoursNotesField = document.getElementById(HOURS_FORM_IDS.notes);
+
+  // Validate required fields exist
+  const requiredFields = [
+    { field: organizationField, name: 'Organization' },
+    { field: hoursWorkedField, name: 'Hours Worked' },
+    { field: baseRateField, name: 'Base Rate' },
+    { field: workDateField, name: 'Work Date' }
+  ];
+  
+  for (const { field, name } of requiredFields) {
+    if (!field) {
+      NotificationSystem.notifyError(`${name} field not found. Please refresh the page.`);
       return;
     }
-    
-    await deleteDoc(doc(db, "users", user.uid, "marks", marksId));
-    
-    cache.marks = cache.marks.filter(m => m.id !== marksId);
-    EnhancedCache.saveToLocalStorageBulk('marks', cache.marks);
-    
-    await renderRecentMarksWithEdit();
-    await recalcSummaryStats(user.uid);
-    
-    NotificationSystem.notifySuccess('Marks entry deleted successfully');
-    
-  } catch (error) {
-    console.error('Error deleting marks:', error);
-    NotificationSystem.notifyError('Failed to delete marks: ' + error.message);
   }
-}
 
-// ===========================
-// ATTENDANCE EDIT/DELETE HANDLERS
-// ===========================
+  const hours = safeNumber(hoursWorkedField.value);
+  const rate = safeNumber(baseRateField.value);
 
-async function handleAttendanceEdit(event) {
-  event.preventDefault();
-  const button = event.target.closest('.edit-attendance-btn');
-  if (!button) return;
-  
-  const attendanceId = button.dataset.id;
-  if (!attendanceId) return;
-  
+  if (hours <= 0) {
+    NotificationSystem.notifyError('Please enter valid hours greater than 0');
+    return;
+  }
+
+  if (rate <= 0) {
+    NotificationSystem.notifyError('Please enter valid rate greater than 0');
+    return;
+  }
+
+  const hoursData = {
+    organization: organizationField.value,
+    workType: workTypeField ? workTypeField.value : '',
+    subject: workSubjectField ? workSubjectField.value : '',
+    student: hoursStudentField ? hoursStudentField.value : '',
+    hours: hours,
+    rate: rate,
+    total: hours * rate,
+    date: workDateField.value,
+    dateIso: fmtDateISO(workDateField.value),
+    notes: hoursNotesField ? hoursNotesField.value : '',
+    updatedAt: new Date().toISOString()
+  };
+
+  // Validate required fields have values
+  if (!hoursData.organization || !hoursData.date) {
+    NotificationSystem.notifyError('Please fill in all required fields (Organization, Date)');
+    return;
+  }
+
   try {
-    const attendanceEntry = cache.attendance.find(a => a.id === attendanceId);
-    if (!attendanceEntry) return;
-    
-    // Fill the attendance form
-    const attendanceForm = document.getElementById('attendanceForm');
-    if (attendanceForm) {
-      document.getElementById('attendanceSubject').value = attendanceEntry.subject || '';
-      document.getElementById('attendanceTopic').value = attendanceEntry.topic || '';
-      document.getElementById('attendanceDate').value = attendanceEntry.date || '';
-      document.getElementById('attendanceNotes').value = attendanceEntry.notes || '';
+    if (isEditing) {
+      // Update existing entry
+      await updateDoc(doc(db, "users", user.uid, "hours", hoursForm.dataset.editingId), hoursData);
       
-      // Check checkboxes for present students
-      if (Array.isArray(attendanceEntry.present)) {
-        attendanceEntry.present.forEach(studentName => {
-          const checkbox = document.querySelector(`input[value="${studentName}"]`);
-          if (checkbox) {
-            checkbox.checked = true;
-          }
-        });
+      // Update cache
+      const index = cache.hours.findIndex(h => h.id === hoursForm.dataset.editingId);
+      if (index !== -1) {
+        cache.hours[index] = {
+          ...cache.hours[index],
+          ...hoursData,
+          id: hoursForm.dataset.editingId
+        };
+        EnhancedCache.saveToLocalStorageBulk('hours', cache.hours);
       }
       
-      // Set editing mode
-      attendanceForm.dataset.editingId = attendanceId;
+      NotificationSystem.notifySuccess('Hours updated successfully!');
       
-      // Scroll to form
-      attendanceForm.scrollIntoView({ behavior: 'smooth' });
-      
-      NotificationSystem.notifyInfo('Editing attendance entry');
+      // Reset form
+      delete hoursForm.dataset.editingId;
+      const submitBtn = hoursForm.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.textContent = 'Log Hours';
+        submitBtn.classList.remove('btn-warning');
+        submitBtn.classList.add('btn-primary');
+      }
+    } else {
+      // Create new entry
+      const result = await EnhancedCache.saveWithBackgroundSync('hours', hoursData);
+      if (result) {
+        NotificationSystem.notifySuccess('Hours logged successfully!');
+      }
     }
     
-  } catch (error) {
-    console.error('Error editing attendance:', error);
-    NotificationSystem.notifyError('Failed to edit attendance: ' + error.message);
-  }
-}
-
-async function handleAttendanceDelete(event) {
-  event.preventDefault();
-  const button = event.target.closest('.delete-attendance-btn');
-  if (!button) return;
-  
-  const attendanceId = button.dataset.id;
-  
-  if (!confirm('Are you sure you want to delete this attendance entry?')) {
-    return;
-  }
-  
-  try {
-    const user = auth.currentUser;
-    if (!user) {
-      NotificationSystem.notifyError('Please log in to delete attendance');
-      return;
+    // Clear form
+    if (hoursForm) {
+      hoursForm.reset();
+      // Reset date to today
+      workDateField.value = new Date().toISOString().split('T')[0];
     }
     
-    await deleteDoc(doc(db, "users", user.uid, "attendance", attendanceId));
+    // Refresh UI
+    await renderRecentHoursWithEdit();
     
-    cache.attendance = cache.attendance.filter(a => a.id !== attendanceId);
-    EnhancedCache.saveToLocalStorageBulk('attendance', cache.attendance);
-    
-    await renderAttendanceRecentWithEdit();
+    // Refresh stats
     await recalcSummaryStats(user.uid);
     
-    NotificationSystem.notifySuccess('Attendance entry deleted successfully');
-    
   } catch (error) {
-    console.error('Error deleting attendance:', error);
-    NotificationSystem.notifyError('Failed to delete attendance: ' + error.message);
+    console.error('Error saving hours:', error);
+    NotificationSystem.notifyError('Failed to save hours: ' + error.message);
   }
 }
 
 // ===========================
-// PAYMENT EDIT/DELETE HANDLERS
+// UPDATED CALCULATE TOTAL PAY WITH CONSISTENT IDs
 // ===========================
 
-async function handlePaymentEdit(event) {
-  event.preventDefault();
-  const button = event.target.closest('.edit-payment-btn');
-  if (!button) return;
+function calculateTotalPay() {
+  const hoursInput = document.getElementById(HOURS_FORM_IDS.hours);
+  const rateInput = document.getElementById(HOURS_FORM_IDS.rate);
   
-  const paymentId = button.dataset.id;
-  if (!paymentId) return;
-  
-  try {
-    const paymentEntry = cache.payments.find(p => p.id === paymentId);
-    if (!paymentEntry) return;
-    
-    // Fill the payment form
-    document.getElementById('paymentStudent').value = paymentEntry.studentId || '';
-    document.getElementById('paymentDate').value = paymentEntry.date || '';
-    document.getElementById('paymentAmount').value = paymentEntry.amount || '';
-    document.getElementById('paymentMethod').value = paymentEntry.method || '';
-    document.getElementById('paymentNotes').value = paymentEntry.notes || '';
-    
-    // Set editing mode
-    const paymentForm = document.getElementById('paymentForm');
-    paymentForm.dataset.editingId = paymentId;
-    
-    // Scroll to form
-    paymentForm.scrollIntoView({ behavior: 'smooth' });
-    
-    NotificationSystem.notifyInfo('Editing payment entry');
-    
-  } catch (error) {
-    console.error('Error editing payment:', error);
-    NotificationSystem.notifyError('Failed to edit payment: ' + error.message);
-  }
-}
-
-async function handlePaymentDelete(event) {
-  event.preventDefault();
-  const button = event.target.closest('.delete-payment-btn');
-  if (!button) return;
-  
-  const paymentId = button.dataset.id;
-  
-  if (!confirm('Are you sure you want to delete this payment entry?')) {
+  if (!hoursInput || !rateInput) {
+    console.warn('Hours or rate input not found for total pay calculation');
     return;
   }
   
-  try {
-    const user = auth.currentUser;
-    if (!user) {
-      NotificationSystem.notifyError('Please log in to delete payment');
-      return;
-    }
-    
-    await deleteDoc(doc(db, "users", user.uid, "payments", paymentId));
-    
-    cache.payments = cache.payments.filter(p => p.id !== paymentId);
-    EnhancedCache.saveToLocalStorageBulk('payments', cache.payments);
-    
-    await renderPaymentActivityWithEdit();
-    await recalcSummaryStats(user.uid);
-    
-    NotificationSystem.notifySuccess('Payment entry deleted successfully');
-    
-  } catch (error) {
-    console.error('Error deleting payment:', error);
-    NotificationSystem.notifyError('Failed to delete payment: ' + error.message);
+  const hours = safeNumber(hoursInput.value);
+  const rate = safeNumber(rateInput.value);
+  const total = hours * rate;
+  
+  const totalPayElement = document.getElementById(HOURS_FORM_IDS.totalPay);
+  if (totalPayElement) {
+    totalPayElement.textContent = fmtMoney(total);
   }
 }
+
+// ===========================
+// UPDATED FORM SETUP WITH CONSISTENT IDs
+// ===========================
+
+function setupFormHandlers() {
+  console.log('🔧 Setting up form handlers...');
+  
+  // Student Form
+  const studentForm = document.getElementById(STUDENT_FORM_IDS.form);
+  const studentSubmitBtn = document.getElementById(STUDENT_FORM_IDS.submitBtn);
+  
+  if (studentForm) {
+    // Remove any existing listeners first
+    const newForm = studentForm.cloneNode(true);
+    studentForm.parentNode.replaceChild(newForm, studentForm);
+    newForm.addEventListener('submit', handleStudentSubmit);
+  }
+  
+  if (studentSubmitBtn) {
+    studentSubmitBtn.removeEventListener('click', handleStudentSubmit);
+    studentSubmitBtn.addEventListener('click', handleStudentSubmit);
+  }
+  
+  // Hours Form
+  const hoursForm = document.getElementById(HOURS_FORM_IDS.form);
+  if (hoursForm) {
+    const newHoursForm = hoursForm.cloneNode(true);
+    hoursForm.parentNode.replaceChild(newHoursForm, hoursForm);
+    newHoursForm.addEventListener('submit', handleHoursSubmit);
+    
+    // Set up hours calculation
+    const hoursInput = document.getElementById(HOURS_FORM_IDS.hours);
+    const rateInput = document.getElementById(HOURS_FORM_IDS.rate);
+    if (hoursInput && rateInput) {
+      hoursInput.addEventListener('input', calculateTotalPay);
+      rateInput.addEventListener('input', calculateTotalPay);
+    }
+  }
+  
+  // Marks Form
+  const marksForm = document.getElementById(MARKS_FORM_IDS.form);
+  if (marksForm) {
+    const newMarksForm = marksForm.cloneNode(true);
+    marksForm.parentNode.replaceChild(newMarksForm, marksForm);
+    newMarksForm.addEventListener('submit', handleMarksSubmit);
+  }
+  
+  // Attendance Form
+  const attendanceForm = document.getElementById(ATTENDANCE_FORM_IDS.form);
+  if (attendanceForm) {
+    const newAttendanceForm = attendanceForm.cloneNode(true);
+    attendanceForm.parentNode.replaceChild(newAttendanceForm, attendanceForm);
+    newAttendanceForm.addEventListener('submit', handleAttendanceSubmit);
+  }
+  
+  // Payment Form
+  const paymentForm = document.getElementById(PAYMENT_FORM_IDS.form);
+  if (paymentForm) {
+    const newPaymentForm = paymentForm.cloneNode(true);
+    paymentForm.parentNode.replaceChild(newPaymentForm, paymentForm);
+    newPaymentForm.addEventListener('submit', handlePaymentSubmit);
+  }
+  
+  // Set today's date for all date inputs
+  const today = new Date().toISOString().split('T')[0];
+  document.querySelectorAll('input[type="date"]').forEach(input => {
+    if (!input.value) {
+      input.value = today;
+    }
+  });
+  
+  // Setup edit and delete button handlers for existing content
+  setTimeout(() => {
+    setupEditDeleteHandlers();
+  }, 100);
+  
+  console.log('✅ Form handlers initialized');
+}
+
+// ===========================
+// ID VERIFICATION FUNCTION
+// ===========================
+
+function verifyAllIDs() {
+  console.log('🔍 Verifying all HTML IDs...');
+  
+  const allIDs = [
+    // Student Form
+    STUDENT_FORM_IDS.name,
+    STUDENT_FORM_IDS.id,
+    STUDENT_FORM_IDS.gender,
+    STUDENT_FORM_IDS.subject,
+    STUDENT_FORM_IDS.email,
+    STUDENT_FORM_IDS.phone,
+    STUDENT_FORM_IDS.rate,
+    STUDENT_FORM_IDS.notes,
+    STUDENT_FORM_IDS.submitBtn,
+    STUDENT_FORM_IDS.form,
+    
+    // Hours Form
+    HOURS_FORM_IDS.organization,
+    HOURS_FORM_IDS.workType,
+    HOURS_FORM_IDS.subject,
+    HOURS_FORM_IDS.student,
+    HOURS_FORM_IDS.hours,
+    HOURS_FORM_IDS.rate,
+    HOURS_FORM_IDS.date,
+    HOURS_FORM_IDS.notes,
+    HOURS_FORM_IDS.submitBtn,
+    HOURS_FORM_IDS.form,
+    HOURS_FORM_IDS.totalPay,
+    
+    // Marks Form
+    MARKS_FORM_IDS.student,
+    MARKS_FORM_IDS.subject,
+    MARKS_FORM_IDS.topic,
+    MARKS_FORM_IDS.score,
+    MARKS_FORM_IDS.max,
+    MARKS_FORM_IDS.date,
+    MARKS_FORM_IDS.notes,
+    MARKS_FORM_IDS.submitBtn,
+    MARKS_FORM_IDS.form,
+    
+    // Attendance Form
+    ATTENDANCE_FORM_IDS.subject,
+    ATTENDANCE_FORM_IDS.topic,
+    ATTENDANCE_FORM_IDS.date,
+    ATTENDANCE_FORM_IDS.notes,
+    ATTENDANCE_FORM_IDS.studentsContainer,
+    ATTENDANCE_FORM_IDS.submitBtn,
+    ATTENDANCE_FORM_IDS.form,
+    
+    // Payment Form
+    PAYMENT_FORM_IDS.student,
+    PAYMENT_FORM_IDS.amount,
+    PAYMENT_FORM_IDS.method,
+    PAYMENT_FORM_IDS.date,
+    PAYMENT_FORM_IDS.notes,
+    PAYMENT_FORM_IDS.submitBtn,
+    PAYMENT_FORM_IDS.form
+  ];
+  
+  const missingIDs = [];
+  
+  allIDs.forEach(id => {
+    const element = document.getElementById(id);
+    if (!element) {
+      missingIDs.push(id);
+      console.warn(`⚠️ ID not found in DOM: ${id}`);
+    }
+  });
+  
+  if (missingIDs.length === 0) {
+    console.log('✅ All IDs verified successfully!');
+  } else {
+    console.error(`❌ Missing ${missingIDs.length} IDs:`, missingIDs);
+  }
+  
+  return missingIDs;
+}
+
+// ===========================
+// UPDATE INITIALIZATION TO VERIFY IDs
+// ===========================
+
+async function initializeApp() {
+  console.log('🚀 Initializing WorkLog App...');
+  
+  // Initialize notification system first
+  NotificationSystem.initNotificationStyles();
+  
+  // Verify IDs on startup
+  setTimeout(verifyAllIDs, 500);
+  
+  // Setup authentication state listener
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      console.log('✅ User authenticated:', user.email);
+      
+      // Load user profile and data
+      await loadUserProfile(user.uid);
+      EnhancedCache.loadCachedData();
+      
+      // Initialize systems
+      setupTabNavigation();
+      setupFormHandlers();
+      setupProfileModal();
+      setupFloatingAddButton();
+      setupReportButtons();
+      SyncBar.init();
+      
+      // Load and render initial data
+      await Promise.all([
+        renderStudents(),
+        renderRecentHoursWithEdit(),
+        renderRecentMarksWithEdit(),
+        renderAttendanceRecentWithEdit(),
+        renderPaymentActivityWithEdit(),
+        renderStudentBalancesWithEdit()
+      ]);
+      
+      // Populate dropdowns
+      await populateStudentDropdowns();
+      
+      // Update UI
+      updateHeaderStats();
+      
+      console.log('✅ App initialization complete');
+      
+    } else {
+      console.log('❌ No user signed in, redirecting to auth...');
+      window.location.href = "auth.html";
+    }
+  });
+  
+  // Initialize theme
+  initializeTheme();
+}
+
+// ===========================
+// ADD THIS DEBUG FUNCTION TO CHECK IDs
+// ===========================
+
+window.debugIDs = function() {
+  console.log('🔍 Checking all form field IDs...');
+  
+  // Check student form
+  console.log('📋 Student Form IDs:');
+  Object.entries(STUDENT_FORM_IDS).forEach(([key, id]) => {
+    const element = document.getElementById(id);
+    console.log(`  ${key}: ${id} - ${element ? '✓ Found' : '✗ Missing'}`);
+  });
+  
+  // Check hours form
+  console.log('⏰ Hours Form IDs:');
+  Object.entries(HOURS_FORM_IDS).forEach(([key, id]) => {
+    const element = document.getElementById(id);
+    console.log(`  ${key}: ${id} - ${element ? '✓ Found' : '✗ Missing'}`);
+  });
+  
+  // Check marks form
+  console.log('📊 Marks Form IDs:');
+  Object.entries(MARKS_FORM_IDS).forEach(([key, id]) => {
+    const element = document.getElementById(id);
+    console.log(`  ${key}: ${id} - ${element ? '✓ Found' : '✗ Missing'}`);
+  });
+  
+  // Check attendance form
+  console.log('📅 Attendance Form IDs:');
+  Object.entries(ATTENDANCE_FORM_IDS).forEach(([key, id]) => {
+    const element = document.getElementById(id);
+    console.log(`  ${key}: ${id} - ${element ? '✓ Found' : '✗ Missing'}`);
+  });
+  
+  // Check payment form
+  console.log('💰 Payment Form IDs:');
+  Object.entries(PAYMENT_FORM_IDS).forEach(([key, id]) => {
+    const element = document.getElementById(id);
+    console.log(`  ${key}: ${id} - ${element ? '✓ Found' : '✗ Missing'}`);
+  });
+};
+
+// ===========================
+// QUICK FIX FOR ID DISCREPANCIES
+// ===========================
+
+function fixIDDiscrepancies() {
+  console.log('🔧 Attempting to fix ID discrepancies...');
+  
+  // Common discrepancies to check
+  const discrepancies = [
+    { expected: 'studentRate', alternatives: ['studentBaseRate', 'studentHourlyRate'] },
+    { expected: 'paymentStudent', alternatives: ['studentSelectPayment', 'paymentStudentSelect'] },
+    { expected: 'marksScore', alternatives: ['marks', 'score'] },
+    { expected: 'marksMax', alternatives: ['maxMarks', 'maxScore'] }
+  ];
+  
+  discrepancies.forEach(({ expected, alternatives }) => {
+    const expectedElement = document.getElementById(expected);
+    if (!expectedElement) {
+      // Try alternatives
+      for (const alt of alternatives) {
+        const altElement = document.getElementById(alt);
+        if (altElement) {
+          console.log(`⚠️ Found ${alt} instead of ${expected}. Consider updating HTML to use ${expected}`);
+          break;
+        }
+      }
+    }
+  });
+}
+
+// Call this after DOM loads
+setTimeout(fixIDDiscrepancies, 1000);
 
 // ===========================
 // TAB NAVIGATION SYSTEM
