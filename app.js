@@ -2826,7 +2826,7 @@ function showDropdownError() {
 // FORM SETUP HANDLERS
 // ===========================
 
-function setupFormHandlers() {
+/*function setupFormHandlers() {
   console.log('🔧 Setting up form handlers...');
   
   // Student Form - TWO WAYS TO SUBMIT:
@@ -2899,7 +2899,7 @@ function setupFormHandlers() {
   }, 100);
   
   console.log('✅ Form handlers initialized');
-}
+} */
 
 // ===========================
 // DEFINITIVE ID CONFIGURATION
