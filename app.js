@@ -30,6 +30,8 @@ import {
 let autoSyncInterval = null;
 let isAutoSyncEnabled = false;
 let currentUserData = null;
+let currentEditId = null;
+let currentEditType = null;
 
 // Cache system
 const cache = {
@@ -513,6 +515,7 @@ const FORM_IDS = {
     rate: 'studentRate',
     notes: 'studentNotes',
     submitBtn: 'studentSubmitBtn',
+    cancelBtn: 'studentCancelBtn',
     form: 'studentForm'
   },
   HOURS: {
@@ -525,6 +528,7 @@ const FORM_IDS = {
     date: 'workDate',
     notes: 'hoursNotes',
     submitBtn: 'hoursSubmitBtn',
+    cancelBtn: 'hoursCancelBtn',
     form: 'hoursForm',
     totalPay: 'totalPay'
   },
@@ -537,6 +541,7 @@ const FORM_IDS = {
     date: 'marksDate',
     notes: 'marksNotes',
     submitBtn: 'marksSubmitBtn',
+    cancelBtn: 'marksCancelBtn',
     form: 'marksForm'
   },
   ATTENDANCE: {
@@ -546,6 +551,7 @@ const FORM_IDS = {
     notes: 'attendanceNotes',
     studentsContainer: 'attendanceStudents',
     submitBtn: 'attendanceSubmitBtn',
+    cancelBtn: 'attendanceCancelBtn',
     form: 'attendanceForm'
   },
   PAYMENT: {
@@ -555,9 +561,69 @@ const FORM_IDS = {
     date: 'paymentDate',
     notes: 'paymentNotes',
     submitBtn: 'paymentSubmitBtn',
+    cancelBtn: 'paymentCancelBtn',
     form: 'paymentForm'
   }
 };
+
+// ===========================
+// EDIT MODE MANAGEMENT
+// ===========================
+
+function setEditMode(type, id) {
+  currentEditType = type;
+  currentEditId = id;
+  
+  // Show cancel button for the current form
+  const cancelBtn = document.getElementById(FORM_IDS[type].cancelBtn);
+  if (cancelBtn) {
+    cancelBtn.style.display = 'inline-block';
+  }
+  
+  // Update submit button text
+  const submitBtn = document.getElementById(FORM_IDS[type].submitBtn);
+  if (submitBtn) {
+    submitBtn.textContent = type === 'STUDENT' ? 'Update Student' : 
+                           type === 'HOURS' ? 'Update Hours' :
+                           type === 'MARKS' ? 'Update Marks' :
+                           type === 'ATTENDANCE' ? 'Update Attendance' :
+                           'Update Payment';
+    submitBtn.classList.remove('primary');
+    submitBtn.classList.add('warning');
+  }
+}
+
+function cancelEditMode() {
+  if (!currentEditType) return;
+  
+  // Reset form
+  const form = document.getElementById(FORM_IDS[currentEditType].form);
+  if (form) {
+    form.reset();
+  }
+  
+  // Hide cancel button
+  const cancelBtn = document.getElementById(FORM_IDS[currentEditType].cancelBtn);
+  if (cancelBtn) {
+    cancelBtn.style.display = 'none';
+  }
+  
+  // Reset submit button
+  const submitBtn = document.getElementById(FORM_IDS[currentEditType].submitBtn);
+  if (submitBtn) {
+    submitBtn.textContent = currentEditType === 'STUDENT' ? '➕ Add Student' : 
+                           currentEditType === 'HOURS' ? 'Log Hours' :
+                           currentEditType === 'MARKS' ? 'Add Marks' :
+                           currentEditType === 'ATTENDANCE' ? 'Record Attendance' :
+                           'Add Payment';
+    submitBtn.classList.remove('warning');
+    submitBtn.classList.add('primary');
+  }
+  
+  // Clear edit state
+  currentEditType = null;
+  currentEditId = null;
+}
 
 // ===========================
 // FORM HANDLERS
@@ -572,9 +638,6 @@ async function handleStudentSubmit(e) {
     return;
   }
 
-  const form = document.getElementById(FORM_IDS.STUDENT.form);
-  const isEditing = form && form.dataset.editingId;
-  
   // Get form values
   const name = document.getElementById(FORM_IDS.STUDENT.name)?.value.trim();
   const studentId = document.getElementById(FORM_IDS.STUDENT.id)?.value.trim();
@@ -604,42 +667,34 @@ async function handleStudentSubmit(e) {
     updatedAt: new Date().toISOString()
   };
 
-  if (!isEditing) {
-    studentData.createdAt = new Date().toISOString();
-  }
-
   try {
-    if (isEditing) {
+    if (currentEditType === 'STUDENT' && currentEditId) {
       // Update existing student
-      await updateDoc(doc(db, "users", user.uid, "students", form.dataset.editingId), studentData);
+      await updateDoc(doc(db, "users", user.uid, "students", currentEditId), studentData);
       
       // Update cache
-      const index = cache.students.findIndex(s => s.id === form.dataset.editingId);
+      const index = cache.students.findIndex(s => s.id === currentEditId);
       if (index !== -1) {
-        cache.students[index] = { ...cache.students[index], ...studentData, id: form.dataset.editingId };
+        cache.students[index] = { ...cache.students[index], ...studentData, id: currentEditId };
         EnhancedCache.saveToLocalStorageBulk('students', cache.students);
       }
       
       NotificationSystem.notifySuccess(`Student "${name}" updated successfully!`);
-      
-      // Reset form
-      delete form.dataset.editingId;
-      const submitBtn = form.querySelector('button[type="submit"]');
-      if (submitBtn) {
-        submitBtn.textContent = 'Add Student';
-        submitBtn.classList.remove('btn-warning');
-        submitBtn.classList.add('btn-primary');
-      }
+      cancelEditMode();
     } else {
       // Create new student
+      studentData.createdAt = new Date().toISOString();
       const result = await EnhancedCache.saveWithBackgroundSync('students', studentData);
       if (result) {
         NotificationSystem.notifySuccess(`Student "${name}" added successfully!`);
       }
     }
     
-    // Clear form
-    if (form) form.reset();
+    // Clear form if not in edit mode
+    if (currentEditType !== 'STUDENT') {
+      const form = document.getElementById(FORM_IDS.STUDENT.form);
+      if (form) form.reset();
+    }
     
     // Refresh UI
     await renderStudents();
@@ -662,9 +717,6 @@ async function handleHoursSubmit(e) {
     return;
   }
 
-  const form = document.getElementById(FORM_IDS.HOURS.form);
-  const isEditing = form && form.dataset.editingId;
-  
   // Get form values
   const organization = document.getElementById(FORM_IDS.HOURS.organization)?.value;
   const workType = document.getElementById(FORM_IDS.HOURS.workType)?.value;
@@ -695,42 +747,34 @@ async function handleHoursSubmit(e) {
     updatedAt: new Date().toISOString()
   };
 
-  if (!isEditing) {
-    hoursData.createdAt = new Date().toISOString();
-  }
-
   try {
-    if (isEditing) {
+    if (currentEditType === 'HOURS' && currentEditId) {
       // Update existing entry
-      await updateDoc(doc(db, "users", user.uid, "hours", form.dataset.editingId), hoursData);
+      await updateDoc(doc(db, "users", user.uid, "hours", currentEditId), hoursData);
       
       // Update cache
-      const index = cache.hours.findIndex(h => h.id === form.dataset.editingId);
+      const index = cache.hours.findIndex(h => h.id === currentEditId);
       if (index !== -1) {
-        cache.hours[index] = { ...cache.hours[index], ...hoursData, id: form.dataset.editingId };
+        cache.hours[index] = { ...cache.hours[index], ...hoursData, id: currentEditId };
         EnhancedCache.saveToLocalStorageBulk('hours', cache.hours);
       }
       
       NotificationSystem.notifySuccess('Hours updated successfully!');
-      
-      // Reset form
-      delete form.dataset.editingId;
-      const submitBtn = form.querySelector('button[type="submit"]');
-      if (submitBtn) {
-        submitBtn.textContent = 'Log Hours';
-        submitBtn.classList.remove('btn-warning');
-        submitBtn.classList.add('btn-primary');
-      }
+      cancelEditMode();
     } else {
       // Create new entry
+      hoursData.createdAt = new Date().toISOString();
       const result = await EnhancedCache.saveWithBackgroundSync('hours', hoursData);
       if (result) {
         NotificationSystem.notifySuccess('Hours logged successfully!');
       }
     }
     
-    // Clear form
-    if (form) form.reset();
+    // Clear form if not in edit mode
+    if (currentEditType !== 'HOURS') {
+      const form = document.getElementById(FORM_IDS.HOURS.form);
+      if (form) form.reset();
+    }
     
     // Refresh UI
     await renderRecentHoursWithEdit();
@@ -753,7 +797,7 @@ async function handleMarksSubmit(e) {
   }
 
   const form = document.getElementById(FORM_IDS.MARKS.form);
-  const isEditing = form && form.dataset.editingId;
+  const isEditing = currentEditType === 'MARKS' && currentEditId;
   
   // Get form values
   const student = document.getElementById(FORM_IDS.MARKS.student)?.value;
@@ -787,42 +831,34 @@ async function handleMarksSubmit(e) {
     updatedAt: new Date().toISOString()
   };
 
-  if (!isEditing) {
-    marksData.createdAt = new Date().toISOString();
-  }
-
   try {
     if (isEditing) {
       // Update existing entry
-      await updateDoc(doc(db, "users", user.uid, "marks", form.dataset.editingId), marksData);
+      await updateDoc(doc(db, "users", user.uid, "marks", currentEditId), marksData);
       
       // Update cache
-      const index = cache.marks.findIndex(m => m.id === form.dataset.editingId);
+      const index = cache.marks.findIndex(m => m.id === currentEditId);
       if (index !== -1) {
-        cache.marks[index] = { ...cache.marks[index], ...marksData, id: form.dataset.editingId };
+        cache.marks[index] = { ...cache.marks[index], ...marksData, id: currentEditId };
         EnhancedCache.saveToLocalStorageBulk('marks', cache.marks);
       }
       
       NotificationSystem.notifySuccess(`Mark updated: ${score}/${max} (${percentage.toFixed(1)}%)`);
-      
-      // Reset form
-      delete form.dataset.editingId;
-      const submitBtn = form.querySelector('button[type="submit"]');
-      if (submitBtn) {
-        submitBtn.textContent = 'Add Marks';
-        submitBtn.classList.remove('btn-warning');
-        submitBtn.classList.add('btn-primary');
-      }
+      cancelEditMode();
     } else {
       // Create new entry
+      marksData.createdAt = new Date().toISOString();
       const result = await EnhancedCache.saveWithBackgroundSync('marks', marksData);
       if (result) {
         NotificationSystem.notifySuccess(`Mark added: ${score}/${max} (${percentage.toFixed(1)}%)`);
       }
     }
     
-    // Clear form
-    if (form) form.reset();
+    // Clear form if not in edit mode
+    if (!isEditing) {
+      const form = document.getElementById(FORM_IDS.MARKS.form);
+      if (form) form.reset();
+    }
     
     // Refresh UI
     await renderRecentMarksWithEdit();
@@ -842,7 +878,7 @@ async function handleAttendanceSubmit(e) {
   }
 
   const form = document.getElementById(FORM_IDS.ATTENDANCE.form);
-  const isEditing = form && form.dataset.editingId;
+  const isEditing = currentEditType === 'ATTENDANCE' && currentEditId;
   
   // Get form values
   const subject = document.getElementById(FORM_IDS.ATTENDANCE.subject)?.value;
@@ -872,42 +908,34 @@ async function handleAttendanceSubmit(e) {
     updatedAt: new Date().toISOString()
   };
 
-  if (!isEditing) {
-    attendanceData.createdAt = new Date().toISOString();
-  }
-
   try {
     if (isEditing) {
       // Update existing entry
-      await updateDoc(doc(db, "users", user.uid, "attendance", form.dataset.editingId), attendanceData);
+      await updateDoc(doc(db, "users", user.uid, "attendance", currentEditId), attendanceData);
       
       // Update cache
-      const index = cache.attendance.findIndex(a => a.id === form.dataset.editingId);
+      const index = cache.attendance.findIndex(a => a.id === currentEditId);
       if (index !== -1) {
-        cache.attendance[index] = { ...cache.attendance[index], ...attendanceData, id: form.dataset.editingId };
+        cache.attendance[index] = { ...cache.attendance[index], ...attendanceData, id: currentEditId };
         EnhancedCache.saveToLocalStorageBulk('attendance', cache.attendance);
       }
       
       NotificationSystem.notifySuccess(`Attendance updated: ${presentStudents.length}/${totalStudents} present`);
-      
-      // Reset form
-      delete form.dataset.editingId;
-      const submitBtn = form.querySelector('button[type="submit"]');
-      if (submitBtn) {
-        submitBtn.textContent = 'Record Attendance';
-        submitBtn.classList.remove('btn-warning');
-        submitBtn.classList.add('btn-primary');
-      }
+      cancelEditMode();
     } else {
       // Create new entry
+      attendanceData.createdAt = new Date().toISOString();
       const result = await EnhancedCache.saveWithBackgroundSync('attendance', attendanceData);
       if (result) {
         NotificationSystem.notifySuccess(`Attendance recorded: ${presentStudents.length}/${totalStudents} present`);
       }
     }
     
-    // Clear form
-    if (form) form.reset();
+    // Clear form if not in edit mode
+    if (!isEditing) {
+      const form = document.getElementById(FORM_IDS.ATTENDANCE.form);
+      if (form) form.reset();
+    }
     
     // Clear checkboxes
     presentCheckboxes.forEach(cb => cb.checked = false);
@@ -930,7 +958,7 @@ async function handlePaymentSubmit(e) {
   }
 
   const form = document.getElementById(FORM_IDS.PAYMENT.form);
-  const isEditing = form && form.dataset.editingId;
+  const isEditing = currentEditType === 'PAYMENT' && currentEditId;
   
   // Get form values
   const student = document.getElementById(FORM_IDS.PAYMENT.student)?.value;
@@ -957,42 +985,34 @@ async function handlePaymentSubmit(e) {
     updatedAt: new Date().toISOString()
   };
 
-  if (!isEditing) {
-    paymentData.createdAt = new Date().toISOString();
-  }
-
   try {
     if (isEditing) {
       // Update existing entry
-      await updateDoc(doc(db, "users", user.uid, "payments", form.dataset.editingId), paymentData);
+      await updateDoc(doc(db, "users", user.uid, "payments", currentEditId), paymentData);
       
       // Update cache
-      const index = cache.payments.findIndex(p => p.id === form.dataset.editingId);
+      const index = cache.payments.findIndex(p => p.id === currentEditId);
       if (index !== -1) {
-        cache.payments[index] = { ...cache.payments[index], ...paymentData, id: form.dataset.editingId };
+        cache.payments[index] = { ...cache.payments[index], ...paymentData, id: currentEditId };
         EnhancedCache.saveToLocalStorageBulk('payments', cache.payments);
       }
       
       NotificationSystem.notifySuccess(`Payment updated: ${fmtMoney(amount)} from ${student}`);
-      
-      // Reset form
-      delete form.dataset.editingId;
-      const submitBtn = form.querySelector('button[type="submit"]');
-      if (submitBtn) {
-        submitBtn.textContent = 'Add Payment';
-        submitBtn.classList.remove('btn-warning');
-        submitBtn.classList.add('btn-primary');
-      }
+      cancelEditMode();
     } else {
       // Create new entry
+      paymentData.createdAt = new Date().toISOString();
       const result = await EnhancedCache.saveWithBackgroundSync('payments', paymentData);
       if (result) {
         NotificationSystem.notifySuccess(`Payment recorded: ${fmtMoney(amount)} from ${student}`);
       }
     }
     
-    // Clear form
-    if (form) form.reset();
+    // Clear form if not in edit mode
+    if (!isEditing) {
+      const form = document.getElementById(FORM_IDS.PAYMENT.form);
+      if (form) form.reset();
+    }
     
     // Refresh UI
     await renderPaymentActivityWithEdit();
@@ -1005,65 +1025,20 @@ async function handlePaymentSubmit(e) {
 }
 
 // ===========================
-// EDIT/DELETE HANDLERS
+// DELETE HANDLERS
 // ===========================
-
-async function handleStudentEdit(event) {
-  event.preventDefault();
-  const button = event.target.closest('.edit-student-btn');
-  if (!button) return;
-  
-  const studentId = button.dataset.id;
-  if (!studentId) return;
-  
-  try {
-    const student = cache.students.find(s => s.id === studentId);
-    if (!student) {
-      NotificationSystem.notifyError('Student not found');
-      return;
-    }
-    
-    // Fill the student form
-    document.getElementById(FORM_IDS.STUDENT.name).value = student.name || '';
-    document.getElementById(FORM_IDS.STUDENT.id).value = student.studentId || '';
-    document.getElementById(FORM_IDS.STUDENT.gender).value = student.gender || '';
-    document.getElementById(FORM_IDS.STUDENT.subject).value = student.subject || '';
-    document.getElementById(FORM_IDS.STUDENT.email).value = student.email || '';
-    document.getElementById(FORM_IDS.STUDENT.phone).value = student.phone || '';
-    document.getElementById(FORM_IDS.STUDENT.rate).value = student.rate || student.hourlyRate || '';
-    document.getElementById(FORM_IDS.STUDENT.notes).value = student.notes || '';
-    
-    // Set the editing mode
-    const form = document.getElementById(FORM_IDS.STUDENT.form);
-    form.dataset.editingId = studentId;
-    
-    // Change button text
-    const submitBtn = form.querySelector('button[type="submit"]');
-    if (submitBtn) {
-      submitBtn.textContent = 'Update Student';
-      submitBtn.classList.remove('btn-primary');
-      submitBtn.classList.add('btn-warning');
-    }
-    
-    // Scroll to form
-    form.scrollIntoView({ behavior: 'smooth' });
-    NotificationSystem.notifyInfo(`Editing student: ${student.name}`);
-    
-  } catch (error) {
-    console.error('Error editing student:', error);
-    NotificationSystem.notifyError('Failed to edit student: ' + error.message);
-  }
-}
 
 async function handleStudentDelete(event) {
   event.preventDefault();
+  event.stopPropagation();
+  
   const button = event.target.closest('.delete-student-btn');
   if (!button) return;
   
   const studentId = button.dataset.id;
   const studentName = button.dataset.name || 'this student';
   
-  if (!confirm(`Are you sure you want to delete ${studentName}? This will also delete all associated records!`)) {
+  if (!confirm(`Are you sure you want to delete "${studentName}"? This will also delete all associated hours, marks, attendance, and payment records!`)) {
     return;
   }
   
@@ -1074,7 +1049,7 @@ async function handleStudentDelete(event) {
       return;
     }
     
-    // Delete associated records
+    // Delete associated records first
     await deleteAssociatedRecords(user.uid, studentId);
     
     // Delete the student
@@ -1088,7 +1063,7 @@ async function handleStudentDelete(event) {
     await renderStudents();
     await populateStudentDropdowns();
     
-    NotificationSystem.notifySuccess(`Student ${studentName} deleted successfully`);
+    NotificationSystem.notifySuccess(`Student "${studentName}" deleted successfully`);
     
   } catch (error) {
     console.error('Error deleting student:', error);
@@ -1096,1619 +1071,2199 @@ async function handleStudentDelete(event) {
   }
 }
 
+async function handleHoursDelete(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  const button = event.target.closest('.delete-hours-btn');
+  if (!button) return;
+  
+  const entryId = button.dataset.id;
+  
+  if (!confirm('Are you sure you want to delete this hours entry?')) {
+    return;
+  }
+  
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      NotificationSystem.notifyError('Please log in to delete hours');
+      return;
+    }
+    
+    await deleteDoc(doc(db, "users", user.uid, "hours", entryId));
+    // ... (continuing from where the code left off)
+
+// ===========================
+// DELETE HANDLERS (CONTINUED)
+// ===========================
+
 async function deleteAssociatedRecords(uid, studentId) {
   try {
     const collections = ['hours', 'marks', 'attendance', 'payments'];
     
     for (const collectionName of collections) {
-      const querySnapshot = await getDocs(collection(db, "users", uid, collectionName));
+      // Get all records for this student
+      const q = query(
+        collection(db, "users", uid, collectionName),
+        where("student", "==", studentId)
+      );
+      
+      const snapshot = await getDocs(q);
       const batch = writeBatch(db);
       
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.studentId === studentId || data.student === studentId) {
-          batch.delete(doc.ref);
-        }
+      snapshot.forEach((docSnap) => {
+        batch.delete(docSnap.ref);
       });
       
-      await batch.commit();
+      if (snapshot.size > 0) {
+        await batch.commit();
+        console.log(`Deleted ${snapshot.size} ${collectionName} records for student ${studentId}`);
+        
+        // Update cache
+        cache[collectionName] = cache[collectionName].filter(item => 
+          item.student !== studentId
+        );
+        EnhancedCache.saveToLocalStorageBulk(collectionName, cache[collectionName]);
+      }
     }
-    
-    console.log(`✅ Deleted associated records for student ${studentId}`);
   } catch (error) {
     console.error('Error deleting associated records:', error);
     throw error;
   }
 }
 
-// Similar edit/delete handlers for other collections would go here...
-// For brevity, I'll show the pattern and you can extend it
+async function handleHoursDelete(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  const button = event.target.closest('.delete-hours-btn');
+  if (!button) return;
+  
+  const entryId = button.dataset.id;
+  
+  if (!confirm('Are you sure you want to delete this hours entry?')) {
+    return;
+  }
+  
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      NotificationSystem.notifyError('Please log in to delete hours');
+      return;
+    }
+    
+    await deleteDoc(doc(db, "users", user.uid, "hours", entryId));
+    
+    // Update cache
+    cache.hours = cache.hours.filter(h => h.id !== entryId);
+    EnhancedCache.saveToLocalStorageBulk('hours', cache.hours);
+    
+    // Refresh UI
+    await renderRecentHoursWithEdit();
+    await recalcSummaryStats(user.uid);
+    
+    NotificationSystem.notifySuccess('Hours entry deleted successfully');
+    
+  } catch (error) {
+    console.error('Error deleting hours:', error);
+    NotificationSystem.notifyError('Failed to delete hours: ' + error.message);
+  }
+}
 
-function setupEditDeleteHandlers() {
-  // Student handlers
-  document.querySelectorAll('.edit-student-btn').forEach(btn => {
-    btn.addEventListener('click', handleStudentEdit);
-  });
+async function handleMarksDelete(event) {
+  event.preventDefault();
+  event.stopPropagation();
   
-  document.querySelectorAll('.delete-student-btn').forEach(btn => {
-    btn.addEventListener('click', handleStudentDelete);
-  });
+  const button = event.target.closest('.delete-marks-btn');
+  if (!button) return;
   
-  // Note: Add similar handlers for hours, marks, attendance, payments
-  // using the same pattern as above
+  const entryId = button.dataset.id;
+  const score = button.dataset.score || '';
+  const max = button.dataset.max || '';
+  
+  if (!confirm(`Are you sure you want to delete this marks entry (${score}/${max})?`)) {
+    return;
+  }
+  
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      NotificationSystem.notifyError('Please log in to delete marks');
+      return;
+    }
+    
+    await deleteDoc(doc(db, "users", user.uid, "marks", entryId));
+    
+    // Update cache
+    cache.marks = cache.marks.filter(m => m.id !== entryId);
+    EnhancedCache.saveToLocalStorageBulk('marks', cache.marks);
+    
+    // Refresh UI
+    await renderRecentMarksWithEdit();
+    
+    NotificationSystem.notifySuccess('Marks entry deleted successfully');
+    
+  } catch (error) {
+    console.error('Error deleting marks:', error);
+    NotificationSystem.notifyError('Failed to delete marks: ' + error.message);
+  }
+}
+
+async function handleAttendanceDelete(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  const button = event.target.closest('.delete-attendance-btn');
+  if (!button) return;
+  
+  const entryId = button.dataset.id;
+  const date = button.dataset.date || '';
+  
+  if (!confirm(`Are you sure you want to delete attendance record for ${date}?`)) {
+    return;
+  }
+  
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      NotificationSystem.notifyError('Please log in to delete attendance');
+      return;
+    }
+    
+    await deleteDoc(doc(db, "users", user.uid, "attendance", entryId));
+    
+    // Update cache
+    cache.attendance = cache.attendance.filter(a => a.id !== entryId);
+    EnhancedCache.saveToLocalStorageBulk('attendance', cache.attendance);
+    
+    // Refresh UI
+    await renderAttendanceRecentWithEdit();
+    
+    NotificationSystem.notifySuccess('Attendance record deleted successfully');
+    
+  } catch (error) {
+    console.error('Error deleting attendance:', error);
+    NotificationSystem.notifyError('Failed to delete attendance: ' + error.message);
+  }
+}
+
+async function handlePaymentDelete(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  const button = event.target.closest('.delete-payment-btn');
+  if (!button) return;
+  
+  const entryId = button.dataset.id;
+  const amount = button.dataset.amount || '';
+  
+  if (!confirm(`Are you sure you want to delete payment of ${fmtMoney(amount)}?`)) {
+    return;
+  }
+  
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      NotificationSystem.notifyError('Please log in to delete payment');
+      return;
+    }
+    
+    await deleteDoc(doc(db, "users", user.uid, "payments", entryId));
+    
+    // Update cache
+    cache.payments = cache.payments.filter(p => p.id !== entryId);
+    EnhancedCache.saveToLocalStorageBulk('payments', cache.payments);
+    
+    // Refresh UI
+    await renderPaymentActivityWithEdit();
+    await renderStudentBalancesWithEdit();
+    
+    NotificationSystem.notifySuccess('Payment record deleted successfully');
+    
+  } catch (error) {
+    console.error('Error deleting payment:', error);
+    NotificationSystem.notifyError('Failed to delete payment: ' + error.message);
+  }
 }
 
 // ===========================
-// DATA RENDERING FUNCTIONS
+// RENDER FUNCTIONS
 // ===========================
 
-async function renderStudents(forceRefresh = false) {
-  const container = document.getElementById('studentsContainer');
-  if (!container) return;
-
-  container.innerHTML = '<div class="loading">Loading students...</div>';
-
+async function renderStudents() {
   try {
-    const students = await EnhancedCache.loadCollection('students', forceRefresh);
+    const students = await EnhancedCache.loadCollection('students');
+    const container = document.getElementById('studentsList');
+    if (!container) return;
+    
+    container.innerHTML = '';
     
     if (students.length === 0) {
       container.innerHTML = `
-        <div class="empty-state">
-          <h3>No Students Yet</h3>
-          <p>Add your first student to get started</p>
+        <div class="no-data-message">
+          <p>No students added yet.</p>
+          <p>Use the "Add Student" form to get started.</p>
         </div>
       `;
       return;
     }
-
-    let studentsHTML = '';
+    
     students.forEach(student => {
-      const studentName = student.name || `Student ${student.id}`;
-      const studentId = student.id || student._id || student._firebaseId;
-      
-      studentsHTML += `
-        <div class="student-card" id="student-${studentId}">
-          <div class="student-card-header">
-            <div>
-              <strong>${studentName}</strong>
-              <div class="muted">${student.subject || 'No subject'}</div>
+      const studentCard = document.createElement('div');
+      studentCard.className = 'card';
+      studentCard.innerHTML = `
+        <div class="card-header">
+          <h3>${student.name}</h3>
+          <span class="badge ${student.gender === 'Male' ? 'badge-primary' : 'badge-secondary'}">
+            ${student.gender}
+          </span>
+        </div>
+        <div class="card-body">
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="label">Student ID:</span>
+              <span class="value">${student.studentId || 'N/A'}</span>
             </div>
-            <div class="student-actions">
-              <button class="btn-icon edit-student-btn" data-id="${studentId}" data-name="${studentName}" title="Edit">✏️</button>
-              <button class="btn-icon delete-student-btn" data-id="${studentId}" data-name="${studentName}" title="Delete">🗑️</button>
+            <div class="info-item">
+              <span class="label">Subject:</span>
+              <span class="value">${student.subject || 'N/A'}</span>
+            </div>
+            <div class="info-item">
+              <span class="label">Email:</span>
+              <span class="value">${student.email || 'N/A'}</span>
+            </div>
+            <div class="info-item">
+              <span class="label">Phone:</span>
+              <span class="value">${student.phone || 'N/A'}</span>
+            </div>
+            <div class="info-item">
+              <span class="label">Hourly Rate:</span>
+              <span class="value">${fmtMoney(student.rate || 0)}</span>
             </div>
           </div>
-          <div class="student-details">
-            <div class="muted">${student.gender || 'Not specified'} • ${student.email || 'No email'} • ${student.phone || 'No phone'}</div>
-            <div class="student-rate">Rate: $${safeNumber(student.rate || student.hourlyRate || 0)}/hr</div>
-            <div class="student-meta">Added: ${formatDate(student.createdAt || student.dateAdded)}</div>
-            ${student.notes ? `<div class="student-notes">${student.notes}</div>` : ''}
-          </div>
+          ${student.notes ? `<p class="notes"><strong>Notes:</strong> ${student.notes}</p>` : ''}
+        </div>
+        <div class="card-footer">
+          <button class="btn btn-sm btn-primary edit-student-btn" data-id="${student.id}">
+            ✏️ Edit
+          </button>
+          <button class="btn btn-sm btn-danger delete-student-btn" 
+                  data-id="${student.id}" 
+                  data-name="${student.name}">
+            🗑️ Delete
+          </button>
         </div>
       `;
+      container.appendChild(studentCard);
     });
-
-    container.innerHTML = studentsHTML;
-    setupEditDeleteHandlers();
+    
+    // Add event listeners for edit and delete
+    document.querySelectorAll('.edit-student-btn').forEach(btn => {
+      btn.addEventListener('click', handleStudentEdit);
+    });
+    
+    document.querySelectorAll('.delete-student-btn').forEach(btn => {
+      btn.addEventListener('click', handleStudentDelete);
+    });
     
   } catch (error) {
-    console.error("Error rendering students:", error);
-    container.innerHTML = '<div class="error">Error loading students</div>';
+    console.error('Error rendering students:', error);
+    const container = document.getElementById('studentsList');
+    if (container) {
+      container.innerHTML = `
+        <div class="error-message">
+          <p>Error loading students. Please try again.</p>
+          <p>Error: ${error.message}</p>
+        </div>
+      `;
+    }
   }
 }
 
-async function renderRecentHoursWithEdit(limit = 10) {
-  const container = document.getElementById('hoursContainer');
-  if (!container) return;
-
+async function renderRecentHoursWithEdit() {
   try {
     const hours = await EnhancedCache.loadCollection('hours');
+    const container = document.getElementById('recentHoursTable');
+    if (!container) return;
     
-    if (hours.length === 0) {
+    container.innerHTML = '';
+    
+    // Sort by date (newest first)
+    const sortedHours = [...hours].sort((a, b) => 
+      new Date(b.dateIso || b.date) - new Date(a.dateIso || a.date)
+    ).slice(0, 50); // Limit to 50 most recent
+    
+    if (sortedHours.length === 0) {
       container.innerHTML = `
-        <div class="empty-state">
-          <h3>No Hours Logged</h3>
-          <p>Log your first work session to get started</p>
+        <div class="no-data-message">
+          <p>No hours logged yet.</p>
+          <p>Use the "Log Hours" form to get started.</p>
         </div>
       `;
       return;
     }
-
-    const sortedHours = hours.sort((a, b) => {
-      const dateA = new Date(a.date || a.dateIso || a.createdAt);
-      const dateB = new Date(b.date || b.dateIso || b.createdAt);
-      return dateB - dateA;
+    
+    const table = document.createElement('table');
+    table.className = 'data-table';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Organization</th>
+          <th>Work Type</th>
+          <th>Subject</th>
+          <th>Student</th>
+          <th>Hours</th>
+          <th>Rate</th>
+          <th>Total</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${sortedHours.map(entry => `
+          <tr>
+            <td>${formatDate(entry.date)}</td>
+            <td>${entry.organization || 'N/A'}</td>
+            <td>${entry.workType || 'N/A'}</td>
+            <td>${entry.subject || 'N/A'}</td>
+            <td>${entry.student || 'N/A'}</td>
+            <td>${entry.hours?.toFixed(1) || '0.0'}</td>
+            <td>${fmtMoney(entry.rate || 0)}</td>
+            <td>${fmtMoney(entry.total || 0)}</td>
+            <td class="actions">
+              <button class="btn-icon edit-hours-btn" 
+                      data-id="${entry.id}"
+                      data-organization="${entry.organization || ''}"
+                      data-worktype="${entry.workType || ''}"
+                      data-subject="${entry.subject || ''}"
+                      data-student="${entry.student || ''}"
+                      data-hours="${entry.hours || 0}"
+                      data-rate="${entry.rate || 0}"
+                      data-date="${entry.date || ''}"
+                      data-notes="${entry.notes || ''}">
+                ✏️
+              </button>
+              <button class="btn-icon delete-hours-btn" 
+                      data-id="${entry.id}">
+                🗑️
+              </button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    `;
+    container.appendChild(table);
+    
+    // Add event listeners
+    document.querySelectorAll('.edit-hours-btn').forEach(btn => {
+      btn.addEventListener('click', handleHoursEdit);
     });
-
-    let hoursHTML = '';
-    sortedHours.slice(0, limit).forEach(entry => {
-      const entryId = entry.id || entry._id || entry._firebaseId;
-      const hoursWorked = safeNumber(entry.hours || entry.hoursWorked);
-      const rate = safeNumber(entry.rate || entry.baseRate || entry.hourlyRate);
-      const total = hoursWorked * rate;
-      
-      hoursHTML += `
-        <div class="hours-entry" id="hours-entry-${entryId}">
-          <div class="hours-header">
-            <strong>${entry.student || 'No Student'}</strong>
-            <span class="hours-type">${entry.workType || entry.subject || 'General'}</span>
-            <div class="student-actions">
-              <button class="btn-icon edit-hours-btn" data-id="${entryId}" title="Edit">✏️</button>
-              <button class="btn-icon delete-hours-btn" data-id="${entryId}" title="Delete">🗑️</button>
-            </div>
-          </div>
-          <div class="muted">${formatDate(entry.date || entry.dateIso)} • ${entry.subject || 'General'}</div>
-          <div class="hours-details">
-            <span>Hours: ${hoursWorked}</span>
-            <span>Rate: $${rate}</span>
-            <span class="hours-total">Total: $${total.toFixed(2)}</span>
-          </div>
-          ${entry.organization ? `<div class="muted">Organization: ${entry.organization}</div>` : ''}
-          ${entry.notes ? `<div class="muted">Notes: ${entry.notes}</div>` : ''}
-        </div>
-      `;
+    
+    document.querySelectorAll('.delete-hours-btn').forEach(btn => {
+      btn.addEventListener('click', handleHoursDelete);
     });
-
-    container.innerHTML = hoursHTML;
     
   } catch (error) {
-    console.error("Error rendering hours:", error);
-    container.innerHTML = '<div class="error">Error loading hours</div>';
+    console.error('Error rendering hours:', error);
   }
 }
 
-// Similar rendering functions for marks, attendance, payments...
-// For brevity, I'll show one more example
+async function renderRecentMarksWithEdit() {
+  try {
+    const marks = await EnhancedCache.loadCollection('marks');
+    const container = document.getElementById('recentMarksTable');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    // Sort by date (newest first)
+    const sortedMarks = [...marks].sort((a, b) => 
+      new Date(b.dateIso || b.date) - new Date(a.dateIso || a.date)
+    ).slice(0, 50);
+    
+    if (sortedMarks.length === 0) {
+      container.innerHTML = `
+        <div class="no-data-message">
+          <p>No marks recorded yet.</p>
+          <p>Use the "Add Marks" form to get started.</p>
+        </div>
+      `;
+      return;
+    }
+    
+    const table = document.createElement('table');
+    table.className = 'data-table';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Student</th>
+          <th>Subject</th>
+          <th>Topic</th>
+          <th>Score</th>
+          <th>Percentage</th>
+          <th>Grade</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${sortedMarks.map(entry => {
+          const percentage = entry.maxMarks > 0 ? 
+            (entry.marks / entry.maxMarks) * 100 : 0;
+          return `
+          <tr>
+            <td>${formatDate(entry.date)}</td>
+            <td>${entry.student || 'N/A'}</td>
+            <td>${entry.subject || 'N/A'}</td>
+            <td>${entry.topic || 'N/A'}</td>
+            <td>${entry.marks || 0}/${entry.maxMarks || 0}</td>
+            <td>${percentage.toFixed(1)}%</td>
+            <td>
+              <span class="grade-badge grade-${calculateGrade(percentage).toLowerCase()}">
+                ${calculateGrade(percentage)}
+              </span>
+            </td>
+            <td class="actions">
+              <button class="btn-icon edit-marks-btn" 
+                      data-id="${entry.id}"
+                      data-student="${entry.student || ''}"
+                      data-subject="${entry.subject || ''}"
+                      data-topic="${entry.topic || ''}"
+                      data-score="${entry.marks || 0}"
+                      data-max="${entry.maxMarks || 0}"
+                      data-date="${entry.date || ''}"
+                      data-notes="${entry.notes || ''}">
+                ✏️
+              </button>
+              <button class="btn-icon delete-marks-btn" 
+                      data-id="${entry.id}"
+                      data-score="${entry.marks || 0}"
+                      data-max="${entry.maxMarks || 0}">
+                🗑️
+              </button>
+            </td>
+          </tr>
+        `}).join('')}
+      </tbody>
+    `;
+    container.appendChild(table);
+    
+    // Add event listeners
+    document.querySelectorAll('.edit-marks-btn').forEach(btn => {
+      btn.addEventListener('click', handleMarksEdit);
+    });
+    
+    document.querySelectorAll('.delete-marks-btn').forEach(btn => {
+      btn.addEventListener('click', handleMarksDelete);
+    });
+    
+  } catch (error) {
+    console.error('Error rendering marks:', error);
+  }
+}
+
+async function renderAttendanceRecentWithEdit() {
+  try {
+    const attendance = await EnhancedCache.loadCollection('attendance');
+    const container = document.getElementById('recentAttendanceTable');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    // Sort by date (newest first)
+    const sortedAttendance = [...attendance].sort((a, b) => 
+      new Date(b.dateIso || b.date) - new Date(a.dateIso || a.date)
+    ).slice(0, 50);
+    
+    if (sortedAttendance.length === 0) {
+      container.innerHTML = `
+        <div class="no-data-message">
+          <p>No attendance recorded yet.</p>
+          <p>Use the "Record Attendance" form to get started.</p>
+        </div>
+      `;
+      return;
+    }
+    
+    const table = document.createElement('table');
+    table.className = 'data-table';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Subject</th>
+          <th>Topic</th>
+          <th>Present</th>
+          <th>Attendance</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${sortedAttendance.map(entry => {
+          const presentCount = Array.isArray(entry.present) ? entry.present.length : 0;
+          const totalCount = entry.totalStudents || 0;
+          const percentage = totalCount > 0 ? (presentCount / totalCount) * 100 : 0;
+          return `
+          <tr>
+            <td>${formatDate(entry.date)}</td>
+            <td>${entry.subject || 'N/A'}</td>
+            <td>${entry.topic || 'N/A'}</td>
+            <td>${presentCount}/${totalCount}</td>
+            <td>
+              <span class="attendance-badge ${percentage >= 50 ? 'attendance-good' : 'attendance-poor'}">
+                ${percentage.toFixed(1)}%
+              </span>
+            </td>
+            <td class="actions">
+              <button class="btn-icon edit-attendance-btn" 
+                      data-id="${entry.id}"
+                      data-subject="${entry.subject || ''}"
+                      data-topic="${entry.topic || ''}"
+                      data-date="${entry.date || ''}"
+                      data-notes="${entry.notes || ''}"
+                      data-present="${Array.isArray(entry.present) ? entry.present.join(',') : ''}">
+                ✏️
+              </button>
+              <button class="btn-icon delete-attendance-btn" 
+                      data-id="${entry.id}"
+                      data-date="${entry.date || ''}">
+                🗑️
+              </button>
+            </td>
+          </tr>
+        `}).join('')}
+      </tbody>
+    `;
+    container.appendChild(table);
+    
+    // Add event listeners
+    document.querySelectorAll('.edit-attendance-btn').forEach(btn => {
+      btn.addEventListener('click', handleAttendanceEdit);
+    });
+    
+    document.querySelectorAll('.delete-attendance-btn').forEach(btn => {
+      btn.addEventListener('click', handleAttendanceDelete);
+    });
+    
+  } catch (error) {
+    console.error('Error rendering attendance:', error);
+  }
+}
+
+async function renderPaymentActivityWithEdit() {
+  try {
+    const payments = await EnhancedCache.loadCollection('payments');
+    const container = document.getElementById('paymentActivityTable');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    // Sort by date (newest first)
+    const sortedPayments = [...payments].sort((a, b) => 
+      new Date(b.dateIso || b.date) - new Date(a.dateIso || a.date)
+    ).slice(0, 50);
+    
+    if (sortedPayments.length === 0) {
+      container.innerHTML = `
+        <div class="no-data-message">
+          <p>No payments recorded yet.</p>
+          <p>Use the "Add Payment" form to get started.</p>
+        </div>
+      `;
+      return;
+    }
+    
+    const table = document.createElement('table');
+    table.className = 'data-table';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Student</th>
+          <th>Amount</th>
+          <th>Method</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${sortedPayments.map(entry => `
+          <tr>
+            <td>${formatDate(entry.date)}</td>
+            <td>${entry.student || 'N/A'}</td>
+            <td>${fmtMoney(entry.amount || 0)}</td>
+            <td>
+              <span class="method-badge method-${entry.method?.toLowerCase() || 'cash'}">
+                ${entry.method || 'Cash'}
+              </span>
+            </td>
+            <td>
+              <span class="status-badge status-${entry.status?.toLowerCase() || 'completed'}">
+                ${entry.status || 'Completed'}
+              </span>
+            </td>
+            <td class="actions">
+              <button class="btn-icon edit-payment-btn" 
+                      data-id="${entry.id}"
+                      data-student="${entry.student || ''}"
+                      data-amount="${entry.amount || 0}"
+                      data-method="${entry.method || 'Cash'}"
+                      data-date="${entry.date || ''}"
+                      data-notes="${entry.notes || ''}">
+                ✏️
+              </button>
+              <button class="btn-icon delete-payment-btn" 
+                      data-id="${entry.id}"
+                      data-amount="${entry.amount || 0}">
+                🗑️
+              </button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    `;
+    container.appendChild(table);
+    
+    // Add event listeners
+    document.querySelectorAll('.edit-payment-btn').forEach(btn => {
+      btn.addEventListener('click', handlePaymentEdit);
+    });
+    
+    document.querySelectorAll('.delete-payment-btn').forEach(btn => {
+      btn.addEventListener('click', handlePaymentDelete);
+    });
+    
+  } catch (error) {
+    console.error('Error rendering payments:', error);
+  }
+}
 
 async function renderStudentBalancesWithEdit() {
-  const container = document.getElementById('studentBalancesContainer');
-  if (!container) return;
-
   try {
-    const [students, hours, payments] = await Promise.all([
-      EnhancedCache.loadCollection('students'),
-      EnhancedCache.loadCollection('hours'),
-      EnhancedCache.loadCollection('payments')
-    ]);
-
-    if (students.length === 0) {
+    const students = await EnhancedCache.loadCollection('students');
+    const hours = await EnhancedCache.loadCollection('hours');
+    const payments = await EnhancedCache.loadCollection('payments');
+    
+    const container = document.getElementById('studentBalancesTable');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    // Calculate balances for each student
+    const studentBalances = {};
+    
+    students.forEach(student => {
+      studentBalances[student.id] = {
+        name: student.name,
+        studentId: student.studentId,
+        subject: student.subject,
+        hours: 0,
+        earnings: 0,
+        payments: 0,
+        balance: 0,
+        rate: student.rate || 0
+      };
+    });
+    
+    // Calculate hours and earnings
+    hours.forEach(entry => {
+      if (entry.student && studentBalances[entry.student]) {
+        const student = studentBalances[entry.student];
+        const entryHours = safeNumber(entry.hours);
+        const entryRate = safeNumber(entry.rate) || student.rate;
+        const earnings = entryHours * entryRate;
+        
+        student.hours += entryHours;
+        student.earnings += earnings;
+        student.balance += earnings; // Earnings increase balance
+      }
+    });
+    
+    // Subtract payments
+    payments.forEach(payment => {
+      if (payment.student && studentBalances[payment.student]) {
+        const student = studentBalances[payment.student];
+        const amount = safeNumber(payment.amount);
+        
+        student.payments += amount;
+        student.balance -= amount; // Payments decrease balance
+      }
+    });
+    
+    // Convert to array and sort by balance (highest owed first)
+    const balanceArray = Object.values(studentBalances)
+      .sort((a, b) => b.balance - a.balance);
+    
+    if (balanceArray.length === 0) {
       container.innerHTML = `
-        <div class="empty-state">
-          <h3>No Student Data</h3>
-          <p>Add students and record hours/payments to see balances</p>
+        <div class="no-data-message">
+          <p>No student balances to display.</p>
+          <p>Add students and log hours to see balances.</p>
         </div>
       `;
       return;
     }
-
-    const earningsByStudent = {};
-    const paymentsByStudent = {};
     
-    // Calculate earnings from hours
-    hours.forEach(entry => {
-      const studentName = entry.student;
-      if (studentName) {
-        const hoursWorked = safeNumber(entry.hours || entry.hoursWorked);
-        const rate = safeNumber(entry.rate || entry.baseRate || entry.hourlyRate);
-        const earnings = hoursWorked * rate;
-        earningsByStudent[studentName] = (earningsByStudent[studentName] || 0) + earnings;
-      }
-    });
-
-    // Calculate payments
-    payments.forEach(payment => {
-      const studentName = payment.student;
-      const amount = safeNumber(payment.amount || payment.paymentAmount);
-      if (studentName) {
-        paymentsByStudent[studentName] = (paymentsByStudent[studentName] || 0) + amount;
-      }
-    });
-
-    let balancesHTML = '';
-    let totalOwed = 0;
-
-    students.forEach(student => {
-      const studentId = student.id || student._id;
-      const studentName = student.name || `Student ${studentId}`;
-      
-      const earned = earningsByStudent[studentName] || 0;
-      const paid = paymentsByStudent[studentName] || 0;
-      const owed = Math.max(earned - paid, 0);
-      totalOwed += owed;
-
-      balancesHTML += `
-        <div class="activity-item" id="balance-${studentId}">
-          <div>
-            <strong>${studentName}</strong>
-            <div class="student-actions" style="display: inline-block; margin-left: 10px;">
-              <button class="btn-icon quick-payment-btn" data-id="${studentId}" data-name="${studentName}" title="Add Payment">💰</button>
-            </div>
-          </div>
-          <div class="muted">
-            Earned: $${earned.toFixed(2)} | 
-            Paid: $${paid.toFixed(2)} | 
-            <strong>Owed: $${owed.toFixed(2)}</strong>
-          </div>
-        </div>
-      `;
-    });
-
-    container.innerHTML = balancesHTML;
+    const table = document.createElement('table');
+    table.className = 'data-table';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>ID</th>
+          <th>Subject</th>
+          <th>Total Hours</th>
+          <th>Total Earnings</th>
+          <th>Total Payments</th>
+          <th>Balance</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${balanceArray.map(student => `
+          <tr>
+            <td>${student.name}</td>
+            <td>${student.studentId || 'N/A'}</td>
+            <td>${student.subject || 'N/A'}</td>
+            <td>${student.hours.toFixed(1)}</td>
+            <td>${fmtMoney(student.earnings)}</td>
+            <td>${fmtMoney(student.payments)}</td>
+            <td>
+              <span class="balance-badge ${student.balance > 0 ? 'balance-negative' : 'balance-positive'}">
+                ${fmtMoney(student.balance)}
+              </span>
+              ${student.balance > 0 ? 
+                `<button class="btn-icon add-payment-btn" data-student="${student.name}">
+                   💳
+                 </button>` : 
+                ''}
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    `;
+    container.appendChild(table);
     
-    // Setup quick payment button handlers
-    document.querySelectorAll('.quick-payment-btn').forEach(button => {
-      button.addEventListener('click', (e) => {
-        const studentId = button.dataset.id;
-        const studentName = button.dataset.name;
-        quickAddPayment(studentId, studentName);
+    // Add event listeners for quick payment buttons
+    document.querySelectorAll('.add-payment-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const studentName = this.dataset.student;
+        document.getElementById(FORM_IDS.PAYMENT.student).value = studentName;
+        
+        // Calculate suggested payment amount (minimum of balance or 100)
+        const row = this.closest('tr');
+        const balanceText = row.querySelector('.balance-badge').textContent;
+        const balance = parseFloat(balanceText.replace(/[^\d.-]/g, ''));
+        
+        if (balance > 0) {
+          const suggestedAmount = Math.min(balance, 100);
+          document.getElementById(FORM_IDS.PAYMENT.amount).value = suggestedAmount.toFixed(2);
+        }
+        
+        // Scroll to payment form
+        document.getElementById('paymentFormSection').scrollIntoView({ behavior: 'smooth' });
       });
     });
-
-    const totalOwedEl = document.getElementById('totalOwed');
-    const totalStudentsCountEl = document.getElementById('totalStudentsCount');
     
-    if (totalOwedEl) totalOwedEl.textContent = `$${totalOwed.toFixed(2)}`;
-    if (totalStudentsCountEl) totalStudentsCountEl.textContent = students.length;
-
   } catch (error) {
-    console.error("Error rendering student balances:", error);
-    container.innerHTML = '<div class="error">Error loading student balances</div>';
+    console.error('Error rendering student balances:', error);
   }
-}
-
-function quickAddPayment(studentId, studentName) {
-  const studentSelect = document.getElementById(FORM_IDS.PAYMENT.student);
-  const amountInput = document.getElementById(FORM_IDS.PAYMENT.amount);
-  
-  if (studentSelect) {
-    const option = Array.from(studentSelect.options).find(opt => opt.value === studentName);
-    if (option) {
-      studentSelect.value = option.value;
-    }
-  }
-  
-  if (amountInput) {
-    amountInput.focus();
-  }
-  
-  // Scroll to payment form
-  const paymentForm = document.getElementById(FORM_IDS.PAYMENT.form);
-  if (paymentForm) {
-    paymentForm.scrollIntoView({ behavior: 'smooth' });
-  }
-  
-  NotificationSystem.notifyInfo(`Adding payment for ${studentName}`);
 }
 
 // ===========================
-// STUDENT DROPDOWN MANAGEMENT
+// EDIT HANDLERS
+// ===========================
+
+function handleStudentEdit(event) {
+  const button = event.currentTarget;
+  const studentId = button.dataset.id;
+  
+  // Find student in cache
+  const student = cache.students.find(s => s.id === studentId);
+  if (!student) {
+    NotificationSystem.notifyError('Student not found in cache');
+    return;
+  }
+  
+  // Fill form with student data
+  const formIds = FORM_IDS.STUDENT;
+  document.getElementById(formIds.name).value = student.name || '';
+  document.getElementById(formIds.id).value = student.studentId || '';
+  document.getElementById(formIds.gender).value = student.gender || '';
+  document.getElementById(formIds.subject).value = student.subject || '';
+  document.getElementById(formIds.email).value = student.email || '';
+  document.getElementById(formIds.phone).value = student.phone || '';
+  document.getElementById(formIds.rate).value = student.rate || '';
+  document.getElementById(formIds.notes).value = student.notes || '';
+  
+  // Set edit mode
+  setEditMode('STUDENT', studentId);
+  
+  // Scroll to form
+  document.getElementById('studentFormSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+function handleHoursEdit(event) {
+  const button = event.currentTarget;
+  const entryId = button.dataset.id;
+  
+  // Find entry in cache
+  const entry = cache.hours.find(h => h.id === entryId);
+  if (!entry) {
+    NotificationSystem.notifyError('Hours entry not found in cache');
+    return;
+  }
+  
+  // Fill form with entry data
+  const formIds = FORM_IDS.HOURS;
+  document.getElementById(formIds.organization).value = entry.organization || '';
+  document.getElementById(formIds.workType).value = entry.workType || '';
+  document.getElementById(formIds.subject).value = entry.subject || '';
+  document.getElementById(formIds.student).value = entry.student || '';
+  document.getElementById(formIds.hours).value = entry.hours || '';
+  document.getElementById(formIds.rate).value = entry.rate || '';
+  document.getElementById(formIds.date).value = entry.date || '';
+  document.getElementById(formIds.notes).value = entry.notes || '';
+  
+  // Update total pay display
+  const total = safeNumber(entry.hours) * safeNumber(entry.rate);
+  const totalPayElement = document.getElementById(formIds.totalPay);
+  if (totalPayElement) {
+    totalPayElement.textContent = fmtMoney(total);
+  }
+  
+  // Set edit mode
+  setEditMode('HOURS', entryId);
+  
+  // Scroll to form
+  document.getElementById('hoursFormSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+function handleMarksEdit(event) {
+  const button = event.currentTarget;
+  const entryId = button.dataset.id;
+  
+  // Find entry in cache
+  const entry = cache.marks.find(m => m.id === entryId);
+  if (!entry) {
+    NotificationSystem.notifyError('Marks entry not found in cache');
+    return;
+  }
+  
+  // Fill form with entry data
+  const formIds = FORM_IDS.MARKS;
+  document.getElementById(formIds.student).value = entry.student || '';
+  document.getElementById(formIds.subject).value = entry.subject || '';
+  document.getElementById(formIds.topic).value = entry.topic || '';
+  document.getElementById(formIds.score).value = entry.marks || '';
+  document.getElementById(formIds.max).value = entry.maxMarks || '';
+  document.getElementById(formIds.date).value = entry.date || '';
+  document.getElementById(formIds.notes).value = entry.notes || '';
+  
+  // Set edit mode
+  setEditMode('MARKS', entryId);
+  
+  // Scroll to form
+  document.getElementById('marksFormSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+function handleAttendanceEdit(event) {
+  const button = event.currentTarget;
+  const entryId = button.dataset.id;
+  
+  // Find entry in cache
+  const entry = cache.attendance.find(a => a.id === entryId);
+  if (!entry) {
+    NotificationSystem.notifyError('Attendance entry not found in cache');
+    return;
+  }
+  
+  // Fill form with entry data
+  const formIds = FORM_IDS.ATTENDANCE;
+  document.getElementById(formIds.subject).value = entry.subject || '';
+  document.getElementById(formIds.topic).value = entry.topic || '';
+  document.getElementById(formIds.date).value = entry.date || '';
+  document.getElementById(formIds.notes).value = entry.notes || '';
+  
+  // Check present students
+  const presentStudents = Array.isArray(entry.present) ? entry.present : [];
+  const checkboxes = document.querySelectorAll('#attendanceStudents input[type="checkbox"]');
+  checkboxes.forEach(cb => {
+    cb.checked = presentStudents.includes(cb.value);
+  });
+  
+  // Set edit mode
+  setEditMode('ATTENDANCE', entryId);
+  
+  // Scroll to form
+  document.getElementById('attendanceFormSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+function handlePaymentEdit(event) {
+  const button = event.currentTarget;
+  const entryId = button.dataset.id;
+  
+  // Find entry in cache
+  const entry = cache.payments.find(p => p.id === entryId);
+  if (!entry) {
+    NotificationSystem.notifyError('Payment entry not found in cache');
+    return;
+  }
+  
+  // Fill form with entry data
+  const formIds = FORM_IDS.PAYMENT;
+  document.getElementById(formIds.student).value = entry.student || '';
+  document.getElementById(formIds.amount).value = entry.amount || '';
+  document.getElementById(formIds.method).value = entry.method || 'Cash';
+  document.getElementById(formIds.date).value = entry.date || '';
+  document.getElementById(formIds.notes).value = entry.notes || '';
+  
+  // Set edit mode
+  setEditMode('PAYMENT', entryId);
+  
+  // Scroll to form
+  document.getElementById('paymentFormSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ===========================
+// POPULATE DROPDOWNS
 // ===========================
 
 async function populateStudentDropdowns() {
-  const user = auth.currentUser;
-  if (!user) return;
-
   try {
     const students = await EnhancedCache.loadCollection('students');
-
-    if (students.length === 0) {
-      showNoStudentsMessage();
-      return;
-    }
-
-    // Update student dropdowns
-    const dropdownIds = ['hoursStudent', 'marksStudent', 'paymentStudent'];
-    dropdownIds.forEach(dropdownId => {
+    
+    // Student dropdowns in various forms
+    const dropdowns = [
+      FORM_IDS.HOURS.student,
+      FORM_IDS.MARKS.student,
+      FORM_IDS.PAYMENT.student
+    ];
+    
+    dropdowns.forEach(dropdownId => {
       const dropdown = document.getElementById(dropdownId);
-      if (dropdown) {
-        populateSingleDropdown(dropdown, students);
+      if (!dropdown) return;
+      
+      const currentValue = dropdown.value;
+      dropdown.innerHTML = '<option value="">Select Student</option>';
+      
+      students.forEach(student => {
+        const option = document.createElement('option');
+        option.value = student.id;
+        option.textContent = `${student.name} (${student.studentId || 'No ID'})`;
+        dropdown.appendChild(option);
+      });
+      
+      // Restore previous selection if possible
+      if (currentValue && students.some(s => s.id === currentValue)) {
+        dropdown.value = currentValue;
       }
     });
-
-    // Update attendance checkboxes
+    
+    // Populate attendance students checklist
     await populateAttendanceStudents();
-
+    
   } catch (error) {
-    console.error('❌ Error populating student dropdowns:', error);
-    showDropdownError();
-  }
-}
-
-function populateSingleDropdown(dropdown, students) {
-  if (!dropdown) return;
-
-  const currentValue = dropdown.value;
-  
-  while (dropdown.options.length > 0) {
-    dropdown.remove(0);
-  }
-
-  const defaultOption = document.createElement('option');
-  defaultOption.value = '';
-  defaultOption.textContent = 'Select a student...';
-  defaultOption.disabled = true;
-  defaultOption.selected = true;
-  dropdown.appendChild(defaultOption);
-
-  students.forEach(student => {
-    const studentName = student.name || `Student ${student.id}`;
-    const option = document.createElement('option');
-    option.value = studentName;
-    option.textContent = studentName;
-    dropdown.appendChild(option);
-  });
-
-  if (currentValue && dropdown.querySelector(`option[value="${currentValue}"]`)) {
-    dropdown.value = currentValue;
+    console.error('Error populating student dropdowns:', error);
   }
 }
 
 async function populateAttendanceStudents() {
-  const container = document.getElementById('attendanceStudents');
-  if (!container) return;
-
   try {
     const students = await EnhancedCache.loadCollection('students');
-
+    const container = document.getElementById(FORM_IDS.ATTENDANCE.studentsContainer);
+    if (!container) return;
+    
     container.innerHTML = '';
-
+    
     if (students.length === 0) {
       container.innerHTML = `
-        <div class="empty-state">
-          <p>No students available. Please add students first.</p>
+        <div class="no-data-message">
+          <p>No students available for attendance.</p>
+          <p>Add students first.</p>
         </div>
       `;
       return;
     }
-
+    
     students.forEach(student => {
-      const studentName = student.name || `Student ${student.id}`;
-      
-      const item = document.createElement('div');
-      item.style.cssText = 'display: flex; align-items: center; gap: 12px; margin: 8px 0; padding: 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border);';
-      
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.name = 'presentStudents';
-      checkbox.value = studentName;
-      checkbox.id = `attendance-${student.id}`;
-      
       const label = document.createElement('label');
-      label.htmlFor = `attendance-${student.id}`;
-      label.textContent = studentName;
-      label.style.cssText = 'flex: 1; margin: 0; cursor: pointer; font-weight: 500;';
-      
-      const rateInfo = document.createElement('span');
-      rateInfo.textContent = `Rate: $${student.rate || 0}`;
-      rateInfo.style.cssText = 'font-size: 0.85em; color: var(--muted);';
-      
-      item.appendChild(checkbox);
-      item.appendChild(label);
-      item.appendChild(rateInfo);
-      container.appendChild(item);
+      label.className = 'checkbox-label';
+      label.innerHTML = `
+        <input type="checkbox" value="${student.id}">
+        <span>${student.name} (${student.studentId || 'No ID'})</span>
+      `;
+      container.appendChild(label);
     });
-
+    
   } catch (error) {
     console.error('Error populating attendance students:', error);
   }
 }
 
-function showNoStudentsMessage() {
-  const dropdownIds = ['hoursStudent', 'marksStudent', 'paymentStudent'];
-  dropdownIds.forEach(dropdownId => {
-    const dropdown = document.getElementById(dropdownId);
-    if (dropdown) {
-      dropdown.innerHTML = '';
-      const option = document.createElement('option');
-      option.value = '';
-      option.textContent = 'No students available - Add students first';
-      option.disabled = true;
-      option.selected = true;
-      dropdown.appendChild(option);
-    }
-  });
-}
-
-function showDropdownError() {
-  const dropdownIds = ['hoursStudent', 'marksStudent', 'paymentStudent'];
-  dropdownIds.forEach(dropdownId => {
-    const dropdown = document.getElementById(dropdownId);
-    if (dropdown) {
-      const option = document.createElement('option');
-      option.value = '';
-      option.textContent = 'Error loading students - Click to refresh';
-      option.disabled = true;
-      option.selected = true;
-      dropdown.appendChild(option);
-      
-      dropdown.addEventListener('click', async () => {
-        await populateStudentDropdowns();
-      });
-    }
-  });
-}
-
 // ===========================
-// STATS AND SYNC FUNCTIONS
+// SUMMARY STATISTICS
 // ===========================
-
-async function loadUserStats(uid) {
-  try {
-    const statsRef = doc(db, "users", uid);
-    const statsSnap = await getDoc(statsRef);
-    
-    if (statsSnap.exists()) {
-      const stats = statsSnap.data();
-      
-      if (document.getElementById('statStudents')) {
-        document.getElementById('statStudents').textContent = stats.students ?? 0;
-      }
-      if (document.getElementById('statHours')) {
-        document.getElementById('statHours').textContent = stats.hours ?? 0;
-      }
-      if (document.getElementById('statEarnings')) {
-        const earnings = stats.earnings != null ? fmtMoney(stats.earnings) : "$0.00";
-        document.getElementById('statEarnings').textContent = earnings;
-      }
-    } else {
-      await setDoc(statsRef, { 
-        students: 0, 
-        hours: 0, 
-        earnings: 0,
-        lastSync: new Date().toLocaleString()
-      });
-    }
-
-  } catch (err) {
-    console.error("❌ Error loading stats:", err);
-  }
-}
-
-async function updateUserStats(uid, newStats) {
-  try {
-    const statsRef = doc(db, "users", uid);
-    await setDoc(statsRef, newStats, { merge: true });
-
-    if (newStats.students !== undefined) {
-      const statStudents = document.getElementById('statStudents');
-      if (statStudents) statStudents.textContent = newStats.students;
-    }
-    if (newStats.hours !== undefined) {
-      const statHours = document.getElementById('statHours');
-      if (statHours) statHours.textContent = newStats.hours;
-    }
-    if (newStats.earnings !== undefined) {
-      const statEarnings = document.getElementById('statEarnings');
-      if (statEarnings) statEarnings.textContent = fmtMoney(newStats.earnings);
-    }
-
-  } catch (err) {
-    console.error("❌ Error updating stats:", err);
-  }
-}
 
 async function recalcSummaryStats(uid) {
   try {
-    const [studentsSnap, hoursSnap] = await Promise.all([
-      getDocs(collection(db, "users", uid, "students")),
-      getDocs(collection(db, "users", uid, "hours"))
+    const [hours, marks, attendance, payments] = await Promise.all([
+      EnhancedCache.loadCollection('hours'),
+      EnhancedCache.loadCollection('marks'),
+      EnhancedCache.loadCollection('attendance'),
+      EnhancedCache.loadCollection('payments')
     ]);
-
-    const studentsCount = studentsSnap.size;
+    
+    // Calculate total hours and earnings
     let totalHours = 0;
     let totalEarnings = 0;
-
-    hoursSnap.forEach(h => {
-      const d = h.data();
-      totalHours += safeNumber(d.hours);
-      totalEarnings += safeNumber(d.total);
+    let recentEarnings = 0; // Last 30 days
+    
+    hours.forEach(entry => {
+      const entryHours = safeNumber(entry.hours);
+      const entryRate = safeNumber(entry.rate);
+      const entryTotal = entryHours * entryRate;
+      
+      totalHours += entryHours;
+      totalEarnings += entryTotal;
+      
+      // Check if entry is from last 30 days
+      const entryDate = new Date(entry.dateIso || entry.date);
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      if (entryDate >= thirtyDaysAgo) {
+        recentEarnings += entryTotal;
+      }
     });
-
-    await updateUserStats(uid, {
-      students: studentsCount,
-      hours: totalHours,
-      earnings: totalEarnings,
-      lastSync: new Date().toLocaleString()
+    
+    // Calculate average marks
+    let totalMarks = 0;
+    let totalMaxMarks = 0;
+    let avgPercentage = 0;
+    
+    if (marks.length > 0) {
+      marks.forEach(entry => {
+        totalMarks += safeNumber(entry.marks);
+        totalMaxMarks += safeNumber(entry.maxMarks);
+      });
+      
+      if (totalMaxMarks > 0) {
+        avgPercentage = (totalMarks / totalMaxMarks) * 100;
+      }
+    }
+    
+    // Calculate attendance rate
+    let totalPresent = 0;
+    let totalPossible = 0;
+    
+    attendance.forEach(entry => {
+      const presentCount = Array.isArray(entry.present) ? entry.present.length : 0;
+      const totalCount = entry.totalStudents || 0;
+      
+      totalPresent += presentCount;
+      totalPossible += totalCount;
     });
+    
+    const attendanceRate = totalPossible > 0 ? (totalPresent / totalPossible) * 100 : 0;
+    
+    // Calculate total payments
+    let totalPayments = 0;
+    payments.forEach(payment => {
+      totalPayments += safeNumber(payment.amount);
+    });
+    
+    // Update UI
+    updateSummaryUI({
+      totalHours: totalHours.toFixed(1),
+      totalEarnings: fmtMoney(totalEarnings),
+      recentEarnings: fmtMoney(recentEarnings),
+      avgPercentage: avgPercentage.toFixed(1),
+      attendanceRate: attendanceRate.toFixed(1),
+      totalPayments: fmtMoney(totalPayments),
+      totalStudents: cache.students?.length || 0,
+      balance: fmtMoney(totalEarnings - totalPayments)
+    });
+    
+  } catch (error) {
+    console.error('Error calculating summary stats:', error);
+  }
+}
 
-  } catch (err) {
-    console.error("❌ Error recalculating stats:", err);
+function updateSummaryUI(stats) {
+  const statElements = {
+    totalHours: document.getElementById('statTotalHours'),
+    totalEarnings: document.getElementById('statTotalEarnings'),
+    recentEarnings: document.getElementById('statRecentEarnings'),
+    avgPercentage: document.getElementById('statAvgPercentage'),
+    attendanceRate: document.getElementById('statAttendanceRate'),
+    totalPayments: document.getElementById('statTotalPayments'),
+    totalStudents: document.getElementById('statTotalStudents'),
+    balance: document.getElementById('statBalance')
+  };
+  
+  Object.keys(statElements).forEach(key => {
+    const element = statElements[key];
+    if (element && stats[key] !== undefined) {
+      element.textContent = stats[key];
+    }
+  });
+}
+
+// ===========================
+// AUTO-SYNC SYSTEM
+// ===========================
+
+function setupAutoSync() {
+  const syncToggle = document.getElementById('autoSyncToggle');
+  const syncStatus = document.getElementById('syncStatus');
+  
+  if (!syncToggle || !syncStatus) return;
+  
+  // Load saved sync preference
+  const savedSyncEnabled = localStorage.getItem('worklog_autoSync') === 'true';
+  isAutoSyncEnabled = savedSyncEnabled;
+  syncToggle.checked = isAutoSyncEnabled;
+  updateSyncStatus();
+  
+  if (isAutoSyncEnabled) {
+    startAutoSync();
+  }
+  
+  syncToggle.addEventListener('change', function() {
+    isAutoSyncEnabled = this.checked;
+    localStorage.setItem('worklog_autoSync', isAutoSyncEnabled.toString());
+    
+    if (isAutoSyncEnabled) {
+      startAutoSync();
+    } else {
+      stopAutoSync();
+    }
+    
+    updateSyncStatus();
+  });
+}
+
+function startAutoSync() {
+  if (autoSyncInterval) {
+    clearInterval(autoSyncInterval);
+  }
+  
+  autoSyncInterval = setInterval(async () => {
+    try {
+      const user = auth.currentUser;
+      if (user) {
+        // Load all collections to refresh cache
+        await Promise.all([
+          EnhancedCache.loadCollection('hours', true),
+          EnhancedCache.loadCollection('marks', true),
+          EnhancedCache.loadCollection('attendance', true),
+          EnhancedCache.loadCollection('payments', true),
+          EnhancedCache.loadCollection('students', true)
+        ]);
+        
+        // Retry any unsynced items
+        await EnhancedCache.retryUnsyncedItems();
+        
+        console.log('🔄 Auto-sync completed');
+      }
+    } catch (error) {
+      console.error('❌ Auto-sync error:', error);
+    }
+  }, 300000); // Sync every 5 minutes
+  
+  console.log('🔄 Auto-sync started');
+}
+
+function stopAutoSync() {
+  if (autoSyncInterval) {
+    clearInterval(autoSyncInterval);
+    autoSyncInterval = null;
+    console.log('⏹️ Auto-sync stopped');
+  }
+}
+
+function updateSyncStatus() {
+  const syncStatus = document.getElementById('syncStatus');
+  if (!syncStatus) return;
+  
+  if (isAutoSyncEnabled) {
+    syncStatus.innerHTML = `
+      <span class="status-indicator status-active"></span>
+      Auto-sync enabled
+    `;
+    syncStatus.title = 'Data is automatically syncing every 5 minutes';
+  } else {
+    syncStatus.innerHTML = `
+      <span class="status-indicator status-inactive"></span>
+      Auto-sync disabled
+    `;
+    syncStatus.title = 'Data is only synced when you manually refresh';
   }
 }
 
 // ===========================
-// SYNC BAR SYSTEM
+// MANUAL SYNC FUNCTION
 // ===========================
 
-const SyncBar = {
-  init() {
-    this.setupAutoSyncToggle();
-    this.setupSyncNowButton();
-    this.setupExportCloudButton();
-    this.setupImportCloudButton();
-    this.setupSyncStatsButton();
-    this.setupExportDataButton();
-    this.setupImportDataButton();
-    this.setupClearAllButton();
-  },
-
-  setupAutoSyncToggle() {
-    const autoSyncCheckbox = document.getElementById('autoSyncCheckbox');
-    const autoSyncText = document.getElementById('autoSyncText');
-    const syncIndicator = document.getElementById('syncIndicator');
-    
-    if (!autoSyncCheckbox) return;
-    
-    const savedAutoSync = localStorage.getItem('autoSyncEnabled') === 'true';
-    isAutoSyncEnabled = savedAutoSync;
-    autoSyncCheckbox.checked = savedAutoSync;
-    
-    if (savedAutoSync) {
-      autoSyncText.textContent = 'Auto';
-      if (syncIndicator) syncIndicator.style.backgroundColor = '#10b981';
-      this.startAutoSync();
-    } else {
-      autoSyncText.textContent = 'Manual';
-      if (syncIndicator) syncIndicator.style.backgroundColor = '#ef4444';
-    }
-
-    autoSyncCheckbox.addEventListener('change', (e) => {
-      isAutoSyncEnabled = e.target.checked;
-      localStorage.setItem('autoSyncEnabled', isAutoSyncEnabled.toString());
-      
-      if (isAutoSyncEnabled) {
-        autoSyncText.textContent = 'Auto';
-        if (syncIndicator) syncIndicator.style.backgroundColor = '#10b981';
-        this.startAutoSync();
-        NotificationSystem.notifySuccess('Auto-sync enabled');
-      } else {
-        autoSyncText.textContent = 'Manual';
-        if (syncIndicator) syncIndicator.style.backgroundColor = '#ef4444';
-        this.stopAutoSync();
-        NotificationSystem.notifyInfo('Auto-sync disabled');
-      }
-    });
-  },
-
-  startAutoSync() {
-    this.stopAutoSync();
-    this.performSync('auto');
-    autoSyncInterval = setInterval(() => this.performSync('auto'), 60000);
-  },
-
-  stopAutoSync() {
-    if (autoSyncInterval) {
-      clearInterval(autoSyncInterval);
-      autoSyncInterval = null;
-    }
-  },
-
-  setupSyncNowButton() {
-    const syncBtn = document.getElementById('syncBtn');
-    if (syncBtn) {
-      syncBtn.addEventListener('click', async () => {
-        await this.performSync('manual');
-      });
-    }
-  },
-
-  setupExportCloudButton() {
-    const exportCloudBtn = document.getElementById('exportCloudBtn');
-    if (exportCloudBtn) {
-      exportCloudBtn.addEventListener('click', async () => {
-        try {
-          const user = auth.currentUser;
-          if (!user) {
-            NotificationSystem.notifyError('Please log in to export to cloud');
-            return;
-          }
-          
-          NotificationSystem.notifyInfo('Syncing data to cloud...');
-          await this.performSync('manual');
-          NotificationSystem.notifySuccess('Data synced to cloud successfully!');
-        } catch (error) {
-          NotificationSystem.notifyError('Failed to sync to cloud: ' + error.message);
-        }
-      });
-    }
-  },
-
-  setupImportCloudButton() {
-    const importCloudBtn = document.getElementById('importCloudBtn');
-    if (importCloudBtn) {
-      importCloudBtn.addEventListener('click', async () => {
-        try {
-          const user = auth.currentUser;
-          if (!user) {
-            NotificationSystem.notifyError('Please log in to import from cloud');
-            return;
-          }
-          
-          NotificationSystem.notifyInfo('Syncing data from cloud...');
-          await Promise.all([
-            EnhancedCache.loadCollection('students', true),
-            EnhancedCache.loadCollection('hours', true),
-            EnhancedCache.loadCollection('marks', true),
-            EnhancedCache.loadCollection('attendance', true),
-            EnhancedCache.loadCollection('payments', true)
-          ]);
-          
-          // Refresh UI
-          await Promise.all([
-            renderStudents(true),
-            renderRecentHoursWithEdit(),
-            renderRecentMarksWithEdit(),
-            renderAttendanceRecentWithEdit(),
-            renderPaymentActivityWithEdit(),
-            renderStudentBalancesWithEdit(),
-            populateStudentDropdowns()
-          ]);
-          
-          NotificationSystem.notifySuccess('Data synced from cloud successfully!');
-        } catch (error) {
-          NotificationSystem.notifyError('Failed to sync from cloud: ' + error.message);
-        }
-      });
-    }
-  },
-  
-  setupSyncStatsButton() {
-    const syncStatsBtn = document.getElementById('syncStatsBtn');
-    if (syncStatsBtn) {
-      syncStatsBtn.addEventListener('click', async () => {
-        const user = auth.currentUser;
-        if (user) {
-          await recalcSummaryStats(user.uid);
-          NotificationSystem.notifySuccess('Stats recalculated and synced');
-        }
-      });
-    }
-  },
-
-  setupExportDataButton() {
-    const exportDataBtn = document.getElementById('exportDataBtn');
-    if (exportDataBtn) {
-      exportDataBtn.addEventListener('click', async () => {
-        await this.exportAllData();
-      });
-    }
-  },
-
-  setupImportDataButton() {
-    const importDataBtn = document.getElementById('importDataBtn');
-    if (importDataBtn) {
-      importDataBtn.addEventListener('click', async () => {
-        await this.importAllData();
-      });
-    }
-  },
-
-  setupClearAllButton() {
-    const clearDataBtn = document.getElementById('clearDataBtn');
-    if (clearDataBtn) {
-      clearDataBtn.addEventListener('click', () => {
-        if (confirm('Are you sure you want to clear all local data? This cannot be undone.')) {
-          localStorage.clear();
-          Object.keys(cache).forEach(key => {
-            if (Array.isArray(cache[key])) {
-              cache[key] = [];
-            } else {
-              cache[key] = null;
-            }
-          });
-          NotificationSystem.notifySuccess('All local data cleared');
-          setTimeout(() => location.reload(), 1000);
-        }
-      });
-    }
-  },
-
-  async performSync(mode = 'manual') {
+async function manualSync() {
+  try {
     const user = auth.currentUser;
     if (!user) {
       NotificationSystem.notifyError('Please log in to sync');
       return;
     }
-
-    const syncIndicator = document.getElementById('syncIndicator');
     
-    try {
-      if (syncIndicator) {
-        syncIndicator.style.backgroundColor = '#f59e0b';
-      }
-
-      await Promise.all([
-        recalcSummaryStats(user.uid),
-        loadUserStats(user.uid)
-      ]);
-
-      // Refresh all UI components
-      try {
-        await Promise.all([
-          renderStudents(),
-          renderRecentHoursWithEdit(),
-          renderRecentMarksWithEdit(),
-          renderAttendanceRecentWithEdit(),
-          renderPaymentActivityWithEdit(),
-          renderStudentBalancesWithEdit(),
-          populateStudentDropdowns()
-        ]);
-      } catch (e) { 
-        console.warn('UI refresh failed:', e); 
-      }
-
-      if (syncIndicator) {
-        if (isAutoSyncEnabled) {
-          syncIndicator.style.backgroundColor = '#10b981';
-        } else {
-          syncIndicator.style.backgroundColor = '#ef4444';
-        }
-      }
-
-      NotificationSystem.notifySuccess(`${mode === 'auto' ? 'Auto-' : ''}Sync completed successfully`);
-
-    } catch (error) {
-      console.error(`❌ ${mode} sync failed:`, error);
-      
-      if (syncIndicator) {
-        syncIndicator.style.backgroundColor = '#ef4444';
-      }
-      
-      NotificationSystem.notifyError(`Sync failed: ${error.message}`);
-    }
-  },
-
-  async exportAllData() {
-    try {
-      const user = auth.currentUser;
-      if (!user) {
-        NotificationSystem.notifyError('Please log in to export data');
-        return;
-      }
-
-      NotificationSystem.notifyInfo('Preparing data export...');
-
-      const allData = {
-        students: cache.students || [],
-        hours: cache.hours || [],
-        marks: cache.marks || [],
-        attendance: cache.attendance || [],
-        payments: cache.payments || [],
-        metadata: {
-          exportedAt: new Date().toISOString(),
-          userEmail: user.email,
-          totalRecords: (cache.students?.length || 0) + (cache.hours?.length || 0) + 
-                       (cache.marks?.length || 0) + (cache.attendance?.length || 0) + 
-                       (cache.payments?.length || 0),
-          appVersion: '1.0.0'
-        }
-      };
-
-      const jsonData = JSON.stringify(allData, null, 2);
-      const blob = new Blob([jsonData], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `worklog_backup_${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      NotificationSystem.notifySuccess(`Data exported successfully! ${allData.metadata.totalRecords} records saved.`);
-      
-    } catch (error) {
-      console.error('Error exporting data:', error);
-      NotificationSystem.notifyError('Failed to export data: ' + error.message);
-    }
-  },
-
-  async importAllData() {
-    try {
-      const user = auth.currentUser;
-      if (!user) {
-        NotificationSystem.notifyError('Please log in to import data');
-        return;
-      }
-
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.json';
-      input.style.display = 'none';
-      
-      input.onchange = async (event) => {
-        const file = event.target.files[0];
-        if (!file) {
-          NotificationSystem.notifyInfo('No file selected');
-          return;
-        }
-
-        if (confirm(`Are you sure you want to import data from ${file.name}? This will replace ALL current data.`)) {
-          try {
-            NotificationSystem.notifyInfo('Importing data...');
-            
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-              try {
-                const importedData = JSON.parse(e.target.result);
-                
-                if (!importedData.students || !importedData.hours || !importedData.marks || 
-                    !importedData.attendance || !importedData.payments) {
-                  NotificationSystem.notifyError('Invalid backup file format');
-                  return;
-                }
-
-                // Import data collections
-                await this.importCollection('students', importedData.students, user.uid);
-                await this.importCollection('hours', importedData.hours, user.uid);
-                await this.importCollection('marks', importedData.marks, user.uid);
-                await this.importCollection('attendance', importedData.attendance, user.uid);
-                await this.importCollection('payments', importedData.payments, user.uid);
-
-                // Update local storage
-                EnhancedCache.saveToLocalStorageBulk('students', importedData.students);
-                EnhancedCache.saveToLocalStorageBulk('hours', importedData.hours);
-                EnhancedCache.saveToLocalStorageBulk('marks', importedData.marks);
-                EnhancedCache.saveToLocalStorageBulk('attendance', importedData.attendance);
-                EnhancedCache.saveToLocalStorageBulk('payments', importedData.payments);
-
-                // Update memory cache
-                cache.students = importedData.students;
-                cache.hours = importedData.hours;
-                cache.marks = importedData.marks;
-                cache.attendance = importedData.attendance;
-                cache.payments = importedData.payments;
-                cache.lastSync = Date.now();
-
-                // Refresh UI
-                await Promise.all([
-                  renderStudents(true),
-                  renderRecentHoursWithEdit(),
-                  renderRecentMarksWithEdit(),
-                  renderAttendanceRecentWithEdit(),
-                  renderPaymentActivityWithEdit(),
-                  renderStudentBalancesWithEdit(),
-                  populateStudentDropdowns()
-                ]);
-
-                // Perform sync
-                await this.performSync('manual');
-
-                const totalRecords = importedData.students.length + importedData.hours.length + 
-                                   importedData.marks.length + importedData.attendance.length + 
-                                   importedData.payments.length;
-                
-                NotificationSystem.notifySuccess(`Data imported successfully! ${totalRecords} records loaded.`);
-
-              } catch (parseError) {
-                console.error('Error parsing imported data:', parseError);
-                NotificationSystem.notifyError('Invalid JSON file format');
-              }
-            };
-
-            reader.onerror = () => {
-              NotificationSystem.notifyError('Error reading file');
-            };
-
-            reader.readAsText(file);
-            
-          } catch (error) {
-            console.error('Error importing data:', error);
-            NotificationSystem.notifyError('Failed to import data: ' + error.message);
-          }
-        }
-        
-        document.body.removeChild(input);
-      };
-
-      document.body.appendChild(input);
-      input.click();
-
-    } catch (error) {
-      console.error('Error setting up import:', error);
-      NotificationSystem.notifyError('Failed to setup import: ' + error.message);
-    }
-  },
-
-  async importCollection(collectionName, items, uid) {
-    try {
-      const batch = writeBatch(db);
-      const collectionRef = collection(db, "users", uid, collectionName);
-      
-      // Clear existing data
-      const existingDocs = await getDocs(collectionRef);
-      existingDocs.forEach(doc => {
-        batch.delete(doc.ref);
-      });
-      
-      // Add imported items
-      items.forEach(item => {
-        const { id, _id, _firebaseId, _synced, _cachedAt, ...cleanItem } = item;
-        const docRef = doc(collectionRef);
-        batch.set(docRef, cleanItem);
-      });
-      
-      await batch.commit();
-      
-    } catch (error) {
-      console.error(`Error importing ${collectionName}:`, error);
-      throw error;
-    }
-  }
-};
-
-// ===========================
-// FORM SETUP AND UTILITIES
-// ===========================
-
-function setupFormHandlers() {
-  // Student Form
-  const studentForm = document.getElementById(FORM_IDS.STUDENT.form);
-  if (studentForm) {
-    studentForm.addEventListener('submit', handleStudentSubmit);
-  }
-
-  // Hours Form
-  const hoursForm = document.getElementById(FORM_IDS.HOURS.form);
-  if (hoursForm) {
-    hoursForm.addEventListener('submit', handleHoursSubmit);
-  }
-
-  // Marks Form
-  const marksForm = document.getElementById(FORM_IDS.MARKS.form);
-  if (marksForm) {
-    marksForm.addEventListener('submit', handleMarksSubmit);
-  }
-
-  // Attendance Form
-  const attendanceForm = document.getElementById(FORM_IDS.ATTENDANCE.form);
-  if (attendanceForm) {
-    attendanceForm.addEventListener('submit', handleAttendanceSubmit);
-  }
-
-  // Payment Form
-  const paymentForm = document.getElementById(FORM_IDS.PAYMENT.form);
-  if (paymentForm) {
-    paymentForm.addEventListener('submit', handlePaymentSubmit);
-  }
-
-  // Set today's date for all date inputs
-  const today = new Date().toISOString().split('T')[0];
-  document.querySelectorAll('input[type="date"]').forEach(input => {
-    if (!input.value) {
-      input.value = today;
-    }
-  });
-}
-
-function calculateTotalPay() {
-  const hoursInput = document.getElementById(FORM_IDS.HOURS.hours);
-  const rateInput = document.getElementById(FORM_IDS.HOURS.rate);
-  
-  if (!hoursInput || !rateInput) return;
-  
-  const hours = safeNumber(hoursInput.value);
-  const rate = safeNumber(rateInput.value);
-  const total = hours * rate;
-  
-  const totalPayElement = document.getElementById(FORM_IDS.HOURS.totalPay);
-  if (totalPayElement) {
-    totalPayElement.textContent = fmtMoney(total);
-  }
-}
-
-// ===========================
-// USER PROFILE MANAGEMENT
-// ===========================
-
-async function loadUserProfile(uid) {
-  const user = auth.currentUser;
-  
-  let memberSince = localStorage.getItem('memberSince');
-  if (!memberSince) {
-    memberSince = new Date().toISOString();
-    localStorage.setItem('memberSince', memberSince);
-  }
-  
-  const fallbackProfile = {
-    email: user?.email || '',
-    createdAt: memberSince,
-    defaultRate: parseFloat(localStorage.getItem('userDefaultRate')) || 25.00,
-    memberSince: memberSince
-  };
-  
-  updateProfileButton(fallbackProfile);
-  initializeDefaultRate(fallbackProfile.defaultRate);
-  
-  try {
-    const userRef = doc(db, "users", uid);
-    const userSnap = await getDoc(userRef);
+    NotificationSystem.notifyInfo('Syncing data...', 2000);
     
-    if (userSnap.exists()) {
-      currentUserData = { uid, ...userSnap.data() };
-      
-      if (!currentUserData.memberSince) {
-        currentUserData.memberSince = memberSince;
-        await updateDoc(userRef, { memberSince: memberSince });
-      }
-      
-      if (currentUserData.defaultRate !== undefined) {
-        initializeDefaultRate(currentUserData.defaultRate);
-        localStorage.setItem('userDefaultRate', currentUserData.defaultRate.toString());
-      }
-      
-      return currentUserData;
-    } else {
-      const profileToCreate = {
-        ...fallbackProfile,
-        lastLogin: new Date().toISOString(),
-        memberSince: memberSince
-      };
-      
-      await setDoc(userRef, profileToCreate);
-      
-      currentUserData = { uid, ...profileToCreate };
-      return currentUserData;
-    }
-  } catch (err) {
-    console.error("❌ Error loading user profile:", err);
-    return fallbackProfile;
-  }
-}
-
-function updateProfileButton(userData) {
-  const profileBtn = document.getElementById('profileBtn');
-  const userName = document.getElementById('userName');
-  
-  if (profileBtn || userName) {
-    const email = userData?.email || auth.currentUser?.email || 'User';
-    const displayName = email.split('@')[0];
+    // Force refresh all collections
+    await Promise.all([
+      EnhancedCache.loadCollection('students', true),
+      EnhancedCache.loadCollection('hours', true),
+      EnhancedCache.loadCollection('marks', true),
+      EnhancedCache.loadCollection('attendance', true),
+      EnhancedCache.loadCollection('payments', true)
+    ]);
     
-    if (profileBtn) {
-      profileBtn.innerHTML = `👤 ${displayName}`;
-      profileBtn.title = `Logged in as ${email}`;
-    }
+    // Retry any unsynced items
+    await EnhancedCache.retryUnsyncedItems();
     
-    if (userName) {
-      userName.textContent = displayName;
-    }
-  }
-}
-
-function setupProfileModal() {
-  const profileBtn = document.getElementById('profileBtn');
-  const profileModal = document.getElementById('profileModal');
-  const closeProfileModal = document.getElementById('closeProfileModal');
-  const logoutBtn = document.getElementById('logoutBtn');
-
-  if (!profileModal) return;
-
-  if (profileBtn) {
-    profileBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      updateProfileModal();
-      profileModal.style.display = 'flex';
-      document.body.classList.add('modal-open');
-    });
-  }
-
-  if (closeProfileModal) {
-    closeProfileModal.addEventListener('click', () => {
-      profileModal.style.display = 'none';
-      document.body.classList.remove('modal-open');
-    });
-  }
-
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', async () => {
-      if (confirm('Are you sure you want to logout?')) {
-        try {
-          await signOut(auth);
-          localStorage.clear();
-          window.location.href = "auth.html";
-        } catch (error) {
-          console.error('Logout error:', error);
-          NotificationSystem.notifyError('Logout failed');
-        }
-      }
-    });
-  }
-
-  window.addEventListener('click', (event) => {
-    if (event.target === profileModal) {
-      profileModal.style.display = 'none';
-      document.body.classList.remove('modal-open');
-    }
-  });
-
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && profileModal.style.display === 'flex') {
-      profileModal.style.display = 'none';
-      document.body.classList.remove('modal-open');
-    }
-  });
-}
-
-function updateProfileModal() {
-  const profileUserEmail = document.getElementById('profileUserEmail');
-  const profileUserSince = document.getElementById('profileUserSince');
-  const profileDefaultRate = document.getElementById('profileDefaultRate');
-
-  if (currentUserData) {
-    const email = currentUserData.email || auth.currentUser?.email || 'Not available';
-    if (profileUserEmail) profileUserEmail.textContent = email;
+    // Refresh all UI components
+    await Promise.all([
+      renderStudents(),
+      renderRecentHoursWithEdit(),
+      renderRecentMarksWithEdit(),
+      renderAttendanceRecentWithEdit(),
+      renderPaymentActivityWithEdit(),
+      renderStudentBalancesWithEdit(),
+      recalcSummaryStats(user.uid)
+    ]);
     
-    const memberSince = currentUserData.memberSince || localStorage.getItem('memberSince') || new Date().toISOString();
-    if (profileUserSince) profileUserSince.textContent = formatDate(memberSince);
-    
-    if (profileDefaultRate) {
-      profileDefaultRate.textContent = `$${currentUserData.defaultRate || 25.00}/hour`;
-    }
-  }
-
-  updateModalStats();
-}
-
-function updateModalStats() {
-  const modalStatStudents = document.getElementById('modalStatStudents');
-  const modalStatHours = document.getElementById('modalStatHours');
-  const modalStatEarnings = document.getElementById('modalStatEarnings');
-  const modalStatUpdated = document.getElementById('modalStatUpdated');
-
-  const students = Array.isArray(cache.students) ? cache.students : [];
-  const hours = Array.isArray(cache.hours) ? cache.hours : [];
-  
-  if (modalStatStudents) modalStatStudents.textContent = students.length;
-  if (modalStatHours) {
-    const totalHours = hours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
-    modalStatHours.textContent = totalHours.toFixed(1);
-  }
-  if (modalStatEarnings) {
-    const totalEarnings = hours.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
-    modalStatEarnings.textContent = fmtMoney(totalEarnings);
-  }
-  if (modalStatUpdated) modalStatUpdated.textContent = new Date().toLocaleString();
-}
-
-// ===========================
-// THEME MANAGEMENT
-// ===========================
-
-function toggleTheme() {
-  const currentTheme = document.documentElement.getAttribute('data-theme');
-  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-  
-  document.documentElement.setAttribute('data-theme', newTheme);
-  localStorage.setItem('theme', newTheme);
-  
-  animateThemeButton();
-}
-
-function animateThemeButton() {
-  const themeButton = document.querySelector('.theme-toggle button');
-  if (!themeButton) return;
-  
-  themeButton.style.transform = 'rotate(180deg)';
-  themeButton.style.transition = 'transform 0.5s ease';
-  
-  setTimeout(() => {
-    themeButton.style.transform = 'rotate(0deg)';
-  }, 500);
-}
-
-function setupThemeToggle() {
-  const themeToggle = document.querySelector('.theme-toggle button');
-  if (themeToggle) {
-    themeToggle.innerHTML = '🌓';
-    themeToggle.setAttribute('title', 'Toggle theme');
-    
-    themeToggle.style.cssText = `
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 1.2em;
-      transition: all 0.3s ease;
-    `;
-    
-    const newButton = themeToggle.cloneNode(true);
-    themeToggle.parentNode.replaceChild(newButton, themeToggle);
-    
-    newButton.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      toggleTheme();
-    });
-    
-    newButton.addEventListener('mouseenter', function() {
-      this.style.transform = 'scale(1.1)';
-    });
-    
-    newButton.addEventListener('mouseleave', function() {
-      this.style.transform = 'scale(1)';
-    });
-  }
-}
-
-function initializeTheme() {
-  const savedTheme = localStorage.getItem('theme') || 'light';
-  document.documentElement.setAttribute('data-theme', savedTheme);
-  
-  setTimeout(() => {
-    setupThemeToggle();
-  }, 100);
-}
-
-// ===========================
-// TAB NAVIGATION
-// ===========================
-
-function setupTabNavigation() {
-  const tabButtons = document.querySelectorAll('.tab[data-tab]');
-  
-  tabButtons.forEach(button => {
-    const tabName = button.getAttribute('data-tab');
-    button.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      switchTab(tabName);
-    });
-  });
-  
-  // Activate first tab
-  const firstTab = document.querySelector('.tab[data-tab]');
-  if (firstTab) {
-    switchTab(firstTab.getAttribute('data-tab'));
-  }
-}
-
-function switchTab(tabName) {
-  if (!tabName) return;
-  
-  // Update active tab button
-  document.querySelectorAll('.tab').forEach(btn => {
-    btn.classList.remove('active');
-  });
-  
-  const activeButtons = document.querySelectorAll(`.tab[data-tab="${tabName}"]`);
-  activeButtons.forEach(btn => {
-    btn.classList.add('active');
-  });
-  
-  // Show active tab content
-  document.querySelectorAll('.tabcontent').forEach(content => {
-    content.classList.remove('active');
-    content.style.display = 'none';
-  });
-  
-  const targetTab = document.getElementById(tabName);
-  if (targetTab) {
-    targetTab.classList.add('active');
-    targetTab.style.display = 'block';
-  }
-}
-
-// ===========================
-// DEFAULT RATE MANAGEMENT
-// ===========================
-
-function initializeDefaultRate(rate) {
-  const defaultBaseRateInput = document.getElementById('defaultBaseRate');
-  const baseRateInput = document.getElementById('baseRate');
-  const studentRateInput = document.getElementById('studentRate');
-  
-  if (defaultBaseRateInput && !defaultBaseRateInput.value) {
-    defaultBaseRateInput.value = rate;
-  }
-  
-  if (baseRateInput && !baseRateInput.value) {
-    baseRateInput.value = rate;
-  }
-  
-  if (studentRateInput && !studentRateInput.value) {
-    studentRateInput.value = rate;
-  }
-}
-
-async function saveDefaultRate() {
-  const user = auth.currentUser;
-  if (!user) {
-    NotificationSystem.notifyError('Please log in to save default rate');
-    return;
-  }
-  
-  const defaultBaseRateInput = document.getElementById('defaultBaseRate');
-  if (!defaultBaseRateInput) return;
-  
-  const newRate = safeNumber(defaultBaseRateInput.value);
-  if (newRate <= 0) {
-    NotificationSystem.notifyError('Please enter a valid rate greater than 0');
-    return;
-  }
-  
-  try {
-    const userRef = doc(db, "users", user.uid);
-    await updateDoc(userRef, { defaultRate: newRate });
-    
-    currentUserData.defaultRate = newRate;
-    localStorage.setItem('userDefaultRate', newRate.toString());
-    
-    NotificationSystem.notifySuccess(`Default rate saved: $${newRate.toFixed(2)}/session`);
-    initializeDefaultRate(newRate);
+    NotificationSystem.notifySuccess('Sync complete!', 3000);
     
   } catch (error) {
-    console.error('Error saving default rate:', error);
-    NotificationSystem.notifyError('Failed to save default rate');
-  }
-}
-
-function useDefaultRate() {
-  const studentRateInput = document.getElementById('studentRate');
-  const defaultBaseRateInput = document.getElementById('defaultBaseRate');
-  
-  if (studentRateInput && defaultBaseRateInput) {
-    studentRateInput.value = defaultBaseRateInput.value;
-    NotificationSystem.notifyInfo('Default rate applied to student form');
-  }
-}
-
-function useDefaultRateInHours() {
-  const baseRateInput = document.getElementById('baseRate');
-  const defaultBaseRateInput = document.getElementById('defaultBaseRate');
-  
-  if (baseRateInput && defaultBaseRateInput) {
-    baseRateInput.value = defaultBaseRateInput.value;
-    NotificationSystem.notifyInfo('Default rate applied to hours form');
-    calculateTotalPay();
+    console.error('Error during manual sync:', error);
+    NotificationSystem.notifyError('Sync failed: ' + error.message);
   }
 }
 
 // ===========================
-// FLOATING ADD BUTTON
+// FILTERS AND SEARCH
 // ===========================
 
-function setupFloatingAddButton() {
-  const fab = document.getElementById('floatingAddBtn');
-  const fabMenu = document.getElementById('fabMenu');
-  const fabOverlay = document.getElementById('fabOverlay');
-
-  if (!fab) return;
-
-  let isExpanded = false;
-
-  function openFabMenu() {
-    isExpanded = true;
-    
-    fab.innerHTML = '✕';
-    fab.style.transform = 'rotate(45deg)';
-    
-    if (fabMenu) fabMenu.classList.add('show');
-    if (fabOverlay) {
-      fabOverlay.style.display = 'block';
-      setTimeout(() => {
-        fabOverlay.style.pointerEvents = 'auto';
-      }, 10);
-    }
+function setupFilters() {
+  // Hours filters
+  const hoursMonthFilter = document.getElementById('hoursMonthFilter');
+  const hoursTypeFilter = document.getElementById('hoursTypeFilter');
+  
+  if (hoursMonthFilter) {
+    hoursMonthFilter.addEventListener('change', applyHoursFilters);
   }
-
-  function closeFabMenu() {
-    isExpanded = false;
-    
-    fab.innerHTML = '+';
-    fab.style.transform = 'rotate(0deg)';
-    
-    if (fabMenu) fabMenu.classList.remove('show');
-    if (fabOverlay) {
-      fabOverlay.style.display = 'none';
-      fabOverlay.style.pointerEvents = 'none';
-    }
+  if (hoursTypeFilter) {
+    hoursTypeFilter.addEventListener('change', applyHoursFilters);
   }
-
-  fab.addEventListener('click', (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    
-    if (isExpanded) {
-      closeFabMenu();
-    } else {
-      openFabMenu();
-    }
-  });
-
-  if (fabOverlay) {
-    fabOverlay.addEventListener('click', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      closeFabMenu();
-    });
+  
+  // Marks filters
+  const marksStudentFilter = document.getElementById('marksStudentFilter');
+  const marksSubjectFilter = document.getElementById('marksSubjectFilter');
+  
+  if (marksStudentFilter) {
+    marksStudentFilter.addEventListener('change', applyMarksFilters);
   }
-
-  document.addEventListener('click', (e) => {
-    if (isExpanded) {
-      const isClickOnFab = fab.contains(e.target);
-      const isClickOnMenu = fabMenu && fabMenu.contains(e.target);
-      
-      if (!isClickOnFab && !isClickOnMenu) {
-        closeFabMenu();
-      }
-    }
-  });
-
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && isExpanded) {
-      closeFabMenu();
-    }
-  });
-
-  setupFabActions(closeFabMenu);
+  if (marksSubjectFilter) {
+    marksSubjectFilter.addEventListener('change', applyMarksFilters);
+  }
+  
+  // Attendance filters
+  const attendanceMonthFilter = document.getElementById('attendanceMonthFilter');
+  const attendanceSubjectFilter = document.getElementById('attendanceSubjectFilter');
+  
+  if (attendanceMonthFilter) {
+    attendanceMonthFilter.addEventListener('change', applyAttendanceFilters);
+  }
+  if (attendanceSubjectFilter) {
+    attendanceSubjectFilter.addEventListener('change', applyAttendanceFilters);
+  }
+  
+  // Payment filters
+  const paymentMonthFilter = document.getElementById('paymentMonthFilter');
+  const paymentStudentFilter = document.getElementById('paymentStudentFilter');
+  
+  if (paymentMonthFilter) {
+    paymentMonthFilter.addEventListener('change', applyPaymentFilters);
+  }
+  if (paymentStudentFilter) {
+    paymentStudentFilter.addEventListener('change', applyPaymentFilters);
+  }
 }
 
-function setupFabActions(closeFabMenu) {
-  const quickActions = {
-    'fabAddStudent': () => {
-      const studentTab = document.querySelector('[data-tab="students"]');
-      if (studentTab) {
-        studentTab.click();
-        setTimeout(() => {
-          const studentForm = document.getElementById('studentForm');
-          if (studentForm) {
-            studentForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            const firstInput = studentForm.querySelector('input');
-            if (firstInput) firstInput.focus();
-          }
-        }, 300);
-      }
-    },
-    'fabAddHours': () => {
-      const hoursTab = document.querySelector('[data-tab="hours"]');
-      if (hoursTab) {
-        hoursTab.click();
-        setTimeout(() => {
-          const hoursForm = document.querySelector('#hours .section-card:first-child');
-          if (hoursForm) {
-            hoursForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            const firstInput = hoursForm.querySelector('input');
-            if (firstInput) firstInput.focus();
-          }
-        }, 300);
-      }
-    },
-    'fabAddMark': () => {
-      const marksTab = document.querySelector('[data-tab="marks"]');
-      if (marksTab) {
-        marksTab.click();
-        setTimeout(() => {
-          const marksForm = document.getElementById('marksForm');
-          if (marksForm) {
-            marksForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            const firstInput = marksForm.querySelector('input, select');
-            if (firstInput) firstInput.focus();
-          }
-        }, 300);
-      }
-    },
-    'fabAddAttendance': () => {
-      const attendanceTab = document.querySelector('[data-tab="attendance"]');
-      if (attendanceTab) {
-        attendanceTab.click();
-        setTimeout(() => {
-          const attendanceForm = document.querySelector('#attendance .section-card:first-child');
-          if (attendanceForm) {
-            attendanceForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            const firstInput = attendanceForm.querySelector('input');
-            if (firstInput) firstInput.focus();
-          }
-        }, 300);
-      }
-    }
-  };
-
-  Object.keys(quickActions).forEach(btnId => {
-    const btn = document.getElementById(btnId);
-    if (btn) {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        quickActions[btnId]();
-        closeFabMenu();
+async function applyHoursFilters() {
+  try {
+    const hours = await EnhancedCache.loadCollection('hours');
+    const monthFilter = document.getElementById('hoursMonthFilter')?.value;
+    const typeFilter = document.getElementById('hoursTypeFilter')?.value;
+    
+    let filteredHours = [...hours];
+    
+    // Apply month filter
+    if (monthFilter) {
+      filteredHours = filteredHours.filter(entry => {
+        const entryDate = new Date(entry.dateIso || entry.date);
+        const entryMonth = entryDate.getMonth() + 1; // 1-12
+        const entryYear = entryDate.getFullYear();
+        const [filterYear, filterMonth] = monthFilter.split('-').map(Number);
+        return entryYear === filterYear && entryMonth === filterMonth;
       });
     }
+    
+    // Apply type filter
+    if (typeFilter) {
+      filteredHours = filteredHours.filter(entry => entry.workType === typeFilter);
+    }
+    
+    // Sort by date (newest first)
+    filteredHours.sort((a, b) => 
+      new Date(b.dateIso || b.date) - new Date(a.dateIso || a.date)
+    );
+    
+    // Update UI (simplified version for demo)
+    const container = document.getElementById('recentHoursTable');
+    if (!container) return;
+    
+    // Clear and re-render table with filtered data
+    // This would be similar to renderRecentHoursWithEdit but with filtered data
+    
+  } catch (error) {
+    console.error('Error applying hours filters:', error);
+  }
+}
+
+async function applyMarksFilters() {
+  // Similar implementation for marks filters
+}
+
+async function applyAttendanceFilters() {
+  // Similar implementation for attendance filters
+}
+
+async function applyPaymentFilters() {
+  // Similar implementation for payment filters
+}
+
+// ===========================
+// REPORT GENERATION
+// ===========================
+
+async function generateReport(type) {
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      NotificationSystem.notifyError('Please log in to generate reports');
+      return;
+    }
+    
+    NotificationSystem.notifyInfo('Generating report...', 2000);
+    
+    let reportData = {};
+    let reportTitle = '';
+    let fileName = '';
+    
+    switch (type) {
+      case 'earnings':
+        reportData = await generateEarningsReport();
+        reportTitle = 'Earnings Report';
+        fileName = `earnings-report-${new Date().toISOString().slice(0, 10)}.csv`;
+        break;
+      
+      case 'attendance':
+        reportData = await generateAttendanceReport();
+        reportTitle = 'Attendance Report';
+        fileName = `attendance-report-${new Date().toISOString().slice(0, 10)}.csv`;
+        break;
+      
+      case 'marks':
+        reportData = await generateMarksReport();
+        reportTitle = 'Marks Report';
+        fileName = `marks-report-${new Date().toISOString().slice(0, 10)}.csv`;
+        break;
+      
+      case 'student':
+        reportData = await generateStudentReport();
+        reportTitle = 'Student Report';
+        fileName = `student-report-${new Date().toISOString().slice(0, 10)}.csv`;
+        break;
+      
+      default:
+        NotificationSystem.notifyError('Invalid report type');
+        return;
+    }
+    
+    // Download the report
+    downloadCSV(reportData.csv, fileName);
+    NotificationSystem.notifySuccess(`${reportTitle} downloaded!`, 3000);
+    
+  } catch (error) {
+    console.error('Error generating report:', error);
+    NotificationSystem.notifyError('Failed to generate report: ' + error.message);
+  }
+}
+
+async function generateEarningsReport() {
+  const hours = await EnhancedCache.loadCollection('hours');
+  const payments = await EnhancedCache.loadCollection('payments');
+  
+  // Calculate monthly earnings
+  const monthlyEarnings = {};
+  
+  hours.forEach(entry => {
+    const date = new Date(entry.dateIso || entry.date);
+    const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+    
+    if (!monthlyEarnings[monthKey]) {
+      monthlyEarnings[monthKey] = {
+        hours: 0,
+        earnings: 0,
+        payments: 0
+      };
+    }
+    
+    const entryHours = safeNumber(entry.hours);
+    const entryRate = safeNumber(entry.rate);
+    const entryTotal = entryHours * entryRate;
+    
+    monthlyEarnings[monthKey].hours += entryHours;
+    monthlyEarnings[monthKey].earnings += entryTotal;
   });
+  
+  // Calculate monthly payments
+  payments.forEach(payment => {
+    const date = new Date(payment.dateIso || payment.date);
+    const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+    
+    if (!monthlyEarnings[monthKey]) {
+      monthlyEarnings[monthKey] = {
+        hours: 0,
+        earnings: 0,
+        payments: 0
+      };
+    }
+    
+    monthlyEarnings[monthKey].payments += safeNumber(payment.amount);
+  });
+  
+  // Convert to CSV
+  const csvRows = ['Month,Total Hours,Total Earnings,Total Payments,Net Balance'];
+  
+  Object.keys(monthlyEarnings)
+    .sort()
+    .forEach(month => {
+      const data = monthlyEarnings[month];
+      const netBalance = data.earnings - data.payments;
+      csvRows.push(
+        `"${month}",${data.hours.toFixed(2)},${data.earnings.toFixed(2)},${data.payments.toFixed(2)},${netBalance.toFixed(2)}`
+      );
+    });
+  
+  return {
+    csv: csvRows.join('\n'),
+    data: monthlyEarnings
+  };
+}
+
+async function generateAttendanceReport() {
+  const attendance = await EnhancedCache.loadCollection('attendance');
+  const students = await EnhancedCache.loadCollection('students');
+  
+  // Calculate student attendance
+  const studentAttendance = {};
+  
+  students.forEach(student => {
+    studentAttendance[student.id] = {
+      name: student.name,
+      studentId: student.studentId,
+      totalSessions: 0,
+      presentSessions: 0,
+      attendanceRate: 0
+    };
+  });
+  
+  attendance.forEach(session => {
+    const presentStudents = Array.isArray(session.present) ? session.present : [];
+    
+    students.forEach(student => {
+      if (studentAttendance[student.id]) {
+        studentAttendance[student.id].totalSessions++;
+        if (presentStudents.includes(student.id)) {
+          studentAttendance[student.id].presentSessions++;
+        }
+      }
+    });
+  });
+  
+  // Calculate attendance rates
+  Object.values(studentAttendance).forEach(student => {
+    if (student.totalSessions > 0) {
+      student.attendanceRate = (student.presentSessions / student.totalSessions) * 100;
+    }
+  });
+  
+  // Convert to CSV
+  const csvRows = ['Student Name,Student ID,Total Sessions,Present Sessions,Attendance Rate'];
+  
+  Object.values(studentAttendance).forEach(student => {
+    csvRows.push(
+      `"${student.name}","${student.studentId || ''}",${student.totalSessions},${student.presentSessions},${student.attendanceRate.toFixed(2)}%`
+    );
+  });
+  
+  return {
+    csv: csvRows.join('\n'),
+    data: studentAttendance
+  };
+}
+
+async function generateMarksReport() {
+  const marks = await EnhancedCache.loadCollection('marks');
+  const students = await EnhancedCache.loadCollection('students');
+  
+  // Calculate student performance
+  const studentPerformance = {};
+  
+  students.forEach(student => {
+    studentPerformance[student.id] = {
+      name: student.name,
+      studentId: student.studentId,
+      totalTests: 0,
+      totalMarks: 0,
+      totalMaxMarks: 0,
+      averagePercentage: 0
+    };
+  });
+  
+  marks.forEach(entry => {
+    if (studentPerformance[entry.student]) {
+      const student = studentPerformance[entry.student];
+      student.totalTests++;
+      student.totalMarks += safeNumber(entry.marks);
+      student.totalMaxMarks += safeNumber(entry.maxMarks);
+    }
+  });
+  
+  // Calculate averages
+  Object.values(studentPerformance).forEach(student => {
+    if (student.totalMaxMarks > 0) {
+      student.averagePercentage = (student.totalMarks / student.totalMaxMarks) * 100;
+    }
+  });
+  
+  // Convert to CSV
+  const csvRows = ['Student Name,Student ID,Total Tests,Total Marks,Total Max Marks,Average Percentage,Grade'];
+  
+  Object.values(studentPerformance).forEach(student => {
+    const grade = calculateGrade(student.averagePercentage);
+    csvRows.push(
+      `"${student.name}","${student.studentId || ''}",${student.totalTests},${student.totalMarks},${student.totalMaxMarks},${student.averagePercentage.toFixed(2)}%,${grade}`
+    );
+  });
+  
+  return {
+    csv: csvRows.join('\n'),
+    data: studentPerformance
+  };
+}
+
+async function generateStudentReport() {
+  const students = await EnhancedCache.loadCollection('students');
+  const hours = await EnhancedCache.loadCollection('hours');
+  const payments = await EnhancedCache.loadCollection('payments');
+  const marks = await EnhancedCache.loadCollection('marks');
+  const attendance = await EnhancedCache.loadCollection('attendance');
+  
+  // Calculate comprehensive student data
+  const studentReports = [];
+  
+  students.forEach(student => {
+    const report = {
+      name: student.name,
+      studentId: student.studentId,
+      gender: student.gender,
+      subject: student.subject,
+      email: student.email,
+      phone: student.phone,
+      hourlyRate: student.rate || 0,
+      totalHours: 0,
+      totalEarnings: 0,
+      totalPayments: 0,
+      balance: 0,
+      totalTests: 0,
+      averageScore: 0,
+      totalSessions: 0,
+      attendanceRate: 0
+    };
+    
+    // Calculate hours and earnings
+    const studentHours = hours.filter(h => h.student === student.id);
+    studentHours.forEach(entry => {
+      const entryHours = safeNumber(entry.hours);
+      const entryRate = safeNumber(entry.rate) || report.hourlyRate;
+      report.totalHours += entryHours;
+      report.totalEarnings += entryHours * entryRate;
+    });
+    
+    // Calculate payments
+    const studentPayments = payments.filter(p => p.student === student.id);
+    studentPayments.forEach(payment => {
+      report.totalPayments += safeNumber(payment.amount);
+    });
+    
+    report.balance = report.totalEarnings - report.totalPayments;
+    
+    // Calculate marks
+    const studentMarks = marks.filter(m => m.student === student.id);
+    report.totalTests = studentMarks.length;
+    
+    if (report.totalTests > 0) {
+      let totalMarks = 0;
+      let totalMaxMarks = 0;
+      
+      studentMarks.forEach(mark => {
+        totalMarks += safeNumber(mark.marks);
+        totalMaxMarks += safeNumber(mark.maxMarks);
+      });
+      
+      if (totalMaxMarks > 0) {
+        report.averageScore = (totalMarks / totalMaxMarks) * 100;
+      }
+    }
+    
+    // Calculate attendance
+    const studentAttendanceSessions = attendance.filter(session => 
+      Array.isArray(session.present) && session.present.includes(student.id)
+    );
+    
+    report.totalSessions = attendance.length;
+    if (report.totalSessions > 0) {
+      report.attendanceRate = (studentAttendanceSessions.length / report.totalSessions) * 100;
+    }
+    
+    studentReports.push(report);
+  });
+  
+  // Convert to CSV
+  const csvRows = [
+    'Student Name,Student ID,Gender,Subject,Email,Phone,Hourly Rate,Total Hours,Total Earnings,Total Payments,Balance,Total Tests,Average Score,Total Sessions,Attendance Rate'
+  ];
+  
+  studentReports.forEach(report => {
+    csvRows.push(
+      `"${report.name}","${report.studentId}","${report.gender}","${report.subject}","${report.email}","${report.phone}",${report.hourlyRate},${report.totalHours.toFixed(2)},${report.totalEarnings.toFixed(2)},${report.totalPayments.toFixed(2)},${report.balance.toFixed(2)},${report.totalTests},${report.averageScore.toFixed(2)}%,${report.totalSessions},${report.attendanceRate.toFixed(2)}%`
+    );
+  });
+  
+  return {
+    csv: csvRows.join('\n'),
+    data: studentReports
+  };
+}
+
+function downloadCSV(csvContent, fileName) {
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  
+  if (navigator.msSaveBlob) { // IE 10+
+    navigator.msSaveBlob(blob, fileName);
+  } else {
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+}
+
+// ===========================
+// EXPORT/IMPORT FUNCTIONS
+// ===========================
+
+async function exportAllData() {
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      NotificationSystem.notifyError('Please log in to export data');
+      return;
+    }
+    
+    NotificationSystem.notifyInfo('Preparing export...', 2000);
+    
+    // Load all data
+    const [students, hours, marks, attendance, payments] = await Promise.all([
+      EnhancedCache.loadCollection('students'),
+      EnhancedCache.loadCollection('hours'),
+      EnhancedCache.loadCollection('marks'),
+      EnhancedCache.loadCollection('attendance'),
+      EnhancedCache.loadCollection('payments')
+    ]);
+    
+    // Create export object
+    const exportData = {
+      version: '1.0',
+      exportDate: new Date().toISOString(),
+      userId: user.uid,
+      data: {
+        students,
+        hours,
+        marks,
+        attendance,
+        payments
+      }
+    };
+    
+    // Convert to JSON
+    const jsonData = JSON.stringify(exportData, null, 2);
+    
+    // Create download
+    const blob = new Blob([jsonData], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `worklog-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    
+    NotificationSystem.notifySuccess('Export completed!', 3000);
+    
+  } catch (error) {
+    console.error('Error exporting data:', error);
+    NotificationSystem.notifyError('Export failed: ' + error.message);
+  }
+}
+
+async function importAllData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  if (!confirm('WARNING: This will overwrite all your current data. Continue?')) {
+    return;
+  }
+  
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      NotificationSystem.notifyError('Please log in to import data');
+      return;
+    }
+    
+    NotificationSystem.notifyInfo('Importing data...', 2000);
+    
+    const fileText = await file.text();
+    const importData = JSON.parse(fileText);
+    
+    // Validate import data
+    if (!importData.version || !importData.data) {
+      throw new Error('Invalid backup file format');
+    }
+    
+    // Clear all existing data first
+    await clearAllData();
+    
+    // Import each collection
+    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
+    
+    for (const collectionName of collections) {
+      const items = importData.data[collectionName] || [];
+      
+      for (const item of items) {
+        // Remove firebase IDs from import
+        const { id, _firebaseId, _synced, _cachedAt, ...cleanItem } = item;
+        
+        // Add to Firestore
+        await addDoc(collection(db, "users", user.uid, collectionName), cleanItem);
+      }
+    }
+    
+    // Clear cache and reload
+    EnhancedCache.loadCachedData();
+    await refreshAllData();
+    
+    NotificationSystem.notifySuccess('Import completed!', 3000);
+    
+  } catch (error) {
+    console.error('Error importing data:', error);
+    NotificationSystem.notifyError('Import failed: ' + error.message);
+  }
+}
+
+async function clearAllData() {
+  try {
+    const user = auth.currentUser;
+    if (!user) return;
+    
+    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
+    
+    for (const collectionName of collections) {
+      const snapshot = await getDocs(collection(db, "users", user.uid, collectionName));
+      const batch = writeBatch(db);
+      
+      snapshot.forEach((docSnap) => {
+        batch.delete(docSnap.ref);
+      });
+      
+      if (snapshot.size > 0) {
+        await batch.commit();
+      }
+      
+      // Clear cache
+      cache[collectionName] = [];
+      localStorage.removeItem(`worklog_${collectionName}`);
+    }
+    
+    console.log('🗑️ All data cleared');
+    
+  } catch (error) {
+    console.error('Error clearing data:', error);
+    throw error;
+  }
+}
+
+// ===========================
+// DATA REFRESH
+// ===========================
+
+async function refreshAllData() {
+  try {
+    const user = auth.currentUser;
+    if (!user) return;
+    
+    NotificationSystem.notifyInfo('Refreshing data...', 1000);
+    
+    // Force refresh all collections
+    await Promise.all([
+      EnhancedCache.loadCollection('students', true),
+      EnhancedCache.loadCollection('hours', true),
+      EnhancedCache.loadCollection('marks', true),
+      EnhancedCache.loadCollection('attendance', true),
+      EnhancedCache.loadCollection('payments', true)
+    ]);
+    
+    // Refresh all UI components
+    await Promise.all([
+      renderStudents(),
+      renderRecentHoursWithEdit(),
+      renderRecentMarksWithEdit(),
+      renderAttendanceRecentWithEdit(),
+      renderPaymentActivityWithEdit(),
+      renderStudentBalancesWithEdit(),
+      populateStudentDropdowns(),
+      recalcSummaryStats(user.uid)
+    ]);
+    
+    NotificationSystem.notifySuccess('Data refreshed!', 2000);
+    
+  } catch (error) {
+    console.error('Error refreshing data:', error);
+    NotificationSystem.notifyError('Refresh failed: ' + error.message);
+  }
+}
+
+// ===========================
+// REAL-TIME UPDATES
+// ===========================
+
+function setupRealTimeUpdates() {
+  const user = auth.currentUser;
+  if (!user) return;
+  
+  // Note: For full real-time, you would use onSnapshot listeners
+  // This is a simplified version using periodic updates
+  
+  // Update UI every 30 seconds
+  setInterval(async () => {
+    if (document.visibilityState === 'visible') {
+      await recalcSummaryStats(user.uid);
+    }
+  }, 30000);
+  
+  // Update when tab becomes visible
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible') {
+      await refreshAllData();
+    }
+  });
+}
+
+// ===========================
+// FORM INPUT VALIDATION
+// ===========================
+
+function setupFormValidation() {
+  // Hours form validation
+  const hoursForm = document.getElementById(FORM_IDS.HOURS.form);
+  if (hoursForm) {
+    const hoursInput = document.getElementById(FORM_IDS.HOURS.hours);
+    const rateInput = document.getElementById(FORM_IDS.HOURS.rate);
+    const totalPayElement = document.getElementById(FORM_IDS.HOURS.totalPay);
+    
+    const calculateTotal = () => {
+      const hours = safeNumber(hoursInput?.value);
+      const rate = safeNumber(rateInput?.value);
+      const total = hours * rate;
+      
+      if (totalPayElement) {
+        totalPayElement.textContent = fmtMoney(total);
+      }
+    };
+    
+    if (hoursInput) hoursInput.addEventListener('input', calculateTotal);
+    if (rateInput) rateInput.addEventListener('input', calculateTotal);
+  }
+  
+  // Marks form validation
+  const marksForm = document.getElementById(FORM_IDS.MARKS.form);
+  if (marksForm) {
+    const scoreInput = document.getElementById(FORM_IDS.MARKS.score);
+    const maxInput = document.getElementById(FORM_IDS.MARKS.max);
+    
+    const validateScore = () => {
+      const score = safeNumber(scoreInput?.value);
+      const max = safeNumber(maxInput?.value);
+      
+      if (score > max) {
+        scoreInput.setCustomValidity('Score cannot be greater than maximum marks');
+      } else {
+        scoreInput.setCustomValidity('');
+      }
+    };
+    
+    if (scoreInput) scoreInput.addEventListener('input', validateScore);
+    if (maxInput) maxInput.addEventListener('input', validateScore);
+  }
 }
 
 // ===========================
 // INITIALIZATION
 // ===========================
 
-async function initializeApp() {
+async function initApp() {
   console.log('🚀 Initializing WorkLog App...');
   
-  // Initialize notification system first
+  // Initialize notification system
   NotificationSystem.initNotificationStyles();
   
-  // Setup authentication state listener
+  // Load cached data
+  EnhancedCache.loadCachedData();
+  
+  // Set up auth state listener
   onAuthStateChanged(auth, async (user) => {
     if (user) {
-      console.log('✅ User authenticated:', user.email);
+      console.log('👤 User signed in:', user.email);
+      currentUserData = user;
       
-      // Load user profile and data
-      await loadUserProfile(user.uid);
-      EnhancedCache.loadCachedData();
-      
-      // Initialize systems
-      setupTabNavigation();
-      setupFormHandlers();
-      setupProfileModal();
-      setupFloatingAddButton();
-      SyncBar.init();
-      
-      // Load and render initial data
+      // Load initial data
       await Promise.all([
-        renderStudents(),
-        renderRecentHoursWithEdit(),
-        populateStudentDropdowns()
+        EnhancedCache.loadCollection('students'),
+        EnhancedCache.loadCollection('hours'),
+        EnhancedCache.loadCollection('marks'),
+        EnhancedCache.loadCollection('attendance'),
+        EnhancedCache.loadCollection('payments')
       ]);
       
-      console.log('✅ App initialization complete');
+      // Initialize UI
+      await initUI();
+      
+      // Set up real-time updates
+      setupRealTimeUpdates();
       
     } else {
-      console.log('❌ No user signed in, redirecting to auth...');
-      window.location.href = "auth.html";
+      console.log('👤 No user signed in');
+      currentUserData = null;
+      
+      // Clear UI or show login screen
+      showLoginScreen();
     }
   });
   
-  // Initialize theme
-  initializeTheme();
+  // Set up form event listeners
+  setupFormListeners();
+}
+
+async function initUI() {
+  console.log('🎨 Initializing UI...');
+  
+  // Initial render of all data
+  await Promise.all([
+    renderStudents(),
+    renderRecentHoursWithEdit(),
+    renderRecentMarksWithEdit(),
+    renderAttendanceRecentWithEdit(),
+    renderPaymentActivityWithEdit(),
+    renderStudentBalancesWithEdit(),
+    populateStudentDropdowns()
+  ]);
+  
+  // Calculate and display summary stats
+  const user = auth.currentUser;
+  if (user) {
+    await recalcSummaryStats(user.uid);
+  }
+  
+  // Set up auto-sync
+  setupAutoSync();
+  
+  // Set up filters
+  setupFilters();
+  
+  // Set up form validation
+  setupFormValidation();
+  
+  // Set up manual sync button
+  const manualSyncBtn = document.getElementById('manualSyncBtn');
+  if (manualSyncBtn) {
+    manualSyncBtn.addEventListener('click', manualSync);
+  }
+  
+  // Set up export/import buttons
+  const exportBtn = document.getElementById('exportBtn');
+  const importBtn = document.getElementById('importBtn');
+  const importInput = document.getElementById('importInput');
+  
+  if (exportBtn) {
+    exportBtn.addEventListener('click', exportAllData);
+  }
+  
+  if (importBtn && importInput) {
+    importBtn.addEventListener('click', () => importInput.click());
+    importInput.addEventListener('change', importAllData);
+  }
+  
+  // Set up report generation buttons
+  document.querySelectorAll('.report-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const reportType = e.target.dataset.report;
+      if (reportType) {
+        generateReport(reportType);
+      }
+    });
+  });
+  
+  // Set up logout button
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      try {
+        await signOut(auth);
+        NotificationSystem.notifySuccess('Logged out successfully');
+      } catch (error) {
+        console.error('Error signing out:', error);
+        NotificationSystem.notifyError('Logout failed: ' + error.message);
+      }
+    });
+  }
+  
+  // Set up refresh button
+  const refreshBtn = document.getElementById('refreshBtn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', refreshAllData);
+  }
+  
+  console.log('✅ UI initialized');
+}
+
+function setupFormListeners() {
+  // Student form
+  const studentForm = document.getElementById(FORM_IDS.STUDENT.form);
+  if (studentForm) {
+    studentForm.addEventListener('submit', handleStudentSubmit);
+    
+    const cancelBtn = document.getElementById(FORM_IDS.STUDENT.cancelBtn);
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', cancelEditMode);
+    }
+  }
+  
+  // Hours form
+  const hoursForm = document.getElementById(FORM_IDS.HOURS.form);
+  if (hoursForm) {
+    hoursForm.addEventListener('submit', handleHoursSubmit);
+    
+    const cancelBtn = document.getElementById(FORM_IDS.HOURS.cancelBtn);
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', cancelEditMode);
+    }
+  }
+  
+  // Marks form
+  const marksForm = document.getElementById(FORM_IDS.MARKS.form);
+  if (marksForm) {
+    marksForm.addEventListener('submit', handleMarksSubmit);
+    
+    const cancelBtn = document.getElementById(FORM_IDS.MARKS.cancelBtn);
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', cancelEditMode);
+    }
+  }
+  
+  // Attendance form
+  const attendanceForm = document.getElementById(FORM_IDS.ATTENDANCE.form);
+  if (attendanceForm) {
+    attendanceForm.addEventListener('submit', handleAttendanceSubmit);
+    
+    const cancelBtn = document.getElementById(FORM_IDS.ATTENDANCE.cancelBtn);
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', cancelEditMode);
+    }
+  }
+  
+  // Payment form
+  const paymentForm = document.getElementById(FORM_IDS.PAYMENT.form);
+  if (paymentForm) {
+    paymentForm.addEventListener('submit', handlePaymentSubmit);
+    
+    const cancelBtn = document.getElementById(FORM_IDS.PAYMENT.cancelBtn);
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', cancelEditMode);
+    }
+  }
+}
+
+function showLoginScreen() {
+  // This would typically redirect to a login page
+  // For now, just show a message
+  const mainContent = document.querySelector('main');
+  if (mainContent) {
+    mainContent.innerHTML = `
+      <div class="login-prompt">
+        <h2>Please Sign In</h2>
+        <p>You need to sign in to access the WorkLog system.</p>
+        <button onclick="window.location.href='login.html'" class="btn btn-primary">
+          Go to Login
+        </button>
+      </div>
+    `;
+  }
 }
 
 // ===========================
 // START THE APP
 // ===========================
 
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('📄 DOM Content Loaded - Starting app initialization...');
-  initializeApp();
-});
+// Start the app when DOM is loaded
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
 
 // ===========================
-// GLOBAL EXPORTS
+// MAKE FUNCTIONS AVAILABLE GLOBALLY
 // ===========================
 
-window.NotificationSystem = NotificationSystem;
-window.saveDefaultRate = saveDefaultRate;
-window.useDefaultRate = useDefaultRate;
-window.useDefaultRateInHours = useDefaultRateInHours;
-window.calculateTotalPay = calculateTotalPay;
-window.selectAllStudents = function() {
-  const checkboxes = document.querySelectorAll('#attendanceStudents input[type="checkbox"]');
-  checkboxes.forEach(cb => cb.checked = true);
-  NotificationSystem.notifySuccess(`Selected all ${checkboxes.length} students`);
-};
-window.clearStudentForm = function() {
-  const form = document.getElementById(FORM_IDS.STUDENT.form);
-  if (form) {
-    form.reset();
-    NotificationSystem.notifyInfo('Student form cleared');
-  }
-};
-window.clearAttendanceForm = function() {
-  const form = document.getElementById(FORM_IDS.ATTENDANCE.form);
-  if (form) {
-    form.reset();
-    const checkboxes = document.querySelectorAll('#attendanceStudents input[type="checkbox"]');
-    checkboxes.forEach(cb => cb.checked = false);
-    NotificationSystem.notifyInfo('Attendance form cleared');
-  }
-};
-window.safeNumber = safeNumber;
-window.formatDate = formatDate;
-window.fmtMoney = fmtMoney;
-
-console.log('✅ app.js loaded successfully!');
+// Export functions that might be needed in HTML onclick attributes
+window.handleStudentSubmit = handleStudentSubmit;
+window.handleHoursSubmit = handleHoursSubmit;
+window.handleMarksSubmit = handleMarksSubmit;
+window.handleAttendanceSubmit = handleAttendanceSubmit;
+window.handlePaymentSubmit = handlePaymentSubmit;
+window.manualSync = manualSync;
+window.refreshAllData = refreshAllData;
+window.exportAllData = exportAllData;
+window.generateReport = generateReport;
+window.cancelEditMode = cancelEditMode;
