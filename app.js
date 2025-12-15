@@ -498,7 +498,7 @@ function fmtDateISO(yyyyMmDd) {
   }
 }
 
-function calculateTotalPay() {
+/*function calculateTotalPay() {
   const hours = safeNumber(document.getElementById('hoursWorked')?.value);
   const rate = safeNumber(document.getElementById('baseRate')?.value);
   const total = hours * rate;
@@ -507,7 +507,7 @@ function calculateTotalPay() {
   if (totalPayElement) {
     totalPayElement.textContent = fmtMoney(total);
   }
-}
+} */
 
 function calculateGrade(percentage) {
   if (percentage >= 90) return 'A';
