@@ -2162,41 +2162,10 @@ async function renderStudentBalancesWithEdit() {
   }
 }
 
-// ===========================
-// HELPER FUNCTIONS
-// ===========================
-
-/*function safeNumber(value) {
-  const num = parseFloat(value);
-  return isNaN(num) ? 0 : num;
-}*/
-
-/*function formatDate(dateString) {
-  if (!dateString) return 'No date';
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
-    });
-  } catch (e) {
-    return 'Invalid date';
-  }
-} */
-
-/*function calculateGrade(percentage) {
-  if (percentage >= 90) return 'A';
-  if (percentage >= 80) return 'B';
-  if (percentage >= 70) return 'C';
-  if (percentage >= 60) return 'D';
-  return 'F';
-} */
-
 function quickAddPayment(studentId, studentName) {
   // Fill payment form with student info
   const paymentForm = document.getElementById('paymentForm');
-  const studentSelect = document.getElementById('studentSelectPayment');
+  const studentSelect = document.getElementById('paymentStudent');
   const amountInput = document.getElementById('paymentAmount');
   
   if (studentSelect) {
@@ -2227,7 +2196,7 @@ function quickAddPayment(studentId, studentName) {
 }
 
 // ===========================
-// STUDENT FORM FUNCTIONS (REPLACE EXISTING FUNCTION)
+// STUDENT FORM FUNCTIONS
 // ===========================
 
 async function handleStudentSubmit(e) {
@@ -2323,7 +2292,7 @@ function clearStudentForm() {
 }
 
 // ===========================
-// UPDATED HOURS FORM FUNCTIONS (REPLACE IF EXISTS)
+// HOURS FORM FUNCTIONS
 // ===========================
 
 async function handleHoursSubmit(e) {
@@ -2393,7 +2362,7 @@ async function handleHoursSubmit(e) {
       if (form) {
         form.reset();
         // Reset date to today
-        workDateField.value = new Date().toISOString().split('T'),[object Object],;
+        workDateField.value = new Date().toISOString().split('T')[0];
       }
       
       // Refresh UI
@@ -2420,7 +2389,7 @@ function resetHoursForm() {
 }
 
 // ===========================
-// UPDATED MARKS FORM FUNCTIONS (REPLACE IF EXISTS)
+// MARKS FORM FUNCTIONS
 // ===========================
 
 async function handleMarksSubmit(e) {
@@ -2486,7 +2455,7 @@ async function handleMarksSubmit(e) {
       const form = document.getElementById('marksForm');
       if (form) {
         form.reset();
-        marksDateField.value = new Date().toISOString().split('T'),[object Object],;
+        marksDateField.value = new Date().toISOString().split('T')[0];
       }
       
       // Refresh UI
@@ -2509,7 +2478,7 @@ function resetMarksForm() {
 }
 
 // ===========================
-// ATTENDANCE FORM FUNCTIONS (REPLACE IF EXISTS)
+// ATTENDANCE FORM FUNCTIONS
 // ===========================
 
 async function handleAttendanceSubmit(e) {
@@ -2562,7 +2531,7 @@ async function handleAttendanceSubmit(e) {
       const form = document.getElementById('attendanceForm');
       if (form) {
         form.reset();
-        attendanceDateField.value = new Date().toISOString().split('T'),[object Object],;
+        attendanceDateField.value = new Date().toISOString().split('T')[0];
       }
       
       // Clear checkboxes
@@ -2579,7 +2548,7 @@ async function handleAttendanceSubmit(e) {
 }
 
 // ===========================
-// PAYMENT FORM FUNCTIONS (REPLACE IF EXISTS)
+// PAYMENT FORM FUNCTIONS
 // ===========================
 
 async function handlePaymentSubmit(e) {
@@ -2636,7 +2605,7 @@ async function handlePaymentSubmit(e) {
       const form = document.getElementById('paymentForm');
       if (form) {
         form.reset();
-        paymentDateField.value = new Date().toISOString().split('T'),[object Object],;
+        paymentDateField.value = new Date().toISOString().split('T')[0];
       }
       
       // Refresh UI
@@ -2660,7 +2629,7 @@ function resetPaymentForm() {
 }
 
 // ===========================
-// FIX: ADD ENHANCED STATS OBJECT (if missing)
+// ENHANCED STATS OBJECT
 // ===========================
 
 const EnhancedStats = {
@@ -2681,9 +2650,6 @@ const EnhancedStats = {
 
 // Make it globally accessible
 window.EnhancedStats = EnhancedStats;
-
-console.log('✅ All fixes applied successfully!');
-
 
 // ===========================
 // STUDENT DROPDOWN POPULATION
@@ -2857,7 +2823,7 @@ function showDropdownError() {
 }
 
 // ===========================
-// UPDATED FORM SETUP HANDLERS (REPLACE EXISTING FUNCTION)
+// FORM SETUP HANDLERS
 // ===========================
 
 function setupFormHandlers() {
@@ -3095,6 +3061,55 @@ async function handleStudentDelete(event) {
 }
 
 // ===========================
+// HELPER FUNCTION TO DELETE ASSOCIATED RECORDS
+// ===========================
+
+async function deleteAssociatedRecords(uid, studentId) {
+  try {
+    const batch = writeBatch(db);
+    
+    // Delete hours
+    const hoursQuery = query(
+      collection(db, "users", uid, "hours"),
+      where("studentId", "==", studentId)
+    );
+    const hoursSnapshot = await getDocs(hoursQuery);
+    hoursSnapshot.forEach(doc => batch.delete(doc.ref));
+    
+    // Delete marks
+    const marksQuery = query(
+      collection(db, "users", uid, "marks"),
+      where("studentId", "==", studentId)
+    );
+    const marksSnapshot = await getDocs(marksQuery);
+    marksSnapshot.forEach(doc => batch.delete(doc.ref));
+    
+    // Delete attendance
+    const attendanceQuery = query(
+      collection(db, "users", uid, "attendance"),
+      where("studentId", "==", studentId)
+    );
+    const attendanceSnapshot = await getDocs(attendanceQuery);
+    attendanceSnapshot.forEach(doc => batch.delete(doc.ref));
+    
+    // Delete payments
+    const paymentsQuery = query(
+      collection(db, "users", uid, "payments"),
+      where("studentId", "==", studentId)
+    );
+    const paymentsSnapshot = await getDocs(paymentsQuery);
+    paymentsSnapshot.forEach(doc => batch.delete(doc.ref));
+    
+    await batch.commit();
+    console.log(`✅ Deleted all records for student ${studentId}`);
+    
+  } catch (error) {
+    console.error('Error deleting associated records:', error);
+    throw error;
+  }
+}
+
+// ===========================
 // HOURS EDIT/DELETE HANDLERS
 // ===========================
 
@@ -3111,8 +3126,8 @@ async function handleHoursEdit(event) {
     if (!hourEntry) return;
     
     // Fill the hours form
-    document.getElementById('studentSelectHours').value = hourEntry.studentId || '';
-    document.getElementById('hoursDate').value = hourEntry.date || '';
+    document.getElementById('hoursStudent').value = hourEntry.studentId || '';
+    document.getElementById('workDate').value = hourEntry.date || '';
     document.getElementById('hoursWorked').value = hourEntry.hours || '';
     document.getElementById('baseRate').value = hourEntry.rate || '';
     document.getElementById('hoursNotes').value = hourEntry.notes || '';
@@ -3183,11 +3198,10 @@ async function handleMarksEdit(event) {
     if (!marksEntry) return;
     
     // Fill the marks form
-    document.getElementById('studentSelectMarks').value = marksEntry.studentId || '';
+    document.getElementById('marksStudent').value = marksEntry.studentId || '';
     document.getElementById('marksDate').value = marksEntry.date || '';
-    document.getElementById('marks').value = marksEntry.marks || '';
-    document.getElementById('maxMarks').value = marksEntry.maxMarks || '';
-    document.getElementById('marksType').value = marksEntry.type || '';
+    document.getElementById('marksScore').value = marksEntry.marks || '';
+    document.getElementById('marksMax').value = marksEntry.maxMarks || '';
     document.getElementById('marksNotes').value = marksEntry.notes || '';
     
     // Set editing mode
@@ -3256,19 +3270,31 @@ async function handleAttendanceEdit(event) {
     if (!attendanceEntry) return;
     
     // Fill the attendance form
-    document.getElementById('studentSelectAttendance').value = attendanceEntry.studentId || '';
-    document.getElementById('attendanceDate').value = attendanceEntry.date || '';
-    document.getElementById('attendanceStatus').value = attendanceEntry.status || 'present';
-    document.getElementById('attendanceNotes').value = attendanceEntry.notes || '';
-    
-    // Set editing mode
     const attendanceForm = document.getElementById('attendanceForm');
-    attendanceForm.dataset.editingId = attendanceId;
-    
-    // Scroll to form
-    attendanceForm.scrollIntoView({ behavior: 'smooth' });
-    
-    NotificationSystem.notifyInfo('Editing attendance entry');
+    if (attendanceForm) {
+      document.getElementById('attendanceSubject').value = attendanceEntry.subject || '';
+      document.getElementById('attendanceTopic').value = attendanceEntry.topic || '';
+      document.getElementById('attendanceDate').value = attendanceEntry.date || '';
+      document.getElementById('attendanceNotes').value = attendanceEntry.notes || '';
+      
+      // Check checkboxes for present students
+      if (Array.isArray(attendanceEntry.present)) {
+        attendanceEntry.present.forEach(studentName => {
+          const checkbox = document.querySelector(`input[value="${studentName}"]`);
+          if (checkbox) {
+            checkbox.checked = true;
+          }
+        });
+      }
+      
+      // Set editing mode
+      attendanceForm.dataset.editingId = attendanceId;
+      
+      // Scroll to form
+      attendanceForm.scrollIntoView({ behavior: 'smooth' });
+      
+      NotificationSystem.notifyInfo('Editing attendance entry');
+    }
     
   } catch (error) {
     console.error('Error editing attendance:', error);
@@ -3327,7 +3353,7 @@ async function handlePaymentEdit(event) {
     if (!paymentEntry) return;
     
     // Fill the payment form
-    document.getElementById('studentSelectPayment').value = paymentEntry.studentId || '';
+    document.getElementById('paymentStudent').value = paymentEntry.studentId || '';
     document.getElementById('paymentDate').value = paymentEntry.date || '';
     document.getElementById('paymentAmount').value = paymentEntry.amount || '';
     document.getElementById('paymentMethod').value = paymentEntry.method || '';
@@ -3379,55 +3405,6 @@ async function handlePaymentDelete(event) {
   } catch (error) {
     console.error('Error deleting payment:', error);
     NotificationSystem.notifyError('Failed to delete payment: ' + error.message);
-  }
-}
-
-// ===========================
-// HELPER FUNCTION TO DELETE ASSOCIATED RECORDS
-// ===========================
-
-async function deleteAssociatedRecords(uid, studentId) {
-  try {
-    const batch = writeBatch(db);
-    
-    // Delete hours
-    const hoursQuery = query(
-      collection(db, "users", uid, "hours"),
-      where("studentId", "==", studentId)
-    );
-    const hoursSnapshot = await getDocs(hoursQuery);
-    hoursSnapshot.forEach(doc => batch.delete(doc.ref));
-    
-    // Delete marks
-    const marksQuery = query(
-      collection(db, "users", uid, "marks"),
-      where("studentId", "==", studentId)
-    );
-    const marksSnapshot = await getDocs(marksQuery);
-    marksSnapshot.forEach(doc => batch.delete(doc.ref));
-    
-    // Delete attendance
-    const attendanceQuery = query(
-      collection(db, "users", uid, "attendance"),
-      where("studentId", "==", studentId)
-    );
-    const attendanceSnapshot = await getDocs(attendanceQuery);
-    attendanceSnapshot.forEach(doc => batch.delete(doc.ref));
-    
-    // Delete payments
-    const paymentsQuery = query(
-      collection(db, "users", uid, "payments"),
-      where("studentId", "==", studentId)
-    );
-    const paymentsSnapshot = await getDocs(paymentsQuery);
-    paymentsSnapshot.forEach(doc => batch.delete(doc.ref));
-    
-    await batch.commit();
-    console.log(`✅ Deleted all records for student ${studentId}`);
-    
-  } catch (error) {
-    console.error('Error deleting associated records:', error);
-    throw error;
   }
 }
 
@@ -3593,12 +3570,7 @@ function useDefaultRateInHours() {
 }
 
 // ===========================
-// ADD THESE REPORT FUNCTIONS RIGHT BEFORE THE INITIALIZATION SECTION
-// Place them after the "FORM CLEARING FUNCTIONS" section and before "INITIALIZATION"
-// ===========================
-
-// ===========================
-// REPORT FUNCTIONS (FIXED)
+// REPORT FUNCTIONS
 // ===========================
 
 async function showWeeklyBreakdown() {
@@ -3960,165 +3932,6 @@ function setupReportButtons() {
   console.log('✅ Report buttons initialized');
 }
 
-async function sendEmailReport() {
-  try {
-    const user = auth.currentUser;
-    if (!user) {
-      NotificationSystem.notifyError('Please log in to send email reports');
-      return;
-    }
-
-    // Collect data for the report
-    const [students, hours, payments] = await Promise.all([
-      EnhancedCache.loadCollection('students'),
-      EnhancedCache.loadCollection('hours'),
-      EnhancedCache.loadCollection('payments')
-    ]);
-
-    // Check if there's any data
-    if (hours.length === 0 && students.length === 0 && payments.length === 0) {
-      NotificationSystem.notifyWarning('No data available to send email report');
-      return;
-    }
-
-    // Calculate summary
-    const totalStudents = students.length;
-    const totalHours = hours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
-    const totalEarnings = hours.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
-    const totalPayments = payments.reduce((sum, payment) => sum + safeNumber(payment.amount), 0);
-    const outstandingBalance = Math.max(totalEarnings - totalPayments, 0);
-
-    // Get recent activities
-    const recentHours = hours.slice(0, 5);
-    const recentPayments = payments.slice(0, 5);
-
-    // Create email content
-    const emailSubject = `WorkLog Report - ${new Date().toLocaleDateString()}`;
-    const emailBody = `
-WORKLOG REPORT
-==============
-
-Generated: ${new Date().toLocaleString()}
-User: ${user.email}
-
-SUMMARY
-=======
-• Total Students: ${totalStudents}
-• Total Hours: ${totalHours.toFixed(1)}
-• Total Earnings: $${totalEarnings.toFixed(2)}
-• Total Payments: $${totalPayments.toFixed(2)}
-• Outstanding Balance: $${outstandingBalance.toFixed(2)}
-
-RECENT HOURS
-============
-${recentHours.length > 0 ? 
-  recentHours.map(entry => 
-    `• ${formatDate(entry.date)}: ${entry.organization || 'N/A'} - ${entry.student || 'N/A'} - ${safeNumber(entry.hours)}h @ $${safeNumber(entry.rate).toFixed(2)}/h = $${safeNumber(entry.total).toFixed(2)}`
-  ).join('\n') : 
-  'No hours logged yet.'}
-
-RECENT PAYMENTS
-===============
-${recentPayments.length > 0 ? 
-  recentPayments.map(payment => 
-    `• ${formatDate(payment.date)}: ${payment.student || 'N/A'} - $${safeNumber(payment.amount).toFixed(2)} (${payment.method || 'N/A'})`
-  ).join('\n') : 
-  'No payments recorded yet.'}
-
-STUDENT SUMMARY
-===============
-${students.length > 0 ? 
-  students.slice(0, 10).map(student => 
-    `• ${student.name || 'N/A'}: $${student.rate || 0}/hour`
-  ).join('\n') : 
-  'No students registered yet.'}
-
-${students.length > 10 ? `\n... and ${students.length - 10} more students` : ''}
-
----
-Generated by WorkLog Pro - Teacher's Productivity Companion
-${new Date().toLocaleString()}
-`;
-
-    // Create mailto link
-    const mailtoLink = `mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
-    
-    // Try to open email client
-    try {
-      window.location.href = mailtoLink;
-      NotificationSystem.notifyInfo('Opening email client with report data...');
-    } catch (error) {
-      console.error('Error opening email client:', error);
-      
-      // Fallback: Show the email content in a modal
-      const emailBodyEscaped = emailBody.replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/\n/g, '\\n');
-      
-      const emailHTML = `
-        <div style="padding: 20px;">
-          <h3 style="color: var(--primary); margin-top: 0;">📧 Email Report</h3>
-          <p>Could not open email client automatically. Here's your report:</p>
-          
-          <div style="background: var(--surface); padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid var(--border);">
-            <strong>Subject:</strong><br>
-            <code style="display: block; padding: 8px; background: var(--background); border-radius: 4px; margin: 5px 0;">${emailSubject}</code>
-          </div>
-          
-          <div style="background: var(--surface); padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid var(--border);">
-            <strong>Body:</strong>
-            <pre style="
-              background: var(--background);
-              padding: 15px;
-              border-radius: 4px;
-              margin: 10px 0;
-              white-space: pre-wrap;
-              word-wrap: break-word;
-              max-height: 300px;
-              overflow-y: auto;
-              font-family: monospace;
-              font-size: 12px;
-            ">${emailBody}</pre>
-          </div>
-          
-          <div style="margin-top: 20px;">
-            <button onclick="copyEmailReportText()" style="
-              padding: 10px 20px;
-              background: var(--success);
-              color: white;
-              border: none;
-              border-radius: 6px;
-              cursor: pointer;
-              margin-right: 10px;
-            ">
-              📋 Copy Report Text
-            </button>
-            
-            <button onclick="window.open('${mailtoLink}')" style="
-              padding: 10px 20px;
-              background: var(--primary);
-              color: white;
-              border: none;
-              border-radius: 6px;
-              cursor: pointer;
-            ">
-              ✉️ Try Opening Email Again
-            </button>
-          </div>
-        </div>
-      `;
-      
-      // Store email body in a temporary global variable for copying
-      window._tempEmailBody = emailBody;
-      
-      showCustomModal('Email Report', emailHTML);
-    }
-
-  } catch (error) {
-    console.error('Error sending email report:', error);
-    NotificationSystem.notifyError('Failed to prepare email report: ' + error.message);
-  }
-}
-
-
 // ===========================
 // MODAL HELPER FUNCTION
 // ===========================
@@ -4179,7 +3992,7 @@ function showCustomModal(title, content) {
 }
 
 // ===========================
-// FIXED PDF REPORT FUNCTION
+// PDF REPORT FUNCTION
 // ===========================
 
 async function generatePDFReport() {
@@ -4213,68 +4026,6 @@ async function generatePDFReport() {
     const totalEarnings = hours.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
     const totalPayments = payments.reduce((sum, payment) => sum + safeNumber(payment.amount), 0);
     const outstandingBalance = Math.max(totalEarnings - totalPayments, 0);
-
-    // Group hours by date for invoice-style reporting
-    const hoursByDate = {};
-    hours.forEach(entry => {
-      const date = entry.date || 'Unknown Date';
-      if (!hoursByDate[date]) {
-        hoursByDate[date] = {
-          date: date,
-          entries: [],
-          totalHours: 0,
-          totalAmount: 0
-        };
-      }
-      const entryHours = safeNumber(entry.hours);
-      const entryRate = safeNumber(entry.rate);
-      const entryTotal = entryHours * entryRate;
-      
-      hoursByDate[date].entries.push({
-        organization: entry.organization || 'N/A',
-        student: entry.student || 'N/A',
-        hours: entryHours,
-        rate: entryRate,
-        total: entryTotal,
-        subject: entry.subject || 'N/A',
-        workType: entry.workType || 'N/A'
-      });
-      
-      hoursByDate[date].totalHours += entryHours;
-      hoursByDate[date].totalAmount += entryTotal;
-    });
-
-    // Convert to array and sort by date (newest first)
-    const dateReports = Object.values(hoursByDate)
-      .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    // Group earnings by student
-    const earningsByStudent = {};
-    hours.forEach(entry => {
-      const studentName = entry.student || 'Unknown';
-      const earnings = safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0));
-      if (!earningsByStudent[studentName]) {
-        earningsByStudent[studentName] = {
-          name: studentName,
-          totalHours: 0,
-          totalEarnings: 0,
-          entries: []
-        };
-      }
-      earningsByStudent[studentName].totalHours += safeNumber(entry.hours);
-      earningsByStudent[studentName].totalEarnings += earnings;
-      earningsByStudent[studentName].entries.push({
-        date: entry.date,
-        hours: safeNumber(entry.hours),
-        rate: safeNumber(entry.rate),
-        total: earnings,
-        subject: entry.subject
-      });
-    });
-
-    // Sort students by total earnings (highest first)
-    const studentEarnings = Object.values(earningsByStudent)
-      .sort((a, b) => b.totalEarnings - a.totalEarnings);
 
     // Create HTML content for the PDF
     const reportHTML = `
@@ -4394,20 +4145,6 @@ async function generatePDFReport() {
             color: #64748b;
             font-size: 0.9em;
           }
-          
-          @media print {
-            body {
-              margin: 20px;
-            }
-            
-            .no-print {
-              display: none;
-            }
-            
-            .summary-cards {
-              page-break-inside: avoid;
-            }
-          }
         </style>
       </head>
       <body>
@@ -4482,107 +4219,6 @@ async function generatePDFReport() {
         </div>
         ` : ''}
         
-        ${studentEarnings.length > 0 ? `
-        <div class="section">
-          <h3>🎓 Earnings by Student</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Total Hours</th>
-                <th>Total Earnings</th>
-                <th>Avg Rate/Hour</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${studentEarnings.slice(0, 10).map(student => {
-                const avgRate = student.totalHours > 0 ? (student.totalEarnings / student.totalHours).toFixed(2) : '0.00';
-                return `
-                <tr>
-                  <td><strong>${student.name}</strong></td>
-                  <td>${student.totalHours.toFixed(1)}</td>
-                  <td class="amount">${fmtMoney(student.totalEarnings)}</td>
-                  <td class="amount">$${avgRate}</td>
-                </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
-        ` : ''}
-        
-        ${dateReports.length > 0 ? `
-        <div class="section">
-          <h3>📅 Date-wise Breakdown</h3>
-          ${dateReports.slice(0, 5).map(report => `
-            <div style="margin: 20px 0; padding: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-              <h4 style="margin: 0 0 10px 0; color: #475569;">${report.date}</h4>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Organization</th>
-                    <th>Student</th>
-                    <th>Hours</th>
-                    <th>Rate</th>
-                    <th>Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${report.entries.map(entry => `
-                    <tr>
-                      <td>${entry.organization}</td>
-                      <td>${entry.student}</td>
-                      <td>${entry.hours.toFixed(1)}</td>
-                      <td>${fmtMoney(entry.rate)}</td>
-                      <td class="amount">${fmtMoney(entry.total)}</td>
-                    </tr>
-                  `).join('')}
-                  <tr style="font-weight: bold; background: #f1f5f9;">
-                    <td colspan="2">Total for ${report.date}</td>
-                    <td>${report.totalHours.toFixed(1)}</td>
-                    <td>–</td>
-                    <td class="amount">${fmtMoney(report.totalAmount)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          `).join('')}
-        </div>
-        ` : ''}
-        
-        ${payments.length > 0 ? `
-        <div class="section">
-          <h3>💰 Recent Payments</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Student</th>
-                <th>Amount</th>
-                <th>Method</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${payments.slice(0, 10).map(payment => `
-                <tr>
-                  <td>${formatDate(payment.date)}</td>
-                  <td>${payment.student || 'N/A'}</td>
-                  <td class="amount positive">${fmtMoney(payment.amount)}</td>
-                  <td>${payment.method || 'N/A'}</td>
-                  <td>
-                    <span style="color: ${payment.status === 'Pending' ? '#f59e0b' : 
-                                      payment.status === 'Failed' ? '#ef4444' : '#10b981'};">
-                      ${payment.status || 'Completed'}
-                    </span>
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-        ` : ''}
-        
         <div class="footer">
           <p>Generated by WorkLog Pro - Teacher's Productivity Companion</p>
           <p>Report ID: ${Date.now()} • ${new Date().toLocaleString()}</p>
@@ -4590,13 +4226,6 @@ async function generatePDFReport() {
             This is an automated report. For any discrepancies, please contact the administrator.
           </p>
         </div>
-        
-        <script>
-          // Print functionality
-          function printReport() {
-            window.print();
-          }
-        </script>
       </body>
       </html>
     `;
@@ -4626,265 +4255,160 @@ async function generatePDFReport() {
 }
 
 // ===========================
-// REPORT GENERATION UI BUTTONS
+// EMAIL REPORT FUNCTION
 // ===========================
 
-function createReportButtons() {
-  const container = document.createElement('div');
-  container.style.cssText = `
-    display: flex;
-    gap: 10px;
-    margin: 20px 0;
-    flex-wrap: wrap;
-  `;
-
-  const reports = [
-    {
-      label: '📅 Weekly',
-      title: 'Weekly Breakdown',
-      onClick: showWeeklyBreakdown,
-      color: 'var(--primary)'
-    },
-    {
-      label: '📊 Bi-Weekly',
-      title: 'Bi-Weekly Breakdown',
-      onClick: showBiWeeklyBreakdown,
-      color: 'var(--secondary)'
-    },
-    {
-      label: '📈 Monthly',
-      title: 'Monthly Breakdown',
-      onClick: showMonthlyBreakdown,
-      color: 'var(--warning)'
-    },
-    {
-      label: '📚 Subjects',
-      title: 'Subject Breakdown',
-      onClick: showSubjectBreakdown,
-      color: 'var(--success)'
-    },
-    {
-      label: '📧 Email',
-      title: 'Send Email Report',
-      onClick: sendEmailReport,
-      color: 'var(--info)'
-    },
-    {
-      label: '📄 PDF',
-      title: 'Generate PDF Report',
-      onClick: generatePDFReport,
-      color: 'var(--danger)'
-    }
-  ];
-
-  reports.forEach(report => {
-    const button = document.createElement('button');
-    button.textContent = report.label;
-    button.title = report.title;
-    button.style.cssText = `
-      padding: 10px 16px;
-      background: ${report.color};
-      color: white;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 500;
-      transition: all 0.2s;
-      flex: 1;
-      min-width: 100px;
-    `;
-    
-    button.onmouseover = () => {
-      button.style.opacity = '0.9';
-      button.style.transform = 'translateY(-2px)';
-    };
-    button.onmouseout = () => {
-      button.style.opacity = '1';
-      button.style.transform = 'translateY(0)';
-    };
-    
-    button.onclick = report.onClick;
-    
-    container.appendChild(button);
-  });
-
-  return container;
-}
-
-// ===========================
-// ADD THIS HELPER FUNCTION FOR EMAIL COPYING
-// ===========================
-
-function copyEmailReportText() {
-  if (window._tempEmailBody) {
-    copyToClipboard(window._tempEmailBody);
-    delete window._tempEmailBody; // Clean up
-  } else {
-    NotificationSystem.notifyError('Report text not available');
-  }
-}
-
-
-
-// ===========================
-// INITIALIZATION - Add Report Buttons to UI
-// ===========================
-
-function initializeReportSection() {
-  // Wait for DOM to be ready
-  setTimeout(() => {
-    // Try to find a good place to add the report buttons
-    const mainContent = document.querySelector('#mainContent') || 
-                       document.querySelector('main') || 
-                       document.querySelector('.container') ||
-                       document.body;
-    
-    if (mainContent) {
-      // Look for existing sections to insert after
-      const existingSections = [
-        document.querySelector('#hoursEntrySection'),
-        document.querySelector('#recentActivity'),
-        document.querySelector('.card:first-child')
-      ].filter(Boolean);
-      
-      if (existingSections.length > 0) {
-        // Insert after the first existing section
-        const targetSection = existingSections[0];
-        const reportSection = document.createElement('div');
-        reportSection.style.cssText = `
-          margin: 30px 0;
-          padding: 20px;
-          background: var(--surface);
-          border-radius: 12px;
-          border: 1px solid var(--border);
-        `;
-        
-        reportSection.innerHTML = `
-          <h3 style="margin-top: 0; color: var(--primary); display: flex; align-items: center; gap: 10px;">
-            📊 Reports & Analytics
-          </h3>
-          <p style="color: var(--muted); margin-bottom: 20px;">
-            Generate detailed reports of your teaching activities, earnings, and student progress.
-          </p>
-        `;
-        
-        const buttonContainer = createReportButtons();
-        reportSection.appendChild(buttonContainer);
-        
-        // Add stats summary
-        const statsDiv = document.createElement('div');
-        statsDiv.style.cssText = `
-          display: flex;
-          gap: 15px;
-          margin-top: 20px;
-          flex-wrap: wrap;
-        `;
-        
-        const stats = [
-          { label: 'Quick Stats', value: 'Available', icon: '📈' },
-          { label: 'Export Formats', value: 'PDF, Email', icon: '📤' },
-          { label: 'Time Range', value: 'Customizable', icon: '⏰' },
-          { label: 'Data Privacy', value: 'Secure', icon: '🔒' }
-        ];
-        
-        stats.forEach(stat => {
-          const statDiv = document.createElement('div');
-          statDiv.style.cssText = `
-            flex: 1;
-            min-width: 120px;
-            background: var(--background);
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-            border: 1px solid var(--border);
-          `;
-          
-          statDiv.innerHTML = `
-            <div style="font-size: 24px; margin-bottom: 8px;">${stat.icon}</div>
-            <div style="font-weight: bold; color: var(--text);">${stat.value}</div>
-            <div style="font-size: 0.9em; color: var(--muted); margin-top: 4px;">${stat.label}</div>
-          `;
-          
-          statsDiv.appendChild(statDiv);
-        });
-        
-        reportSection.appendChild(statsDiv);
-        
-        // Insert the report section
-        targetSection.parentNode.insertBefore(reportSection, targetSection.nextSibling);
-        
-        console.log('Report section added successfully');
-      } else {
-        // Fallback: add to main content
-        const reportSection = document.createElement('div');
-        reportSection.style.cssText = `
-          margin: 30px 0;
-          padding: 20px;
-          background: var(--surface);
-          border-radius: 12px;
-          border: 1px solid var(--border);
-        `;
-        
-        reportSection.innerHTML = `
-          <h3 style="margin-top: 0; color: var(--primary);">📊 Reports & Analytics</h3>
-          <p style="color: var(--muted); margin-bottom: 20px;">
-            Generate detailed reports and analytics for your teaching activities.
-          </p>
-        `;
-        
-        reportSection.appendChild(createReportButtons());
-        mainContent.insertBefore(reportSection, mainContent.firstChild);
-      }
-    } else {
-      console.warn('Could not find main content area to add report buttons');
-    }
-  }, 1000);
-}
-
-// ===========================
-// ENHANCED SAFE NUMBER FUNCTION
-// ===========================
-
-function safeNumber(value) {
-  if (value === null || value === undefined || value === '') return 0;
-  const num = Number(value);
-  return isNaN(num) ? 0 : num;
-}
-
-// ===========================
-// FORMAT DATE FUNCTION
-// ===========================
-
-function formatDate(dateString) {
-  if (!dateString) return 'Unknown Date';
-  
+async function sendEmailReport() {
   try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return dateString;
+    const user = auth.currentUser;
+    if (!user) {
+      NotificationSystem.notifyError('Please log in to send email reports');
+      return;
+    }
+
+    // Collect data for the report
+    const [students, hours, payments] = await Promise.all([
+      EnhancedCache.loadCollection('students'),
+      EnhancedCache.loadCollection('hours'),
+      EnhancedCache.loadCollection('payments')
+    ]);
+
+    // Check if there's any data
+    if (hours.length === 0 && students.length === 0 && payments.length === 0) {
+      NotificationSystem.notifyWarning('No data available to send email report');
+      return;
+    }
+
+    // Calculate summary
+    const totalStudents = students.length;
+    const totalHours = hours.reduce((sum, entry) => sum + safeNumber(entry.hours), 0);
+    const totalEarnings = hours.reduce((sum, entry) => sum + safeNumber(entry.total || (entry.hours || 0) * (entry.rate || 0)), 0);
+    const totalPayments = payments.reduce((sum, payment) => sum + safeNumber(payment.amount), 0);
+    const outstandingBalance = Math.max(totalEarnings - totalPayments, 0);
+
+    // Get recent activities
+    const recentHours = hours.slice(0, 5);
+    const recentPayments = payments.slice(0, 5);
+
+    // Create email content
+    const emailSubject = `WorkLog Report - ${new Date().toLocaleDateString()}`;
+    const emailBody = `
+WORKLOG REPORT
+==============
+
+Generated: ${new Date().toLocaleString()}
+User: ${user.email}
+
+SUMMARY
+=======
+• Total Students: ${totalStudents}
+• Total Hours: ${totalHours.toFixed(1)}
+• Total Earnings: $${totalEarnings.toFixed(2)}
+• Total Payments: $${totalPayments.toFixed(2)}
+• Outstanding Balance: $${outstandingBalance.toFixed(2)}
+
+RECENT HOURS
+============
+${recentHours.length > 0 ? 
+  recentHours.map(entry => 
+    `• ${formatDate(entry.date)}: ${entry.organization || 'N/A'} - ${entry.student || 'N/A'} - ${safeNumber(entry.hours)}h @ $${safeNumber(entry.rate).toFixed(2)}/h = $${safeNumber(entry.total).toFixed(2)}`
+  ).join('\n') : 
+  'No hours logged yet.'}
+
+RECENT PAYMENTS
+===============
+${recentPayments.length > 0 ? 
+  recentPayments.map(payment => 
+    `• ${formatDate(payment.date)}: ${payment.student || 'N/A'} - $${safeNumber(payment.amount).toFixed(2)} (${payment.method || 'N/A'})`
+  ).join('\n') : 
+  'No payments recorded yet.'}
+
+STUDENT SUMMARY
+===============
+${students.length > 0 ? 
+  students.slice(0, 10).map(student => 
+    `• ${student.name || 'N/A'}: $${student.rate || 0}/hour`
+  ).join('\n') : 
+  'No students registered yet.'}
+
+${students.length > 10 ? `\n... and ${students.length - 10} more students` : ''}
+
+---
+Generated by WorkLog Pro - Teacher's Productivity Companion
+${new Date().toLocaleString()}
+`;
+
+    // Create mailto link
+    const mailtoLink = `mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
     
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  } catch {
-    return dateString;
+    // Try to open email client
+    try {
+      window.location.href = mailtoLink;
+      NotificationSystem.notifyInfo('Opening email client with report data...');
+    } catch (error) {
+      console.error('Error opening email client:', error);
+      
+      // Fallback: Show the email content in a modal
+      const emailHTML = `
+        <div style="padding: 20px;">
+          <h3 style="color: var(--primary); margin-top: 0;">📧 Email Report</h3>
+          <p>Could not open email client automatically. Here's your report:</p>
+          
+          <div style="background: var(--surface); padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid var(--border);">
+            <strong>Subject:</strong><br>
+            <code style="display: block; padding: 8px; background: var(--background); border-radius: 4px; margin: 5px 0;">${emailSubject}</code>
+          </div>
+          
+          <div style="background: var(--surface); padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid var(--border);">
+            <strong>Body:</strong>
+            <pre style="
+              background: var(--background);
+              padding: 15px;
+              border-radius: 4px;
+              margin: 10px 0;
+              white-space: pre-wrap;
+              word-wrap: break-word;
+              max-height: 300px;
+              overflow-y: auto;
+              font-family: monospace;
+              font-size: 12px;
+            ">${emailBody}</pre>
+          </div>
+          
+          <div style="margin-top: 20px;">
+            <button onclick="copyToClipboard('${emailBody.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')" style="
+              padding: 10px 20px;
+              background: var(--success);
+              color: white;
+              border: none;
+              border-radius: 6px;
+              cursor: pointer;
+              margin-right: 10px;
+            ">
+              📋 Copy Report Text
+            </button>
+            
+            <button onclick="window.open('${mailtoLink}')" style="
+              padding: 10px 20px;
+              background: var(--primary);
+              color: white;
+              border: none;
+              border-radius: 6px;
+              cursor: pointer;
+            ">
+              ✉️ Try Opening Email Again
+            </button>
+          </div>
+        </div>
+      `;
+      
+      showCustomModal('Email Report', emailHTML);
+    }
+
+  } catch (error) {
+    console.error('Error sending email report:', error);
+    NotificationSystem.notifyError('Failed to prepare email report: ' + error.message);
   }
-}
-
-// ===========================
-// FORMAT MONEY FUNCTION
-// ===========================
-
-function fmtMoney(amount) {
-  const num = safeNumber(amount);
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(num);
 }
 
 // ===========================
@@ -4939,30 +4463,6 @@ function fallbackCopyToClipboard(text) {
   }
 }
 
-// ===========================
-// EXPORT ADDITIONAL FUNCTIONS
-// ===========================
-
-window.copyEmailReportText = copyEmailReportText;
-window.copyToClipboard = copyToClipboard;
-
-console.log('✅ Email report functions fixed');
-
-// ===========================
-// INITIALIZE ON LOAD
-// ===========================
-
-// Wait for the page to load before initializing
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializeReportSection);
-} else {
-  initializeReportSection();
-}
-
-// Also try to initialize after a delay (in case DOM loads dynamically)
-setTimeout(initializeReportSection, 2000);
-
-console.log('Report functions loaded successfully!');
 // ===========================
 // INITIALIZATION
 // ===========================
@@ -5056,5 +4556,21 @@ window.showMonthlyBreakdown = showMonthlyBreakdown;
 window.showSubjectBreakdown = showSubjectBreakdown;
 window.generatePDFReport = generatePDFReport;
 window.sendEmailReport = sendEmailReport;
+window.copyToClipboard = copyToClipboard;
+window.deleteAssociatedRecords = deleteAssociatedRecords;
+window.setupEditDeleteHandlers = setupEditDeleteHandlers;
+window.handleStudentEdit = handleStudentEdit;
+window.handleStudentDelete = handleStudentDelete;
+window.handleHoursEdit = handleHoursEdit;
+window.handleHoursDelete = handleHoursDelete;
+window.handleMarksEdit = handleMarksEdit;
+window.handleMarksDelete = handleMarksDelete;
+window.handleAttendanceEdit = handleAttendanceEdit;
+window.handleAttendanceDelete = handleAttendanceDelete;
+window.handlePaymentEdit = handlePaymentEdit;
+window.handlePaymentDelete = handlePaymentDelete;
+window.safeNumber = safeNumber;
+window.formatDate = formatDate;
+window.fmtMoney = fmtMoney;
 
-console.log('✅ app.js loaded successfully');
+console.log('✅ app.js loaded successfully with all functions fixed!');
