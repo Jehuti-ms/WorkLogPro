@@ -205,9 +205,10 @@
               <label for="studentPhone">Phone</label>
               <input type="tel" id="studentPhone">
             </div>
+            <!-- CHANGED FROM studentBaseRate TO studentRate -->
             <div class="form-group">
-              <label for="studentBaseRate">Base Rate ($/session)</label>
-              <input type="number" id="studentBaseRate" step="0.01" min="0">
+              <label for="studentRate">Base Rate ($/session)</label>
+              <input type="number" id="studentRate" step="0.01" min="0">
             </div>
           </div>
           <div class="form-actions">
@@ -251,65 +252,66 @@
       <div class="form-grid">
         <div class="section-card">
           <h3>➕ Log Work & Earnings</h3>
-          <!-- Hours form -->
-          <div class="form-group">
-            <label for="organization">Organization *</label>
-            <input type="text" id="organization" required>
-          </div>
-          <div class="form-group">
-            <label for="workSubject">Subject</label>
-            <input type="text" id="workSubject" placeholder="e.g., Mathematics, Physics">
-          </div>
-          <div class="form-group">
-            <label for="hoursStudent">Student (Optional)</label>
-            <select id="hoursStudent">
-              <option value="">Select Student</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="workType">Work Type</label>
-            <select id="workType">
-              <option value="hourly">Hourly</option>
-              <option value="session">Per-Session</option>
-              <option value="contract">Contract Work</option>
-              <option value="project">Project Based</option>
-              <option value="consultation">Consultation</option>
-              <option value="other">One-off Job</option>
-            </select>
-            <div class="help-text">
-              • Hourly: Charged per hour worked<br>
-              • Session/Consultation: Flat fee per meeting<br>
-              • Contract/Project/One-off: Fixed amount for the job
+          <form id="hoursForm">
+            <div class="form-group">
+              <label for="organization">Organization *</label>
+              <input type="text" id="organization" required>
             </div>
-          </div>
-          <div class="form-group">
-            <label for="workDate">Date *</label>
-            <input type="date" id="workDate" required>
-          </div>
-          <div class="form-group">
-            <label for="hoursWorked">Hours Worked *</label>
-            <input type="number" id="hoursWorked" step="0.5" required>
-          </div>
-          <div class="form-group">
-            <label for="baseRate">Your Hourly Rate *</label>
-            <input type="number" id="baseRate" step="0.01" required>
-            <button type="button" class="button small" onclick="useDefaultRateInHours()">
-              Use Default (<span id="currentDefaultRateDisplay">25.00</span>)
-            </button>
-          </div>
-          <div class="form-group">
-            <label>Total Earnings</label>
-            <div class="total-display" id="totalPay">$0.00</div>
-          </div>
-          <div class="form-actions">
-            <button type="button" class="button primary" id="logHoursBtn">
-              <span id="logHoursText">💾 Log Work</span>
-              <span id="logHoursSpinner" style="display: none;">⏳ Saving...</span>
-            </button>
-            <button type="button" class="button secondary" onclick="resetHoursForm()">🗑️ Clear Form</button>
-            <button type="button" class="button warning" id="cancelHoursEdit" style="display: none;">❌ Cancel Edit</button>
-            <button type="button" class="button danger" id="deleteHoursBtn" style="display: none;">🗑️ Delete Hours</button>
-          </div>
+            <div class="form-group">
+              <label for="workSubject">Subject</label>
+              <input type="text" id="workSubject" placeholder="e.g., Mathematics, Physics">
+            </div>
+            <div class="form-group">
+              <label for="hoursStudent">Student (Optional)</label>
+              <select id="hoursStudent">
+                <option value="">Select Student</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="workType">Work Type</label>
+              <select id="workType">
+                <option value="hourly">Hourly</option>
+                <option value="session">Per-Session</option>
+                <option value="contract">Contract Work</option>
+                <option value="project">Project Based</option>
+                <option value="consultation">Consultation</option>
+                <option value="other">One-off Job</option>
+              </select>
+              <div class="help-text">
+                • Hourly: Charged per hour worked<br>
+                • Session/Consultation: Flat fee per meeting<br>
+                • Contract/Project/One-off: Fixed amount for the job
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="workDate">Date *</label>
+              <input type="date" id="workDate" required>
+            </div>
+            <div class="form-group">
+              <label for="hoursWorked">Hours Worked *</label>
+              <input type="number" id="hoursWorked" step="0.5" required>
+            </div>
+            <div class="form-group">
+              <label for="baseRate">Your Hourly Rate *</label>
+              <input type="number" id="baseRate" step="0.01" required>
+              <button type="button" class="button small" onclick="useDefaultRateInHours()">
+                Use Default (<span id="currentDefaultRateDisplay">25.00</span>)
+              </button>
+            </div>
+            <div class="form-group">
+              <label>Total Earnings</label>
+              <div class="total-display" id="totalPay">$0.00</div>
+            </div>
+            <div class="form-group">
+              <label for="hoursNotes">Notes</label>
+              <textarea id="hoursNotes"></textarea>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="button primary" id="hoursSubmitBtn">💾 Log Work</button>
+              <button type="button" class="button secondary" onclick="resetHoursForm()">🗑️ Clear Form</button>
+              <button type="button" class="button warning" id="cancelHoursEdit" style="display: none;">❌ Cancel Edit</button>
+            </div>
+          </form>
         </div>
 
         <div class="section-card">
@@ -375,10 +377,9 @@
               <textarea id="marksNotes"></textarea>
             </div>
             <div class="form-actions">
-              <button type="button" class="button primary" id="addMarkBtn">➕ Add Mark</button>
+              <button type="submit" class="button primary" id="marksSubmitBtn">➕ Add Mark</button>
               <button type="button" class="button secondary" onclick="resetMarksForm()">🗑️ Clear Form</button>
               <button type="button" class="button warning" id="cancelMarkBtn" style="display: none;">❌ Cancel Edit</button>
-              <button type="button" class="button danger" id="deleteMarkBtn" style="display: none;">🗑️ Delete Mark</button>
             </div>
           </form>
         </div>
@@ -392,68 +393,68 @@
       </div>
     </div>
 
-  <!-- Attendance Tab -->
-<div id="attendance" class="tabcontent">
-  <div class="section-header">
-    <h2>✅ Attendance Tracking</h2>
-    <div class="student-stats">
-      <span class="stat-badge" id="attendanceCount">0</span>
-      <span class="stat-divider">|</span>
-      <span class="stat-text">Last Session: <span id="lastSessionDate">Never</span></span>
-    </div>
-  </div>
+    <!-- Attendance Tab -->
+    <div id="attendance" class="tabcontent">
+      <div class="section-header">
+        <h2>✅ Attendance Tracking</h2>
+        <div class="student-stats">
+          <span class="stat-badge" id="attendanceCount">0</span>
+          <span class="stat-divider">|</span>
+          <span class="stat-text">Last Session: <span id="lastSessionDate">Never</span></span>
+        </div>
+      </div>
 
-  <div class="form-grid">
-    <div class="section-card">
-      <h3>📅 Quick Attendance</h3>
-      <form id="attendanceForm"> <!-- Added form element -->
-        <div class="form-group">
-          <label for="attendanceDate">Date *</label>
-          <input type="date" id="attendanceDate" name="attendanceDate" required> <!-- Added name attribute -->
+      <div class="form-grid">
+        <div class="section-card">
+          <h3>📅 Quick Attendance</h3>
+          <form id="attendanceForm">
+            <div class="form-group">
+              <label for="attendanceDate">Date *</label>
+              <input type="date" id="attendanceDate" name="attendanceDate" required>
+            </div>
+            <div class="form-group">
+              <label for="attendanceSubject">Subject *</label>
+              <input type="text" id="attendanceSubject" name="attendanceSubject" required>
+            </div>
+            <div class="form-group">
+              <label for="attendanceTopic">Topic</label>
+              <input type="text" id="attendanceTopic" name="attendanceTopic">
+            </div>
+            
+            <!-- Attendance Students Section -->
+            <div class="form-group">
+              <label>Mark Students Present:</label>
+              <button type="button" id="selectAllStudentsBtn" class="btn btn-secondary" onclick="selectAllStudents()">
+                Select All
+              </button>
+              <div id="attendanceStudents" class="attendance-students-container">
+                <!-- Student checkboxes will be populated here -->
+                <p class="empty-message">No students registered. Add students first.</p>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="attendanceNotes">Notes</label>
+              <textarea id="attendanceNotes" name="attendanceNotes"></textarea>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="button primary" id="attendanceSubmitBtn">💾 Save Attendance</button>
+              <button type="button" class="button secondary" onclick="clearAttendanceForm()">🗑️ Clear Form</button>
+              <button type="button" class="button warning" id="cancelAttendanceBtn" style="display: none;">❌ Cancel Edit</button>
+            </div>
+          </form>
         </div>
-        <div class="form-group">
-          <label for="attendanceSubject">Subject *</label>
-          <input type="text" id="attendanceSubject" name="attendanceSubject" required> <!-- Added name attribute -->
-        </div>
-        <div class="form-group">
-          <label for="attendanceTopic">Topic</label>
-          <input type="text" id="attendanceTopic" name="attendanceTopic"> <!-- Added name attribute -->
-        </div>
-        
-        <!-- Attendance Students Section -->
-        <div class="form-group">
-          <label>Mark Students Present:</label>
-          <button type="button" id="selectAllStudentsBtn" class="btn btn-secondary">
-            Select All
-          </button>
-          <div id="attendanceStudents" class="attendance-students-container">
-            <!-- Student checkboxes will be populated here -->
-            <p class="empty-message">No students registered. Add students first.</p>
+
+        <div class="section-card">
+          <h3>📋 Recent Attendance</h3>
+          <div id="attendanceContainer">
+            <p class="empty-message">No attendance records yet.</p>
           </div>
         </div>
-
-        <div class="form-group">
-          <label for="attendanceNotes">Notes</label>
-          <textarea id="attendanceNotes" name="attendanceNotes"></textarea> <!-- Added name attribute -->
-        </div>
-
-        <div class="form-actions">
-          <button type="submit" class="button primary" id="saveAttendanceBtn">💾 Save Attendance</button> <!-- Changed to type="submit" -->
-          <button type="button" class="button secondary" onclick="clearAttendanceForm()">🗑️ Clear Form</button>
-          <button type="button" class="button warning" id="cancelAttendanceBtn" style="display: none;">❌ Cancel Edit</button>
-          <button type="button" class="button danger" id="deleteAttendanceBtn" style="display: none;">🗑️ Delete Attendance</button>
-        </div>
-      </form> <!-- Closing form tag -->
-    </div>
-
-    <div class="section-card">
-      <h3>📋 Recent Attendance</h3>
-      <div id="attendanceContainer">
-        <p class="empty-message">No attendance records yet.</p>
       </div>
     </div>
-  </div>
-</div>
+
     <!-- Payments Tab -->
     <div id="payments" class="tabcontent">
       <div class="section-header">
@@ -470,40 +471,41 @@
       <div class="form-grid">
         <div class="section-card">
           <h3>💳 Record Payment</h3>
-          <div class="form-group">
-            <label for="paymentStudent">Student *</label>
-            <select id="paymentStudent" required>
-              <option value="">Select Student</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="paymentAmount">Amount ($) *</label>
-            <input type="number" id="paymentAmount" step="0.01" min="0.01" required>
-          </div>
-          <div class="form-group">
-            <label for="paymentDate">Date *</label>
-            <input type="date" id="paymentDate" required>
-          </div>
-          <div class="form-group">
-            <label for="paymentMethod">Method</label>
-            <select id="paymentMethod">
-              <option>Cash</option>
-              <option>Bank Transfer</option>
-              <option>Credit Card</option>
-              <option>PayPal</option>
-              <option>Other</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="paymentNotes">Notes</label>
-            <textarea id="paymentNotes"></textarea>
-          </div>
-          <div class="form-actions">
-            <button type="button" class="button primary" id="recordPaymentBtn">💾 Record Payment</button>
-            <button type="button" class="button secondary" onclick="resetPaymentForm()">🗑️ Clear Form</button>
-            <button type="button" class="button warning" id="cancelPaymentBtn" style="display: none;">❌ Cancel Edit</button>
-            <button type="button" class="button danger" id="deletePaymentBtn" style="display: none;">🗑️ Delete Payment</button>
-          </div>
+          <form id="paymentForm">
+            <div class="form-group">
+              <label for="paymentStudent">Student *</label>
+              <select id="paymentStudent" required>
+                <option value="">Select Student</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="paymentAmount">Amount ($) *</label>
+              <input type="number" id="paymentAmount" step="0.01" min="0.01" required>
+            </div>
+            <div class="form-group">
+              <label for="paymentDate">Date *</label>
+              <input type="date" id="paymentDate" required>
+            </div>
+            <div class="form-group">
+              <label for="paymentMethod">Method</label>
+              <select id="paymentMethod">
+                <option>Cash</option>
+                <option>Bank Transfer</option>
+                <option>Credit Card</option>
+                <option>PayPal</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="paymentNotes">Notes</label>
+              <textarea id="paymentNotes"></textarea>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="button primary" id="paymentSubmitBtn">💾 Record Payment</button>
+              <button type="button" class="button secondary" onclick="resetPaymentForm()">🗑️ Clear Form</button>
+              <button type="button" class="button warning" id="cancelPaymentBtn" style="display: none;">❌ Cancel Edit</button>
+            </div>
+          </form>
         </div>
 
         <div class="section-card">
@@ -540,16 +542,18 @@
             <li>Total Payments: <span id="totalPaymentsReport">$0</span></li>
             <li>Outstanding Balance: <span id="outstandingBalance">$0</span></li>
           </ul>
+          <div class="form-actions">
+            <button id="weeklyReportBtn" class="button small">Weekly</button>
+            <button id="biWeeklyReportBtn" class="button small">Bi-Weekly</button>
+            <button id="monthlyReportBtn" class="button small">Monthly</button>
+            <button id="subjectReportBtn" class="button small">By Subject</button>
+            <button id="pdfReportBtn" class="button small">📄 PDF</button>
+            <button id="emailReportBtn" class="button small">📧 Email</button>
+          </div>
         </div>
 
         <div class="section-card">
           <h3>📅 Breakdown</h3>
-          <div class="form-actions">
-            <button class="button small" onclick="showWeeklyBreakdown()">Weekly</button>
-            <button class="button small" onclick="showBiWeeklyBreakdown()">Bi-Weekly</button>
-            <button class="button small" onclick="showMonthlyBreakdown()">Monthly</button>
-            <button class="button small" onclick="showSubjectBreakdown()">By Subject</button>
-          </div>
           <table class="table">
             <thead>
               <tr><th>Period</th><th>Hours</th><th>Earnings</th><th>Subjects</th><th>Net (80%)</th></tr>
@@ -606,479 +610,404 @@
     <div id="fabOverlay" class="fab-overlay"></div>
   </div>
 
- <!-- Replace your entire script section at the bottom with this: -->
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-<!-- Bootstrap JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Firebase and App Scripts -->
+  <script type="module" src="app.js"></script>
 
-<!-- Firebase and App Scripts -->
-<script type="module" src="app.js"></script>
-
-<script>
-  // DOM elements - WAIT FOR DOM TO BE READY
-  document.addEventListener('DOMContentLoaded', function() {
-    console.log("📋 Initializing tabs and UI...");
-    
-    // ==================== PROFILE MODAL ====================
-    const profileBtn = document.getElementById('profileBtn');
-    const profileModal = document.getElementById('profileModal');
-    const closeProfileModal = document.getElementById('closeProfileModal');
-    const logoutBtn = document.getElementById('logoutBtn');
-    
-    // Profile modal functionality
-    if (profileBtn && profileModal) {
-      profileBtn.addEventListener('click', function() {
-        updateProfileInfo();
-        profileModal.style.display = 'block';
-      });
-    }
-    
-    if (closeProfileModal) {
-      closeProfileModal.addEventListener('click', function() {
-        profileModal.style.display = 'none';
-      });
-    }
-    
-    // Close modal when clicking outside
-    window.addEventListener('click', function(event) {
-      if (event.target === profileModal) {
-        profileModal.style.display = 'none';
-      }
-    });
-    
-    // Logout functionality
-    if (logoutBtn) {
-      logoutBtn.addEventListener('click', function() {
-        if (confirm('Are you sure you want to logout?')) {
-          // Clear localStorage
-          localStorage.clear();
-          
-          // If using Firebase auth, sign out
-          if (typeof firebase !== 'undefined' && firebase.auth()) {
-            firebase.auth().signOut().then(() => {
-              window.location.href = 'login.html';
-            }).catch(error => {
-              console.error('Logout error:', error);
-              window.location.href = 'login.html';
-            });
-          } else {
-            window.location.href = 'login.html';
-          }
-        }
-      });
-    }
-    
-    // ==================== SYNC & DATA BUTTONS ====================
-    const syncBtn = document.getElementById('syncBtn');
-    const exportCloudBtn = document.getElementById('exportCloudBtn');
-    const importCloudBtn = document.getElementById('importCloudBtn');
-    const syncStatsBtn = document.getElementById('syncStatsBtn');
-    const exportDataBtn = document.getElementById('exportDataBtn');
-    const importDataBtn = document.getElementById('importDataBtn');
-    const clearDataBtn = document.getElementById('clearDataBtn');
-    
-    // Sync button
-    if (syncBtn) {
-      syncBtn.addEventListener('click', function() {
-        alert('Sync functionality would connect to Firebase');
-        console.log('Sync button clicked');
-      });
-    }
-    
-    // Export Cloud button
-    if (exportCloudBtn) {
-      exportCloudBtn.addEventListener('click', function() {
-        alert('Export to cloud functionality');
-        console.log('Export Cloud button clicked');
-      });
-    }
-    
-    // Import Cloud button
-    if (importCloudBtn) {
-      importCloudBtn.addEventListener('click', function() {
-        alert('Import from cloud functionality');
-        console.log('Import Cloud button clicked');
-      });
-    }
-    
-    // Sync Stats button
-    if (syncStatsBtn) {
-      syncStatsBtn.addEventListener('click', function() {
-        alert('Sync statistics functionality');
-        console.log('Sync Stats button clicked');
-      });
-    }
-    
-    // Export Data button
-    if (exportDataBtn) {
-      exportDataBtn.addEventListener('click', exportData);
-    }
-    
-    // Import Data button
-    if (importDataBtn) {
-      importDataBtn.addEventListener('click', importData);
-    }
-    
-    // Clear Data button
-    if (clearDataBtn) {
-      clearDataBtn.addEventListener('click', clearAllData);
-    }
-    
-    // ==================== TAB SWITCHING ====================
-    const tabButtons = document.querySelectorAll('.tab');
-    const tabContents = document.querySelectorAll('.tabcontent');
-    
-    if (tabButtons.length > 0 && tabContents.length > 0) {
-      console.log("📋 Initializing tabs...");
+  <script>
+    // DOM elements - WAIT FOR DOM TO BE READY
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log("📋 Initializing tabs and UI...");
       
-      function switchTab(tabName) {
-        console.log("Switching to tab:", tabName);
-        
-        // Hide all tab contents
-        tabContents.forEach(content => {
-          content.classList.remove('active');
+      // ==================== PROFILE MODAL ====================
+      const profileBtn = document.getElementById('profileBtn');
+      const profileModal = document.getElementById('profileModal');
+      const closeProfileModal = document.getElementById('closeProfileModal');
+      const logoutBtn = document.getElementById('logoutBtn');
+      
+      // Profile modal functionality
+      if (profileBtn && profileModal) {
+        profileBtn.addEventListener('click', function() {
+          updateProfileInfo();
+          profileModal.style.display = 'block';
         });
-        
-        // Remove active class from all tab buttons
-        tabButtons.forEach(button => {
-          button.classList.remove('active');
-        });
-        
-        // Show the selected tab content
-        const selectedTab = document.getElementById(tabName);
-        if (selectedTab) {
-          selectedTab.classList.add('active');
-        }
-        
-        // Activate the clicked tab button
-        const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
-        if (activeButton) {
-          activeButton.classList.add('active');
-        }
       }
       
-      // Add click event to all tab buttons
-      tabButtons.forEach(button => {
-        button.addEventListener('click', function() {
-          const tabName = this.getAttribute('data-tab');
-          switchTab(tabName);
+      if (closeProfileModal) {
+        closeProfileModal.addEventListener('click', function() {
+          profileModal.style.display = 'none';
         });
-      });
+      }
       
-      // Initialize with Students tab active
-      switchTab('students');
-      
-      console.log("✅ Tabs initialized");
-    }
-    
-    // ==================== FLOATING ACTION BUTTON ====================
-    const fab = document.getElementById('floatingAddBtn');
-    const fabMenu = document.getElementById('fabMenu');
-    const fabOverlay = document.getElementById('fabOverlay');
-    
-    if (fab && fabMenu && fabOverlay) {
-      fab.addEventListener('click', function() {
-        const isActive = fabMenu.classList.contains('active');
-        
-        if (isActive) {
-          fabMenu.classList.remove('active');
-          fabOverlay.style.display = 'none';
-        } else {
-          fabMenu.classList.add('active');
-          fabOverlay.style.display = 'block';
+      // Close modal when clicking outside
+      window.addEventListener('click', function(event) {
+        if (event.target === profileModal) {
+          profileModal.style.display = 'none';
         }
       });
       
-      fabOverlay.addEventListener('click', function() {
-        fabMenu.classList.remove('active');
-        fabOverlay.style.display = 'none';
-      });
-      
-      // FAB menu items
-      const fabAddStudent = document.getElementById('fabAddStudent');
-      const fabAddHours = document.getElementById('fabAddHours');
-      const fabAddMark = document.getElementById('fabAddMark');
-      const fabAddAttendance = document.getElementById('fabAddAttendance');
-      
-      if (fabAddStudent) {
-        fabAddStudent.addEventListener('click', function() {
-          switchTab('students');
-          document.getElementById('studentName')?.focus();
-          fabMenu.classList.remove('active');
-          fabOverlay.style.display = 'none';
-        });
-      }
-      
-      if (fabAddHours) {
-        fabAddHours.addEventListener('click', function() {
-          switchTab('hours');
-          document.getElementById('organization')?.focus();
-          fabMenu.classList.remove('active');
-          fabOverlay.style.display = 'none';
-        });
-      }
-      
-      if (fabAddMark) {
-        fabAddMark.addEventListener('click', function() {
-          switchTab('marks');
-          document.getElementById('marksStudent')?.focus();
-          fabMenu.classList.remove('active');
-          fabOverlay.style.display = 'none';
-        });
-      }
-      
-      if (fabAddAttendance) {
-        fabAddAttendance.addEventListener('click', function() {
-          switchTab('attendance');
-          document.getElementById('attendanceDate')?.focus();
-          fabMenu.classList.remove('active');
-          fabOverlay.style.display = 'none';
-        });
-      }
-    }
-    
-    // ==================== THEME TOGGLE ====================
-    const themeToggle = document.querySelector('.theme-toggle button');
-    if (themeToggle) {
-      // Set initial theme
-      const savedTheme = localStorage.getItem('worklog-theme') || 'dark';
-      document.documentElement.setAttribute('data-theme', savedTheme);
-      document.body.className = savedTheme;
-      themeToggle.textContent = savedTheme === 'dark' ? '🌓' : '🌞';
-      
-      themeToggle.addEventListener('click', function() {
-        const currentTheme = document.documentElement.getAttribute('data-theme');
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        
-        document.documentElement.setAttribute('data-theme', newTheme);
-        document.body.className = newTheme;
-        localStorage.setItem('worklog-theme', newTheme);
-        
-        themeToggle.textContent = newTheme === 'dark' ? '🌓' : '🌞';
-      });
-    }
-    
-    // ==================== AUTO-FILL DATES ====================
-    const today = new Date().toISOString().split('T')[0];
-    ['workDate', 'marksDate', 'attendanceDate', 'paymentDate'].forEach(id => {
-      const element = document.getElementById(id);
-      if (element) {
-        element.setAttribute('value', today);
-        element.value = today;
-      }
-    });
-    
-    // ==================== INITIALIZE STATS ====================
-    updateStats();
-    updateProfileInfo();
-    
-    console.log("✅ UI initialization complete");
-  });
-  
-  // ==================== PROFILE FUNCTIONS ====================
-  function updateProfileInfo() {
-    const userEmail = localStorage.getItem('userEmail') || 'Not logged in';
-    const userName = localStorage.getItem('userName') || 'Guest';
-    
-    // Update profile button
-    const profileBtn = document.getElementById('profileBtn');
-    if (profileBtn) {
-      const userNameSpan = profileBtn.querySelector('#userName');
-      if (userNameSpan) {
-        userNameSpan.textContent = userName;
-      }
-    }
-    
-    // Update profile modal
-    const profileUserEmail = document.getElementById('profileUserEmail');
-    if (profileUserEmail) {
-      profileUserEmail.textContent = userEmail;
-    }
-    
-    const profileUserSince = document.getElementById('profileUserSince');
-    if (profileUserSince) {
-      const memberSince = localStorage.getItem('memberSince') || new Date().toLocaleDateString();
-      profileUserSince.textContent = memberSince;
-    }
-    
-    const profileDefaultRate = document.getElementById('profileDefaultRate');
-    if (profileDefaultRate) {
-      const defaultRate = localStorage.getItem('defaultHourlyRate') || '0.00';
-      profileDefaultRate.textContent = `$${parseFloat(defaultRate).toFixed(2)}/hour`;
-    }
-    
-    // Update stats in modal
-    updateModalStats();
-  }
-  
-  function updateModalStats() {
-    // Get student count
-    const students = JSON.parse(localStorage.getItem('students') || '[]');
-    const modalStatStudents = document.getElementById('modalStatStudents');
-    if (modalStatStudents) {
-      modalStatStudents.textContent = students.length;
-    }
-    
-    // Get hours count
-    const hours = JSON.parse(localStorage.getItem('hours') || '[]');
-    const modalStatHours = document.getElementById('modalStatHours');
-    if (modalStatHours) {
-      modalStatHours.textContent = hours.length;
-    }
-    
-    // Calculate earnings
-    let totalEarnings = 0;
-    hours.forEach(hour => {
-      totalEarnings += (hour.hours || 0) * (hour.rate || 0);
-    });
-    
-    const modalStatEarnings = document.getElementById('modalStatEarnings');
-    if (modalStatEarnings) {
-      modalStatEarnings.textContent = totalEarnings.toFixed(2);
-    }
-    
-    const modalStatUpdated = document.getElementById('modalStatUpdated');
-    if (modalStatUpdated) {
-      modalStatUpdated.textContent = new Date().toLocaleString();
-    }
-  }
-  
-  function updateStats() {
-    // Get data from localStorage
-    const students = JSON.parse(localStorage.getItem('students') || '[]');
-    const hours = JSON.parse(localStorage.getItem('hours') || '[]');
-    
-    // Update main stats display
-    const statStudents = document.getElementById('statStudents');
-    if (statStudents) {
-      statStudents.textContent = students.length;
-    }
-    
-    const statHours = document.getElementById('statHours');
-    if (statHours) {
-      statHours.textContent = hours.length;
-    }
-    
-    // Update student count in students tab
-    const studentCount = document.getElementById('studentCount');
-    if (studentCount) {
-      studentCount.textContent = students.length;
-    }
-    
-    // Calculate and display average rate
-    let totalRate = 0;
-    students.forEach(student => {
-      totalRate += parseFloat(student.hourlyRate || localStorage.getItem('defaultHourlyRate') || '0');
-    });
-    const avgRate = students.length > 0 ? totalRate / students.length : 0;
-    
-    const averageRate = document.getElementById('averageRate');
-    if (averageRate) {
-      averageRate.textContent = avgRate.toFixed(2);
-    }
-  }
-  
-  // ==================== DATA MANAGEMENT FUNCTIONS ====================
-  function exportData() {
-    const data = {
-      students: JSON.parse(localStorage.getItem('students') || '[]'),
-      hours: JSON.parse(localStorage.getItem('hours') || '[]'),
-      marks: JSON.parse(localStorage.getItem('marks') || '[]'),
-      attendance: JSON.parse(localStorage.getItem('attendance') || '[]'),
-      payments: JSON.parse(localStorage.getItem('payments') || '[]'),
-      settings: {
-        defaultRate: localStorage.getItem('defaultHourlyRate'),
-        theme: localStorage.getItem('worklog-theme'),
-        exportDate: new Date().toISOString()
-      }
-    };
-    
-    const dataStr = JSON.stringify(data, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `worklog-backup-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    alert('Data exported successfully!');
-  }
-  
-  function importData() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    
-    input.onchange = function(event) {
-      const file = event.target.files[0];
-      const reader = new FileReader();
-      
-      reader.onload = function(e) {
-        try {
-          const data = JSON.parse(e.target.result);
-          
-          if (confirm('This will overwrite all current data. Continue?')) {
-            // Import data
-            if (data.students) localStorage.setItem('students', JSON.stringify(data.students));
-            if (data.hours) localStorage.setItem('hours', JSON.stringify(data.hours));
-            if (data.marks) localStorage.setItem('marks', JSON.stringify(data.marks));
-            if (data.attendance) localStorage.setItem('attendance', JSON.stringify(data.attendance));
-            if (data.payments) localStorage.setItem('payments', JSON.stringify(data.payments));
+      // Logout functionality
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', function() {
+          if (confirm('Are you sure you want to logout?')) {
+            // Clear localStorage
+            localStorage.clear();
             
-            // Import settings
-            if (data.settings) {
-              if (data.settings.defaultRate) localStorage.setItem('defaultHourlyRate', data.settings.defaultRate);
-              if (data.settings.theme) {
-                localStorage.setItem('worklog-theme', data.settings.theme);
-                document.documentElement.setAttribute('data-theme', data.settings.theme);
-                document.body.className = data.settings.theme;
-              }
+            // If using Firebase auth, sign out
+            if (typeof firebase !== 'undefined' && firebase.auth()) {
+              firebase.auth().signOut().then(() => {
+                window.location.href = 'auth.html';
+              }).catch(error => {
+                console.error('Logout error:', error);
+                window.location.href = 'auth.html';
+              });
+            } else {
+              window.location.href = 'auth.html';
             }
-            
-            // Update UI
-            updateStats();
-            updateModalStats();
-            
-            alert('Data imported successfully! Page will reload.');
-            setTimeout(() => {
-              window.location.reload();
-            }, 1000);
           }
-        } catch (error) {
-          alert('Error importing data: Invalid file format');
-        }
-      };
+        });
+      }
       
-      reader.readAsText(file);
-    };
+      // ==================== SYNC & DATA BUTTONS ====================
+      const syncBtn = document.getElementById('syncBtn');
+      const exportCloudBtn = document.getElementById('exportCloudBtn');
+      const importCloudBtn = document.getElementById('importCloudBtn');
+      const syncStatsBtn = document.getElementById('syncStatsBtn');
+      const exportDataBtn = document.getElementById('exportDataBtn');
+      const importDataBtn = document.getElementById('importDataBtn');
+      const clearDataBtn = document.getElementById('clearDataBtn');
+      
+      // Sync button
+      if (syncBtn) {
+        syncBtn.addEventListener('click', function() {
+          console.log('Sync button clicked');
+        });
+      }
+      
+      // Export Cloud button
+      if (exportCloudBtn) {
+        exportCloudBtn.addEventListener('click', function() {
+          console.log('Export Cloud button clicked');
+        });
+      }
+      
+      // Import Cloud button
+      if (importCloudBtn) {
+        importCloudBtn.addEventListener('click', function() {
+          console.log('Import Cloud button clicked');
+        });
+      }
+      
+      // Sync Stats button
+      if (syncStatsBtn) {
+        syncStatsBtn.addEventListener('click', function() {
+          console.log('Sync Stats button clicked');
+        });
+      }
+      
+      // Export Data button
+      if (exportDataBtn) {
+        exportDataBtn.addEventListener('click', function() {
+          console.log('Export Data button clicked');
+        });
+      }
+      
+      // Import Data button
+      if (importDataBtn) {
+        importDataBtn.addEventListener('click', function() {
+          console.log('Import Data button clicked');
+        });
+      }
+      
+      // Clear Data button
+      if (clearDataBtn) {
+        clearDataBtn.addEventListener('click', function() {
+          console.log('Clear Data button clicked');
+        });
+      }
+      
+      // ==================== TAB SWITCHING ====================
+      const tabButtons = document.querySelectorAll('.tab');
+      const tabContents = document.querySelectorAll('.tabcontent');
+      
+      if (tabButtons.length > 0 && tabContents.length > 0) {
+        console.log("📋 Initializing tabs...");
+        
+        function switchTab(tabName) {
+          console.log("Switching to tab:", tabName);
+          
+          // Hide all tab contents
+          tabContents.forEach(content => {
+            content.classList.remove('active');
+          });
+          
+          // Remove active class from all tab buttons
+          tabButtons.forEach(button => {
+            button.classList.remove('active');
+          });
+          
+          // Show the selected tab content
+          const selectedTab = document.getElementById(tabName);
+          if (selectedTab) {
+            selectedTab.classList.add('active');
+          }
+          
+          // Activate the clicked tab button
+          const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
+          if (activeButton) {
+            activeButton.classList.add('active');
+          }
+        }
+        
+        // Add click event to all tab buttons
+        tabButtons.forEach(button => {
+          button.addEventListener('click', function() {
+            const tabName = this.getAttribute('data-tab');
+            switchTab(tabName);
+          });
+        });
+        
+        // Initialize with Students tab active
+        switchTab('students');
+        
+        console.log("✅ Tabs initialized");
+      }
+      
+      // ==================== FLOATING ACTION BUTTON ====================
+      const fab = document.getElementById('floatingAddBtn');
+      const fabMenu = document.getElementById('fabMenu');
+      const fabOverlay = document.getElementById('fabOverlay');
+      
+      if (fab && fabMenu && fabOverlay) {
+        fab.addEventListener('click', function() {
+          const isActive = fabMenu.classList.contains('active');
+          
+          if (isActive) {
+            fabMenu.classList.remove('active');
+            fabOverlay.style.display = 'none';
+          } else {
+            fabMenu.classList.add('active');
+            fabOverlay.style.display = 'block';
+          }
+        });
+        
+        fabOverlay.addEventListener('click', function() {
+          fabMenu.classList.remove('active');
+          fabOverlay.style.display = 'none';
+        });
+        
+        // FAB menu items
+        const fabAddStudent = document.getElementById('fabAddStudent');
+        const fabAddHours = document.getElementById('fabAddHours');
+        const fabAddMark = document.getElementById('fabAddMark');
+        const fabAddAttendance = document.getElementById('fabAddAttendance');
+        
+        if (fabAddStudent) {
+          fabAddStudent.addEventListener('click', function() {
+            switchTab('students');
+            document.getElementById('studentName')?.focus();
+            fabMenu.classList.remove('active');
+            fabOverlay.style.display = 'none';
+          });
+        }
+        
+        if (fabAddHours) {
+          fabAddHours.addEventListener('click', function() {
+            switchTab('hours');
+            document.getElementById('organization')?.focus();
+            fabMenu.classList.remove('active');
+            fabOverlay.style.display = 'none';
+          });
+        }
+        
+        if (fabAddMark) {
+          fabAddMark.addEventListener('click', function() {
+            switchTab('marks');
+            document.getElementById('marksStudent')?.focus();
+            fabMenu.classList.remove('active');
+            fabOverlay.style.display = 'none';
+          });
+        }
+        
+        if (fabAddAttendance) {
+          fabAddAttendance.addEventListener('click', function() {
+            switchTab('attendance');
+            document.getElementById('attendanceDate')?.focus();
+            fabMenu.classList.remove('active');
+            fabOverlay.style.display = 'none';
+          });
+        }
+      }
+      
+      // ==================== THEME TOGGLE ====================
+      const themeToggle = document.querySelector('.theme-toggle button');
+      if (themeToggle) {
+        // Set initial theme
+        const savedTheme = localStorage.getItem('worklog-theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        document.body.className = savedTheme;
+        themeToggle.textContent = savedTheme === 'dark' ? '🌓' : '🌞';
+        
+        themeToggle.addEventListener('click', function() {
+          const currentTheme = document.documentElement.getAttribute('data-theme');
+          const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+          
+          document.documentElement.setAttribute('data-theme', newTheme);
+          document.body.className = newTheme;
+          localStorage.setItem('worklog-theme', newTheme);
+          
+          themeToggle.textContent = newTheme === 'dark' ? '🌓' : '🌞';
+        });
+      }
+      
+      // ==================== AUTO-FILL DATES ====================
+      const today = new Date().toISOString().split('T')[0];
+      ['workDate', 'marksDate', 'attendanceDate', 'paymentDate'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+          element.setAttribute('value', today);
+          element.value = today;
+        }
+      });
+      
+      console.log("✅ UI initialization complete");
+    });
     
-    input.click();
-  }
-  
-  function clearAllData() {
-    if (confirm('⚠️ WARNING: This will delete ALL data including students, hours, marks, attendance, and payments. This action cannot be undone.\n\nAre you absolutely sure?')) {
-      if (confirm('LAST CHANCE: This will delete everything. Continue?')) {
-        // Clear all localStorage data
-        localStorage.clear();
-        
-        // Reset default rate
-        localStorage.setItem('defaultHourlyRate', '25.00');
-        localStorage.setItem('worklog-theme', 'dark');
-        
-        // Update UI
-        updateStats();
-        updateModalStats();
-        
-        alert('All data has been cleared. Page will reload.');
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
+    // ==================== HELPER FUNCTIONS ====================
+    
+    // Report button handlers
+    function showWeeklyBreakdown() {
+      console.log('Weekly breakdown requested');
+      if (window.weeklyReportBtn && typeof window.weeklyReportBtn.click === 'function') {
+        window.weeklyReportBtn.click();
       }
     }
-  }
-</script>
+    
+    function showBiWeeklyBreakdown() {
+      console.log('Bi-weekly breakdown requested');
+      if (window.biWeeklyReportBtn && typeof window.biWeeklyReportBtn.click === 'function') {
+        window.biWeeklyReportBtn.click();
+      }
+    }
+    
+    function showMonthlyBreakdown() {
+      console.log('Monthly breakdown requested');
+      if (window.monthlyReportBtn && typeof window.monthlyReportBtn.click === 'function') {
+        window.monthlyReportBtn.click();
+      }
+    }
+    
+    function showSubjectBreakdown() {
+      console.log('Subject breakdown requested');
+      if (window.subjectReportBtn && typeof window.subjectReportBtn.click === 'function') {
+        window.subjectReportBtn.click();
+      }
+    }
+    
+    // Student rate functions
+    function useDefaultRate() {
+      console.log('Use default rate in student form');
+      const studentRateField = document.getElementById('studentRate');
+      const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+      
+      if (studentRateField && defaultBaseRateInput) {
+        studentRateField.value = defaultBaseRateInput.value;
+      }
+    }
+    
+    function useDefaultRateInHours() {
+      console.log('Use default rate in hours form');
+      const baseRateInput = document.getElementById('baseRate');
+      const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+      
+      if (baseRateInput && defaultBaseRateInput) {
+        baseRateInput.value = defaultBaseRateInput.value;
+      }
+    }
+    
+    function selectAllStudents() {
+      console.log('Select all students for attendance');
+      const checkboxes = document.querySelectorAll('#attendanceStudents input[type="checkbox"]');
+      checkboxes.forEach(cb => cb.checked = true);
+    }
+    
+    // Form clearing functions
+    function clearStudentForm() {
+      const form = document.getElementById('studentForm');
+      if (form) form.reset();
+    }
+    
+    function clearAttendanceForm() {
+      const form = document.getElementById('attendanceForm');
+      if (form) {
+        form.reset();
+        const checkboxes = document.querySelectorAll('#attendanceStudents input[type="checkbox"]');
+        checkboxes.forEach(cb => cb.checked = false);
+      }
+    }
+    
+    function resetHoursForm() {
+      const form = document.getElementById('hoursForm');
+      if (form) form.reset();
+    }
+    
+    function resetMarksForm() {
+      const form = document.getElementById('marksForm');
+      if (form) form.reset();
+    }
+    
+    function resetPaymentForm() {
+      const form = document.getElementById('paymentForm');
+      if (form) form.reset();
+    }
+    
+    // Update marks percentage (optional helper)
+    function updateMarksPercentage() {
+      const scoreField = document.getElementById('marksScore');
+      const maxField = document.getElementById('marksMax');
+      const percentageField = document.getElementById('percentage');
+      const gradeField = document.getElementById('grade');
+      
+      if (scoreField && maxField && percentageField && gradeField) {
+        const score = parseFloat(scoreField.value) || 0;
+        const max = parseFloat(maxField.value) || 1;
+        const percentage = max > 0 ? (score / max) * 100 : 0;
+        
+        percentageField.value = percentage.toFixed(1) + '%';
+        
+        // Calculate grade
+        let grade = 'F';
+        if (percentage >= 90) grade = 'A';
+        else if (percentage >= 80) grade = 'B';
+        else if (percentage >= 70) grade = 'C';
+        else if (percentage >= 60) grade = 'D';
+        
+        gradeField.value = grade;
+      }
+    }
+    
+    // Save default rate
+    function saveDefaultRate() {
+      const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+      const currentDefaultRateDisplay = document.getElementById('currentDefaultRateDisplay');
+      const currentDefaultRate = document.getElementById('currentDefaultRate');
+      
+      if (defaultBaseRateInput && currentDefaultRateDisplay && currentDefaultRate) {
+        const rate = parseFloat(defaultBaseRateInput.value) || 0;
+        localStorage.setItem('defaultHourlyRate', rate.toString());
+        currentDefaultRateDisplay.textContent = rate.toFixed(2);
+        currentDefaultRate.textContent = rate.toFixed(2);
+        alert('Default rate saved!');
+      }
+    }
+    
+    // Apply default rate to all students (placeholder)
+    function applyDefaultRateToAll() {
+      console.log('Apply default rate to all students');
+      alert('This feature would update all student rates to the default rate');
+    }
+  </script>
 </body>
 </html>
