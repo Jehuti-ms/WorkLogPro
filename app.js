@@ -2199,7 +2199,7 @@ function quickAddPayment(studentId, studentName) {
 // STUDENT FORM FUNCTIONS
 // ===========================
 
-async function handleStudentSubmit(e) {
+/*async function handleStudentSubmit(e) {
     if (e) e.preventDefault();
     
     const user = auth.currentUser;
@@ -2626,7 +2626,7 @@ function resetPaymentForm() {
     document.getElementById('paymentDate').value = new Date().toISOString().split('T')[0];
     NotificationSystem.notifyInfo('Payment form cleared');
   }
-}
+} */
 
 // ===========================
 // ENHANCED STATS OBJECT
