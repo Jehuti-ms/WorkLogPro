@@ -1,6 +1,3 @@
-// app.js - COMPLETE FIXED VERSION
-console.log('🚀 Loading COMPLETE app.js');
-
 // ==================== GLOBAL VARIABLES ====================
 let appInitialized = false;
 let redirectInProgress = false;
@@ -58,6 +55,34 @@ async function safeInit() {
   } catch (error) {
     console.error('❌ Safe init error:', error);
     showErrorMessage('App initialization failed. Please refresh.');
+  }
+}
+
+// ==================== APP UI INITIALIZATION ====================
+function initAppUI() {
+  console.log('🎨 Initializing app UI...');
+  
+  try {
+    // Set default rate
+    initDefaultRate();
+    
+    // Update user info immediately
+    updateProfileInfo();
+    
+    // Initialize all components
+    initTabs();
+    initForms();
+    initFAB();
+    initProfileModal();
+    initSyncControls();
+    
+    // Load data
+    loadInitialData();
+    
+    console.log('✅ App UI initialized');
+    
+  } catch (error) {
+    console.error('❌ UI init error:', error);
   }
 }
 
@@ -200,31 +225,7 @@ function showErrorMessage(message) {
   document.body.appendChild(errorDiv);
 }
 
-// ==================== APP UI INITIALIZATION ====================
-function initAppUI() {
-  console.log('🎨 Initializing app UI...');
-  
-  try {
-    // Set default rate
-    initDefaultRate();
-    
-    // Initialize all components
-    initTabs();
-    initForms();
-    initFAB();
-    initProfileModal();
-    initSyncControls();
-    
-    // Load data
-    loadInitialData();
-    
-    console.log('✅ App UI initialized');
-    
-  } catch (error) {
-    console.error('❌ UI init error:', error);
-  }
-}
-
+// ==================== DEFAULT RATE ====================
 function initDefaultRate() {
   const defaultRate = localStorage.getItem('defaultHourlyRate') || '25.00';
   
@@ -241,6 +242,99 @@ function initDefaultRate() {
   const rateInput = document.getElementById('defaultBaseRate');
   if (rateInput) rateInput.value = defaultRate;
 }
+
+// ==================== PROFILE INFO FUNCTION ====================
+function updateProfileInfo() {
+  console.log('🔄 Updating profile info...');
+  
+  try {
+    // Get user email from multiple sources
+    let userEmail = 'Not logged in';
+    
+    // Try localStorage first
+    const storedEmail = localStorage.getItem('userEmail');
+    if (storedEmail) {
+      userEmail = storedEmail;
+    } else {
+      // Try parsing worklog_user
+      const worklogUser = localStorage.getItem('worklog_user');
+      if (worklogUser) {
+        try {
+          const parsed = JSON.parse(worklogUser);
+          if (parsed && parsed.email) {
+            userEmail = parsed.email;
+          }
+        } catch (e) {
+          console.log('Could not parse worklog_user');
+        }
+      }
+    }
+    
+    console.log('User email found:', userEmail);
+    
+    // Update UI elements
+    const profileEmail = document.getElementById('profileUserEmail');
+    const userName = document.getElementById('userName');
+    
+    if (profileEmail) profileEmail.textContent = userEmail;
+    
+    // Set username (email without domain)
+    const displayName = userEmail.split('@')[0] || 'User';
+    if (userName) userName.textContent = displayName;
+    
+    // Update stats
+    updateProfileStats();
+    
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    
+    // Set fallback values
+    const profileEmail = document.getElementById('profileUserEmail');
+    const userName = document.getElementById('userName');
+    
+    if (profileEmail) profileEmail.textContent = 'Not logged in';
+    if (userName) userName.textContent = 'User';
+  }
+}
+
+function updateProfileStats() {
+  console.log('📊 Updating profile stats...');
+  
+  try {
+    // Get data from localStorage
+    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
+    
+    // Calculate stats
+    const totalStudents = students.length;
+    
+    const totalHours = hours.reduce((sum, hour) => {
+      return sum + (parseFloat(hour.hoursWorked) || 0);
+    }, 0);
+    
+    const totalEarnings = hours.reduce((sum, hour) => {
+      const hoursWorked = parseFloat(hour.hoursWorked) || 0;
+      const rate = parseFloat(hour.baseRate) || 0;
+      return sum + (hoursWorked * rate);
+    }, 0);
+    
+    // Update UI
+    const studentsElem = document.getElementById('modalStatStudents');
+    const hoursElem = document.getElementById('modalStatHours');
+    const earningsElem = document.getElementById('modalStatEarnings');
+    const updatedElem = document.getElementById('modalStatUpdated');
+    
+    if (studentsElem) studentsElem.textContent = totalStudents;
+    if (hoursElem) hoursElem.textContent = totalHours.toFixed(1);
+    if (earningsElem) earningsElem.textContent = totalEarnings.toFixed(2);
+    if (updatedElem) updatedElem.textContent = new Date().toLocaleTimeString();
+    
+  } catch (error) {
+    console.error('Error updating profile stats:', error);
+  }
+}
+
+// ==================== COMPONENT INITIALIZATION FUNCTIONS ====================
 
 function initTabs() {
   console.log('📋 Initializing tabs...');
@@ -395,7 +489,6 @@ function initFAB() {
   });
 }
 
-// ==================== PROFILE FUNCTIONS ====================
 function initProfileModal() {
   console.log('👤 Initializing profile modal...');
   
@@ -436,96 +529,6 @@ function initProfileModal() {
       }
     });
   }
-  
-  // Make updateProfileInfo available globally
-  window.updateProfileInfo = updateProfileInfo;
-}
-
-function updateProfileInfo() {
-  console.log('🔄 Updating profile info...');
-  
-  try {
-    // Get user email from multiple sources
-    let userEmail = 'Not logged in';
-    
-    // Try localStorage first
-    const storedEmail = localStorage.getItem('userEmail');
-    if (storedEmail) {
-      userEmail = storedEmail;
-    } else {
-      // Try parsing worklog_user
-      const worklogUser = localStorage.getItem('worklog_user');
-      if (worklogUser) {
-        try {
-          const parsed = JSON.parse(worklogUser);
-          if (parsed && parsed.email) {
-            userEmail = parsed.email;
-          }
-        } catch (e) {
-          console.log('Could not parse worklog_user');
-        }
-      }
-    }
-    
-    console.log('User email found:', userEmail);
-    
-    // Update UI elements
-    const profileEmail = document.getElementById('profileUserEmail');
-    const userName = document.getElementById('userName');
-    const profileBtnName = document.getElementById('userName'); // The button text
-    
-    if (profileEmail) profileEmail.textContent = userEmail;
-    
-    // Set username (email without domain)
-    const displayName = userEmail.split('@')[0] || 'User';
-    if (userName) userName.textContent = displayName;
-    if (profileBtnName) profileBtnName.textContent = displayName;
-    
-    // Update stats
-    updateProfileStats();
-    
-  } catch (error) {
-    console.error('Error updating profile:', error);
-    
-    // Set fallback values
-    const profileEmail = document.getElementById('profileUserEmail');
-    const userName = document.getElementById('userName');
-    
-    if (profileEmail) profileEmail.textContent = 'Not logged in';
-    if (userName) userName.textContent = 'User';
-  }
-}
-
-function updateProfileStats() {
-  console.log('📊 Updating profile stats...');
-  
-  // Get data from localStorage
-  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-  const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
-  
-  // Calculate stats
-  const totalStudents = students.length;
-  
-  const totalHours = hours.reduce((sum, hour) => {
-    return sum + (parseFloat(hour.hoursWorked) || 0);
-  }, 0);
-  
-  const totalEarnings = hours.reduce((sum, hour) => {
-    const hoursWorked = parseFloat(hour.hoursWorked) || 0;
-    const rate = parseFloat(hour.baseRate) || 0;
-    return sum + (hoursWorked * rate);
-  }, 0);
-  
-  // Update UI
-  const studentsElem = document.getElementById('modalStatStudents');
-  const hoursElem = document.getElementById('modalStatHours');
-  const earningsElem = document.getElementById('modalStatEarnings');
-  const updatedElem = document.getElementById('modalStatUpdated');
-  
-  if (studentsElem) studentsElem.textContent = totalStudents;
-  if (hoursElem) hoursElem.textContent = totalHours.toFixed(1);
-  if (earningsElem) earningsElem.textContent = totalEarnings.toFixed(2);
-  if (updatedElem) updatedElem.textContent = new Date().toLocaleTimeString();
 }
 
 function handleLogout() {
@@ -548,7 +551,6 @@ function handleLogout() {
   window.location.href = 'auth.html';
 }
 
-// ==================== SYNC CONTROLS ====================
 function initSyncControls() {
   console.log('☁️ Initializing sync controls...');
   
@@ -557,16 +559,7 @@ function initSyncControls() {
   if (syncBtn) {
     syncBtn.addEventListener('click', function() {
       console.log('Sync button clicked');
-      // Show syncing status
-      updateSyncIndicator('Syncing...', 'syncing');
-      
-      // Simulate sync
-      setTimeout(() => {
-        updateSyncIndicator('Synced', 'success');
-        setTimeout(() => {
-          updateSyncIndicator('Online', 'online');
-        }, 2000);
-      }, 1500);
+      // Add sync logic here
     });
   }
   
@@ -595,60 +588,10 @@ function initSyncControls() {
       
       // Save setting
       localStorage.setItem('autoSyncEnabled', isChecked);
-      
-      // Show notification
-      showSyncNotification(isChecked ? 'Auto-sync enabled' : 'Auto-sync disabled');
     });
   }
-  
-  // Initialize sync indicator
-  updateSyncIndicator('Online', 'online');
 }
 
-function updateSyncIndicator(text, status) {
-  const syncIndicator = document.getElementById('syncIndicator');
-  if (!syncIndicator) return;
-  
-  // Clear previous classes
-  syncIndicator.className = 'sync-indicator';
-  
-  // Set text and status class
-  syncIndicator.textContent = text;
-  syncIndicator.classList.add(status);
-  
-  console.log('Sync indicator:', text, status);
-}
-
-function showSyncNotification(message) {
-  console.log('🔔 Sync notification:', message);
-  
-  // Create notification
-  const notification = document.createElement('div');
-  notification.className = 'sync-notification';
-  notification.textContent = message;
-  notification.style.cssText = `
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    background: #4CAF50;
-    color: white;
-    padding: 10px 15px;
-    border-radius: 5px;
-    z-index: 1000;
-    font-size: 14px;
-    animation: slideIn 0.3s ease;
-  `;
-  
-  document.body.appendChild(notification);
-  
-  // Remove after 3 seconds
-  setTimeout(() => {
-    notification.style.animation = 'slideOut 0.3s ease';
-    setTimeout(() => notification.remove(), 300);
-  }, 3000);
-}
-
-// ==================== DATA LOADING ====================
 function loadInitialData() {
   console.log('📊 Loading initial data...');
   
@@ -658,7 +601,7 @@ function loadInitialData() {
   // Load hours
   loadHours();
   
-  // Update stats
+  // Update global stats
   updateGlobalStats();
 }
 
@@ -729,4 +672,4 @@ if (document.readyState === 'loading') {
   setTimeout(initApp, 300);
 }
 
-console.log('✅ COMPLETE app.js loaded');
+console.log('✅ App initialization script loaded');
