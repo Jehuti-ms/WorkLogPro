@@ -1,43 +1,32 @@
-// firebase-config.js - UPDATED WITH YOUR CONFIG
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { 
-  getFirestore, 
-  initializeFirestore,
-  persistentLocalCache
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getAuth, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+// firebase-config.js - SIMPLE VERSION
+console.log('🔥 Loading SIMPLE firebase-config.js');
 
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyDdLP_LgiC6EgzC3hUP_mGuNW4_BUEACs8",
-  authDomain: "worklogpro-4284e.firebaseapp.com",
-  projectId: "worklogpro-4284e",
-  storageBucket: "worklogpro-4284e.firebasestorage.app",
-  messagingSenderId: "299567233913",
-  appId: "1:299567233913:web:7232a5a5a8aa9b79948da8",
-  measurementId: "G-7JMG3LLJXX"
-};
+// Check if Firebase already loaded
+if (typeof firebase === 'undefined') {
+  console.error('❌ Firebase not loaded! Check CDN scripts.');
+} else {
+  console.log('✅ Firebase loaded successfully');
+  
+  const firebaseConfig = {
+    apiKey: "AIzaSyALlZosUAK_Zg3DTSRNJXnpw96hEVg8In0",
+    authDomain: "worklogpro-4284e.firebaseapp.com",
+    projectId: "worklogpro-4284e",
+    storageBucket: "worklogpro-4284e.firebasestorage.app",
+    messagingSenderId: "492087144637",
+    appId: "1:492087144637:web:57017668f55b3361257765"
+  };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-
-// Initialize Firestore with new persistence method (no more warnings)
-const db = initializeFirestore(app, {
-  localCache: persistentLocalCache()
-});
-
-// Initialize Auth
-const auth = getAuth(app);
-
-// Set auth persistence
-setPersistence(auth, browserLocalPersistence)
-  .then(() => {
-    console.log("✅ Auth persistence enabled");
-  })
-  .catch((error) => {
-    console.error("❌ Auth persistence error:", error);
-  });
-
-console.log("✅ Firebase initialized successfully with project: worklogpro-4284e");
-
-export { auth, db };
+  try {
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    console.log('✅ Firebase initialized');
+    
+    // Set persistence
+    firebase.auth().setPersistence(firebase.auth.Auth.Persistence.NONE)
+      .then(() => console.log('✅ Persistence set to NONE'))
+      .catch(err => console.log('⚠️ Persistence error:', err.message));
+    
+  } catch (error) {
+    console.error('❌ Firebase init error:', error.message);
+  }
+}
