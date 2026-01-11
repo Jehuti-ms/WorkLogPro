@@ -1328,30 +1328,26 @@ function updateSyncIndicator(text, status) {
   
   console.log(`🔄 Updating sync indicator: ${text} (${status})`);
   
-  // Clear all classes and text
+  // Clear all classes
   syncIndicator.className = '';
+  
+  // Set the text inside the pill
   syncIndicator.textContent = text;
   
   // Add the status class for color
   syncIndicator.classList.add(status);
   
-  // Special handling for syncing state to ensure pulse animation works
+  // Handle animation - DON'T set style.animation directly!
+  // Let CSS handle it through the class
   if (status === 'syncing') {
-    // Force animation restart
-    syncIndicator.style.animation = 'none';
-    
-    // Small delay to ensure CSS re-evaluation
-    setTimeout(() => {
-      syncIndicator.style.animation = '';
-      // Explicitly set the pulse animation
-      syncIndicator.style.animation = 'pulse 1.5s infinite';
-    }, 10);
-  } else {
-    // Remove animation for non-syncing states
-    syncIndicator.style.animation = 'none';
+    // Force CSS re-evaluation by toggling the class
+    syncIndicator.classList.remove('syncing');
+    void syncIndicator.offsetWidth; // Trigger reflow
+    syncIndicator.classList.add('syncing');
   }
   
-  console.log('Sync indicator updated:', syncIndicator.className, syncIndicator.style.animation);
+  console.log('Sync indicator updated. Classes:', syncIndicator.className);
+  console.log('Computed animation:', window.getComputedStyle(syncIndicator).animation);
 }
 
 function showNotification(message, type = 'info') {
