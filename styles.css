@@ -3566,3 +3566,100 @@ button:focus:not(:focus-visible) {
   text-align: center;
 }
 
+/* ==================== SYNC CONTROLS ==================== */
+.sync-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 15px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.sync-toolbar button {
+  font-size: 12px !important;
+  padding: 6px 10px !important;
+  height: auto !important;
+  white-space: nowrap;
+}
+
+.auto-sync-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  margin-right: 10px;
+}
+
+.auto-sync-label input[type="checkbox"] {
+  margin: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.auto-sync-text {
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* Sync indicator */
+.sync-indicator {
+  font-size: 12px !important;
+  padding: 4px 8px !important;
+  border-radius: 12px !important;
+  margin-right: 10px !important;
+  display: inline-block !important;
+  font-weight: 500 !important;
+}
+
+.sync-indicator.online {
+  background: #4CAF50 !important;
+  color: white !important;
+}
+
+.sync-indicator.offline {
+  background: #f44336 !important;
+  color: white !important;
+}
+
+.sync-indicator.syncing {
+  background: #FF9800 !important;
+  color: white !important;
+  animation: pulse 1.5s infinite;
+}
+
+.sync-indicator.success {
+  background: #4CAF50 !important;
+  color: white !important;
+}
+
+.sync-indicator.error {
+  background: #f44336 !important;
+  color: white !important;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+/* Responsive sync toolbar */
+@media (max-width: 768px) {
+  .sync-toolbar {
+    gap: 5px;
+    padding: 6px 10px;
+  }
+  
+  .sync-toolbar button {
+    font-size: 11px !important;
+    padding: 4px 6px !important;
+  }
+  
+  .sync-indicator {
+    font-size: 10px !important;
+    padding: 3px 6px !important;
+  }
+}
+
