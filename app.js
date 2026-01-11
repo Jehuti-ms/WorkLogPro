@@ -901,7 +901,22 @@ async function handleSync() {
         const timestamp = new Date().toISOString();
         localStorage.setItem('lastSync', timestamp);
         
+        
+        // When starting sync:
+        updateSyncIndicator('Syncing...', 'syncing');
+        
+        // When sync succeeds:
         updateSyncIndicator('Cloud Synced', 'success');
+       /* updateSyncIndicator('Online', 'online'); */ // or 'Synced' if you prefer
+        
+        // When offline:
+        updateSyncIndicator('Offline', 'offline');
+        
+        // When error:
+        updateSyncIndicator('Error', 'error');
+        
+        // When local only:
+        updateSyncIndicator('Local', 'local');
         showNotification('Data synced to cloud successfully!', 'success');
         
       } catch (firestoreError) {
@@ -1306,19 +1321,33 @@ function stopAutoSync() {
 
 function updateSyncIndicator(text, status) {
   const syncIndicator = document.getElementById('syncIndicator');
-  if (!syncIndicator) return;
+  if (!syncIndicator) {
+    console.log('❌ Sync indicator not found');
+    return;
+  }
   
-  // Clear previous classes
-  syncIndicator.className = 'sync-indicator';
+  console.log(`🔄 Updating sync indicator: ${text} (${status})`);
   
-  // Set text and status class
+  // Clear all classes
+  syncIndicator.className = '';
+  
+  // Set the text inside the pill
   syncIndicator.textContent = text;
+  
+  // Add the status class for color
   syncIndicator.classList.add(status);
   
-  // Force reflow to ensure proper rendering
-  syncIndicator.style.display = 'none';
-  syncIndicator.offsetHeight; // Trigger reflow
-  syncIndicator.style.display = 'inline-flex';
+  // Handle animation for syncing state
+  if (status === 'syncing') {
+    // Force animation restart
+    syncIndicator.style.animation = 'none';
+    setTimeout(() => {
+      syncIndicator.style.animation = '';
+    }, 10);
+  } else {
+    // Remove any existing animation
+    syncIndicator.style.animation = 'none';
+  }
 }
 
 function showNotification(message, type = 'info') {
