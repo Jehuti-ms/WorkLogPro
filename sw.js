@@ -1,40 +1,64 @@
-// Service Worker Control
-if ('serviceWorker' in navigator) {
-  // Check if we should skip service worker
-  const skipSW = localStorage.getItem('skipServiceWorker') === 'true';
-  const isAuthPage = window.location.pathname.includes('auth.html');
-  
-  console.log('🛠️ Service Worker Check:', {
-    skipSW,
-    isAuthPage,
-    path: window.location.pathname
-  });
-  
-  if (skipSW) {
-    console.log('🛠️ Skipping service worker registration');
-    
-    // Unregister any existing service workers
-    navigator.serviceWorker.getRegistrations().then(registrations => {
-      registrations.forEach(registration => registration.unregister());
-      console.log('🛠️ All service workers unregistered');
-      localStorage.removeItem('skipServiceWorker');
-    });
-  } else {
-    // Register service worker ONLY for main app, not auth
-    if (!isAuthPage) {
-      navigator.serviceWorker.register('/Attendance-Track-v2/service-worker.js')
-        .then(registration => {
-          console.log('🛠️ Service Worker registered:', registration.scope);
-          
-          // Check for updates
-          registration.addEventListener('updatefound', () => {
-            console.log('🛠️ New service worker found');
-          });
-        })
-        .catch(error => {
-          console.error('🛠️ Service Worker registration failed:', error);
-        });
-    }
-  }
-}
+// Service Worker for WorkLog App - FIXED VERSION
+const cacheName = 'worklog-app-v3'; // Increment version
+const assetsToCache = [
+  './styles.css',
+  './app.js',
+  './auth.js',
+  './cloud-sync.js',
+  './manifest.json',
+  './icons/icon-72x72.png',
+  './icons/icon-144x144.png', 
+  './icons/icon-192x192.png',
+  './icons/icon-512x512.png'
+  // REMOVED: index.html and auth.html from cache
+];
 
+self.addEventListener('install', event => {
+  console.log('Service Worker installing...');
+  event.waitUntil(
+    caches.open(cacheName)
+      .then(cache => {
+        console.log('Opened cache');
+        return cache.addAll(assetsToCache)
+          .then(() => console.log('All assets cached successfully'))
+          .catch(err => {
+            console.error('Failed to cache assets:', err);
+          });
+      })
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', event => {
+  console.log('Service Worker activating...');
+  event.waitUntil(
+    caches.keys().then(keys => {
+      return Promise.all(
+        keys.map(key => {
+          if (key !== cacheName) {
+            console.log('Deleting old cache:', key);
+            return caches.delete(key);
+          }
+        })
+      );
+    })
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', event => {
+  // DON'T cache HTML files - always fetch fresh versions
+  if (event.request.url.includes('.html')) {
+    console.log('Fetching fresh HTML:', event.request.url);
+    event.respondWith(fetch(event.request));
+    return;
+  }
+  
+  // For other assets, try cache first
+  event.respondWith(
+    caches.match(event.request)
+      .then(response => {
+        return response || fetch(event.request);
+      })
+  );
+});
