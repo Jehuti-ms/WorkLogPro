@@ -1,3 +1,5 @@
+// app.js - COMPLETE FIXED VERSION
+console.log('🚀 Loading COMPLETE app.js');
 // ==================== GLOBAL VARIABLES ====================
 let appInitialized = false;
 let redirectInProgress = false;
