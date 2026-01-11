@@ -303,7 +303,7 @@ function updateProfileStats() {
   console.log('📊 Updating profile stats...');
   
   try {
-    // Get data from localStorage
+    // Get data from localStorage - use correct keys
     const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
     const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
     
@@ -330,6 +330,13 @@ function updateProfileStats() {
     if (hoursElem) hoursElem.textContent = totalHours.toFixed(1);
     if (earningsElem) earningsElem.textContent = totalEarnings.toFixed(2);
     if (updatedElem) updatedElem.textContent = new Date().toLocaleTimeString();
+    
+    // Also update header stats
+    const headerStudents = document.getElementById('statStudents');
+    const headerHours = document.getElementById('statHours');
+    
+    if (headerStudents) headerStudents.textContent = totalStudents;
+    if (headerHours) headerHours.textContent = totalHours.toFixed(1);
     
   } catch (error) {
     console.error('Error updating profile stats:', error);
