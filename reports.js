@@ -1,4 +1,4 @@
-// reports.js - COMPLETE REPORTS SYSTEM FOR SINGLE-PAGE APP
+// reports.js - COMPLETE REPORTS SYSTEM
 
 import DataManager from './data-manager.js';
 
@@ -9,39 +9,22 @@ class ReportManager {
         this.subjects = [];
         this.students = [];
         
-        // Initialize when the reports section is shown
-        this.setupSectionListener();
+        this.init();
     }
 
-    setupSectionListener() {
-        // Listen for when reports section is shown
-        const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                if (mutation.type === 'attributes' && 
-                    mutation.attributeName === 'style' &&
-                    document.getElementById('reports-section')?.style.display === 'block') {
-                    this.initialize();
-                }
-            });
-        });
-
-        const reportsSection = document.getElementById('reports-section');
-        if (reportsSection) {
-            observer.observe(reportsSection, { attributes: true });
-        }
-    }
-
-    async initialize() {
-        if (this.initialized) return;
-        
-        console.log('Initializing Report Manager...');
-        
+    async init() {
         try {
             // Load initial data
-            await this.loadInitialData();
+            [this.subjects, this.students] = await Promise.all([
+                this.dataManager.getAllSubjects(),
+                this.dataManager.getAllStudents()
+            ]);
             
             // Setup event listeners
             this.setupEventListeners();
+            
+            // Update overview stats
+            await this.updateOverviewStats();
             
             this.initialized = true;
             console.log('Report Manager initialized successfully');
@@ -50,82 +33,87 @@ class ReportManager {
         }
     }
 
-    async loadInitialData() {
-        try {
-            [this.subjects, this.students] = await Promise.all([
-                this.dataManager.getAllSubjects(),
-                this.dataManager.getAllStudents()
-            ]);
-        } catch (error) {
-            console.error('Error loading initial data:', error);
-        }
-    }
-
     setupEventListeners() {
-        console.log('Setting up report event listeners...');
-        
         // Weekly Report
-        const weeklyBtn = document.getElementById('weekly-report-btn');
+        const weeklyBtn = document.getElementById('weeklyReportBtn');
         if (weeklyBtn) {
-            weeklyBtn.addEventListener('click', () => {
-                this.displayReport('weekly');
-            });
+            weeklyBtn.addEventListener('click', () => this.displayReport('weekly'));
         }
 
         // Bi-weekly Report
-        const biweeklyBtn = document.getElementById('biweekly-report-btn');
-        if (biweeklyBtn) {
-            biweeklyBtn.addEventListener('click', () => {
-                this.displayReport('biweekly');
-            });
+        const biWeeklyBtn = document.getElementById('biWeeklyReportBtn');
+        if (biWeeklyBtn) {
+            biWeeklyBtn.addEventListener('click', () => this.displayReport('biweekly'));
         }
 
         // Monthly Report
-        const monthlyBtn = document.getElementById('monthly-report-btn');
+        const monthlyBtn = document.getElementById('monthlyReportBtn');
         if (monthlyBtn) {
-            monthlyBtn.addEventListener('click', () => {
-                this.displayReport('monthly');
-            });
+            monthlyBtn.addEventListener('click', () => this.displayReport('monthly'));
         }
 
         // Subject Report
-        const subjectBtn = document.getElementById('subject-report-btn');
+        const subjectBtn = document.getElementById('subjectReportBtn');
         if (subjectBtn) {
-            subjectBtn.addEventListener('click', () => {
-                this.showSubjectSelector();
-            });
-        }
-
-        // PDF Export
-        const pdfBtn = document.getElementById('pdf-export-btn');
-        if (pdfBtn) {
-            pdfBtn.addEventListener('click', () => {
-                this.showPDFOptions();
-            });
-        }
-
-        // Email Report
-        const emailBtn = document.getElementById('email-report-btn');
-        if (emailBtn) {
-            emailBtn.addEventListener('click', () => {
-                this.showEmailForm();
-            });
+            subjectBtn.addEventListener('click', () => this.showSubjectSelector());
         }
 
         // Claim Form
-        const claimBtn = document.getElementById('claim-form-btn');
+        const claimBtn = document.getElementById('claimFormBtn');
         if (claimBtn) {
-            claimBtn.addEventListener('click', () => {
-                this.showClaimFormOptions();
-            });
+            claimBtn.addEventListener('click', () => this.showClaimFormOptions());
         }
 
         // Invoice
-        const invoiceBtn = document.getElementById('invoice-btn');
+        const invoiceBtn = document.getElementById('invoiceBtn');
         if (invoiceBtn) {
-            invoiceBtn.addEventListener('click', () => {
-                this.showInvoiceGenerator();
-            });
+            invoiceBtn.addEventListener('click', () => this.showInvoiceGenerator());
+        }
+
+        // PDF Export
+        const pdfBtn = document.getElementById('pdfReportBtn');
+        if (pdfBtn) {
+            pdfBtn.addEventListener('click', () => this.showPDFOptions());
+        }
+
+        // Email Report
+        const emailBtn = document.getElementById('emailReportBtn');
+        if (emailBtn) {
+            emailBtn.addEventListener('click', () => this.showEmailForm());
+        }
+    }
+
+    async updateOverviewStats() {
+        try {
+            const logs = await this.dataManager.getAllLogs();
+            const students = await this.dataManager.getAllStudents();
+            
+            // Calculate totals
+            const totalHours = logs.reduce((sum, log) => sum + parseFloat(log.duration || 0), 0);
+            const totalEarnings = logs.reduce((sum, log) => {
+                const student = students.find(s => s.name === log.studentName);
+                const rate = student?.hourlyRate || 0;
+                return sum + (parseFloat(log.duration || 0) * rate);
+            }, 0);
+            
+            // Calculate marks (assuming logs have marks property)
+            const logsWithMarks = logs.filter(log => log.mark);
+            const avgMark = logsWithMarks.length > 0 
+                ? logsWithMarks.reduce((sum, log) => sum + parseFloat(log.mark), 0) / logsWithMarks.length 
+                : 0;
+            
+            // Update DOM
+            document.getElementById('totalStudentsReport').textContent = students.length;
+            document.getElementById('totalHoursReport').textContent = totalHours.toFixed(2);
+            document.getElementById('totalEarningsReport').textContent = `$${totalEarnings.toFixed(2)}`;
+            document.getElementById('avgMarkReport').textContent = `${avgMark.toFixed(1)}%`;
+            
+            // TODO: Add payment calculations when payment system is implemented
+            document.getElementById('totalPaymentsReport').textContent = '$0';
+            document.getElementById('outstandingBalance').textContent = `$${totalEarnings.toFixed(2)}`;
+            
+        } catch (error) {
+            console.error('Error updating overview stats:', error);
         }
     }
 
@@ -158,17 +146,13 @@ class ReportManager {
     }
 
     async showSubjectSelector() {
-        await this.loadInitialData();
-        
         let html = '<div class="subject-selector">';
         html += '<h4>📚 Select Subject for Report</h4>';
         
         if (this.subjects.length === 0) {
-            html += '<div class="alert alert-info">';
-            html += '<p>No subjects detected in your logs. Try adding some activities with subject names.</p>';
-            html += '</div>';
+            html += '<p class="empty-message">No subjects detected in your logs.</p>';
         } else {
-            html += '<select id="subject-select" class="form-select mb-3">';
+            html += '<select id="subjectSelect" class="form-input" style="margin-bottom: 15px; width: 100%;">';
             html += '<option value="">Choose a subject...</option>';
             
             this.subjects.forEach(subject => {
@@ -178,39 +162,32 @@ class ReportManager {
             html += '</select>';
         }
         
-        html += '<div class="mb-3">';
-        html += '<label for="custom-subject" class="form-label">Or enter custom subject:</label>';
-        html += '<input type="text" id="custom-subject" class="form-control" placeholder="e.g., Algebra, Reading, Science">';
-        html += '</div>';
-        
-        html += '<button id="generate-subject-report" class="btn btn-primary">Generate Report</button>';
+        html += '<input type="text" id="customSubject" placeholder="Or enter custom subject" class="form-input" style="margin-bottom: 15px; width: 100%;">';
+        html += '<button id="generateSubjectReport" class="button small" style="width: 100%;">Generate Report</button>';
         html += '</div>';
         
         this.updateReportContent(html);
         
-        const generateBtn = document.getElementById('generate-subject-report');
-        if (generateBtn) {
-            generateBtn.addEventListener('click', async () => {
-                const select = document.getElementById('subject-select');
-                const custom = document.getElementById('custom-subject')?.value.trim() || '';
-                
-                let subject = select?.value || custom;
-                
-                if (!subject) {
-                    alert('Please select or enter a subject');
-                    return;
-                }
-                
-                this.showLoading();
-                
-                try {
-                    const report = await this.dataManager.generateSubjectReport(subject);
-                    this.showReportContent(report, `📚 Subject Report: ${subject}`);
-                } catch (error) {
-                    this.showError('Error generating subject report: ' + error.message);
-                }
-            });
-        }
+        document.getElementById('generateSubjectReport')?.addEventListener('click', async () => {
+            const select = document.getElementById('subjectSelect');
+            const custom = document.getElementById('customSubject')?.value.trim() || '';
+            
+            let subject = select?.value || custom;
+            
+            if (!subject) {
+                alert('Please select or enter a subject');
+                return;
+            }
+            
+            this.showLoading();
+            
+            try {
+                const report = await this.dataManager.generateSubjectReport(subject);
+                this.showReportContent(report, `📚 Subject Report: ${subject}`);
+            } catch (error) {
+                this.showError('Error generating subject report: ' + error.message);
+            }
+        });
     }
 
     showPDFOptions() {
@@ -219,118 +196,94 @@ class ReportManager {
         html += '<p>Select report type to export:</p>';
         
         const reportTypes = [
-            { id: 'pdf-weekly', value: 'weekly', label: 'Weekly Report', icon: '📅' },
-            { id: 'pdf-biweekly', value: 'biweekly', label: 'Bi-Weekly Report', icon: '📅' },
-            { id: 'pdf-monthly', value: 'monthly', label: 'Monthly Report', icon: '📅' },
-            { id: 'pdf-subject', value: 'subject', label: 'Subject Report', icon: '📚' },
-            { id: 'pdf-claim', value: 'claim', label: 'Claim Form', icon: '💰' },
-            { id: 'pdf-invoice', value: 'invoice', label: 'Invoice', icon: '🧾' }
+            { id: 'pdfWeekly', value: 'weekly', label: 'Weekly Report' },
+            { id: 'pdfBiWeekly', value: 'biweekly', label: 'Bi-Weekly Report' },
+            { id: 'pdfMonthly', value: 'monthly', label: 'Monthly Report' },
+            { id: 'pdfSubject', value: 'subject', label: 'Subject Report' },
+            { id: 'pdfClaim', value: 'claim', label: 'Claim Form' },
+            { id: 'pdfInvoice', value: 'invoice', label: 'Invoice' }
         ];
         
-        html += '<div class="row">';
         reportTypes.forEach((type, index) => {
             html += `
-                <div class="col-md-6 mb-2">
-                    <div class="form-check">
-                        <input class="form-check-input" type="radio" name="pdf-type" 
-                               id="${type.id}" value="${type.value}" ${index === 0 ? 'checked' : ''}>
-                        <label class="form-check-label" for="${type.id}">
-                            ${type.icon} ${type.label}
-                        </label>
-                    </div>
+                <div style="margin: 10px 0;">
+                    <input type="radio" id="${type.id}" name="pdfType" value="${type.value}" ${index === 0 ? 'checked' : ''}>
+                    <label for="${type.id}" style="margin-left: 8px;">${type.label}</label>
                 </div>
             `;
         });
-        html += '</div>';
         
         // Subject selector
-        html += '<div id="pdf-subject-select" class="mt-3" style="display: none;">';
-        html += '<label class="form-label">Select Subject:</label>';
-        html += '<select id="pdf-subject-choice" class="form-select">';
+        html += '<div id="pdfSubjectSelect" style="display: none; margin: 15px 0;">';
+        html += '<select id="pdfSubjectChoice" class="form-input" style="width: 100%;">';
         html += '<option value="">Select subject...</option>';
-        if (this.subjects && this.subjects.length > 0) {
-            this.subjects.forEach(subject => {
-                html += `<option value="${subject}">${subject.charAt(0).toUpperCase() + subject.slice(1)}</option>`;
-            });
-        }
+        this.subjects.forEach(subject => {
+            html += `<option value="${subject}">${subject.charAt(0).toUpperCase() + subject.slice(1)}</option>`;
+        });
         html += '</select>';
         html += '</div>';
         
         // Student selector for invoice
-        html += '<div id="pdf-student-select" class="mt-3" style="display: none;">';
-        html += '<label class="form-label">Select Student:</label>';
-        html += '<select id="pdf-student-choice" class="form-select">';
+        html += '<div id="pdfStudentSelect" style="display: none; margin: 15px 0;">';
+        html += '<select id="pdfStudentChoice" class="form-input" style="width: 100%;">';
         html += '<option value="">Select student...</option>';
-        if (this.students && this.students.length > 0) {
-            this.students.forEach(student => {
-                const rate = student.hourlyRate ? ` ($${student.hourlyRate}/hr)` : '';
-                html += `<option value="${student.name}">${student.name}${rate}</option>`;
-            });
-        }
+        this.students.forEach(student => {
+            const rate = student.hourlyRate ? ` ($${student.hourlyRate}/hr)` : '';
+            html += `<option value="${student.name}">${student.name}${rate}</option>`;
+        });
         html += '</select>';
         html += '</div>';
         
         // Date range for invoice
-        html += '<div id="pdf-date-range" class="row mt-3" style="display: none;">';
-        html += '<div class="col-md-6">';
-        html += '<label class="form-label">Start Date:</label>';
-        html += '<input type="date" id="pdf-start-date" class="form-control">';
+        html += '<div id="pdfDateRange" style="display: none; margin: 15px 0;">';
+        html += '<div style="margin-bottom: 10px;">';
+        html += '<label>Start Date:</label>';
+        html += '<input type="date" id="pdfStartDate" class="form-input" style="width: 100%;">';
         html += '</div>';
-        html += '<div class="col-md-6">';
-        html += '<label class="form-label">End Date:</label>';
-        html += '<input type="date" id="pdf-end-date" class="form-control" value="' + new Date().toISOString().split('T')[0] + '">';
+        html += '<div>';
+        html += '<label>End Date:</label>';
+        html += '<input type="date" id="pdfEndDate" class="form-input" style="width: 100%;" value="' + new Date().toISOString().split('T')[0] + '">';
         html += '</div>';
         html += '</div>';
         
         // Claim form options
-        html += '<div id="pdf-claim-options" class="row mt-3" style="display: none;">';
-        html += '<div class="col-md-6">';
-        html += '<label class="form-label">Claim Type:</label>';
-        html += '<select id="pdf-claim-type" class="form-select">';
+        html += '<div id="pdfClaimOptions" style="display: none; margin: 15px 0;">';
+        html += '<div style="margin-bottom: 10px;">';
+        html += '<label>Claim Type:</label>';
+        html += '<select id="pdfClaimType" class="form-input" style="width: 100%;">';
         html += '<option value="weekly">Weekly Claim</option>';
         html += '<option value="biweekly">Bi-Weekly Claim</option>';
         html += '<option value="monthly">Monthly Claim</option>';
         html += '</select>';
         html += '</div>';
-        html += '<div class="col-md-6">';
-        html += '<label class="form-label">Period End Date:</label>';
-        html += '<input type="date" id="pdf-claim-end-date" class="form-control" value="' + new Date().toISOString().split('T')[0] + '">';
+        html += '<div>';
+        html += '<label>Period End Date:</label>';
+        html += '<input type="date" id="pdfClaimEndDate" class="form-input" style="width: 100%;" value="' + new Date().toISOString().split('T')[0] + '">';
         html += '</div>';
         html += '</div>';
         
-        html += '<div class="mt-4">';
-        html += '<button id="generate-pdf" class="btn btn-success">';
-        html += '<i class="fas fa-file-pdf"></i> Generate PDF';
-        html += '</button>';
-        html += '</div></div>';
+        html += '<button id="generatePDF" class="button success" style="width: 100%; margin-top: 20px;">Generate PDF</button>';
+        html += '</div>';
         
         this.updateReportContent(html);
         
         // Show/hide options based on selection
-        document.querySelectorAll('input[name="pdf-type"]').forEach(radio => {
+        document.querySelectorAll('input[name="pdfType"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
-                const subjectDiv = document.getElementById('pdf-subject-select');
-                const studentDiv = document.getElementById('pdf-student-select');
-                const dateDiv = document.getElementById('pdf-date-range');
-                const claimDiv = document.getElementById('pdf-claim-options');
-                
-                if (subjectDiv) subjectDiv.style.display = e.target.value === 'subject' ? 'block' : 'none';
-                if (studentDiv) studentDiv.style.display = e.target.value === 'invoice' ? 'block' : 'none';
-                if (dateDiv) dateDiv.style.display = e.target.value === 'invoice' ? 'block' : 'none';
-                if (claimDiv) claimDiv.style.display = e.target.value === 'claim' ? 'block' : 'none';
+                document.getElementById('pdfSubjectSelect').style.display = e.target.value === 'subject' ? 'block' : 'none';
+                document.getElementById('pdfStudentSelect').style.display = e.target.value === 'invoice' ? 'block' : 'none';
+                document.getElementById('pdfDateRange').style.display = e.target.value === 'invoice' ? 'block' : 'none';
+                document.getElementById('pdfClaimOptions').style.display = e.target.value === 'claim' ? 'block' : 'none';
             });
         });
         
-        const generateBtn = document.getElementById('generate-pdf');
-        if (generateBtn) {
-            generateBtn.addEventListener('click', async () => {
-                await this.generatePDF();
-            });
-        }
+        document.getElementById('generatePDF')?.addEventListener('click', async () => {
+            await this.generatePDF();
+        });
     }
 
     async generatePDF() {
-        const selectedRadio = document.querySelector('input[name="pdf-type"]:checked');
+        const selectedRadio = document.querySelector('input[name="pdfType"]:checked');
         if (!selectedRadio) return;
         
         const selectedType = selectedRadio.value;
@@ -354,7 +307,7 @@ class ReportManager {
                     filename = `Monthly_Report_${new Date().toISOString().slice(0,10)}`;
                     break;
                 case 'subject':
-                    const subject = document.getElementById('pdf-subject-choice')?.value;
+                    const subject = document.getElementById('pdfSubjectChoice')?.value;
                     if (!subject) {
                         alert('Please select a subject');
                         return;
@@ -363,15 +316,15 @@ class ReportManager {
                     filename = `${subject}_Report_${new Date().toISOString().slice(0,10)}`;
                     break;
                 case 'claim':
-                    const claimType = document.getElementById('pdf-claim-type')?.value;
-                    const endDate = document.getElementById('pdf-claim-end-date')?.value;
+                    const claimType = document.getElementById('pdfClaimType')?.value;
+                    const endDate = document.getElementById('pdfClaimEndDate')?.value;
                     report = await this.dataManager.generateClaimForm(claimType, endDate);
                     filename = `${claimType}_Claim_Form_${new Date().toISOString().slice(0,10)}`;
                     break;
                 case 'invoice':
-                    const studentName = document.getElementById('pdf-student-choice')?.value;
-                    const startDate = document.getElementById('pdf-start-date')?.value;
-                    const invoiceEndDate = document.getElementById('pdf-end-date')?.value;
+                    const studentName = document.getElementById('pdfStudentChoice')?.value;
+                    const startDate = document.getElementById('pdfStartDate')?.value;
+                    const invoiceEndDate = document.getElementById('pdfEndDate')?.value;
                     
                     if (!studentName || !startDate || !invoiceEndDate) {
                         alert('Please fill all invoice fields');
@@ -389,18 +342,16 @@ class ReportManager {
     }
 
     exportAsPDF(content, filename) {
-        // Check if jsPDF is available
         if (typeof jspdf === 'undefined') {
-            // Show error and offer text download
             this.updateReportContent(`
-                <div class="alert alert-warning">
-                    <h5><i class="fas fa-exclamation-triangle"></i> PDF Library Not Available</h5>
+                <div class="alert-warning" style="padding: 15px; border-radius: 5px; background: #fff3cd; border: 1px solid #ffc107;">
+                    <h5 style="margin-top: 0;">⚠️ PDF Library Not Available</h5>
                     <p>To export PDFs, please include jsPDF in your project:</p>
                     <code>&lt;script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"&gt;&lt;/script&gt;</code>
-                    <div class="mt-3">
+                    <div style="margin-top: 15px;">
                         <button onclick="downloadAsText('${content.replace(/'/g, "\\'")}', '${filename}.txt')" 
-                                class="btn btn-secondary">
-                            <i class="fas fa-download"></i> Download as Text File
+                                class="button small" style="width: 100%;">
+                            📥 Download as Text File
                         </button>
                     </div>
                 </div>
@@ -412,53 +363,36 @@ class ReportManager {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             
-            // Add styling
-            doc.setFont("helvetica");
+            // Add title
+            doc.setFontSize(16);
+            doc.text("WorkLogPro Report", 20, 20);
             
-            // Add header
-            doc.setFontSize(20);
-            doc.setTextColor(33, 37, 41);
-            doc.text("WorkLogPro Report", 20, 25);
-            
+            // Add date
             doc.setFontSize(10);
-            doc.setTextColor(108, 117, 125);
-            doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 35);
+            doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 30);
             
             // Add content
-            doc.setFontSize(11);
-            doc.setTextColor(33, 37, 41);
-            
             const lines = doc.splitTextToSize(content, 170);
-            let y = 45;
+            let y = 40;
             
+            doc.setFontSize(9);
             lines.forEach(line => {
                 if (y > 270) {
                     doc.addPage();
                     y = 20;
                 }
                 doc.text(line, 20, y);
-                y += 6;
+                y += 5;
             });
-            
-            // Add footer
-            const pageCount = doc.internal.getNumberOfPages();
-            for (let i = 1; i <= pageCount; i++) {
-                doc.setPage(i);
-                doc.setFontSize(8);
-                doc.setTextColor(153, 153, 153);
-                doc.text(`Page ${i} of ${pageCount}`, 190, 285, null, null, 'right');
-                doc.text('Generated by WorkLogPro', 20, 285);
-            }
             
             // Save PDF
             doc.save(`${filename}.pdf`);
             
-            // Show success message
             this.updateReportContent(`
-                <div class="alert alert-success">
-                    <h5><i class="fas fa-check-circle"></i> PDF Generated Successfully!</h5>
+                <div class="alert-success" style="padding: 15px; border-radius: 5px; background: #d1e7dd; border: 1px solid #198754;">
+                    <h5 style="margin-top: 0;">✅ PDF Generated Successfully!</h5>
                     <p>File <strong>${filename}.pdf</strong> has been downloaded.</p>
-                    <button onclick="window.reportManager.showPDFOptions()" class="btn btn-outline-success btn-sm">
+                    <button onclick="window.reportManager.showPDFOptions()" class="button small success" style="margin-top: 10px;">
                         Generate Another PDF
                     </button>
                 </div>
@@ -469,19 +403,19 @@ class ReportManager {
         }
     }
 
-    async showEmailForm() {
+    showEmailForm() {
         let html = '<div class="email-form">';
-        html += '<h4><i class="fas fa-envelope"></i> Email Report</h4>';
+        html += '<h4>📧 Email Report</h4>';
         html += '<p>Send report to:</p>';
         
-        html += '<div class="mb-3">';
-        html += '<label class="form-label">Recipient Email:</label>';
-        html += '<input type="email" id="email-to" class="form-control" placeholder="recipient@example.com" required>';
+        html += '<div style="margin-bottom: 15px;">';
+        html += '<label>Recipient Email:</label>';
+        html += '<input type="email" id="emailTo" class="form-input" placeholder="recipient@example.com" style="width: 100%;">';
         html += '</div>';
         
-        html += '<div class="mb-3">';
-        html += '<label class="form-label">Report Type:</label>';
-        html += '<select id="email-report-type" class="form-select">';
+        html += '<div style="margin-bottom: 15px;">';
+        html += '<label>Report Type:</label>';
+        html += '<select id="emailReportType" class="form-input" style="width: 100%;">';
         html += '<option value="weekly">Weekly Report</option>';
         html += '<option value="biweekly">Bi-Weekly Report</option>';
         html += '<option value="monthly">Monthly Report</option>';
@@ -491,104 +425,84 @@ class ReportManager {
         html += '</select>';
         html += '</div>';
         
-        // Dynamic options container
-        html += '<div id="email-options-container"></div>';
+        // Dynamic options
+        html += '<div id="emailOptionsContainer"></div>';
         
-        html += '<div class="mb-3">';
-        html += '<label class="form-label">Additional Message (optional):</label>';
-        html += '<textarea id="email-message" class="form-control" rows="3" placeholder="Add a personal message..."></textarea>';
+        html += '<div style="margin-bottom: 15px;">';
+        html += '<label>Additional Message (optional):</label>';
+        html += '<textarea id="emailMessage" class="form-input" rows="3" placeholder="Add a personal message..." style="width: 100%;"></textarea>';
         html += '</div>';
         
-        html += '<div class="d-flex gap-2">';
-        html += '<button id="send-email" class="btn btn-primary">';
-        html += '<i class="fas fa-paper-plane"></i> Send Email';
-        html += '</button>';
-        html += '<button id="preview-email" class="btn btn-outline-secondary">';
-        html += '<i class="fas fa-eye"></i> Preview';
-        html += '</button>';
+        html += '<div style="display: flex; gap: 10px;">';
+        html += '<button id="sendEmail" class="button info" style="flex: 1;">Send Email</button>';
+        html += '<button id="previewEmail" class="button" style="flex: 1;">Preview</button>';
         html += '</div>';
         html += '</div>';
         
         this.updateReportContent(html);
         
-        // Initialize email options
+        // Initialize options
         this.updateEmailOptions('weekly');
         
-        // Listen for report type changes
-        const emailTypeSelect = document.getElementById('email-report-type');
-        if (emailTypeSelect) {
-            emailTypeSelect.addEventListener('change', (e) => {
-                this.updateEmailOptions(e.target.value);
-            });
-        }
+        // Listen for changes
+        document.getElementById('emailReportType')?.addEventListener('change', (e) => {
+            this.updateEmailOptions(e.target.value);
+        });
         
-        // Send email button
-        const sendBtn = document.getElementById('send-email');
-        if (sendBtn) {
-            sendBtn.addEventListener('click', async () => {
-                await this.sendEmail();
-            });
-        }
+        // Button listeners
+        document.getElementById('sendEmail')?.addEventListener('click', async () => {
+            await this.sendEmail();
+        });
         
-        // Preview button
-        const previewBtn = document.getElementById('preview-email');
-        if (previewBtn) {
-            previewBtn.addEventListener('click', async () => {
-                await this.previewEmail();
-            });
-        }
+        document.getElementById('previewEmail')?.addEventListener('click', async () => {
+            await this.previewEmail();
+        });
     }
 
     updateEmailOptions(reportType) {
-        const container = document.getElementById('email-options-container');
+        const container = document.getElementById('emailOptionsContainer');
         if (!container) return;
         
         let html = '';
         
         switch(reportType) {
             case 'subject':
-                html += '<div class="mb-3">';
-                html += '<label class="form-label">Subject:</label>';
-                html += '<input type="text" id="email-subject" class="form-control" placeholder="Enter subject" required>';
+                html += '<div style="margin-bottom: 15px;">';
+                html += '<label>Subject:</label>';
+                html += '<input type="text" id="emailSubject" class="form-input" placeholder="Enter subject" style="width: 100%;">';
                 html += '</div>';
                 break;
             case 'claim':
-                html += '<div class="row mb-3">';
-                html += '<div class="col-md-6">';
-                html += '<label class="form-label">Claim Type:</label>';
-                html += '<select id="email-claim-type" class="form-select">';
+                html += '<div style="margin-bottom: 15px;">';
+                html += '<label>Claim Type:</label>';
+                html += '<select id="emailClaimType" class="form-input" style="width: 100%;">';
                 html += '<option value="weekly">Weekly Claim</option>';
                 html += '<option value="biweekly">Bi-Weekly Claim</option>';
                 html += '<option value="monthly">Monthly Claim</option>';
                 html += '</select>';
                 html += '</div>';
-                html += '<div class="col-md-6">';
-                html += '<label class="form-label">Period End Date:</label>';
-                html += '<input type="date" id="email-claim-end-date" class="form-control" value="' + new Date().toISOString().split('T')[0] + '" required>';
-                html += '</div>';
+                html += '<div style="margin-bottom: 15px;">';
+                html += '<label>Period End Date:</label>';
+                html += '<input type="date" id="emailClaimEndDate" class="form-input" style="width: 100%;" value="' + new Date().toISOString().split('T')[0] + '">';
                 html += '</div>';
                 break;
             case 'invoice':
-                html += '<div class="mb-3">';
-                html += '<label class="form-label">Student:</label>';
-                html += '<select id="email-invoice-student" class="form-select" required>';
+                html += '<div style="margin-bottom: 15px;">';
+                html += '<label>Student:</label>';
+                html += '<select id="emailInvoiceStudent" class="form-input" style="width: 100%;">';
                 html += '<option value="">Select student...</option>';
-                if (this.students && this.students.length > 0) {
-                    this.students.forEach(student => {
-                        html += `<option value="${student.name}">${student.name}</option>`;
-                    });
-                }
+                this.students.forEach(student => {
+                    html += `<option value="${student.name}">${student.name}</option>`;
+                });
                 html += '</select>';
                 html += '</div>';
-                html += '<div class="row mb-3">';
-                html += '<div class="col-md-6">';
-                html += '<label class="form-label">Start Date:</label>';
-                html += '<input type="date" id="email-invoice-start" class="form-control" required>';
+                html += '<div style="margin-bottom: 15px;">';
+                html += '<label>Start Date:</label>';
+                html += '<input type="date" id="emailInvoiceStart" class="form-input" style="width: 100%;">';
                 html += '</div>';
-                html += '<div class="col-md-6">';
-                html += '<label class="form-label">End Date:</label>';
-                html += '<input type="date" id="email-invoice-end" class="form-control" value="' + new Date().toISOString().split('T')[0] + '" required>';
-                html += '</div>';
+                html += '<div style="margin-bottom: 15px;">';
+                html += '<label>End Date:</label>';
+                html += '<input type="date" id="emailInvoiceEnd" class="form-input" style="width: 100%;" value="' + new Date().toISOString().split('T')[0] + '">';
                 html += '</div>';
                 break;
         }
@@ -597,7 +511,7 @@ class ReportManager {
     }
 
     async previewEmail() {
-        const reportType = document.getElementById('email-report-type')?.value;
+        const reportType = document.getElementById('emailReportType')?.value;
         if (!reportType) return;
         
         this.showLoading();
@@ -620,7 +534,7 @@ class ReportManager {
                     title = 'Monthly Report';
                     break;
                 case 'subject':
-                    const subject = document.getElementById('email-subject')?.value.trim();
+                    const subject = document.getElementById('emailSubject')?.value.trim();
                     if (!subject) {
                         alert('Please enter a subject');
                         return;
@@ -629,15 +543,15 @@ class ReportManager {
                     title = `Subject Report: ${subject}`;
                     break;
                 case 'claim':
-                    const claimType = document.getElementById('email-claim-type')?.value;
-                    const endDate = document.getElementById('email-claim-end-date')?.value;
+                    const claimType = document.getElementById('emailClaimType')?.value;
+                    const endDate = document.getElementById('emailClaimEndDate')?.value;
                     report = await this.dataManager.generateClaimForm(claimType, endDate);
                     title = `${claimType} Claim Form`;
                     break;
                 case 'invoice':
-                    const studentName = document.getElementById('email-invoice-student')?.value;
-                    const startDate = document.getElementById('email-invoice-start')?.value;
-                    const invoiceEndDate = document.getElementById('email-invoice-end')?.value;
+                    const studentName = document.getElementById('emailInvoiceStudent')?.value;
+                    const startDate = document.getElementById('emailInvoiceStart')?.value;
+                    const invoiceEndDate = document.getElementById('emailInvoiceEnd')?.value;
                     
                     if (!studentName || !startDate || !invoiceEndDate) {
                         alert('Please fill all invoice fields');
@@ -648,25 +562,24 @@ class ReportManager {
                     break;
             }
             
-            const message = document.getElementById('email-message')?.value.trim() || '';
+            const message = document.getElementById('emailMessage')?.value.trim() || '';
             
-            let preview = `<h5>Email Preview: ${title}</h5>`;
-            preview += `<div class="card mt-3">`;
-            preview += `<div class="card-body">`;
-            preview += `<h6>To: [Enter email address]</h6>`;
-            preview += `<h6>Subject: ${title}</h6>`;
+            let preview = `<h4>Email Preview: ${title}</h4>`;
+            preview += `<div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 15px;">`;
+            preview += `<p><strong>To:</strong> [Enter email address]</p>`;
+            preview += `<p><strong>Subject:</strong> ${title}</p>`;
             preview += `<hr>`;
-            preview += `<pre style="white-space: pre-wrap; background: #f8f9fa; padding: 15px; border-radius: 5px;">`;
+            preview += `<pre style="white-space: pre-wrap; font-family: monospace; font-size: 12px;">`;
             preview += `Hello,\n\nPlease find the attached report.\n\n`;
             if (message) {
                 preview += `Message: ${message}\n\n`;
             }
             preview += `${report}\n\nBest regards,\nWorkLogPro Team`;
             preview += `</pre>`;
-            preview += `</div></div>`;
+            preview += `</div>`;
             
-            preview += `<div class="mt-3">`;
-            preview += `<button onclick="window.reportManager.showEmailForm()" class="btn btn-secondary btn-sm">`;
+            preview += `<div style="margin-top: 15px;">`;
+            preview += `<button onclick="window.reportManager.showEmailForm()" class="button small">`;
             preview += `Back to Email Form`;
             preview += `</button>`;
             preview += `</div>`;
@@ -679,17 +592,12 @@ class ReportManager {
     }
 
     async sendEmail() {
-        const toEmail = document.getElementById('email-to')?.value.trim();
-        const reportType = document.getElementById('email-report-type')?.value;
-        const message = document.getElementById('email-message')?.value.trim() || '';
+        const toEmail = document.getElementById('emailTo')?.value.trim();
+        const reportType = document.getElementById('emailReportType')?.value;
+        const message = document.getElementById('emailMessage')?.value.trim() || '';
         
         if (!toEmail) {
             alert('Please enter recipient email address');
-            return;
-        }
-        
-        if (!reportType) {
-            alert('Please select a report type');
             return;
         }
         
@@ -710,7 +618,7 @@ class ReportManager {
                     report = await this.dataManager.generateMonthlyReport();
                     break;
                 case 'subject':
-                    const customSubject = document.getElementById('email-subject')?.value.trim();
+                    const customSubject = document.getElementById('emailSubject')?.value.trim();
                     if (!customSubject) {
                         alert('Please enter a subject for the subject report');
                         return;
@@ -719,19 +627,15 @@ class ReportManager {
                     subject = `WorkLogPro Subject Report: ${customSubject}`;
                     break;
                 case 'claim':
-                    const claimType = document.getElementById('email-claim-type')?.value;
-                    const endDate = document.getElementById('email-claim-end-date')?.value;
-                    if (!claimType || !endDate) {
-                        alert('Please fill all claim form fields');
-                        return;
-                    }
+                    const claimType = document.getElementById('emailClaimType')?.value;
+                    const endDate = document.getElementById('emailClaimEndDate')?.value;
                     report = await this.dataManager.generateClaimForm(claimType, endDate);
                     subject = `WorkLogPro ${claimType} Claim Form`;
                     break;
                 case 'invoice':
-                    const studentName = document.getElementById('email-invoice-student')?.value;
-                    const startDate = document.getElementById('email-invoice-start')?.value;
-                    const invoiceEndDate = document.getElementById('email-invoice-end')?.value;
+                    const studentName = document.getElementById('emailInvoiceStudent')?.value;
+                    const startDate = document.getElementById('emailInvoiceStart')?.value;
+                    const invoiceEndDate = document.getElementById('emailInvoiceEnd')?.value;
                     
                     if (!studentName || !startDate || !invoiceEndDate) {
                         alert('Please fill all invoice fields');
@@ -745,22 +649,17 @@ class ReportManager {
             const body = `Hello,\n\nPlease find the attached report.\n\n${message ? `Message: ${message}\n\n` : ''}${report}\n\nBest regards,\nWorkLogPro Team`;
             
             const mailtoLink = `mailto:${toEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-            
-            // Open email client
             window.open(mailtoLink, '_blank');
             
-            // Show success message
             this.updateReportContent(`
-                <div class="alert alert-success">
-                    <h5><i class="fas fa-check-circle"></i> Email Ready!</h5>
+                <div class="alert-success" style="padding: 15px; border-radius: 5px; background: #d1e7dd; border: 1px solid #198754;">
+                    <h4 style="margin-top: 0;">✅ Email Ready!</h4>
                     <p>Your email client has been opened with the report.</p>
                     <p><strong>To:</strong> ${toEmail}</p>
                     <p><strong>Subject:</strong> ${subject}</p>
-                    <div class="mt-3">
-                        <button onclick="window.reportManager.showEmailForm()" class="btn btn-outline-success btn-sm">
-                            Send Another Email
-                        </button>
-                    </div>
+                    <button onclick="window.reportManager.showEmailForm()" class="button small success" style="margin-top: 10px;">
+                        Send Another Email
+                    </button>
                 </div>
             `);
             
@@ -771,65 +670,49 @@ class ReportManager {
 
     async showClaimFormOptions() {
         let html = '<div class="claim-form-options">';
-        html += '<h4><i class="fas fa-file-invoice-dollar"></i> Generate Claim Form</h4>';
+        html += '<h4>💰 Generate Claim Form</h4>';
         html += '<p>Create a claim form for payment submission:</p>';
         
-        html += '<div class="row mb-3">';
-        html += '<div class="col-md-6">';
-        html += '<label class="form-label">Claim Type:</label>';
-        html += '<select id="claim-type" class="form-select">';
+        html += '<div style="margin-bottom: 15px;">';
+        html += '<label>Claim Type:</label>';
+        html += '<select id="claimType" class="form-input" style="width: 100%;">';
         html += '<option value="weekly">Weekly Claim</option>';
         html += '<option value="biweekly">Bi-Weekly Claim</option>';
         html += '<option value="monthly">Monthly Claim</option>';
         html += '</select>';
         html += '</div>';
-        html += '<div class="col-md-6">';
-        html += '<label class="form-label">Period End Date:</label>';
-        html += '<input type="date" id="claim-end-date" class="form-control" value="' + new Date().toISOString().split('T')[0] + '">';
-        html += '</div>';
+        
+        html += '<div style="margin-bottom: 15px;">';
+        html += '<label>Period End Date:</label>';
+        html += '<input type="date" id="claimEndDate" class="form-input" style="width: 100%;" value="' + new Date().toISOString().split('T')[0] + '">';
         html += '</div>';
         
-        html += '<div class="d-flex gap-2">';
-        html += '<button id="generate-claim" class="btn btn-primary">';
-        html += '<i class="fas fa-eye"></i> Preview Claim Form';
-        html += '</button>';
-        html += '<button id="download-claim-pdf" class="btn btn-success">';
-        html += '<i class="fas fa-file-pdf"></i> Download as PDF';
-        html += '</button>';
-        html += '<button id="email-claim" class="btn btn-info">';
-        html += '<i class="fas fa-envelope"></i> Email Claim Form';
-        html += '</button>';
+        html += '<div style="display: flex; gap: 10px; margin-top: 20px;">';
+        html += '<button id="generateClaim" class="button" style="flex: 1;">Preview</button>';
+        html += '<button id="downloadClaimPDF" class="button success" style="flex: 1;">PDF</button>';
+        html += '<button id="emailClaim" class="button info" style="flex: 1;">Email</button>';
         html += '</div>';
         html += '</div>';
         
         this.updateReportContent(html);
         
         // Add event listeners
-        const generateBtn = document.getElementById('generate-claim');
-        if (generateBtn) {
-            generateBtn.addEventListener('click', async () => {
-                await this.generateClaimForm();
-            });
-        }
+        document.getElementById('generateClaim')?.addEventListener('click', async () => {
+            await this.generateClaimForm();
+        });
         
-        const downloadBtn = document.getElementById('download-claim-pdf');
-        if (downloadBtn) {
-            downloadBtn.addEventListener('click', async () => {
-                await this.downloadClaimAsPDF();
-            });
-        }
+        document.getElementById('downloadClaimPDF')?.addEventListener('click', async () => {
+            await this.downloadClaimAsPDF();
+        });
         
-        const emailBtn = document.getElementById('email-claim');
-        if (emailBtn) {
-            emailBtn.addEventListener('click', async () => {
-                await this.emailClaimForm();
-            });
-        }
+        document.getElementById('emailClaim')?.addEventListener('click', async () => {
+            await this.emailClaimForm();
+        });
     }
 
     async generateClaimForm() {
-        const claimType = document.getElementById('claim-type')?.value;
-        const endDate = document.getElementById('claim-end-date')?.value;
+        const claimType = document.getElementById('claimType')?.value;
+        const endDate = document.getElementById('claimEndDate')?.value;
         
         if (!claimType || !endDate) {
             alert('Please select claim type and end date');
@@ -847,8 +730,8 @@ class ReportManager {
     }
 
     async downloadClaimAsPDF() {
-        const claimType = document.getElementById('claim-type')?.value;
-        const endDate = document.getElementById('claim-end-date')?.value;
+        const claimType = document.getElementById('claimType')?.value;
+        const endDate = document.getElementById('claimEndDate')?.value;
         
         if (!claimType || !endDate) {
             alert('Please select claim type and end date');
@@ -867,8 +750,8 @@ class ReportManager {
     }
 
     async emailClaimForm() {
-        const claimType = document.getElementById('claim-type')?.value;
-        const endDate = document.getElementById('claim-end-date')?.value;
+        const claimType = document.getElementById('claimType')?.value;
+        const endDate = document.getElementById('claimEndDate')?.value;
         
         if (!claimType || !endDate) {
             alert('Please select claim type and end date');
@@ -889,15 +772,13 @@ class ReportManager {
             window.open(mailtoLink, '_blank');
             
             this.updateReportContent(`
-                <div class="alert alert-success">
-                    <h5><i class="fas fa-check-circle"></i> Email Ready!</h5>
+                <div class="alert-success" style="padding: 15px; border-radius: 5px; background: #d1e7dd; border: 1px solid #198754;">
+                    <h4 style="margin-top: 0;">✅ Email Ready!</h4>
                     <p>Your claim form has been prepared for email.</p>
                     <p><strong>Recipient:</strong> ${toEmail}</p>
-                    <div class="mt-3">
-                        <button onclick="window.reportManager.showClaimFormOptions()" class="btn btn-outline-success btn-sm">
-                            Back to Claim Forms
-                        </button>
-                    </div>
+                    <button onclick="window.reportManager.showClaimFormOptions()" class="button small success" style="margin-top: 10px;">
+                        Back to Claim Forms
+                    </button>
                 </div>
             `);
         } catch (error) {
@@ -906,81 +787,60 @@ class ReportManager {
     }
 
     async showInvoiceGenerator() {
-        await this.loadInitialData();
-        
         let html = '<div class="invoice-generator">';
-        html += '<h4><i class="fas fa-receipt"></i> Generate Invoice</h4>';
+        html += '<h4>🧾 Generate Invoice</h4>';
         html += '<p>Create a professional invoice for a student:</p>';
         
-        html += '<div class="row mb-3">';
-        html += '<div class="col-md-6">';
-        html += '<label class="form-label">Select Student:</label>';
-        html += '<select id="invoice-student" class="form-select">';
+        html += '<div style="margin-bottom: 15px;">';
+        html += '<label>Select Student:</label>';
+        html += '<select id="invoiceStudent" class="form-input" style="width: 100%;">';
         html += '<option value="">Select a student...</option>';
         
-        if (this.students && this.students.length > 0) {
-            this.students.forEach(student => {
-                const rate = student.hourlyRate ? ` ($${student.hourlyRate}/hr)` : '';
-                html += `<option value="${student.name}">${student.name}${rate}</option>`;
-            });
-        } else {
-            html += '<option value="" disabled>No students found</option>';
-        }
+        this.students.forEach(student => {
+            const rate = student.hourlyRate ? ` ($${student.hourlyRate}/hr)` : '';
+            html += `<option value="${student.name}">${student.name}${rate}</option>`;
+        });
         
         html += '</select>';
         html += '</div>';
-        html += '<div class="col-md-3">';
-        html += '<label class="form-label">Start Date:</label>';
-        html += '<input type="date" id="invoice-start-date" class="form-control">';
-        html += '</div>';
-        html += '<div class="col-md-3">';
-        html += '<label class="form-label">End Date:</label>';
-        html += '<input type="date" id="invoice-end-date" class="form-control" value="' + new Date().toISOString().split('T')[0] + '">';
-        html += '</div>';
+        
+        html += '<div style="margin-bottom: 15px;">';
+        html += '<label>Start Date:</label>';
+        html += '<input type="date" id="invoiceStartDate" class="form-input" style="width: 100%;">';
         html += '</div>';
         
-        html += '<div class="d-flex gap-2">';
-        html += '<button id="generate-invoice" class="btn btn-primary">';
-        html += '<i class="fas fa-eye"></i> Preview Invoice';
-        html += '</button>';
-        html += '<button id="download-invoice-pdf" class="btn btn-success">';
-        html += '<i class="fas fa-file-pdf"></i> Download as PDF';
-        html += '</button>';
-        html += '<button id="email-invoice" class="btn btn-info">';
-        html += '<i class="fas fa-envelope"></i> Email Invoice';
-        html += '</button>';
+        html += '<div style="margin-bottom: 15px;">';
+        html += '<label>End Date:</label>';
+        html += '<input type="date" id="invoiceEndDate" class="form-input" style="width: 100%;" value="' + new Date().toISOString().split('T')[0] + '">';
+        html += '</div>';
+        
+        html += '<div style="display: flex; gap: 10px; margin-top: 20px;">';
+        html += '<button id="generateInvoice" class="button" style="flex: 1;">Preview</button>';
+        html += '<button id="downloadInvoicePDF" class="button success" style="flex: 1;">PDF</button>';
+        html += '<button id="emailInvoice" class="button info" style="flex: 1;">Email</button>';
         html += '</div>';
         html += '</div>';
         
         this.updateReportContent(html);
         
         // Add event listeners
-        const generateBtn = document.getElementById('generate-invoice');
-        if (generateBtn) {
-            generateBtn.addEventListener('click', async () => {
-                await this.generateInvoice();
-            });
-        }
+        document.getElementById('generateInvoice')?.addEventListener('click', async () => {
+            await this.generateInvoice();
+        });
         
-        const downloadBtn = document.getElementById('download-invoice-pdf');
-        if (downloadBtn) {
-            downloadBtn.addEventListener('click', async () => {
-                await this.downloadInvoiceAsPDF();
-            });
-        }
+        document.getElementById('downloadInvoicePDF')?.addEventListener('click', async () => {
+            await this.downloadInvoiceAsPDF();
+        });
         
-        const emailBtn = document.getElementById('email-invoice');
-        if (emailBtn) {
-            emailBtn.addEventListener('click', async () => {
-                await this.emailInvoice();
-            });
-        }
+        document.getElementById('emailInvoice')?.addEventListener('click', async () => {
+            await this.emailInvoice();
+        });
     }
 
     async generateInvoice() {
-        const studentName = document.getElementById('invoice-student')?.value;
-        const startDate = document.getElementById('invoice-start-date')?.value;
-        const endDate = document.getElementById('invoice-end-date')?.value;
+        const studentName = document.getElementById('invoiceStudent')?.value;
+        const startDate = document.getElementById('invoiceStartDate')?.value;
+        const endDate = document.getElementById('invoiceEndDate')?.value;
         
         if (!studentName || !startDate || !endDate) {
             alert('Please fill all fields');
@@ -998,9 +858,9 @@ class ReportManager {
     }
 
     async downloadInvoiceAsPDF() {
-        const studentName = document.getElementById('invoice-student')?.value;
-        const startDate = document.getElementById('invoice-start-date')?.value;
-        const endDate = document.getElementById('invoice-end-date')?.value;
+        const studentName = document.getElementById('invoiceStudent')?.value;
+        const startDate = document.getElementById('invoiceStartDate')?.value;
+        const endDate = document.getElementById('invoiceEndDate')?.value;
         
         if (!studentName || !startDate || !endDate) {
             alert('Please fill all fields');
@@ -1019,9 +879,9 @@ class ReportManager {
     }
 
     async emailInvoice() {
-        const studentName = document.getElementById('invoice-student')?.value;
-        const startDate = document.getElementById('invoice-start-date')?.value;
-        const endDate = document.getElementById('invoice-end-date')?.value;
+        const studentName = document.getElementById('invoiceStudent')?.value;
+        const startDate = document.getElementById('invoiceStartDate')?.value;
+        const endDate = document.getElementById('invoiceEndDate')?.value;
         
         if (!studentName || !startDate || !endDate) {
             alert('Please fill all fields');
@@ -1042,16 +902,14 @@ class ReportManager {
             window.open(mailtoLink, '_blank');
             
             this.updateReportContent(`
-                <div class="alert alert-success">
-                    <h5><i class="fas fa-check-circle"></i> Email Ready!</h5>
+                <div class="alert-success" style="padding: 15px; border-radius: 5px; background: #d1e7dd; border: 1px solid #198754;">
+                    <h4 style="margin-top: 0;">✅ Email Ready!</h4>
                     <p>Your invoice has been prepared for email.</p>
                     <p><strong>Recipient:</strong> ${toEmail}</p>
                     <p><strong>Student:</strong> ${studentName}</p>
-                    <div class="mt-3">
-                        <button onclick="window.reportManager.showInvoiceGenerator()" class="btn btn-outline-success btn-sm">
-                            Back to Invoice Generator
-                        </button>
-                    </div>
+                    <button onclick="window.reportManager.showInvoiceGenerator()" class="button small success" style="margin-top: 10px;">
+                        Back to Invoice Generator
+                    </button>
                 </div>
             `);
         } catch (error) {
@@ -1062,84 +920,64 @@ class ReportManager {
     showReportContent(report, title) {
         let html = '<div class="report-display">';
         html += `<h4>${title}</h4>`;
-        html += '<div class="btn-group mb-3" role="group">';
-        html += '<button id="copy-report" class="btn btn-outline-secondary btn-sm">';
-        html += '<i class="fas fa-copy"></i> Copy';
-        html += '</button>';
-        html += '<button id="print-report" class="btn btn-outline-secondary btn-sm">';
-        html += '<i class="fas fa-print"></i> Print';
-        html += '</button>';
-        html += '<button id="save-report" class="btn btn-outline-secondary btn-sm">';
-        html += '<i class="fas fa-download"></i> Save';
-        html += '</button>';
+        html += '<div style="margin-bottom: 15px; display: flex; gap: 10px;">';
+        html += '<button id="copyReport" class="button small">Copy</button>';
+        html += '<button id="printReport" class="button small">Print</button>';
+        html += '<button id="saveReport" class="button small">Save</button>';
         html += '</div>';
-        html += `<div class="report-content card">`;
-        html += `<div class="card-body">`;
-        html += `<pre style="white-space: pre-wrap; margin: 0; font-family: 'Courier New', monospace; font-size: 0.9rem;">${report}</pre>`;
-        html += `</div></div>`;
+        html += `<div style="background: #f8f9fa; padding: 15px; border-radius: 5px; max-height: 400px; overflow-y: auto;">`;
+        html += `<pre style="white-space: pre-wrap; font-family: monospace; font-size: 12px; margin: 0;">${report}</pre>`;
+        html += `</div>`;
         html += '</div>';
         
         this.updateReportContent(html);
         
         // Add event listeners
-        const copyBtn = document.getElementById('copy-report');
-        if (copyBtn) {
-            copyBtn.addEventListener('click', () => {
-                navigator.clipboard.writeText(report).then(() => {
-                    this.showToast('Report copied to clipboard!');
-                });
+        document.getElementById('copyReport')?.addEventListener('click', () => {
+            navigator.clipboard.writeText(report).then(() => {
+                alert('Report copied to clipboard!');
             });
-        }
+        });
         
-        const printBtn = document.getElementById('print-report');
-        if (printBtn) {
-            printBtn.addEventListener('click', () => {
-                const printWindow = window.open('', '_blank');
-                printWindow.document.write(`
-                    <html>
-                    <head>
-                        <title>${title}</title>
-                        <style>
-                            body { font-family: Arial, sans-serif; padding: 20px; }
-                            pre { white-space: pre-wrap; font-size: 12px; }
-                            @media print {
-                                body { padding: 0; }
-                                @page { margin: 0.5in; }
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        <h2>${title}</h2>
-                        <pre>${report}</pre>
-                        <script>
-                            window.onload = function() {
-                                window.print();
-                                setTimeout(function() {
-                                    window.close();
-                                }, 500);
-                            }
-                        <\/script>
-                    </body>
-                    </html>
-                `);
-            });
-        }
+        document.getElementById('printReport')?.addEventListener('click', () => {
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>${title}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; }
+                        pre { white-space: pre-wrap; font-size: 12px; }
+                    </style>
+                </head>
+                <body>
+                    <h2>${title}</h2>
+                    <pre>${report}</pre>
+                    <script>
+                        window.onload = function() {
+                            window.print();
+                            setTimeout(function() {
+                                window.close();
+                            }, 500);
+                        }
+                    <\/script>
+                </body>
+                </html>
+            `);
+        });
         
-        const saveBtn = document.getElementById('save-report');
-        if (saveBtn) {
-            saveBtn.addEventListener('click', () => {
-                const blob = new Blob([report], { type: 'text/plain' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${title.replace(/[^\w\s]/gi, '').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.txt`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                this.showToast('Report saved as text file!');
-            });
-        }
+        document.getElementById('saveReport')?.addEventListener('click', () => {
+            const blob = new Blob([report], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title.replace(/[^\w\s]/gi, '').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            alert('Report saved as text file!');
+        });
     }
 
     updateReportContent(html) {
@@ -1151,67 +989,40 @@ class ReportManager {
 
     showLoading() {
         this.updateReportContent(`
-            <div class="text-center py-5">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-                <p class="mt-3 text-muted">Generating report...</p>
+            <div style="text-align: center; padding: 50px;">
+                <div class="spinner"></div>
+                <p style="margin-top: 15px; color: #666;">Generating report...</p>
             </div>
         `);
     }
 
     showError(message) {
         this.updateReportContent(`
-            <div class="alert alert-danger">
-                <h5><i class="fas fa-exclamation-circle"></i> Error</h5>
-                <p>${message}</p>
-                <button onclick="window.reportManager.initialize()" class="btn btn-outline-danger btn-sm">
+            <div style="padding: 15px; border-radius: 5px; background: #f8d7da; border: 1px solid #dc3545;">
+                <h5 style="margin-top: 0; color: #721c24;">❌ Error</h5>
+                <p style="color: #721c24;">${message}</p>
+                <button onclick="window.reportManager.init()" class="button small" style="margin-top: 10px;">
                     Try Again
                 </button>
             </div>
         `);
     }
-
-    showToast(message) {
-        // Create toast element
-        const toast = document.createElement('div');
-        toast.className = 'toast show align-items-center text-bg-success border-0 position-fixed bottom-0 end-0 m-3';
-        toast.style.zIndex = '1060';
-        toast.innerHTML = `
-            <div class="d-flex">
-                <div class="toast-body">
-                    ${message}
-                </div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-            </div>
-        `;
-        
-        document.body.appendChild(toast);
-        
-        // Auto remove after 3 seconds
-        setTimeout(() => {
-            toast.remove();
-        }, 3000);
-    }
 }
 
-// Initialize ReportManager
-let reportManager = null;
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    window.reportManager = new ReportManager();
+});
 
-// Function to initialize when reports section is shown
-function initializeReports() {
-    if (!reportManager) {
-        reportManager = new ReportManager();
-        window.reportManager = reportManager;
-    }
-}
-
-// Export for use in other files
-export { ReportManager, initializeReports };
-
-// Auto-initialize if we're already in reports section
-if (document.getElementById('reports-section')?.style.display === 'block') {
-    setTimeout(() => {
-        initializeReports();
-    }, 100);
-}
+// Helper function for text download
+window.downloadAsText = function(content, filename) {
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
