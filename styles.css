@@ -3158,7 +3158,7 @@ button:focus:not(:focus-visible) {
   }
 }
 
-/* ==================== FLOATING ACTION BUTTON ==================== */
+/* ==================== FLOATING ACTION BUTTON - FIXED ==================== */
 .fab-container {
   position: fixed;
   bottom: 20px;
@@ -3193,20 +3193,21 @@ button:focus:not(:focus-visible) {
   transform: scale(0.95);
 }
 
-/* FAB Menu */
+/* FAB Menu - FIXED with absolute positioning */
 .fab-menu {
-  position: absolute;
+  position: absolute; /* CHANGED from relative */
   bottom: 70px;
   right: 0;
   background: var(--surface);
   border-radius: 12px;
-  padding: 10px;
+  padding: 12px;
   box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
   opacity: 0;
   visibility: hidden;
   transform: translateY(20px);
   transition: all 0.3s ease;
   min-width: 200px;
+  max-width: 250px;
   z-index: 1002;
   border: 1px solid var(--border);
 }
@@ -3217,12 +3218,18 @@ button:focus:not(:focus-visible) {
   transform: translateY(0);
 }
 
+/* Container for FAB items */
+.fab-menu-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .fab-item {
   display: flex;
   align-items: center;
   width: 100%;
   padding: 12px 15px;
-  margin: 5px 0;
   border: none;
   background: var(--surface);
   color: var(--text);
@@ -3231,12 +3238,14 @@ button:focus:not(:focus-visible) {
   text-align: left;
   transition: all 0.2s ease;
   font-size: 14px;
+  border: 1px solid var(--border);
 }
 
 .fab-item:hover {
   background: var(--primary-light);
   color: var(--primary);
   transform: translateX(-5px);
+  border-color: var(--primary);
 }
 
 .fab-item .icon {
@@ -3264,7 +3273,7 @@ button:focus:not(:focus-visible) {
 /* Ensure FAB is visible on all tabs */
 .tabcontent {
   min-height: calc(100vh - 250px);
-  padding-bottom: 100px; /* Space for FAB */
+  padding-bottom: 100px;
 }
 
 /* Responsive FAB */
@@ -3273,13 +3282,10 @@ button:focus:not(:focus-visible) {
     width: 50px;
     height: 50px;
     font-size: 24px;
-    bottom: 15px;
-    right: 15px;
   }
   
   .fab-menu {
     bottom: 60px;
-    right: 0;
     min-width: 180px;
   }
 }
@@ -3298,189 +3304,6 @@ button:focus:not(:focus-visible) {
   
   .fab-menu {
     min-width: 160px;
-  }
-}
-
-/* ==================== FLOATING ACTION BUTTON ENHANCEMENTS ==================== */
-.fab-container {
-  position: fixed;
-  bottom: 30px;
-  right: 30px;
-  z-index: 1000;
-  transition: transform 0.3s ease;
-}
-
-.fab {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #4361ee, #3a0ca3);
-  border: none;
-  color: white;
-  font-size: 32px;
-  font-weight: 300;
-  cursor: pointer;
-  box-shadow: 0 4px 20px rgba(67, 97, 238, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 1001;
-  position: relative;
-  overflow: hidden;
-}
-
-.fab:hover {
-  transform: scale(1.1) rotate(90deg);
-  box-shadow: 0 6px 25px rgba(67, 97, 238, 0.5);
-}
-
-.fab:active {
-  transform: scale(0.95);
-}
-
-/* Animate FAB icon change */
-.fab span {
-  display: block;
-  transition: transform 0.3s ease;
-}
-
-/* FAB Menu */
-.fab-menu {
-  position: absolute;
-  bottom: 75px;
-  right: 0;
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 12px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(20px) scale(0.95);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  min-width: 220px;
-  z-index: 1002;
-  border: 1px solid var(--border);
-}
-
-.fab-menu.active {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0) scale(1);
-}
-
-.fab-item {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  padding: 14px 16px;
-  margin: 4px 0;
-  border: none;
-  background: transparent;
-  color: var(--text);
-  border-radius: 10px;
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.2s ease;
-  font-size: 15px;
-  font-weight: 500;
-}
-
-.fab-item:hover {
-  background: rgba(67, 97, 238, 0.1);
-  color: #4361ee;
-  transform: translateX(-8px);
-}
-
-.fab-item:active {
-  transform: translateX(-5px);
-}
-
-.fab-item .icon {
-  font-size: 22px;
-  margin-right: 12px;
-  min-width: 32px;
-  text-align: center;
-  transition: transform 0.2s ease;
-}
-
-.fab-item:hover .icon {
-  transform: scale(1.1);
-}
-
-/* FAB Overlay */
-.fab-overlay {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(2px);
-  z-index: 999;
-  animation: fadeIn 0.3s ease;
-}
-
-.fab-overlay.active {
-  display: block;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-/* Ensure FAB is always visible */
-.tabcontent {
-  min-height: calc(100vh - 250px);
-  padding-bottom: 120px;
-}
-
-/* Hide FAB on print */
-@media print {
-  .fab-container {
-    display: none !important;
-  }
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .fab-container {
-    bottom: 20px;
-    right: 20px;
-  }
-  
-  .fab {
-    width: 56px;
-    height: 56px;
-    font-size: 28px;
-  }
-  
-  .fab-menu {
-    bottom: 66px;
-    min-width: 200px;
-  }
-  
-  .tabcontent {
-    padding-bottom: 100px;
-  }
-}
-
-@media (max-width: 480px) {
-  .fab-container {
-    bottom: 15px;
-    right: 15px;
-  }
-  
-  .fab {
-    width: 52px;
-    height: 52px;
-    font-size: 26px;
-  }
-  
-  .fab-menu {
-    min-width: 180px;
   }
 }
 
