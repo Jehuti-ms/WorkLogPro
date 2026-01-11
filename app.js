@@ -429,87 +429,6 @@ function loadTabData(tabName) {
   }
 }
 
-/*function initForms() {
-  console.log('📝 Initializing forms...');
-  
-  // Set today's date in date fields
-  const today = new Date().toISOString().split('T')[0];
-  const dateFields = ['workDate', 'marksDate', 'attendanceDate', 'paymentDate'];
-  
-  dateFields.forEach(fieldId => {
-    const field = document.getElementById(fieldId);
-    if (field) {
-      field.value = today;
-    }
-  });
-  
-  // Student form
-if (studentForm) {
-  studentForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const studentData = {
-      name: document.getElementById('studentName').value.trim(),
-      studentId: document.getElementById('studentId').value.trim(),
-      gender: document.getElementById('studentGender').value,
-      email: document.getElementById('studentEmail').value.trim(),
-      phone: document.getElementById('studentPhone').value.trim(),
-      rate: parseFloat(document.getElementById('studentRate').value) || 0
-    };
-    
-    if (!studentData.name || !studentData.studentId || !studentData.gender) {
-      showNotification('Please fill in all required fields', 'error');
-      return;
-    }
-    
-    if (window.formHandler && window.formHandler.saveStudent) {
-      const result = window.formHandler.saveStudent(studentData);
-      if (result.success) {
-        showNotification('Student saved!', 'success');
-        studentForm.reset();
-        loadStudents();
-        updateProfileStats();
-      } else {
-        showNotification('Error: ' + result.error, 'error');
-      }
-    }
-  });
-}
-  
-  // Hours form
-if (hoursForm) {
-  hoursForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const hourData = {
-      organization: document.getElementById('organization').value.trim(),
-      workSubject: document.getElementById('workSubject').value.trim(),
-      hoursStudent: document.getElementById('hoursStudent').value,
-      workType: document.getElementById('workType').value,
-      workDate: document.getElementById('workDate').value,
-      hoursWorked: parseFloat(document.getElementById('hoursWorked').value) || 0,
-      baseRate: parseFloat(document.getElementById('baseRate').value) || 0,
-      hoursNotes: document.getElementById('hoursNotes').value.trim()
-    };
-    
-    if (!hourData.organization || !hourData.workDate || hourData.hoursWorked <= 0) {
-      showNotification('Please fill in all required fields', 'error');
-      return;
-    }
-    
-    if (window.formHandler && window.formHandler.saveHours) {
-      const result = window.formHandler.saveHours(hourData);
-      if (result.success) {
-        showNotification('Hours logged!', 'success');
-        hoursForm.reset();
-        document.getElementById('workDate').value = today;
-        loadHours();
-        updateProfileStats();
-      }
-    }
-  });
-}*/
-  
 function initFAB() {
   console.log('➕ Initializing FAB...');
   
@@ -1321,33 +1240,13 @@ function stopAutoSync() {
 
 function updateSyncIndicator(text, status) {
   const syncIndicator = document.getElementById('syncIndicator');
-  if (!syncIndicator) {
-    console.log('❌ Sync indicator not found');
-    return;
-  }
+  if (!syncIndicator) return;
   
-  console.log(`🔄 Updating sync indicator: ${text} (${status})`);
-  
-  // Clear all classes
-  syncIndicator.className = '';
-  
-  // Set the text inside the pill
+  // Simple approach - just update text and class
   syncIndicator.textContent = text;
+  syncIndicator.className = status;
   
-  // Add the status class for color
-  syncIndicator.classList.add(status);
-  
-  // Handle animation - DON'T set style.animation directly!
-  // Let CSS handle it through the class
-  if (status === 'syncing') {
-    // Force CSS re-evaluation by toggling the class
-    syncIndicator.classList.remove('syncing');
-    void syncIndicator.offsetWidth; // Trigger reflow
-    syncIndicator.classList.add('syncing');
-  }
-  
-  console.log('Sync indicator updated. Classes:', syncIndicator.className);
-  console.log('Computed animation:', window.getComputedStyle(syncIndicator).animation);
+  console.log(`✅ Sync indicator: "${text}" (${status})`);
 }
 
 function showNotification(message, type = 'info') {
