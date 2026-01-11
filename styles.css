@@ -326,7 +326,7 @@ body {
 }
 
 /* Optional: Add a more dramatic pulse if you want */
-@keyframes pulse-strong {
+/*@keyframes pulse-strong {
   0%, 100% { 
     opacity: 1;
     transform: scale(1);
@@ -340,9 +340,9 @@ body {
 }
 
 /* For a stronger pulse effect, use this instead: */
-#syncIndicator.syncing.strong-pulse {
+/*#syncIndicator.syncing.strong-pulse {
   animation: pulse-strong 1.5s infinite !important;
-}
+} */
 
 /* Make sure the sync-toolbar has proper alignment */
 .sync-toolbar {
