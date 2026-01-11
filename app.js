@@ -1708,23 +1708,33 @@ function generateEmailReport() {
 function loadInitialData() {
   console.log('📊 Loading initial data...');
   
-  // Load students
-  loadStudents();
+  // Initialize localStorage if empty
+  if (!localStorage.getItem('worklog_students')) {
+    localStorage.setItem('worklog_students', JSON.stringify([]));
+  }
+  if (!localStorage.getItem('worklog_hours')) {
+    localStorage.setItem('worklog_hours', JSON.stringify([]));
+  }
+  if (!localStorage.getItem('worklog_marks')) {
+    localStorage.setItem('worklog_marks', JSON.stringify([]));
+  }
+  if (!localStorage.getItem('worklog_attendance')) {
+    localStorage.setItem('worklog_attendance', JSON.stringify([]));
+  }
+  if (!localStorage.getItem('worklog_payments')) {
+    localStorage.setItem('worklog_payments', JSON.stringify([]));
+  }
   
-  // Load hours
-  loadHours();
-  
-  // Load marks
-  loadMarks();
-  
-  // Load attendance
-  loadAttendance();
-  
-  // Load payments
-  loadPayments();
-  
-  // Update global stats
-  updateGlobalStats();
+  // Load data
+  setTimeout(() => {
+    loadStudents();
+    loadHours();
+    loadMarks();
+    loadAttendance();
+    loadPayments();
+    updateGlobalStats();
+    updateProfileStats();
+  }, 500);
 }
 
 function loadStudents() {
@@ -1848,51 +1858,68 @@ function initForms() {
   });
   
   // Initialize student form
-  const studentForm = document.getElementById('studentForm');
-  if (studentForm) {
-    studentForm.addEventListener('submit', function(e) {
-      e.preventDefault();
-      console.log('Student form submitted');
-      
-      // Check if data-manager.js is available
-      if (window.dataManager && window.dataManager.saveStudent) {
-        const studentData = {
-          id: currentEditId || generateId(),
-          name: document.getElementById('studentName').value.trim(),
-          studentId: document.getElementById('studentId').value.trim(),
-          gender: document.getElementById('studentGender').value,
-          email: document.getElementById('studentEmail').value.trim(),
-          phone: document.getElementById('studentPhone').value.trim(),
-          rate: parseFloat(document.getElementById('studentRate').value) || 0
-        };
-        
-        // Validate required fields
-        if (!studentData.name || !studentData.studentId || !studentData.gender) {
-          showNotification('Please fill in all required fields (Name, ID, Gender)', 'error');
+ const studentForm = document.getElementById('studentForm');
+if (studentForm) {
+  studentForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    console.log('Student form submitted');
+    
+    // Collect form data
+    const studentData = {
+      id: currentEditId || 'student_' + Date.now(),
+      name: document.getElementById('studentName').value.trim(),
+      studentId: document.getElementById('studentId').value.trim(),
+      gender: document.getElementById('studentGender').value,
+      email: document.getElementById('studentEmail').value.trim(),
+      phone: document.getElementById('studentPhone').value.trim(),
+      rate: parseFloat(document.getElementById('studentRate').value) || 25.00
+    };
+    
+    // Validate
+    if (!studentData.name || !studentData.studentId || !studentData.gender) {
+      showNotification('Please fill in all required fields (Name, ID, Gender)', 'error');
+      return;
+    }
+    
+    try {
+      // Use formHandler if available, otherwise direct localStorage
+      if (window.formHandler && window.formHandler.saveStudent) {
+        const result = window.formHandler.saveStudent(studentData);
+        if (result.success) {
+          showNotification('Student saved successfully!', 'success');
+        } else {
+          showNotification('Error: ' + result.error, 'error');
           return;
         }
-        
-        window.dataManager.saveStudent(studentData)
-          .then(result => {
-            if (result.success) {
-              showNotification('Student saved successfully!', 'success');
-              studentForm.reset();
-              currentEditId = null;
-              document.getElementById('studentCancelBtn').style.display = 'none';
-              document.getElementById('studentSubmitBtn').textContent = '➕ Add Student';
-              loadStudents(); // Refresh the list
-            } else {
-              showNotification('Error saving student: ' + result.error, 'error');
-            }
-          })
-          .catch(error => {
-            showNotification('Error saving student: ' + error.message, 'error');
-          });
       } else {
-        showNotification('Data manager not available', 'error');
+        // Direct localStorage fallback
+        const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+        students.push({
+          ...studentData,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+        localStorage.setItem('worklog_students', JSON.stringify(students));
+        showNotification('Student saved!', 'success');
       }
-    });
-  }
+      
+      // Clear form
+      studentForm.reset();
+      currentEditId = null;
+      document.getElementById('studentCancelBtn').style.display = 'none';
+      document.getElementById('studentSubmitBtn').textContent = '➕ Add Student';
+      
+      // Refresh
+      loadStudents();
+      updateProfileStats();
+      updateGlobalStats();
+      
+    } catch (error) {
+      console.error('Error saving student:', error);
+      showNotification('Error saving student: ' + error.message, 'error');
+    }
+  });
+}
   
   // Initialize hours form
   const hoursForm = document.getElementById('hoursForm');
@@ -2056,8 +2083,52 @@ function generateId() {
 
 // Helper function to show notifications (make sure this exists)
 function showNotification(message, type = 'info') {
-  console.log(`${type.toUpperCase()}: ${message}`);
-  // Your notification implementation here
+  console.log(`🔔 ${type}: ${message}`);
+  
+  // Try to use existing notification system
+  const existingNotification = document.querySelector('.notification');
+  if (existingNotification) {
+    existingNotification.remove();
+  }
+  
+  const notification = document.createElement('div');
+  notification.className = `notification notification-${type}`;
+  notification.innerHTML = `
+    <div class="notification-content">
+      <span class="notification-icon">${type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️'}</span>
+      <span class="notification-message">${message}</span>
+      <button class="notification-close">&times;</button>
+    </div>
+  `;
+  
+  document.body.appendChild(notification);
+  
+  // Show animation
+  setTimeout(() => {
+    notification.classList.add('notification-show');
+  }, 10);
+  
+  // Auto-remove after 5 seconds
+  setTimeout(() => {
+    notification.classList.remove('notification-show');
+    notification.classList.add('notification-hide');
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.remove();
+      }
+    }, 300);
+  }, 5000);
+  
+  // Close button
+  notification.querySelector('.notification-close').addEventListener('click', () => {
+    notification.classList.remove('notification-show');
+    notification.classList.add('notification-hide');
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.remove();
+      }
+    }, 300);
+  });
 }
 
 // ==================== START APP ====================
