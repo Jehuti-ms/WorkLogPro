@@ -638,12 +638,15 @@
       const logoutBtn = document.getElementById('logoutBtn');
       
       // Profile modal functionality
-      if (profileBtn && profileModal) {
-        profileBtn.addEventListener('click', function() {
+     if (profileBtn && profileModal) {
+      profileBtn.addEventListener('click', function() {
+        // updateProfileInfo will be defined by app.js
+        if (typeof updateProfileInfo === 'function') {
           updateProfileInfo();
-          profileModal.style.display = 'block';
-        });
-      }
+        }
+        profileModal.style.display = 'block';
+      });
+    }
       
       if (closeProfileModal) {
         closeProfileModal.addEventListener('click', function() {
