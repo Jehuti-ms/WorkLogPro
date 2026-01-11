@@ -1048,42 +1048,13 @@ function updateHeaderStats() {
 
 // Setup tab navigation
 function setupTabNavigation() {
-  const tabButtons = document.querySelectorAll('.tab[data-tab]');
-  const tabContents = document.querySelectorAll('.tabcontent');
+  console.log("📋 Setting up tab navigation...");
   
-  function switchTab(tabName) {
-    // Hide all tab contents
-    tabContents.forEach(content => {
-      content.classList.remove('active');
-    });
-    
-    // Remove active class from all tab buttons
-    tabButtons.forEach(button => {
-      button.classList.remove('active');
-    });
-    
-    // Show the selected tab content
-    const selectedTab = document.getElementById(tabName);
-    if (selectedTab) {
-      selectedTab.classList.add('active');
-    }
-    
-    // Activate the clicked tab button
-    const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
-    if (activeButton) {
-      activeButton.classList.add('active');
-    }
-    
-    // Load data for the tab if needed
-    if (tabName === 'hours') {
-      calculateTotalPay();
-    } else if (tabName === 'marks') {
-      updateMarksPercentage();
-    } else if (tabName === 'attendance') {
-      populateAttendanceStudents();
-    } else if (tabName === 'payments') {
-      renderStudentBalances();
-    }
+  const tabButtons = document.querySelectorAll('.tab');
+  
+  if (tabButtons.length === 0) {
+    console.error('No tab buttons found!');
+    return;
   }
   
   // Add click event to all tab buttons
@@ -1094,8 +1065,168 @@ function setupTabNavigation() {
     });
   });
   
-  // Initialize with Students tab
-  switchTab('students');
+  // Check for hash in URL
+  const hash = window.location.hash.replace('#', '');
+  const validTabs = ['students', 'hours', 'marks', 'attendance', 'payments', 'reports'];
+  
+  if (hash && validTabs.includes(hash) && document.getElementById(hash)) {
+    switchTab(hash);
+  } else {
+    // Default to students tab
+    switchTab('students');
+  }
+  
+  console.log("✅ Tab navigation setup complete");
+}
+
+function switchTab(tabName) {
+  console.log("📋 Switching to tab:", tabName);
+  
+  // Hide all tab contents
+  const tabContents = document.querySelectorAll('.tabcontent');
+  tabContents.forEach(content => {
+    content.classList.remove('active');
+  });
+  
+  // Remove active class from all tab buttons
+  const tabButtons = document.querySelectorAll('.tab');
+  tabButtons.forEach(button => {
+    button.classList.remove('active');
+  });
+  
+  // Show the selected tab content
+  const selectedTab = document.getElementById(tabName);
+  if (selectedTab) {
+    selectedTab.classList.add('active');
+  }
+  
+  // Activate the clicked tab button
+  const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
+  if (activeButton) {
+    activeButton.classList.add('active');
+  }
+  
+  // Close FAB if open
+  closeFAB();
+  
+  // Load data for the selected tab
+  loadTabData(tabName);
+  
+  // Update URL hash (without page reload)
+  window.location.hash = tabName;
+  
+  // Dispatch custom event for tab change
+  const event = new CustomEvent('tabchange', { detail: { tab: tabName } });
+  document.dispatchEvent(event);
+}
+
+async function loadTabData(tabName) {
+  try {
+    console.log(`📊 Loading data for ${tabName} tab...`);
+    
+    // Get current data
+    const students = getStudents();
+    const hours = getHours();
+    const marks = getMarks();
+    const attendance = getAttendance();
+    const payments = getPayments();
+    
+    switch(tabName) {
+      case 'students':
+        populateStudentsList(students);
+        updateStudentDropdowns();
+        break;
+        
+      case 'hours':
+        populateHoursList(hours);
+        populateHoursStudentDropdown(students);
+        break;
+        
+      case 'marks':
+        populateMarksList(marks);
+        populateMarksStudentDropdown(students);
+        break;
+        
+      case 'attendance':
+        populateAttendanceList(attendance);
+        populateAttendanceStudentCheckboxes(students);
+        break;
+        
+      case 'payments':
+        populatePaymentsList(payments);
+        populatePaymentStudentDropdown(students);
+        updateStudentBalances(students, payments);
+        break;
+        
+      case 'reports':
+        updateReportsDashboard(students, hours, marks, payments);
+        break;
+    }
+    
+    // Update global stats
+    updateGlobalStats(students, hours);
+    
+  } catch (error) {
+    console.error(`Error loading ${tabName} data:`, error);
+    showNotification(`Error loading ${tabName} data`, 'error');
+  }
+}
+  
+ function switchTab(tabName) {
+  console.log("Switching to tab:", tabName);
+  
+  // Hide all tab contents
+  const tabContents = document.querySelectorAll('.tabcontent');
+  tabContents.forEach(content => {
+    content.classList.remove('active');
+  });
+  
+  // Remove active class from all tab buttons
+  const tabButtons = document.querySelectorAll('.tab');
+  tabButtons.forEach(button => {
+    button.classList.remove('active');
+  });
+  
+  // Show the selected tab content
+  const selectedTab = document.getElementById(tabName);
+  if (selectedTab) {
+    selectedTab.classList.add('active');
+  }
+  
+  // Activate the clicked tab button
+  const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
+  if (activeButton) {
+    activeButton.classList.add('active');
+  }
+  
+  // Close FAB if open
+  closeFAB();
+  
+  // Load data for the selected tab
+  loadTabData(tabName);
+}
+
+  function loadTabData(tabName) {
+  switch(tabName) {
+    case 'students':
+      loadStudents();
+      break;
+    case 'hours':
+      loadHours();
+      break;
+    case 'marks':
+      loadMarks();
+      break;
+    case 'attendance':
+      loadAttendance();
+      break;
+    case 'payments':
+      loadPayments();
+      break;
+    case 'reports':
+      loadReports();
+      break;
+  }
 }
 
 // Setup forms
@@ -1280,59 +1411,213 @@ function updateProfileInfo() {
 }
 
 // Setup floating action button
+// ==================== FLOATING ACTION BUTTON ====================
+let fabMenuOpen = false;
+
 function setupFloatingAddButton() {
+  console.log("🔄 Setting up Floating Action Button...");
+  
   const fab = document.getElementById('floatingAddBtn');
   const fabMenu = document.getElementById('fabMenu');
   const fabOverlay = document.getElementById('fabOverlay');
   
-  if (fab && fabMenu && fabOverlay) {
-    fab.addEventListener('click', () => {
-      const isActive = fabMenu.classList.contains('active');
-      
-      if (isActive) {
-        fabMenu.classList.remove('active');
-        fabOverlay.style.display = 'none';
-      } else {
-        fabMenu.classList.add('active');
-        fabOverlay.style.display = 'block';
-      }
-    });
-    
-    fabOverlay.addEventListener('click', () => {
-      fabMenu.classList.remove('active');
-      fabOverlay.style.display = 'none';
-    });
-    
-    // FAB actions
-    document.getElementById('fabAddStudent')?.addEventListener('click', () => {
+  if (!fab || !fabMenu || !fabOverlay) {
+    console.error('❌ FAB elements not found!');
+    return;
+  }
+  
+  // Set initial state
+  fabMenuOpen = false;
+  fab.innerHTML = '+';
+  fabMenu.classList.remove('active');
+  fabOverlay.classList.remove('active');
+  
+  // Toggle FAB menu
+  fab.addEventListener('click', function(e) {
+    e.stopPropagation();
+    toggleFAB();
+  });
+  
+  // Close FAB when clicking overlay
+  fabOverlay.addEventListener('click', function() {
+    closeFAB();
+  });
+  
+  // Close FAB when pressing Escape key
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && fabMenuOpen) {
+      closeFAB();
+    }
+  });
+  
+  // Close FAB when clicking outside
+  document.addEventListener('click', function(e) {
+    if (fabMenuOpen && 
+        !fab.contains(e.target) && 
+        !fabMenu.contains(e.target)) {
+      closeFAB();
+    }
+  });
+  
+  // Initialize FAB menu items
+  setupFABMenuItems();
+  
+  console.log("✅ FAB setup complete");
+}
+
+function setupFABMenuItems() {
+  // Add Student
+  const fabAddStudent = document.getElementById('fabAddStudent');
+  if (fabAddStudent) {
+    fabAddStudent.addEventListener('click', function() {
+      closeFAB();
       switchTab('students');
-      document.getElementById('studentName')?.focus();
-      closeFabMenu();
+      
+      setTimeout(() => {
+        const studentNameInput = document.getElementById('studentName');
+        if (studentNameInput) {
+          studentNameInput.focus();
+          scrollToElement(studentNameInput);
+        }
+      }, 100);
     });
-    
-    document.getElementById('fabAddHours')?.addEventListener('click', () => {
+  }
+  
+  // Add Hours
+  const fabAddHours = document.getElementById('fabAddHours');
+  if (fabAddHours) {
+    fabAddHours.addEventListener('click', function() {
+      closeFAB();
       switchTab('hours');
-      document.getElementById('organization')?.focus();
-      closeFabMenu();
+      
+      setTimeout(() => {
+        const organizationInput = document.getElementById('organization');
+        if (organizationInput) {
+          organizationInput.focus();
+          scrollToElement(organizationInput);
+        }
+      }, 100);
     });
-    
-    document.getElementById('fabAddMark')?.addEventListener('click', () => {
+  }
+  
+  // Add Mark
+  const fabAddMark = document.getElementById('fabAddMark');
+  if (fabAddMark) {
+    fabAddMark.addEventListener('click', function() {
+      closeFAB();
       switchTab('marks');
-      document.getElementById('marksStudent')?.focus();
-      closeFabMenu();
+      
+      setTimeout(() => {
+        const marksStudentSelect = document.getElementById('marksStudent');
+        if (marksStudentSelect) {
+          marksStudentSelect.focus();
+          scrollToElement(marksStudentSelect);
+        }
+      }, 100);
     });
-    
-    document.getElementById('fabAddAttendance')?.addEventListener('click', () => {
+  }
+  
+  // Add Attendance
+  const fabAddAttendance = document.getElementById('fabAddAttendance');
+  if (fabAddAttendance) {
+    fabAddAttendance.addEventListener('click', function() {
+      closeFAB();
       switchTab('attendance');
-      document.getElementById('attendanceDate')?.focus();
-      closeFabMenu();
+      
+      setTimeout(() => {
+        const attendanceDateInput = document.getElementById('attendanceDate');
+        if (attendanceDateInput) {
+          attendanceDateInput.focus();
+          scrollToElement(attendanceDateInput);
+        }
+      }, 100);
+    });
+  }
+  
+  // Add Payment FAB item if not exists
+  if (!document.getElementById('fabAddPayment')) {
+    const fabAddPayment = document.createElement('button');
+    fabAddPayment.id = 'fabAddPayment';
+    fabAddPayment.className = 'fab-item';
+    fabAddPayment.innerHTML = '<span class="icon">💰</span>Record Payment';
+    fabAddPayment.addEventListener('click', function() {
+      closeFAB();
+      switchTab('payments');
+      
+      setTimeout(() => {
+        const paymentStudentSelect = document.getElementById('paymentStudent');
+        if (paymentStudentSelect) {
+          paymentStudentSelect.focus();
+          scrollToElement(paymentStudentSelect);
+        }
+      }, 100);
     });
     
-    function closeFabMenu() {
-      if (fabMenu) fabMenu.classList.remove('active');
-      if (fabOverlay) fabOverlay.style.display = 'none';
+    // Add to menu
+    const fabMenu = document.getElementById('fabMenu');
+    if (fabMenu) {
+      fabMenu.appendChild(fabAddPayment);
     }
   }
+}
+
+function toggleFAB() {
+  const fab = document.getElementById('floatingAddBtn');
+  const fabMenu = document.getElementById('fabMenu');
+  const fabOverlay = document.getElementById('fabOverlay');
+  
+  fabMenuOpen = !fabMenuOpen;
+  
+  if (fabMenuOpen) {
+    fabMenu.classList.add('active');
+    fabOverlay.classList.add('active');
+    fab.innerHTML = '×';
+    fab.style.transform = 'rotate(45deg)';
+  } else {
+    fabMenu.classList.remove('active');
+    fabOverlay.classList.remove('active');
+    fab.innerHTML = '+';
+    fab.style.transform = 'rotate(0deg)';
+  }
+}
+
+function closeFAB() {
+  const fab = document.getElementById('floatingAddBtn');
+  const fabMenu = document.getElementById('fabMenu');
+  const fabOverlay = document.getElementById('fabOverlay');
+  
+  fabMenuOpen = false;
+  fabMenu.classList.remove('active');
+  fabOverlay.classList.remove('active');
+  fab.innerHTML = '+';
+  fab.style.transform = 'rotate(0deg)';
+}
+
+function scrollToElement(element) {
+  if (!element) return;
+  
+  const elementPosition = element.getBoundingClientRect().top;
+  const offsetPosition = elementPosition + window.pageYOffset - 100; // Offset for header
+  
+  window.scrollTo({
+    top: offsetPosition,
+    behavior: 'smooth'
+  });
+}
+  
+function closeFAB() {
+  const fab = document.getElementById('floatingAddBtn');
+  const fabMenu = document.getElementById('fabMenu');
+  const fabOverlay = document.getElementById('fabOverlay');
+  
+  fabMenuOpen = false;
+  if (fabMenu) fabMenu.classList.remove('active');
+  if (fabOverlay) fabOverlay.classList.remove('active');
+  if (fab) fab.innerHTML = '+';
+}
+
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // Setup sync controls
