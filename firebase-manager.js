@@ -303,10 +303,7 @@ window.firebaseManager = {
   init: initFirebaseManager
 };
 
-// Auto-initialize
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('📄 DOM loaded - initializing Firebase Manager');
-  initFirebaseManager();
-});
+// Don't auto-initialize - let app.js handle it
+console.log('✅ Firebase Manager loaded (waiting for app.js to initialize)');;
 
 console.log('✅ FIXED firebase-manager.js loaded');
