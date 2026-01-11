@@ -776,6 +776,7 @@ function initSyncControls() {
 
 async function handleSync() {
   try {
+    console.log('🔄 Starting sync process...');
     updateSyncIndicator('Syncing...', 'syncing');
     showNotification('Syncing data...', 'info');
     
@@ -783,57 +784,142 @@ async function handleSync() {
     if (!navigator.onLine) {
       updateSyncIndicator('Offline', 'offline');
       showNotification('Cannot sync while offline', 'error');
-      return;
+      return { success: false, error: 'Offline' };
     }
     
-    // Check if user is authenticated
-    if (typeof firebase === 'undefined' || !firebase.auth || !firebase.auth().currentUser) {
-      updateSyncIndicator('Auth Required', 'error');
-      showNotification('Please login to sync', 'error');
-      return;
+    // Check Firebase availability FIRST
+    const firebaseAvailable = typeof firebase !== 'undefined' && 
+                             firebase.auth && 
+                             firebase.firestore;
+    
+    // Check if user is logged into Firebase (do this early)
+    let firebaseUser = null;
+    if (firebaseAvailable) {
+      try {
+        firebaseUser = firebase.auth().currentUser;
+      } catch (authError) {
+        console.log('Firebase auth error:', authError);
+      }
     }
     
-    // Simulate sync process (replace with actual Firebase sync)
-    await simulateSyncProcess();
+    // Now check if we have any form of authentication
+    const hasLocalAuth = localStorage.getItem('userEmail') || localStorage.getItem('worklog_user');
+    const hasFirebaseAuth = firebaseUser !== null;
     
-    updateSyncIndicator('Synced', 'success');
-    showNotification('Sync completed successfully!', 'success');
+    if (!hasLocalAuth && !hasFirebaseAuth) {
+      console.log('⚠️ No authentication found');
+      updateSyncIndicator('Login Required', 'error');
+      showNotification('Please login to sync data', 'error');
+      return { success: false, error: 'Authentication required' };
+    }
     
-    // Reset to online after 3 seconds
+    if (!firebaseAvailable) {
+      console.log('⚠️ Firebase not available, doing local sync only');
+      updateSyncIndicator('Local Only', 'warning');
+      showNotification('Firebase not configured. Local sync only.', 'warning');
+      
+      // Still update local sync timestamp
+      const timestamp = new Date().toISOString();
+      localStorage.setItem('lastSync', timestamp);
+      
+      setTimeout(() => {
+        updateSyncIndicator('Local', 'warning');
+      }, 2000);
+      
+      return { success: true, localOnly: true };
+    }
+    
+    // Get all local data
+    const allData = {
+      students: JSON.parse(localStorage.getItem('worklog_students') || '[]'),
+      hours: JSON.parse(localStorage.getItem('worklog_hours') || '[]'),
+      marks: JSON.parse(localStorage.getItem('worklog_marks') || '[]'),
+      attendance: JSON.parse(localStorage.getItem('worklog_attendance') || '[]'),
+      payments: JSON.parse(localStorage.getItem('worklog_payments') || '[]'),
+      settings: {
+        defaultHourlyRate: localStorage.getItem('defaultHourlyRate') || '25.00',
+        autoSyncEnabled: localStorage.getItem('autoSyncEnabled') === 'true',
+        theme: localStorage.getItem('worklog-theme') || 'dark'
+      },
+      syncDate: new Date().toISOString(),
+      appVersion: '1.0.0'
+    };
+    
+    console.log(`📊 Syncing: ${allData.students.length} students, ${allData.hours.length} hours`);
+    
+    if (firebaseUser) {
+      // User is logged into Firebase - do cloud sync
+      console.log('☁️ User authenticated, syncing to Firebase...');
+      
+      try {
+        const db = firebase.firestore();
+        const userRef = db.collection('users').doc(firebaseUser.uid).collection('data').doc('worklog');
+        
+        // Save to Firestore
+        await userRef.set({
+          ...allData,
+          lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        
+        console.log('✅ Firebase sync successful');
+        
+        // Update local sync timestamp
+        const timestamp = new Date().toISOString();
+        localStorage.setItem('lastSync', timestamp);
+        
+        updateSyncIndicator('Cloud Synced', 'success');
+        showNotification('Data synced to cloud successfully!', 'success');
+        
+      } catch (firestoreError) {
+        console.error('Firestore error:', firestoreError);
+        updateSyncIndicator('Cloud Error', 'error');
+        showNotification('Cloud sync failed. Using local backup.', 'warning');
+        
+        // Fallback to local only
+        const timestamp = new Date().toISOString();
+        localStorage.setItem('lastSync', timestamp);
+      }
+      
+    } else {
+      // No Firebase user - local sync only
+      console.log('👤 No Firebase user, local sync only');
+      
+      const timestamp = new Date().toISOString();
+      localStorage.setItem('lastSync', timestamp);
+      
+      updateSyncIndicator('Local Synced', 'warning');
+      showNotification('Local sync completed (login for cloud)', 'info');
+    }
+    
+    // Update profile stats
+    updateProfileStats();
+    updateGlobalStats();
+    
+    // Reset indicator after delay
     setTimeout(() => {
-      updateSyncIndicator('Online', 'online');
+      if (firebaseUser) {
+        updateSyncIndicator('Online', 'online');
+      } else {
+        updateSyncIndicator('Local', 'warning');
+      }
     }, 3000);
     
+    return { success: true };
+    
   } catch (error) {
-    console.error('Sync error:', error);
+    console.error('❌ Sync error:', error);
     updateSyncIndicator('Sync Failed', 'error');
     showNotification('Sync failed: ' + error.message, 'error');
     
     setTimeout(() => {
       updateSyncIndicator('Online', 'online');
     }, 3000);
+    
+    return { success: false, error: error.message };
   }
 }
 
-async function simulateSyncProcess() {
-  return new Promise((resolve) => {
-    // Simulate network delay
-    setTimeout(() => {
-      // Get all local data
-      const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-      const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
-      const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
-      const attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
-      const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
-      
-      console.log(`Syncing: ${students.length} students, ${hours.length} hours, ${marks.length} marks, ${attendance.length} attendance, ${payments.length} payments`);
-      
-      // In a real app, this would sync to Firebase
-      // For now, just simulate success
-      resolve();
-    }, 1500);
-  });
-}
+
 
 // ==================== CLOUD FUNCTIONS ====================
 
