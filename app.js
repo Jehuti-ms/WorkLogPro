@@ -1328,26 +1328,30 @@ function updateSyncIndicator(text, status) {
   
   console.log(`🔄 Updating sync indicator: ${text} (${status})`);
   
-  // Clear all classes
+  // Clear all classes and text
   syncIndicator.className = '';
-  
-  // Set the text inside the pill
   syncIndicator.textContent = text;
   
   // Add the status class for color
   syncIndicator.classList.add(status);
   
-  // Handle animation for syncing state
+  // Special handling for syncing state to ensure pulse animation works
   if (status === 'syncing') {
     // Force animation restart
     syncIndicator.style.animation = 'none';
+    
+    // Small delay to ensure CSS re-evaluation
     setTimeout(() => {
       syncIndicator.style.animation = '';
+      // Explicitly set the pulse animation
+      syncIndicator.style.animation = 'pulse 1.5s infinite';
     }, 10);
   } else {
-    // Remove any existing animation
+    // Remove animation for non-syncing states
     syncIndicator.style.animation = 'none';
   }
+  
+  console.log('Sync indicator updated:', syncIndicator.className, syncIndicator.style.animation);
 }
 
 function showNotification(message, type = 'info') {
