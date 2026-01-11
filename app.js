@@ -1,4 +1,4 @@
-// app.js - MAIN APPLICATION FILE
+// app.js - UPDATED WITH AUTH FIX
 import { auth } from './firebase-config.js';
 import { firebaseManager } from './firebase-manager.js';
 import { dataManager } from './data-manager.js';
@@ -10,18 +10,16 @@ import {
 // DOM Elements
 let currentEditId = null;
 let currentEditType = null;
+let isAppInitialized = false;
 
 // Initialize application
 async function initApp() {
   console.log('🚀 Initializing WorkLog App...');
   
-  // Initialize Firebase Manager
-  await firebaseManager.init();
+  // Setup auth listener first
+  setupAuthListener();
   
-  // Initialize Data Manager
-  await dataManager.init();
-  
-  // Setup UI
+  // Initialize UI components (they'll work even without auth)
   setupTabNavigation();
   setupForms();
   setupEventListeners();
@@ -29,19 +27,64 @@ async function initApp() {
   setupFloatingAddButton();
   setupSyncControls();
   
-  // Load initial data
-  await loadInitialData();
-  
-  // Update UI
-  updateHeaderStats();
-  updateSyncStatus();
-  
-  console.log('✅ App initialized successfully');
+  console.log('✅ UI components initialized');
+}
+
+// Setup authentication listener
+function setupAuthListener() {
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      console.log('🟢 User authenticated:', user.email);
+      await initializeUserSession(user);
+    } else {
+      console.log('🔴 No user authenticated - redirecting to login');
+      redirectToLogin();
+    }
+  });
+}
+
+// Redirect to login page
+function redirectToLogin() {
+  // Check if we're already on auth.html
+  if (!window.location.pathname.includes('auth.html')) {
+    console.log('🔐 Redirecting to login page...');
+    window.location.href = 'auth.html';
+  }
+}
+
+// Initialize user session
+async function initializeUserSession(user) {
+  try {
+    console.log('👤 Initializing user session...');
+    
+    // Initialize Firebase Manager
+    await firebaseManager.init();
+    
+    // Initialize Data Manager
+    await dataManager.init();
+    
+    // Load initial data
+    await loadInitialData();
+    
+    // Update UI
+    updateHeaderStats();
+    updateSyncStatus();
+    updateProfileInfo();
+    
+    isAppInitialized = true;
+    console.log('✅ User session initialized successfully');
+    
+  } catch (error) {
+    console.error('Error initializing user session:', error);
+    showNotification('Failed to initialize app', 'error');
+  }
 }
 
 // Load initial data
 async function loadInitialData() {
   try {
+    console.log('📦 Loading initial data...');
+    
     // Render all data
     await Promise.all([
       renderStudents(),
@@ -55,229 +98,11 @@ async function loadInitialData() {
     // Calculate and display stats
     updateAllStats();
     
+    console.log('✅ Initial data loaded');
+    
   } catch (error) {
     console.error('Error loading initial data:', error);
     showNotification('Failed to load data', 'error');
-  }
-}
-
-// ==================== FORM HANDLERS ====================
-
-// Student form
-async function handleStudentSubmit(e) {
-  e.preventDefault();
-  
-  const formData = new FormData(e.target);
-  const studentData = {
-    name: formData.get('studentName'),
-    studentId: formData.get('studentId'),
-    gender: formData.get('studentGender'),
-    email: formData.get('studentEmail'),
-    phone: formData.get('studentPhone'),
-    rate: formData.get('studentRate')
-  };
-  
-  try {
-    let message;
-    
-    if (currentEditId && currentEditType === 'student') {
-      await dataManager.saveStudent(studentData, currentEditId);
-      message = 'Student updated successfully';
-      exitEditMode();
-    } else {
-      await dataManager.saveStudent(studentData);
-      message = 'Student added successfully';
-    }
-    
-    // Refresh UI
-    await renderStudents();
-    await populateStudentDropdowns();
-    updateAllStats();
-    
-    // Clear form
-    e.target.reset();
-    
-    // Show success message
-    showNotification(message, 'success');
-    
-  } catch (error) {
-    console.error('Error saving student:', error);
-    showNotification('Failed to save student', 'error');
-  }
-}
-
-// Hours form
-async function handleHoursSubmit(e) {
-  e.preventDefault();
-  
-  const formData = new FormData(e.target);
-  const hoursData = {
-    organization: formData.get('organization'),
-    subject: formData.get('workSubject'),
-    student: formData.get('hoursStudent'),
-    workType: formData.get('workType'),
-    date: formData.get('workDate'),
-    hours: formData.get('hoursWorked'),
-    rate: formData.get('baseRate'),
-    notes: formData.get('hoursNotes')
-  };
-  
-  try {
-    let message;
-    
-    if (currentEditId && currentEditType === 'hours') {
-      await dataManager.saveHours(hoursData, currentEditId);
-      message = 'Hours updated successfully';
-      exitEditMode();
-    } else {
-      await dataManager.saveHours(hoursData);
-      message = 'Hours logged successfully';
-    }
-    
-    // Refresh UI
-    await renderHours();
-    updateAllStats();
-    
-    // Clear form (keep rate)
-    const defaultRate = localStorage.getItem('defaultHourlyRate') || '25.00';
-    e.target.reset();
-    document.getElementById('baseRate').value = defaultRate;
-    calculateTotalPay();
-    
-    showNotification(message, 'success');
-    
-  } catch (error) {
-    console.error('Error saving hours:', error);
-    showNotification('Failed to save hours', 'error');
-  }
-}
-
-// Marks form
-async function handleMarksSubmit(e) {
-  e.preventDefault();
-  
-  const formData = new FormData(e.target);
-  const marksData = {
-    student: formData.get('marksStudent'),
-    subject: formData.get('marksSubject'),
-    topic: formData.get('marksTopic'),
-    date: formData.get('marksDate'),
-    score: formData.get('marksScore'),
-    max: formData.get('marksMax'),
-    notes: formData.get('marksNotes')
-  };
-  
-  try {
-    let message;
-    
-    if (currentEditId && currentEditType === 'marks') {
-      await dataManager.saveMarks(marksData, currentEditId);
-      message = 'Mark updated successfully';
-      exitEditMode();
-    } else {
-      await dataManager.saveMarks(marksData);
-      message = 'Mark added successfully';
-    }
-    
-    // Refresh UI
-    await renderMarks();
-    updateAllStats();
-    
-    // Clear form
-    e.target.reset();
-    
-    showNotification(message, 'success');
-    
-  } catch (error) {
-    console.error('Error saving marks:', error);
-    showNotification('Failed to save marks', 'error');
-  }
-}
-
-// Attendance form
-async function handleAttendanceSubmit(e) {
-  e.preventDefault();
-  
-  const formData = new FormData(e.target);
-  const presentStudents = Array.from(
-    document.querySelectorAll('#attendanceStudents input[type="checkbox"]:checked')
-  ).map(cb => cb.value);
-  
-  const attendanceData = {
-    date: formData.get('attendanceDate'),
-    subject: formData.get('attendanceSubject'),
-    topic: formData.get('attendanceTopic'),
-    present: presentStudents,
-    notes: formData.get('attendanceNotes')
-  };
-  
-  try {
-    let message;
-    
-    if (currentEditId && currentEditType === 'attendance') {
-      await dataManager.saveAttendance(attendanceData, currentEditId);
-      message = 'Attendance updated successfully';
-      exitEditMode();
-    } else {
-      await dataManager.saveAttendance(attendanceData);
-      message = 'Attendance recorded successfully';
-    }
-    
-    // Refresh UI
-    await renderAttendance();
-    updateAllStats();
-    
-    // Clear form
-    e.target.reset();
-    document.querySelectorAll('#attendanceStudents input[type="checkbox"]').forEach(cb => {
-      cb.checked = false;
-    });
-    
-    showNotification(message, 'success');
-    
-  } catch (error) {
-    console.error('Error saving attendance:', error);
-    showNotification('Failed to save attendance', 'error');
-  }
-}
-
-// Payment form
-async function handlePaymentSubmit(e) {
-  e.preventDefault();
-  
-  const formData = new FormData(e.target);
-  const paymentData = {
-    student: formData.get('paymentStudent'),
-    amount: formData.get('paymentAmount'),
-    date: formData.get('paymentDate'),
-    method: formData.get('paymentMethod'),
-    notes: formData.get('paymentNotes')
-  };
-  
-  try {
-    let message;
-    
-    if (currentEditId && currentEditType === 'payment') {
-      await dataManager.savePayment(paymentData, currentEditId);
-      message = 'Payment updated successfully';
-      exitEditMode();
-    } else {
-      await dataManager.savePayment(paymentData);
-      message = 'Payment recorded successfully';
-    }
-    
-    // Refresh UI
-    await renderPayments();
-    updateAllStats();
-    
-    // Clear form
-    e.target.reset();
-    
-    showNotification(message, 'success');
-    
-  } catch (error) {
-    console.error('Error saving payment:', error);
-    showNotification('Failed to save payment', 'error');
   }
 }
 
@@ -378,7 +203,451 @@ async function renderHours() {
   container.innerHTML = html;
 }
 
-// Similar render functions for marks, attendance, payments...
+// Render marks list
+async function renderMarks() {
+  const container = document.getElementById('marksContainer');
+  if (!container) return;
+  
+  const marks = dataManager.cache.marks;
+  
+  if (marks.length === 0) {
+    container.innerHTML = '<p class="empty-message">No marks recorded yet.</p>';
+    return;
+  }
+  
+  // Sort by date (newest first)
+  const sortedMarks = [...marks].sort((a, b) => 
+    new Date(b.date || b.dateIso) - new Date(a.date || a.dateIso)
+  );
+  
+  let html = '';
+  sortedMarks.slice(0, 20).forEach(mark => {
+    html += `
+      <div class="mark-entry">
+        <div class="mark-header">
+          <strong>${mark.student || 'Unknown'}</strong>
+          <span class="mark-subject">${mark.subject}</span>
+          <div class="student-actions">
+            <button class="btn-icon" onclick="startEditMark('${mark._id}')" title="Edit">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="btn-icon" onclick="deleteMark('${mark._id}')" title="Delete">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+        <div class="muted">
+          ${formatDate(mark.date)} • ${mark.topic || 'No topic'}
+        </div>
+        <div class="mark-details">
+          <span>Score: ${mark.score || 0}/${mark.max || 0}</span>
+          <span>Percentage: ${mark.percentage || 0}%</span>
+          <span class="mark-grade">Grade: ${mark.grade || 'N/A'}</span>
+        </div>
+        ${mark.notes ? `<div class="muted small">Notes: ${mark.notes}</div>` : ''}
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+}
+
+// Render attendance list
+async function renderAttendance() {
+  const container = document.getElementById('attendanceContainer');
+  if (!container) return;
+  
+  const attendance = dataManager.cache.attendance;
+  
+  if (attendance.length === 0) {
+    container.innerHTML = '<p class="empty-message">No attendance records yet.</p>';
+    return;
+  }
+  
+  // Sort by date (newest first)
+  const sortedAttendance = [...attendance].sort((a, b) => 
+    new Date(b.date || b.dateIso) - new Date(a.date || a.dateIso)
+  );
+  
+  let html = '';
+  sortedAttendance.slice(0, 20).forEach(record => {
+    const presentCount = Array.isArray(record.present) ? record.present.length : 0;
+    
+    html += `
+      <div class="attendance-entry">
+        <div class="attendance-header">
+          <strong>${record.subject || 'No subject'}</strong>
+          <span class="attendance-count">${presentCount} present</span>
+          <div class="student-actions">
+            <button class="btn-icon" onclick="startEditAttendance('${record._id}')" title="Edit">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="btn-icon" onclick="deleteAttendance('${record._id}')" title="Delete">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+        <div class="muted">
+          ${formatDate(record.date)} • ${record.topic || 'No topic'}
+        </div>
+        <div class="attendance-students">
+          ${Array.isArray(record.present) && record.present.length > 0 
+            ? `<span>Present: ${record.present.join(', ')}</span>`
+            : '<span class="muted">No students marked present</span>'
+          }
+        </div>
+        ${record.notes ? `<div class="muted small">Notes: ${record.notes}</div>` : ''}
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+}
+
+// Render payments list
+async function renderPayments() {
+  const container = document.getElementById('paymentActivityLog');
+  if (!container) return;
+  
+  const payments = dataManager.cache.payments;
+  
+  if (payments.length === 0) {
+    container.innerHTML = '<p class="empty-message">No payment activity yet.</p>';
+    return;
+  }
+  
+  // Sort by date (newest first)
+  const sortedPayments = [...payments].sort((a, b) => 
+    new Date(b.date || b.dateIso) - new Date(a.date || a.dateIso)
+  );
+  
+  let html = '';
+  sortedPayments.slice(0, 20).forEach(payment => {
+    html += `
+      <div class="payment-entry">
+        <div class="payment-header">
+          <strong>${payment.student || 'Unknown'}</strong>
+          <span class="payment-amount">$${payment.amount || 0}</span>
+          <div class="student-actions">
+            <button class="btn-icon" onclick="startEditPayment('${payment._id}')" title="Edit">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="btn-icon" onclick="deletePayment('${payment._id}')" title="Delete">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+        <div class="muted">
+          ${formatDate(payment.date)} • ${payment.method || 'No method'}
+        </div>
+        ${payment.notes ? `<div class="muted small">Notes: ${payment.notes}</div>` : ''}
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+}
+
+// Render student balances
+async function renderStudentBalances() {
+  const container = document.getElementById('studentBalancesContainer');
+  if (!container) return;
+  
+  const students = dataManager.cache.students;
+  const hours = dataManager.cache.hours;
+  const payments = dataManager.cache.payments;
+  
+  if (students.length === 0) {
+    container.innerHTML = '<p class="empty-message">No student data available.</p>';
+    return;
+  }
+  
+  let html = '';
+  let totalOwed = 0;
+  
+  students.forEach(student => {
+    // Calculate earnings for this student
+    const studentHours = hours.filter(h => h.student === student.name);
+    const earnings = studentHours.reduce((sum, h) => sum + (h.total || 0), 0);
+    
+    // Calculate payments from this student
+    const studentPayments = payments.filter(p => p.student === student.name);
+    const paid = studentPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    
+    const owed = Math.max(earnings - paid, 0);
+    totalOwed += owed;
+    
+    html += `
+      <div class="balance-entry">
+        <div class="balance-header">
+          <strong>${student.name}</strong>
+          <span class="balance-owed">$${owed.toFixed(2)}</span>
+        </div>
+        <div class="balance-details">
+          <span>Earned: $${earnings.toFixed(2)}</span>
+          <span>Paid: $${paid.toFixed(2)}</span>
+          <span>Owed: $${owed.toFixed(2)}</span>
+        </div>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+  
+  // Update total owed display
+  const totalOwedEl = document.getElementById('totalOwed');
+  if (totalOwedEl) {
+    totalOwedEl.textContent = `$${totalOwed.toFixed(2)}`;
+  }
+}
+
+// ==================== FORM HANDLERS ====================
+
+// Student form
+async function handleStudentSubmit(e) {
+  e.preventDefault();
+  
+  if (!auth.currentUser) {
+    showNotification('Please log in to add students', 'error');
+    return;
+  }
+  
+  const formData = new FormData(e.target);
+  const studentData = {
+    name: formData.get('studentName'),
+    studentId: formData.get('studentId'),
+    gender: formData.get('studentGender'),
+    email: formData.get('studentEmail'),
+    phone: formData.get('studentPhone'),
+    rate: formData.get('studentRate')
+  };
+  
+  try {
+    let message;
+    
+    if (currentEditId && currentEditType === 'student') {
+      await dataManager.saveStudent(studentData, currentEditId);
+      message = 'Student updated successfully';
+      exitEditMode();
+    } else {
+      await dataManager.saveStudent(studentData);
+      message = 'Student added successfully';
+    }
+    
+    // Refresh UI
+    await renderStudents();
+    await populateStudentDropdowns();
+    await renderStudentBalances();
+    updateAllStats();
+    
+    // Clear form
+    e.target.reset();
+    
+    // Show success message
+    showNotification(message, 'success');
+    
+  } catch (error) {
+    console.error('Error saving student:', error);
+    showNotification('Failed to save student', 'error');
+  }
+}
+
+// Hours form
+async function handleHoursSubmit(e) {
+  e.preventDefault();
+  
+  if (!auth.currentUser) {
+    showNotification('Please log in to log hours', 'error');
+    return;
+  }
+  
+  const formData = new FormData(e.target);
+  const hoursData = {
+    organization: formData.get('organization'),
+    subject: formData.get('workSubject'),
+    student: formData.get('hoursStudent'),
+    workType: formData.get('workType'),
+    date: formData.get('workDate'),
+    hours: formData.get('hoursWorked'),
+    rate: formData.get('baseRate'),
+    notes: formData.get('hoursNotes')
+  };
+  
+  try {
+    let message;
+    
+    if (currentEditId && currentEditType === 'hours') {
+      await dataManager.saveHours(hoursData, currentEditId);
+      message = 'Hours updated successfully';
+      exitEditMode();
+    } else {
+      await dataManager.saveHours(hoursData);
+      message = 'Hours logged successfully';
+    }
+    
+    // Refresh UI
+    await renderHours();
+    await renderStudentBalances();
+    updateAllStats();
+    
+    // Clear form (keep rate)
+    const defaultRate = localStorage.getItem('defaultHourlyRate') || '25.00';
+    e.target.reset();
+    document.getElementById('baseRate').value = defaultRate;
+    calculateTotalPay();
+    
+    showNotification(message, 'success');
+    
+  } catch (error) {
+    console.error('Error saving hours:', error);
+    showNotification('Failed to save hours', 'error');
+  }
+}
+
+// Marks form
+async function handleMarksSubmit(e) {
+  e.preventDefault();
+  
+  if (!auth.currentUser) {
+    showNotification('Please log in to add marks', 'error');
+    return;
+  }
+  
+  const formData = new FormData(e.target);
+  const marksData = {
+    student: formData.get('marksStudent'),
+    subject: formData.get('marksSubject'),
+    topic: formData.get('marksTopic'),
+    date: formData.get('marksDate'),
+    score: formData.get('marksScore'),
+    max: formData.get('marksMax'),
+    notes: formData.get('marksNotes')
+  };
+  
+  try {
+    let message;
+    
+    if (currentEditId && currentEditType === 'marks') {
+      await dataManager.saveMarks(marksData, currentEditId);
+      message = 'Mark updated successfully';
+      exitEditMode();
+    } else {
+      await dataManager.saveMarks(marksData);
+      message = 'Mark added successfully';
+    }
+    
+    // Refresh UI
+    await renderMarks();
+    updateAllStats();
+    
+    // Clear form
+    e.target.reset();
+    
+    showNotification(message, 'success');
+    
+  } catch (error) {
+    console.error('Error saving marks:', error);
+    showNotification('Failed to save marks', 'error');
+  }
+}
+
+// Attendance form
+async function handleAttendanceSubmit(e) {
+  e.preventDefault();
+  
+  if (!auth.currentUser) {
+    showNotification('Please log in to record attendance', 'error');
+    return;
+  }
+  
+  const formData = new FormData(e.target);
+  const presentStudents = Array.from(
+    document.querySelectorAll('#attendanceStudents input[type="checkbox"]:checked')
+  ).map(cb => cb.value);
+  
+  const attendanceData = {
+    date: formData.get('attendanceDate'),
+    subject: formData.get('attendanceSubject'),
+    topic: formData.get('attendanceTopic'),
+    present: presentStudents,
+    notes: formData.get('attendanceNotes')
+  };
+  
+  try {
+    let message;
+    
+    if (currentEditId && currentEditType === 'attendance') {
+      await dataManager.saveAttendance(attendanceData, currentEditId);
+      message = 'Attendance updated successfully';
+      exitEditMode();
+    } else {
+      await dataManager.saveAttendance(attendanceData);
+      message = 'Attendance recorded successfully';
+    }
+    
+    // Refresh UI
+    await renderAttendance();
+    updateAllStats();
+    
+    // Clear form
+    e.target.reset();
+    document.querySelectorAll('#attendanceStudents input[type="checkbox"]').forEach(cb => {
+      cb.checked = false;
+    });
+    
+    showNotification(message, 'success');
+    
+  } catch (error) {
+    console.error('Error saving attendance:', error);
+    showNotification('Failed to save attendance', 'error');
+  }
+}
+
+// Payment form
+async function handlePaymentSubmit(e) {
+  e.preventDefault();
+  
+  if (!auth.currentUser) {
+    showNotification('Please log in to record payments', 'error');
+    return;
+  }
+  
+  const formData = new FormData(e.target);
+  const paymentData = {
+    student: formData.get('paymentStudent'),
+    amount: formData.get('paymentAmount'),
+    date: formData.get('paymentDate'),
+    method: formData.get('paymentMethod'),
+    notes: formData.get('paymentNotes')
+  };
+  
+  try {
+    let message;
+    
+    if (currentEditId && currentEditType === 'payment') {
+      await dataManager.savePayment(paymentData, currentEditId);
+      message = 'Payment updated successfully';
+      exitEditMode();
+    } else {
+      await dataManager.savePayment(paymentData);
+      message = 'Payment recorded successfully';
+    }
+    
+    // Refresh UI
+    await renderPayments();
+    await renderStudentBalances();
+    updateAllStats();
+    
+    // Clear form
+    e.target.reset();
+    
+    showNotification(message, 'success');
+    
+  } catch (error) {
+    console.error('Error saving payment:', error);
+    showNotification('Failed to save payment', 'error');
+  }
+}
 
 // ==================== EDIT FUNCTIONS ====================
 
@@ -449,26 +718,135 @@ async function startEditHours(id) {
   showNotification('Edit mode activated. Update the hours entry.', 'info');
 }
 
+// Start editing marks
+async function startEditMark(id) {
+  const mark = dataManager.cache.marks.find(m => m._id === id);
+  if (!mark) return;
+  
+  currentEditId = id;
+  currentEditType = 'marks';
+  
+  // Fill form
+  document.getElementById('marksStudent').value = mark.student || '';
+  document.getElementById('marksSubject').value = mark.subject || '';
+  document.getElementById('marksTopic').value = mark.topic || '';
+  document.getElementById('marksDate').value = mark.date || '';
+  document.getElementById('marksScore').value = mark.score || '';
+  document.getElementById('marksMax').value = mark.max || '';
+  document.getElementById('marksNotes').value = mark.notes || '';
+  updateMarksPercentage();
+  
+  // Update button
+  const submitBtn = document.getElementById('marksSubmitBtn');
+  if (submitBtn) {
+    submitBtn.textContent = 'Update Mark';
+    submitBtn.className = 'button warning';
+  }
+  
+  // Show cancel button
+  const cancelBtn = document.getElementById('cancelMarkBtn');
+  if (cancelBtn) {
+    cancelBtn.style.display = 'inline-block';
+  }
+  
+  showNotification('Edit mode activated. Update the mark.', 'info');
+}
+
+// Start editing attendance
+async function startEditAttendance(id) {
+  const record = dataManager.cache.attendance.find(a => a._id === id);
+  if (!record) return;
+  
+  currentEditId = id;
+  currentEditType = 'attendance';
+  
+  // Fill form
+  document.getElementById('attendanceDate').value = record.date || '';
+  document.getElementById('attendanceSubject').value = record.subject || '';
+  document.getElementById('attendanceTopic').value = record.topic || '';
+  document.getElementById('attendanceNotes').value = record.notes || '';
+  
+  // Populate attendance students
+  await populateAttendanceStudents();
+  
+  // Check the students who were present
+  if (Array.isArray(record.present)) {
+    record.present.forEach(studentName => {
+      const checkbox = document.querySelector(`input[value="${studentName}"]`);
+      if (checkbox) checkbox.checked = true;
+    });
+  }
+  
+  // Update button
+  const submitBtn = document.getElementById('attendanceSubmitBtn');
+  if (submitBtn) {
+    submitBtn.textContent = 'Update Attendance';
+    submitBtn.className = 'button warning';
+  }
+  
+  // Show cancel button
+  const cancelBtn = document.getElementById('cancelAttendanceBtn');
+  if (cancelBtn) {
+    cancelBtn.style.display = 'inline-block';
+  }
+  
+  showNotification('Edit mode activated. Update the attendance record.', 'info');
+}
+
+// Start editing payment
+async function startEditPayment(id) {
+  const payment = dataManager.cache.payments.find(p => p._id === id);
+  if (!payment) return;
+  
+  currentEditId = id;
+  currentEditType = 'payment';
+  
+  // Fill form
+  document.getElementById('paymentStudent').value = payment.student || '';
+  document.getElementById('paymentAmount').value = payment.amount || '';
+  document.getElementById('paymentDate').value = payment.date || '';
+  document.getElementById('paymentMethod').value = payment.method || '';
+  document.getElementById('paymentNotes').value = payment.notes || '';
+  
+  // Update button
+  const submitBtn = document.getElementById('paymentSubmitBtn');
+  if (submitBtn) {
+    submitBtn.textContent = 'Update Payment';
+    submitBtn.className = 'button warning';
+  }
+  
+  // Show cancel button
+  const cancelBtn = document.getElementById('cancelPaymentBtn');
+  if (cancelBtn) {
+    cancelBtn.style.display = 'inline-block';
+  }
+  
+  showNotification('Edit mode activated. Update the payment.', 'info');
+}
+
 // Exit edit mode
 function exitEditMode() {
   currentEditId = null;
   currentEditType = null;
   
   // Reset all form buttons
-  const forms = ['student', 'hours', 'marks', 'attendance', 'payment'];
-  forms.forEach(type => {
-    const submitBtn = document.getElementById(`${type}SubmitBtn`);
+  const forms = [
+    { type: 'student', btn: 'studentSubmitBtn', defaultText: '➕ Add Student' },
+    { type: 'hours', btn: 'hoursSubmitBtn', defaultText: '💾 Log Work' },
+    { type: 'marks', btn: 'marksSubmitBtn', defaultText: '➕ Add Mark' },
+    { type: 'attendance', btn: 'attendanceSubmitBtn', defaultText: '💾 Save Attendance' },
+    { type: 'payment', btn: 'paymentSubmitBtn', defaultText: '💾 Record Payment' }
+  ];
+  
+  forms.forEach(form => {
+    const submitBtn = document.getElementById(form.btn);
     if (submitBtn) {
-      submitBtn.textContent = type === 'student' ? '➕ Add Student' :
-                            type === 'hours' ? '💾 Log Work' :
-                            type === 'marks' ? '➕ Add Mark' :
-                            type === 'attendance' ? '💾 Save Attendance' :
-                            '💾 Record Payment';
+      submitBtn.textContent = form.defaultText;
       submitBtn.className = 'button primary';
     }
     
-    const cancelBtn = document.getElementById(`${type}CancelBtn`) || 
-                      document.getElementById(`cancel${type.charAt(0).toUpperCase() + type.slice(1)}Edit`);
+    const cancelBtn = document.getElementById(`${form.type}CancelBtn`) || 
+                      document.getElementById(`cancel${form.type.charAt(0).toUpperCase() + form.type.slice(1)}Edit`);
     if (cancelBtn) {
       cancelBtn.style.display = 'none';
     }
@@ -485,6 +863,7 @@ async function deleteStudent(id) {
     await dataManager.deleteStudent(id);
     await renderStudents();
     await populateStudentDropdowns();
+    await renderStudentBalances();
     updateAllStats();
     showNotification('Student deleted successfully', 'success');
   } catch (error) {
@@ -500,6 +879,7 @@ async function deleteHours(id) {
   try {
     await dataManager.deleteHours(id);
     await renderHours();
+    await renderStudentBalances();
     updateAllStats();
     showNotification('Hours entry deleted successfully', 'success');
   } catch (error) {
@@ -508,43 +888,49 @@ async function deleteHours(id) {
   }
 }
 
-// Similar delete functions for marks, attendance, payments...
-
-// ==================== SYNC FUNCTIONS ====================
-
-async function syncNow() {
+// Delete marks
+async function deleteMark(id) {
+  if (!confirm('Are you sure you want to delete this mark?')) return;
+  
   try {
-    showNotification('Syncing data...', 'info');
-    
-    const result = await dataManager.manualSync();
-    
-    // Refresh all data
-    await dataManager.loadAllData();
-    await loadInitialData();
-    
-    showNotification(result.message, 'success');
-    updateSyncStatus();
-    
+    await dataManager.deleteMarks(id);
+    await renderMarks();
+    updateAllStats();
+    showNotification('Mark deleted successfully', 'success');
   } catch (error) {
-    console.error('Sync error:', error);
-    showNotification('Sync failed: ' + error.message, 'error');
+    console.error('Error deleting mark:', error);
+    showNotification('Failed to delete mark', 'error');
   }
 }
 
-function updateSyncStatus() {
-  const status = dataManager.getSyncStatus();
-  const syncIndicator = document.getElementById('syncIndicator');
-  const syncStatus = document.getElementById('syncStatus');
+// Delete attendance
+async function deleteAttendance(id) {
+  if (!confirm('Are you sure you want to delete this attendance record?')) return;
   
-  if (syncIndicator) {
-    syncIndicator.textContent = status.unsynced > 0 ? '🔄' : '✅';
-    syncIndicator.title = `${status.unsynced} unsynced items`;
+  try {
+    await dataManager.deleteAttendance(id);
+    await renderAttendance();
+    updateAllStats();
+    showNotification('Attendance record deleted successfully', 'success');
+  } catch (error) {
+    console.error('Error deleting attendance:', error);
+    showNotification('Failed to delete attendance record', 'error');
   }
+}
+
+// Delete payment
+async function deletePayment(id) {
+  if (!confirm('Are you sure you want to delete this payment?')) return;
   
-  if (syncStatus) {
-    syncStatus.textContent = status.unsynced > 0 ? 
-      `☁️ ${status.unsynced} pending` : 
-      `☁️ Synced (${status.total} items)`;
+  try {
+    await dataManager.deletePayment(id);
+    await renderPayments();
+    await renderStudentBalances();
+    updateAllStats();
+    showNotification('Payment deleted successfully', 'success');
+  } catch (error) {
+    console.error('Error deleting payment:', error);
+    showNotification('Failed to delete payment', 'error');
   }
 }
 
@@ -636,30 +1022,69 @@ function updateAllStats() {
   const paymentStats = dataManager.calculatePaymentStats();
   
   // Update student stats
-  document.getElementById('studentCount').textContent = studentStats.count;
-  document.getElementById('averageRate').textContent = studentStats.avgRate;
-  document.getElementById('totalStudentsCount').textContent = studentStats.count;
-  document.getElementById('totalStudentsReport').textContent = studentStats.count;
+  const studentCountEl = document.getElementById('studentCount');
+  const averageRateEl = document.getElementById('averageRate');
+  const totalStudentsCountEl = document.getElementById('totalStudentsCount');
+  const totalStudentsReportEl = document.getElementById('totalStudentsReport');
+  
+  if (studentCountEl) studentCountEl.textContent = studentStats.count;
+  if (averageRateEl) averageRateEl.textContent = studentStats.avgRate;
+  if (totalStudentsCountEl) totalStudentsCountEl.textContent = studentStats.count;
+  if (totalStudentsReportEl) totalStudentsReportEl.textContent = studentStats.count;
   
   // Update hours stats
-  document.getElementById('weeklyHours').textContent = hoursStats.weekly.hours;
-  document.getElementById('weeklyTotal').textContent = hoursStats.weekly.total;
-  document.getElementById('monthlyHours').textContent = hoursStats.monthly.hours;
-  document.getElementById('monthlyTotal').textContent = hoursStats.monthly.total;
+  const weeklyHoursEl = document.getElementById('weeklyHours');
+  const weeklyTotalEl = document.getElementById('weeklyTotal');
+  const monthlyHoursEl = document.getElementById('monthlyHours');
+  const monthlyTotalEl = document.getElementById('monthlyTotal');
+  const totalHoursReportEl = document.getElementById('totalHoursReport');
+  const totalEarningsReportEl = document.getElementById('totalEarningsReport');
+  
+  if (weeklyHoursEl) weeklyHoursEl.textContent = hoursStats.weekly.hours;
+  if (weeklyTotalEl) weeklyTotalEl.textContent = hoursStats.weekly.total;
+  if (monthlyHoursEl) monthlyHoursEl.textContent = hoursStats.monthly.hours;
+  if (monthlyTotalEl) monthlyTotalEl.textContent = hoursStats.monthly.total;
+  
+  // Calculate total hours and earnings
+  const totalHours = dataManager.cache.hours.reduce((sum, h) => sum + (h.hours || 0), 0);
+  const totalEarnings = dataManager.cache.hours.reduce((sum, h) => sum + (h.total || 0), 0);
+  
+  if (totalHoursReportEl) totalHoursReportEl.textContent = totalHours.toFixed(1);
+  if (totalEarningsReportEl) totalEarningsReportEl.textContent = `$${totalEarnings.toFixed(2)}`;
   
   // Update marks stats
-  document.getElementById('marksCount').textContent = marksStats.count;
-  document.getElementById('avgMarks').textContent = marksStats.avgPercentage;
-  document.getElementById('avgMarkReport').textContent = `${marksStats.avgPercentage}%`;
+  const marksCountEl = document.getElementById('marksCount');
+  const avgMarksEl = document.getElementById('avgMarks');
+  const avgMarkReportEl = document.getElementById('avgMarkReport');
+  
+  if (marksCountEl) marksCountEl.textContent = marksStats.count;
+  if (avgMarksEl) avgMarksEl.textContent = marksStats.avgPercentage;
+  if (avgMarkReportEl) avgMarkReportEl.textContent = `${marksStats.avgPercentage}%`;
   
   // Update payment stats
-  document.getElementById('monthlyPayments').textContent = paymentStats.monthly;
-  document.getElementById('totalPaymentsReport').textContent = paymentStats.total;
+  const monthlyPaymentsEl = document.getElementById('monthlyPayments');
+  const totalPaymentsReportEl = document.getElementById('totalPaymentsReport');
+  
+  if (monthlyPaymentsEl) monthlyPaymentsEl.textContent = `$${paymentStats.monthly}`;
+  if (totalPaymentsReportEl) totalPaymentsReportEl.textContent = `$${paymentStats.total}`;
+  
+  // Update attendance stats
+  const attendanceCountEl = document.getElementById('attendanceCount');
+  const lastSessionDateEl = document.getElementById('lastSessionDate');
+  
+  if (attendanceCountEl) attendanceCountEl.textContent = dataManager.cache.attendance.length;
+  
+  if (lastSessionDateEl && dataManager.cache.attendance.length > 0) {
+    const sortedAttendance = [...dataManager.cache.attendance].sort((a, b) => 
+      new Date(b.date || b.dateIso) - new Date(a.date || a.dateIso)
+    );
+    lastSessionDateEl.textContent = formatDate(sortedAttendance[0].date);
+  } else if (lastSessionDateEl) {
+    lastSessionDateEl.textContent = 'Never';
+  }
   
   // Update header stats
-  document.getElementById('statStudents').textContent = studentStats.count;
-  document.getElementById('statHours').textContent = 
-    dataManager.cache.hours.reduce((sum, h) => sum + (h.hours || 0), 0).toFixed(1);
+  updateHeaderStats();
 }
 
 // Update header stats
@@ -667,13 +1092,16 @@ function updateHeaderStats() {
   const studentCount = dataManager.cache.students.length;
   const totalHours = dataManager.cache.hours.reduce((sum, h) => sum + (h.hours || 0), 0);
   
-  document.getElementById('statStudents').textContent = studentCount;
-  document.getElementById('statHours').textContent = totalHours.toFixed(1);
+  const statStudentsEl = document.getElementById('statStudents');
+  const statHoursEl = document.getElementById('statHours');
+  const dataStatusEl = document.getElementById('dataStatus');
+  
+  if (statStudentsEl) statStudentsEl.textContent = studentCount;
+  if (statHoursEl) statHoursEl.textContent = totalHours.toFixed(1);
   
   // Update data status
-  const dataStatus = document.getElementById('dataStatus');
-  if (dataStatus) {
-    dataStatus.innerHTML = `📊 Data: <span id="statStudents">${studentCount}</span> Students, <span id="statHours">${totalHours.toFixed(1)}</span> Hours`;
+  if (dataStatusEl) {
+    dataStatusEl.innerHTML = `📊 Data: <span id="statStudents">${studentCount}</span> Students, <span id="statHours">${totalHours.toFixed(1)}</span> Hours`;
   }
 }
 
@@ -714,6 +1142,8 @@ function setupTabNavigation() {
       updateMarksPercentage();
     } else if (tabName === 'attendance') {
       populateAttendanceStudents();
+    } else if (tabName === 'payments') {
+      renderStudentBalances();
     }
   }
   
@@ -735,6 +1165,15 @@ function setupForms() {
   const studentForm = document.getElementById('studentForm');
   if (studentForm) {
     studentForm.addEventListener('submit', handleStudentSubmit);
+    
+    // Add click handler for submit button (in case form doesn't submit properly)
+    const studentSubmitBtn = document.getElementById('studentSubmitBtn');
+    if (studentSubmitBtn) {
+      studentSubmitBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        handleStudentSubmit(new Event('submit'));
+      });
+    }
   }
   
   // Hours form
@@ -748,24 +1187,60 @@ function setupForms() {
     
     if (hoursInput) hoursInput.addEventListener('input', calculateTotalPay);
     if (rateInput) rateInput.addEventListener('input', calculateTotalPay);
+    
+    // Add click handler for submit button
+    const hoursSubmitBtn = document.getElementById('hoursSubmitBtn');
+    if (hoursSubmitBtn) {
+      hoursSubmitBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        handleHoursSubmit(new Event('submit'));
+      });
+    }
   }
   
   // Marks form
   const marksForm = document.getElementById('marksForm');
   if (marksForm) {
     marksForm.addEventListener('submit', handleMarksSubmit);
+    
+    // Add click handler for submit button
+    const marksSubmitBtn = document.getElementById('marksSubmitBtn');
+    if (marksSubmitBtn) {
+      marksSubmitBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        handleMarksSubmit(new Event('submit'));
+      });
+    }
   }
   
   // Attendance form
   const attendanceForm = document.getElementById('attendanceForm');
   if (attendanceForm) {
     attendanceForm.addEventListener('submit', handleAttendanceSubmit);
+    
+    // Add click handler for submit button
+    const attendanceSubmitBtn = document.getElementById('attendanceSubmitBtn');
+    if (attendanceSubmitBtn) {
+      attendanceSubmitBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        handleAttendanceSubmit(new Event('submit'));
+      });
+    }
   }
   
   // Payment form
   const paymentForm = document.getElementById('paymentForm');
   if (paymentForm) {
     paymentForm.addEventListener('submit', handlePaymentSubmit);
+    
+    // Add click handler for submit button
+    const paymentSubmitBtn = document.getElementById('paymentSubmitBtn');
+    if (paymentSubmitBtn) {
+      paymentSubmitBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        handlePaymentSubmit(new Event('submit'));
+      });
+    }
   }
 }
 
@@ -822,13 +1297,34 @@ function setupEventListeners() {
   const clearDataBtn = document.getElementById('clearDataBtn');
   if (clearDataBtn) {
     clearDataBtn.addEventListener('click', async () => {
-      const success = await dataManager.clearAllData();
-      if (success) {
-        showNotification('All data cleared successfully', 'success');
-        setTimeout(() => location.reload(), 1000);
+      if (confirm('Are you sure? This will delete ALL local data and sync deletions to cloud!')) {
+        try {
+          await dataManager.clearAllData();
+          showNotification('All data cleared successfully', 'success');
+          setTimeout(() => location.reload(), 1000);
+        } catch (error) {
+          console.error('Error clearing data:', error);
+          showNotification('Failed to clear data', 'error');
+        }
       }
     });
   }
+  
+  // Cancel edit buttons
+  const cancelButtons = [
+    { id: 'studentCancelBtn', type: 'student' },
+    { id: 'cancelHoursEdit', type: 'hours' },
+    { id: 'cancelMarkBtn', type: 'marks' },
+    { id: 'cancelAttendanceBtn', type: 'attendance' },
+    { id: 'cancelPaymentBtn', type: 'payment' }
+  ];
+  
+  cancelButtons.forEach(btn => {
+    const element = document.getElementById(btn.id);
+    if (element) {
+      element.addEventListener('click', exitEditMode);
+    }
+  });
 }
 
 // Setup profile modal
@@ -864,7 +1360,6 @@ function setupProfileModal() {
       if (confirm('Are you sure you want to logout?')) {
         try {
           await signOut(auth);
-          window.location.href = 'auth.html';
         } catch (error) {
           console.error('Logout error:', error);
           showNotification('Logout failed', 'error');
@@ -954,8 +1449,8 @@ function setupFloatingAddButton() {
     });
     
     function closeFabMenu() {
-      fabMenu.classList.remove('active');
-      fabOverlay.style.display = 'none';
+      if (fabMenu) fabMenu.classList.remove('active');
+      if (fabOverlay) fabOverlay.style.display = 'none';
     }
   }
 }
@@ -1047,6 +1542,48 @@ async function populateAttendanceStudents() {
   container.innerHTML = html;
 }
 
+// Sync functions
+async function syncNow() {
+  if (!auth.currentUser) {
+    showNotification('Please log in to sync', 'error');
+    return;
+  }
+  
+  try {
+    showNotification('Syncing data...', 'info');
+    
+    const result = await dataManager.manualSync();
+    
+    // Refresh all data
+    await dataManager.loadAllData();
+    await loadInitialData();
+    
+    showNotification(result.message, 'success');
+    updateSyncStatus();
+    
+  } catch (error) {
+    console.error('Sync error:', error);
+    showNotification('Sync failed: ' + error.message, 'error');
+  }
+}
+
+function updateSyncStatus() {
+  const status = dataManager.getSyncStatus();
+  const syncIndicator = document.getElementById('syncIndicator');
+  const syncStatus = document.getElementById('syncStatus');
+  
+  if (syncIndicator) {
+    syncIndicator.textContent = status.unsynced > 0 ? '🔄' : '✅';
+    syncIndicator.title = `${status.unsynced} unsynced items`;
+  }
+  
+  if (syncStatus) {
+    syncStatus.textContent = status.unsynced > 0 ? 
+      `☁️ ${status.unsynced} pending` : 
+      `☁️ Synced (${status.total} items)`;
+  }
+}
+
 // ==================== GLOBAL FUNCTIONS ====================
 
 // Functions that need to be available globally
@@ -1082,8 +1619,16 @@ window.saveDefaultRate = function() {
   localStorage.setItem('defaultHourlyRate', rate.toString());
   
   // Update displays
-  document.getElementById('currentDefaultRateDisplay').textContent = rate.toFixed(2);
-  document.getElementById('currentDefaultRate').textContent = rate.toFixed(2);
+  const currentDefaultRateDisplay = document.getElementById('currentDefaultRateDisplay');
+  const currentDefaultRate = document.getElementById('currentDefaultRate');
+  
+  if (currentDefaultRateDisplay) {
+    currentDefaultRateDisplay.textContent = rate.toFixed(2);
+  }
+  
+  if (currentDefaultRate) {
+    currentDefaultRate.textContent = rate.toFixed(2);
+  }
   
   showNotification(`Default rate saved: $${rate.toFixed(2)}/session`, 'success');
 };
@@ -1123,9 +1668,46 @@ window.showSubjectBreakdown = function() {
   showNotification('Subject report feature coming soon', 'info');
 };
 
+window.clearStudentForm = function() {
+  const form = document.getElementById('studentForm');
+  if (form) form.reset();
+  exitEditMode();
+};
+
+window.resetHoursForm = function() {
+  const form = document.getElementById('hoursForm');
+  if (form) {
+    form.reset();
+    calculateTotalPay();
+  }
+  exitEditMode();
+};
+
+window.resetMarksForm = function() {
+  const form = document.getElementById('marksForm');
+  if (form) form.reset();
+  exitEditMode();
+};
+
+window.resetPaymentForm = function() {
+  const form = document.getElementById('paymentForm');
+  if (form) form.reset();
+  exitEditMode();
+};
+
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', initApp);
 
 // Export for debugging
 window.dataManager = dataManager;
 window.firebaseManager = firebaseManager;
+window.startEditStudent = startEditStudent;
+window.startEditHours = startEditHours;
+window.startEditMark = startEditMark;
+window.startEditAttendance = startEditAttendance;
+window.startEditPayment = startEditPayment;
+window.deleteStudent = deleteStudent;
+window.deleteHours = deleteHours;
+window.deleteMark = deleteMark;
+window.deleteAttendance = deleteAttendance;
+window.deletePayment = deletePayment;
