@@ -501,6 +501,7 @@ function initFAB() {
     'fabAddHours': 'hours',
     'fabAddMark': 'marks',
     'fabAddAttendance': 'attendance'
+    'fabViewReports': 'reports'
   };
   
   Object.keys(fabActions).forEach(fabId => {
