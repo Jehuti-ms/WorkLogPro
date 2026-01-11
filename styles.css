@@ -246,41 +246,105 @@ body {
   background: rgba(30, 41, 59, 0.8);
 }
 
+/* ==================== SYNC INDICATOR - PILL WITH TEXT INSIDE ==================== */
 #syncIndicator {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--muted);
-  transition: all 0.3s ease;
+  /* Pill shape with text inside */
+  width: 70px !important;
+  height: 24px !important;
+  min-width: 70px !important;
+  min-height: 24px !important;
+  border-radius: 12px !important;
+  
+  /* Perfect text centering */
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  
+  /* Typography - white text */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  color: white !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  
+  /* Appearance */
+  background: #10b981 !important; /* Green by default (online) */
+  border: none !important;
+  outline: none !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+  transition: all 0.3s ease !important;
+  margin-right: 10px !important;
+  padding: 0 !important;
+  cursor: default !important;
+  user-select: none !important;
+  
+  /* Ensure no conflicts */
+  opacity: 1 !important;
+  animation: none !important;
 }
 
-#syncIndicator.sync-connected {
-  background: var(--success);
+/* Status Color Variants */
+#syncIndicator.online {
+  background: #10b981 !important; /* Green - success color */
 }
 
-#syncIndicator.sync-active {
-  background: var(--primary);
-  animation: pulse 1.5s infinite;
+#syncIndicator.offline {
+  background: #ef4444 !important; /* Red - error color */
 }
 
+#syncIndicator.syncing {
+  background: #f59e0b !important; /* Orange - warning color */
+  animation: pulse 1.5s infinite !important;
+}
+
+#syncIndicator.success {
+  background: #10b981 !important; /* Green */
+}
+
+#syncIndicator.error {
+  background: #ef4444 !important; /* Red */
+}
+
+#syncIndicator.warning {
+  background: #f59e0b !important; /* Orange */
+}
+
+#syncIndicator.local {
+  background: #8b5cf6 !important; /* Purple */
+}
+
+/* Smooth pulse animation */
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%, 100% { 
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.85;
+    transform: scale(0.98);
+  }
 }
 
-#syncSpinner {
-  display: none;
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--border);
-  border-top: 2px solid var(--primary);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+/* Make sure the sync-toolbar has proper alignment */
+.sync-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 15px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  min-height: 50px;
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+/* Ensure all items in sync toolbar are vertically aligned */
+.sync-toolbar > * {
+  display: flex;
+  align-items: center;
+  height: 32px;
 }
 
 .auto-sync-label {
