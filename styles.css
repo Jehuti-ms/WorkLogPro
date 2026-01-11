@@ -2945,3 +2945,124 @@ button:focus:not(:focus-visible) {
   width: 100%;
 }
 
+/* Sync Indicators */
+#syncIndicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  margin-right: 8px;
+  font-size: 14px;
+}
+
+#syncIndicator.syncing {
+  background: #fbbf24;
+  color: #78350f;
+  animation: spin 1s linear infinite;
+}
+
+#syncIndicator.offline {
+  background: #ef4444;
+  color: white;
+}
+
+#syncIndicator.pending {
+  background: #f59e0b;
+  color: #78350f;
+}
+
+#syncIndicator.synced {
+  background: #10b981;
+  color: white;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Network Status */
+#syncStatus {
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+/* Notifications */
+.notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  min-width: 300px;
+  max-width: 400px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  animation: slideIn 0.3s ease-out;
+}
+
+.notification-content {
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  gap: 12px;
+}
+
+.notification-icon {
+  font-size: 1.2em;
+  flex-shrink: 0;
+}
+
+.notification-message {
+  flex: 1;
+  font-weight: 500;
+}
+
+.notification-close {
+  background: none;
+  border: none;
+  font-size: 1.5em;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.notification-close:hover {
+  background: var(--border-light);
+}
+
+.notification-success {
+  border-left: 4px solid #10b981;
+}
+
+.notification-error {
+  border-left: 4px solid #ef4444;
+}
+
+.notification-info {
+  border-left: 4px solid #3b82f6;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
