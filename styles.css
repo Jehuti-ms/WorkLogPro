@@ -2804,17 +2804,17 @@ button:focus:not(:focus-visible) {
 }
 
 /* Sync Indicator */
-#syncIndicator {
+/*#syncIndicator {
   width: 12px;
   height: 12px;
   border-radius: 50%;
   background: var(--success);
   display: inline-block;
   margin-right: 8px;
-  
+  /*animation: 2s ease 0s infinite; */
 }
 
-#syncIndicator.syncing {
+/*#syncIndicator.syncing {
   background: var(--warning);
   animation: spin 1s infinite linear;
 }
@@ -2822,12 +2822,12 @@ button:focus:not(:focus-visible) {
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
-}
+}*/
 
-@keyframes spin {
+/*@keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
-}
+}*/
 
 /* Theme Toggle */
 .theme-toggle button {
@@ -3049,11 +3049,11 @@ button:focus:not(:focus-visible) {
   font-size: 14px;
 }
 
-#syncIndicator.syncing {
+/*#syncIndicator.syncing {
   background: #fbbf24;
   color: #78350f;
   animation: spin 1s linear infinite;
-}
+}*/
 
 #syncIndicator.offline {
   background: #ef4444;
