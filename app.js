@@ -2178,6 +2178,7 @@ function updateGlobalStats() {
   
   if (window.formHandler && window.formHandler.getStatistics) {
     stats = window.formHandler.getStatistics();
+    console.log('Stats from formHandler:', stats);
   } else {
     // Fallback calculation
     const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
@@ -2192,16 +2193,22 @@ function updateGlobalStats() {
     }, 0);
   }
   
+  // FIX: Ensure totalHours is a number
+  const totalHours = parseFloat(stats.totalHours) || 0;
+  const totalEarnings = parseFloat(stats.totalEarnings) || 0;
+  
+  console.log('Processed stats:', { totalHours, totalEarnings, students: stats.students });
+  
   // Update UI elements
   const studentCountElem = document.getElementById('statStudents');
   const hoursElem = document.getElementById('statHours');
   const avgRateElem = document.getElementById('averageRate');
   
-  if (studentCountElem) studentCountElem.textContent = stats.students;
-  if (hoursElem) hoursElem.textContent = stats.totalHours.toFixed(1);
+  if (studentCountElem) studentCountElem.textContent = stats.students || 0;
+  if (hoursElem) hoursElem.textContent = totalHours.toFixed(1);
   
   // Calculate average rate
-  if (avgRateElem && stats.students > 0) {
+  if (avgRateElem) {
     let students = [];
     if (window.formHandler && window.formHandler.getStudents) {
       students = window.formHandler.getStudents();
@@ -2209,9 +2216,13 @@ function updateGlobalStats() {
       students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
     }
     
-    const totalRate = students.reduce((sum, student) => sum + (parseFloat(student.rate) || 0), 0);
-    const avgRate = totalRate / students.length;
-    avgRateElem.textContent = avgRate.toFixed(2);
+    if (students.length > 0) {
+      const totalRate = students.reduce((sum, student) => sum + (parseFloat(student.rate) || 0), 0);
+      const avgRate = totalRate / students.length;
+      avgRateElem.textContent = avgRate.toFixed(2);
+    } else {
+      avgRateElem.textContent = '0.00';
+    }
   }
 }
 
