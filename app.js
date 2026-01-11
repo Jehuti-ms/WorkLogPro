@@ -1314,6 +1314,11 @@ function updateSyncIndicator(text, status) {
   // Set text and status class
   syncIndicator.textContent = text;
   syncIndicator.classList.add(status);
+  
+  // Force reflow to ensure proper rendering
+  syncIndicator.style.display = 'none';
+  syncIndicator.offsetHeight; // Trigger reflow
+  syncIndicator.style.display = 'inline-flex';
 }
 
 function showNotification(message, type = 'info') {
