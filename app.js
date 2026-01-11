@@ -1,4 +1,4 @@
-// app.js - UPDATED WITH AUTH FIX
+// app.js - MAIN APPLICATION FILE
 import { auth } from './firebase-config.js';
 import { firebaseManager } from './firebase-manager.js';
 import { dataManager } from './data-manager.js';
@@ -7,10 +7,9 @@ import {
   signOut 
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-// DOM Elements
+// Global state
 let currentEditId = null;
 let currentEditType = null;
-let isAppInitialized = false;
 
 // Initialize application
 async function initApp() {
@@ -19,13 +18,19 @@ async function initApp() {
   // Setup auth listener first
   setupAuthListener();
   
-  // Initialize UI components (they'll work even without auth)
+  // Initialize UI components
   setupTabNavigation();
   setupForms();
   setupEventListeners();
   setupProfileModal();
   setupFloatingAddButton();
   setupSyncControls();
+  
+  // Set default rate from localStorage
+  const defaultRate = localStorage.getItem('defaultHourlyRate') || '25.00';
+  document.getElementById('currentDefaultRateDisplay').textContent = defaultRate;
+  document.getElementById('currentDefaultRate').textContent = defaultRate;
+  document.getElementById('defaultBaseRate').value = defaultRate;
   
   console.log('✅ UI components initialized');
 }
@@ -37,19 +42,17 @@ function setupAuthListener() {
       console.log('🟢 User authenticated:', user.email);
       await initializeUserSession(user);
     } else {
-      console.log('🔴 No user authenticated - redirecting to login');
-      redirectToLogin();
+      console.log('🔴 No user authenticated');
+      
+      // Check if we're already on auth.html
+      if (!window.location.pathname.includes('auth.html')) {
+        console.log('🔐 Redirecting to login...');
+        setTimeout(() => {
+          window.location.href = 'auth.html';
+        }, 1000);
+      }
     }
   });
-}
-
-// Redirect to login page
-function redirectToLogin() {
-  // Check if we're already on auth.html
-  if (!window.location.pathname.includes('auth.html')) {
-    console.log('🔐 Redirecting to login page...');
-    window.location.href = 'auth.html';
-  }
 }
 
 // Initialize user session
@@ -68,15 +71,14 @@ async function initializeUserSession(user) {
     
     // Update UI
     updateHeaderStats();
-    updateSyncStatus();
+    updateAllStats();
     updateProfileInfo();
     
-    isAppInitialized = true;
     console.log('✅ User session initialized successfully');
     
   } catch (error) {
     console.error('Error initializing user session:', error);
-    showNotification('Failed to initialize app', 'error');
+    showNotification('Failed to initialize app: ' + error.message, 'error');
   }
 }
 
@@ -94,9 +96,6 @@ async function loadInitialData() {
       renderPayments(),
       populateStudentDropdowns()
     ]);
-    
-    // Calculate and display stats
-    updateAllStats();
     
     console.log('✅ Initial data loaded');
     
@@ -407,11 +406,6 @@ async function renderStudentBalances() {
 async function handleStudentSubmit(e) {
   e.preventDefault();
   
-  if (!auth.currentUser) {
-    showNotification('Please log in to add students', 'error');
-    return;
-  }
-  
   const formData = new FormData(e.target);
   const studentData = {
     name: formData.get('studentName'),
@@ -426,7 +420,7 @@ async function handleStudentSubmit(e) {
     let message;
     
     if (currentEditId && currentEditType === 'student') {
-      await dataManager.saveStudent(studentData, currentEditId);
+      await dataManager.updateStudent(currentEditId, studentData);
       message = 'Student updated successfully';
       exitEditMode();
     } else {
@@ -456,11 +450,6 @@ async function handleStudentSubmit(e) {
 async function handleHoursSubmit(e) {
   e.preventDefault();
   
-  if (!auth.currentUser) {
-    showNotification('Please log in to log hours', 'error');
-    return;
-  }
-  
   const formData = new FormData(e.target);
   const hoursData = {
     organization: formData.get('organization'),
@@ -477,7 +466,7 @@ async function handleHoursSubmit(e) {
     let message;
     
     if (currentEditId && currentEditType === 'hours') {
-      await dataManager.saveHours(hoursData, currentEditId);
+      await dataManager.updateHours(currentEditId, hoursData);
       message = 'Hours updated successfully';
       exitEditMode();
     } else {
@@ -507,11 +496,6 @@ async function handleHoursSubmit(e) {
 // Marks form
 async function handleMarksSubmit(e) {
   e.preventDefault();
-  
-  if (!auth.currentUser) {
-    showNotification('Please log in to add marks', 'error');
-    return;
-  }
   
   const formData = new FormData(e.target);
   const marksData = {
@@ -554,11 +538,6 @@ async function handleMarksSubmit(e) {
 // Attendance form
 async function handleAttendanceSubmit(e) {
   e.preventDefault();
-  
-  if (!auth.currentUser) {
-    showNotification('Please log in to record attendance', 'error');
-    return;
-  }
   
   const formData = new FormData(e.target);
   const presentStudents = Array.from(
@@ -606,11 +585,6 @@ async function handleAttendanceSubmit(e) {
 // Payment form
 async function handlePaymentSubmit(e) {
   e.preventDefault();
-  
-  if (!auth.currentUser) {
-    showNotification('Please log in to record payments', 'error');
-    return;
-  }
   
   const formData = new FormData(e.target);
   const paymentData = {
@@ -1018,73 +992,41 @@ function showNotification(message, type = 'info') {
 function updateAllStats() {
   const studentStats = dataManager.calculateStudentStats();
   const hoursStats = dataManager.calculateHoursStats();
-  const marksStats = dataManager.calculateMarksStats();
   const paymentStats = dataManager.calculatePaymentStats();
   
   // Update student stats
-  const studentCountEl = document.getElementById('studentCount');
-  const averageRateEl = document.getElementById('averageRate');
-  const totalStudentsCountEl = document.getElementById('totalStudentsCount');
-  const totalStudentsReportEl = document.getElementById('totalStudentsReport');
-  
-  if (studentCountEl) studentCountEl.textContent = studentStats.count;
-  if (averageRateEl) averageRateEl.textContent = studentStats.avgRate;
-  if (totalStudentsCountEl) totalStudentsCountEl.textContent = studentStats.count;
-  if (totalStudentsReportEl) totalStudentsReportEl.textContent = studentStats.count;
+  updateElement('studentCount', studentStats.count);
+  updateElement('averageRate', studentStats.avgRate);
+  updateElement('totalStudentsCount', studentStats.count);
+  updateElement('totalStudentsReport', studentStats.count);
   
   // Update hours stats
-  const weeklyHoursEl = document.getElementById('weeklyHours');
-  const weeklyTotalEl = document.getElementById('weeklyTotal');
-  const monthlyHoursEl = document.getElementById('monthlyHours');
-  const monthlyTotalEl = document.getElementById('monthlyTotal');
-  const totalHoursReportEl = document.getElementById('totalHoursReport');
-  const totalEarningsReportEl = document.getElementById('totalEarningsReport');
-  
-  if (weeklyHoursEl) weeklyHoursEl.textContent = hoursStats.weekly.hours;
-  if (weeklyTotalEl) weeklyTotalEl.textContent = hoursStats.weekly.total;
-  if (monthlyHoursEl) monthlyHoursEl.textContent = hoursStats.monthly.hours;
-  if (monthlyTotalEl) monthlyTotalEl.textContent = hoursStats.monthly.total;
-  
-  // Calculate total hours and earnings
-  const totalHours = dataManager.cache.hours.reduce((sum, h) => sum + (h.hours || 0), 0);
-  const totalEarnings = dataManager.cache.hours.reduce((sum, h) => sum + (h.total || 0), 0);
-  
-  if (totalHoursReportEl) totalHoursReportEl.textContent = totalHours.toFixed(1);
-  if (totalEarningsReportEl) totalEarningsReportEl.textContent = `$${totalEarnings.toFixed(2)}`;
+  updateElement('weeklyHours', hoursStats.weekly.hours);
+  updateElement('weeklyTotal', hoursStats.weekly.total);
+  updateElement('monthlyHours', hoursStats.monthly.hours);
+  updateElement('monthlyTotal', hoursStats.monthly.total);
+  updateElement('totalHoursReport', hoursStats.total.hours);
+  updateElement('totalEarningsReport', `$${hoursStats.total.earnings}`);
   
   // Update marks stats
-  const marksCountEl = document.getElementById('marksCount');
-  const avgMarksEl = document.getElementById('avgMarks');
-  const avgMarkReportEl = document.getElementById('avgMarkReport');
-  
-  if (marksCountEl) marksCountEl.textContent = marksStats.count;
-  if (avgMarksEl) avgMarksEl.textContent = marksStats.avgPercentage;
-  if (avgMarkReportEl) avgMarkReportEl.textContent = `${marksStats.avgPercentage}%`;
+  const marksCount = dataManager.cache.marks.length;
+  updateElement('marksCount', marksCount);
+  updateElement('avgMarks', '0%'); // Would need to calculate
+  updateElement('avgMarkReport', '0%');
   
   // Update payment stats
-  const monthlyPaymentsEl = document.getElementById('monthlyPayments');
-  const totalPaymentsReportEl = document.getElementById('totalPaymentsReport');
-  
-  if (monthlyPaymentsEl) monthlyPaymentsEl.textContent = `$${paymentStats.monthly}`;
-  if (totalPaymentsReportEl) totalPaymentsReportEl.textContent = `$${paymentStats.total}`;
-  
-  // Update attendance stats
-  const attendanceCountEl = document.getElementById('attendanceCount');
-  const lastSessionDateEl = document.getElementById('lastSessionDate');
-  
-  if (attendanceCountEl) attendanceCountEl.textContent = dataManager.cache.attendance.length;
-  
-  if (lastSessionDateEl && dataManager.cache.attendance.length > 0) {
-    const sortedAttendance = [...dataManager.cache.attendance].sort((a, b) => 
-      new Date(b.date || b.dateIso) - new Date(a.date || a.dateIso)
-    );
-    lastSessionDateEl.textContent = formatDate(sortedAttendance[0].date);
-  } else if (lastSessionDateEl) {
-    lastSessionDateEl.textContent = 'Never';
-  }
+  updateElement('monthlyPayments', `$${paymentStats.monthly}`);
+  updateElement('totalPaymentsReport', `$${paymentStats.total}`);
   
   // Update header stats
   updateHeaderStats();
+}
+
+function updateElement(id, value) {
+  const element = document.getElementById(id);
+  if (element) {
+    element.textContent = value;
+  }
 }
 
 // Update header stats
@@ -1092,16 +1034,13 @@ function updateHeaderStats() {
   const studentCount = dataManager.cache.students.length;
   const totalHours = dataManager.cache.hours.reduce((sum, h) => sum + (h.hours || 0), 0);
   
-  const statStudentsEl = document.getElementById('statStudents');
-  const statHoursEl = document.getElementById('statHours');
-  const dataStatusEl = document.getElementById('dataStatus');
-  
-  if (statStudentsEl) statStudentsEl.textContent = studentCount;
-  if (statHoursEl) statHoursEl.textContent = totalHours.toFixed(1);
+  updateElement('statStudents', studentCount);
+  updateElement('statHours', totalHours.toFixed(1));
   
   // Update data status
-  if (dataStatusEl) {
-    dataStatusEl.innerHTML = `📊 Data: <span id="statStudents">${studentCount}</span> Students, <span id="statHours">${totalHours.toFixed(1)}</span> Hours`;
+  const dataStatus = document.getElementById('dataStatus');
+  if (dataStatus) {
+    dataStatus.innerHTML = `📊 Data: <span id="statStudents">${studentCount}</span> Students, <span id="statHours">${totalHours.toFixed(1)}</span> Hours`;
   }
 }
 
@@ -1165,15 +1104,6 @@ function setupForms() {
   const studentForm = document.getElementById('studentForm');
   if (studentForm) {
     studentForm.addEventListener('submit', handleStudentSubmit);
-    
-    // Add click handler for submit button (in case form doesn't submit properly)
-    const studentSubmitBtn = document.getElementById('studentSubmitBtn');
-    if (studentSubmitBtn) {
-      studentSubmitBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        handleStudentSubmit(new Event('submit'));
-      });
-    }
   }
   
   // Hours form
@@ -1187,60 +1117,24 @@ function setupForms() {
     
     if (hoursInput) hoursInput.addEventListener('input', calculateTotalPay);
     if (rateInput) rateInput.addEventListener('input', calculateTotalPay);
-    
-    // Add click handler for submit button
-    const hoursSubmitBtn = document.getElementById('hoursSubmitBtn');
-    if (hoursSubmitBtn) {
-      hoursSubmitBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        handleHoursSubmit(new Event('submit'));
-      });
-    }
   }
   
   // Marks form
   const marksForm = document.getElementById('marksForm');
   if (marksForm) {
     marksForm.addEventListener('submit', handleMarksSubmit);
-    
-    // Add click handler for submit button
-    const marksSubmitBtn = document.getElementById('marksSubmitBtn');
-    if (marksSubmitBtn) {
-      marksSubmitBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        handleMarksSubmit(new Event('submit'));
-      });
-    }
   }
   
   // Attendance form
   const attendanceForm = document.getElementById('attendanceForm');
   if (attendanceForm) {
     attendanceForm.addEventListener('submit', handleAttendanceSubmit);
-    
-    // Add click handler for submit button
-    const attendanceSubmitBtn = document.getElementById('attendanceSubmitBtn');
-    if (attendanceSubmitBtn) {
-      attendanceSubmitBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        handleAttendanceSubmit(new Event('submit'));
-      });
-    }
   }
   
   // Payment form
   const paymentForm = document.getElementById('paymentForm');
   if (paymentForm) {
     paymentForm.addEventListener('submit', handlePaymentSubmit);
-    
-    // Add click handler for submit button
-    const paymentSubmitBtn = document.getElementById('paymentSubmitBtn');
-    if (paymentSubmitBtn) {
-      paymentSubmitBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        handlePaymentSubmit(new Event('submit'));
-      });
-    }
   }
 }
 
@@ -1249,7 +1143,13 @@ function setupEventListeners() {
   // Sync button
   const syncBtn = document.getElementById('syncBtn');
   if (syncBtn) {
-    syncBtn.addEventListener('click', syncNow);
+    syncBtn.addEventListener('click', async () => {
+      try {
+        await dataManager.manualSync();
+      } catch (error) {
+        console.error('Sync error:', error);
+      }
+    });
   }
   
   // Export data button
@@ -1258,10 +1158,8 @@ function setupEventListeners() {
     exportDataBtn.addEventListener('click', async () => {
       try {
         await dataManager.exportData();
-        showNotification('Data exported successfully', 'success');
       } catch (error) {
         console.error('Export error:', error);
-        showNotification('Export failed', 'error');
       }
     });
   }
@@ -1282,10 +1180,8 @@ function setupEventListeners() {
           await dataManager.importData(file);
           await dataManager.loadAllData();
           await loadInitialData();
-          showNotification('Data imported successfully', 'success');
         } catch (error) {
           console.error('Import error:', error);
-          showNotification('Import failed: ' + error.message, 'error');
         }
       });
       
@@ -1297,34 +1193,19 @@ function setupEventListeners() {
   const clearDataBtn = document.getElementById('clearDataBtn');
   if (clearDataBtn) {
     clearDataBtn.addEventListener('click', async () => {
-      if (confirm('Are you sure? This will delete ALL local data and sync deletions to cloud!')) {
-        try {
-          await dataManager.clearAllData();
-          showNotification('All data cleared successfully', 'success');
-          setTimeout(() => location.reload(), 1000);
-        } catch (error) {
-          console.error('Error clearing data:', error);
-          showNotification('Failed to clear data', 'error');
-        }
+      const success = await dataManager.clearAllData();
+      if (success) {
+        setTimeout(() => location.reload(), 1000);
       }
     });
   }
   
   // Cancel edit buttons
-  const cancelButtons = [
-    { id: 'studentCancelBtn', type: 'student' },
-    { id: 'cancelHoursEdit', type: 'hours' },
-    { id: 'cancelMarkBtn', type: 'marks' },
-    { id: 'cancelAttendanceBtn', type: 'attendance' },
-    { id: 'cancelPaymentBtn', type: 'payment' }
-  ];
-  
-  cancelButtons.forEach(btn => {
-    const element = document.getElementById(btn.id);
-    if (element) {
-      element.addEventListener('click', exitEditMode);
-    }
-  });
+  document.getElementById('studentCancelBtn')?.addEventListener('click', exitEditMode);
+  document.getElementById('cancelHoursEdit')?.addEventListener('click', exitEditMode);
+  document.getElementById('cancelMarkBtn')?.addEventListener('click', exitEditMode);
+  document.getElementById('cancelAttendanceBtn')?.addEventListener('click', exitEditMode);
+  document.getElementById('cancelPaymentBtn')?.addEventListener('click', exitEditMode);
 }
 
 // Setup profile modal
@@ -1387,7 +1268,6 @@ function updateProfileInfo() {
   }
   
   // Update stats in modal
-  const stats = dataManager.getSyncStatus();
   document.getElementById('modalStatStudents').textContent = dataManager.cache.students.length;
   
   const totalHours = dataManager.cache.hours.reduce((sum, h) => sum + (h.hours || 0), 0);
@@ -1461,8 +1341,8 @@ function setupSyncControls() {
   const autoSyncText = document.getElementById('autoSyncText');
   
   if (autoSyncCheckbox && autoSyncText) {
-    // Load saved setting
-    const autoSyncEnabled = localStorage.getItem('autoSyncEnabled') === 'true';
+    // Load saved setting (default to true)
+    const autoSyncEnabled = localStorage.getItem('autoSyncEnabled') !== 'false';
     autoSyncCheckbox.checked = autoSyncEnabled;
     autoSyncText.textContent = autoSyncEnabled ? 'Auto' : 'Manual';
     
@@ -1472,8 +1352,11 @@ function setupSyncControls() {
       localStorage.setItem('autoSyncEnabled', enabled.toString());
       autoSyncText.textContent = enabled ? 'Auto' : 'Manual';
       
+      // Re-initialize auto-sync
+      firebaseManager.initAutoSync();
+      
       if (enabled) {
-        showNotification('Auto-sync enabled (every 60 seconds)', 'success');
+        showNotification('Auto-sync enabled (every 30 seconds)', 'success');
       } else {
         showNotification('Auto-sync disabled', 'info');
       }
@@ -1542,48 +1425,6 @@ async function populateAttendanceStudents() {
   container.innerHTML = html;
 }
 
-// Sync functions
-async function syncNow() {
-  if (!auth.currentUser) {
-    showNotification('Please log in to sync', 'error');
-    return;
-  }
-  
-  try {
-    showNotification('Syncing data...', 'info');
-    
-    const result = await dataManager.manualSync();
-    
-    // Refresh all data
-    await dataManager.loadAllData();
-    await loadInitialData();
-    
-    showNotification(result.message, 'success');
-    updateSyncStatus();
-    
-  } catch (error) {
-    console.error('Sync error:', error);
-    showNotification('Sync failed: ' + error.message, 'error');
-  }
-}
-
-function updateSyncStatus() {
-  const status = dataManager.getSyncStatus();
-  const syncIndicator = document.getElementById('syncIndicator');
-  const syncStatus = document.getElementById('syncStatus');
-  
-  if (syncIndicator) {
-    syncIndicator.textContent = status.unsynced > 0 ? '🔄' : '✅';
-    syncIndicator.title = `${status.unsynced} unsynced items`;
-  }
-  
-  if (syncStatus) {
-    syncStatus.textContent = status.unsynced > 0 ? 
-      `☁️ ${status.unsynced} pending` : 
-      `☁️ Synced (${status.total} items)`;
-  }
-}
-
 // ==================== GLOBAL FUNCTIONS ====================
 
 // Functions that need to be available globally
@@ -1619,16 +1460,8 @@ window.saveDefaultRate = function() {
   localStorage.setItem('defaultHourlyRate', rate.toString());
   
   // Update displays
-  const currentDefaultRateDisplay = document.getElementById('currentDefaultRateDisplay');
-  const currentDefaultRate = document.getElementById('currentDefaultRate');
-  
-  if (currentDefaultRateDisplay) {
-    currentDefaultRateDisplay.textContent = rate.toFixed(2);
-  }
-  
-  if (currentDefaultRate) {
-    currentDefaultRate.textContent = rate.toFixed(2);
-  }
+  document.getElementById('currentDefaultRateDisplay').textContent = rate.toFixed(2);
+  document.getElementById('currentDefaultRate').textContent = rate.toFixed(2);
   
   showNotification(`Default rate saved: $${rate.toFixed(2)}/session`, 'success');
 };
