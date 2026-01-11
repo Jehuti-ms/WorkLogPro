@@ -3637,3 +3637,70 @@ button:focus:not(:focus-visible) {
   white-space: nowrap;
 }
 
+/* Add to style.css */
+.spinner {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #3498db;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.alert-success {
+    background-color: #d1e7dd;
+    border: 1px solid #198754;
+    color: #0f5132;
+    padding: 15px;
+    border-radius: 5px;
+}
+
+.alert-warning {
+    background-color: #fff3cd;
+    border: 1px solid #ffc107;
+    color: #664d03;
+    padding: 15px;
+    border-radius: 5px;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    border: 1px solid #dc3545;
+    color: #721c24;
+    padding: 15px;
+    border-radius: 5px;
+}
+
+.button.warning {
+    background-color: #ffc107;
+    color: #000;
+}
+
+.button.warning:hover {
+    background-color: #e0a800;
+}
+
+.button.success {
+    background-color: #198754;
+    color: white;
+}
+
+.button.success:hover {
+    background-color: #157347;
+}
+
+.button.info {
+    background-color: #0dcaf0;
+    color: #000;
+}
+
+.button.info:hover {
+    background-color: #31d2f2;
+}
+
