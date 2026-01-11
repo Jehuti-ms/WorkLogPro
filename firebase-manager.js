@@ -1,19 +1,30 @@
-// firebase-manager.js - UPDATED
+// firebase-manager.js
 import { auth, db } from "./firebase-config.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { 
-  enableIndexedDbPersistence,
-  clearIndexedDbPersistence,
-  waitForPendingWrites
+  onAuthStateChanged,
+  signOut
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  orderBy,
+  where,
+  deleteDoc,
+  writeBatch,
+  enableIndexedDbPersistence
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-console.log("🔥 Firebase Manager loaded");
 
 export class FirebaseManager {
   constructor() {
     this.isOnline = navigator.onLine;
-    this.pendingOperations = [];
-    this.syncQueue = [];
+    this.pendingSync = [];
+    this.syncInterval = null;
     this.initNetworkListener();
   }
 
@@ -21,7 +32,7 @@ export class FirebaseManager {
     window.addEventListener('online', () => {
       this.isOnline = true;
       console.log('🌐 Online - syncing queued operations');
-      this.processSyncQueue();
+      this.processPendingSync();
     });
     
     window.addEventListener('offline', () => {
@@ -30,22 +41,18 @@ export class FirebaseManager {
     });
   }
 
-  async initFirebaseManager() {
+  async init() {
     try {
-      if (!auth || !db) {
-        throw new Error("Firebase SDK not available");
-      }
-
       console.log("🔄 Initializing Firebase Manager...");
       
       // Enable offline persistence
       await this.enableOfflinePersistence();
       
-      // Set up auth state listener
+      // Setup auth listener
       this.setupAuthListener();
       
-      // Initialize sync system
-      this.initSyncSystem();
+      // Initialize auto-sync
+      this.initAutoSync();
       
       console.log("✅ Firebase Manager initialized successfully");
       return true;
@@ -71,32 +78,18 @@ export class FirebaseManager {
   setupAuthListener() {
     onAuthStateChanged(auth, async user => {
       if (user) {
-        console.log("🟢 Manager sees user:", user.email);
-        
-        // Initialize user-specific data
+        console.log("🟢 User authenticated:", user.email);
         await this.initUserData(user.uid);
-        
-        // Process any pending operations
-        this.processSyncQueue();
+        this.processPendingSync();
       } else {
-        console.log("🔴 Manager sees no user");
-        this.clearUserData();
+        console.log("🔴 No user authenticated");
+        this.clearLocalUserData();
       }
     });
   }
 
-  initSyncSystem() {
-    // Sync every 30 seconds when online
-    setInterval(() => {
-      if (this.isOnline && auth.currentUser) {
-        this.syncLocalToCloud();
-      }
-    }, 30000);
-  }
-
   async initUserData(uid) {
     try {
-      // Create user document if it doesn't exist
       const userRef = doc(db, "users", uid);
       const userSnap = await getDoc(userRef);
       
@@ -108,111 +101,147 @@ export class FirebaseManager {
           settings: {
             defaultRate: 25.00,
             autoSync: true,
-            theme: 'light'
+            theme: 'dark'
           }
         });
         console.log('✅ User document created');
       }
+      
+      // Load user settings to localStorage
+      const userData = userSnap.exists() ? userSnap.data() : {
+        settings: { defaultRate: 25.00, autoSync: true, theme: 'dark' }
+      };
+      
+      localStorage.setItem('userSettings', JSON.stringify(userData.settings));
+      
     } catch (error) {
       console.error('Error initializing user data:', error);
     }
   }
 
-  clearUserData() {
-    // Clear user-specific cache
+  clearLocalUserData() {
+    // Clear only user-specific data
     const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
-    collections.forEach(collection => {
-      localStorage.removeItem(`worklog_${collection}`);
+    collections.forEach(col => {
+      localStorage.removeItem(`worklog_${col}`);
     });
+    localStorage.removeItem('userSettings');
     console.log('🧹 User data cleared from localStorage');
   }
 
-  async syncLocalToCloud() {
+  initAutoSync() {
+    // Clear any existing interval
+    if (this.syncInterval) clearInterval(this.syncInterval);
+    
+    // Sync every 60 seconds if auto-sync is enabled
+    this.syncInterval = setInterval(() => {
+      const autoSync = localStorage.getItem('autoSyncEnabled') === 'true';
+      if (this.isOnline && auth.currentUser && autoSync) {
+        this.syncAllData();
+      }
+    }, 60000);
+  }
+
+  async syncAllData() {
     if (!auth.currentUser || !this.isOnline) return;
     
-    console.log('🔄 Syncing local changes to cloud...');
+    console.log('🔄 Auto-syncing data...');
     const uid = auth.currentUser.uid;
-    
     const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
     
-    for (const collection of collections) {
+    let syncedCount = 0;
+    
+    for (const collectionName of collections) {
       try {
-        const localKey = `worklog_${collection}`;
+        const localKey = `worklog_${collectionName}`;
         const localData = JSON.parse(localStorage.getItem(localKey) || '[]');
-        const unsynced = localData.filter(item => !item._synced);
-        
-        console.log(`📦 ${collection}: ${unsynced.length} unsynced items`);
+        const unsynced = localData.filter(item => !item._synced && !item._deleted);
         
         for (const item of unsynced) {
-          await this.syncItem(collection, item, uid);
+          await this.syncItem(collectionName, item, uid);
+          syncedCount++;
         }
+        
+        // Handle deleted items
+        const deletedItems = localData.filter(item => item._deleted && !item._deleteSynced);
+        for (const item of deletedItems) {
+          if (item._firebaseId) {
+            await deleteDoc(doc(db, "users", uid, collectionName, item._firebaseId));
+            item._deleteSynced = true;
+            this.updateLocalItem(collectionName, item);
+          }
+        }
+        
       } catch (error) {
-        console.error(`Error syncing ${collection}:`, error);
+        console.error(`Error syncing ${collectionName}:`, error);
       }
     }
     
-    console.log('✅ Sync completed');
+    if (syncedCount > 0) {
+      console.log(`✅ Auto-sync completed: ${syncedCount} items synced`);
+    }
   }
 
-  async syncItem(collection, item, uid) {
+  async syncItem(collectionName, item, uid) {
     try {
-      const { _id, _cachedAt, _synced, ...firebaseData } = item;
+      const { _id, _cachedAt, _synced, _deleted, _deleteSynced, ...cleanData } = item;
       
       if (item._firebaseId) {
-        // Update existing document
-        await updateDoc(doc(db, "users", uid, collection, item._firebaseId), firebaseData);
+        // Update existing
+        await updateDoc(doc(db, "users", uid, collectionName, item._firebaseId), cleanData);
       } else {
-        // Create new document
-        const docRef = await addDoc(collection(db, "users", uid, collection), firebaseData);
+        // Create new
+        const docRef = await addDoc(collection(db, "users", uid, collectionName), cleanData);
         item._firebaseId = docRef.id;
       }
       
       item._synced = true;
       item._lastSynced = new Date().toISOString();
+      this.updateLocalItem(collectionName, item);
       
-      // Update localStorage
-      this.updateLocalItem(collection, item);
-      
-      console.log(`✅ Synced ${collection}: ${item._id}`);
+      return true;
     } catch (error) {
-      console.error(`❌ Failed to sync ${collection}:`, error);
-      throw error;
+      console.error(`Failed to sync ${collectionName}:`, error);
+      return false;
     }
   }
 
-  updateLocalItem(collection, updatedItem) {
-    const key = `worklog_${collection}`;
+  updateLocalItem(collectionName, item) {
+    const key = `worklog_${collectionName}`;
     const localData = JSON.parse(localStorage.getItem(key) || '[]');
-    const index = localData.findIndex(item => item._id === updatedItem._id);
+    const index = localData.findIndex(i => i._id === item._id);
     
     if (index >= 0) {
-      localData[index] = updatedItem;
+      localData[index] = item;
     } else {
-      localData.push(updatedItem);
+      localData.push(item);
     }
     
     localStorage.setItem(key, JSON.stringify(localData));
   }
 
-  async getData(collectionName, forceRefresh = false) {
+  // Data operations with offline-first approach
+  async getCollection(collectionName, forceRefresh = false) {
     const user = auth.currentUser;
     if (!user) return [];
     
     const localKey = `worklog_${collectionName}`;
     
-    // Always try to load from localStorage first (offline-first)
+    // Always check localStorage first
     try {
       const localData = JSON.parse(localStorage.getItem(localKey) || '[]');
       
       if (!forceRefresh && localData.length > 0) {
-        console.log(`📁 Using local cache for ${collectionName}: ${localData.length} items`);
-        return localData;
+        // Filter out deleted items
+        const activeData = localData.filter(item => !item._deleted);
+        console.log(`📁 Using local ${collectionName}: ${activeData.length} items`);
+        return activeData;
       }
     } catch (error) {
-      console.error('Error reading localStorage:', error);
+      console.error(`Error reading local ${collectionName}:`, error);
     }
     
-    // If online and forceRefresh or no local data, fetch from Firestore
+    // If online, fetch from Firestore
     if (this.isOnline) {
       try {
         console.log(`☁️ Fetching ${collectionName} from Firestore...`);
@@ -221,8 +250,8 @@ export class FirebaseManager {
         
         querySnapshot.forEach((doc) => {
           data.push({
-            id: doc.id,
             ...doc.data(),
+            _id: `fb_${doc.id}`,
             _firebaseId: doc.id,
             _synced: true
           });
@@ -234,32 +263,41 @@ export class FirebaseManager {
         
         return data;
       } catch (error) {
-        console.error(`❌ Error fetching ${collectionName}:`, error);
-        
-        // Fallback to localStorage if available
+        console.error(`Error fetching ${collectionName}:`, error);
+        // Fallback to local storage
         const fallback = JSON.parse(localStorage.getItem(localKey) || '[]');
-        console.log(`🔄 Using fallback data: ${fallback.length} items`);
-        return fallback;
+        return fallback.filter(item => !item._deleted);
       }
     }
     
     return [];
   }
 
-  async saveData(collectionName, data, isUpdate = false, existingId = null) {
+  async saveItem(collectionName, data, itemId = null) {
     const user = auth.currentUser;
     if (!user) throw new Error('No authenticated user');
     
+    // Generate ID if not provided
+    const id = itemId || `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const isUpdate = !!itemId;
+    
     const item = {
       ...data,
-      _id: existingId || `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      _id: id,
       _cachedAt: new Date().toISOString(),
       _synced: !this.isOnline, // Mark as unsynced if offline
-      _isUpdate: isUpdate
+      _isUpdate: isUpdate,
+      _updatedAt: new Date().toISOString()
     };
     
-    if (existingId && data._firebaseId) {
-      item._firebaseId = data._firebaseId;
+    // If updating and we have Firebase ID, preserve it
+    if (isUpdate) {
+      const localKey = `worklog_${collectionName}`;
+      const localData = JSON.parse(localStorage.getItem(localKey) || '[]');
+      const existing = localData.find(i => i._id === itemId);
+      if (existing && existing._firebaseId) {
+        item._firebaseId = existing._firebaseId;
+      }
     }
     
     // Save to localStorage immediately
@@ -267,7 +305,7 @@ export class FirebaseManager {
     const localData = JSON.parse(localStorage.getItem(localKey) || '[]');
     
     if (isUpdate) {
-      const index = localData.findIndex(i => i._id === item._id);
+      const index = localData.findIndex(i => i._id === itemId);
       if (index >= 0) {
         localData[index] = item;
       } else {
@@ -278,21 +316,21 @@ export class FirebaseManager {
     }
     
     localStorage.setItem(localKey, JSON.stringify(localData));
-    console.log(`💾 Saved to localStorage: ${collectionName} - ${item._id}`);
+    console.log(`💾 Saved to localStorage: ${collectionName} - ${id}`);
     
     // If online, sync immediately
     if (this.isOnline) {
       try {
         await this.syncItem(collectionName, item, user.uid);
       } catch (error) {
-        console.error('Immediate sync failed, will retry later:', error);
+        console.error('Immediate sync failed:', error);
       }
     }
     
-    return item._id;
+    return id;
   }
 
-  async deleteData(collectionName, itemId) {
+  async deleteItem(collectionName, itemId) {
     const user = auth.currentUser;
     if (!user) throw new Error('No authenticated user');
     
@@ -301,93 +339,145 @@ export class FirebaseManager {
     const item = localData.find(i => i._id === itemId);
     
     if (!item) {
-      console.warn(`Item ${itemId} not found in local storage`);
+      console.warn(`Item ${itemId} not found in ${collectionName}`);
       return false;
     }
     
-    // Remove from localStorage
-    const filteredData = localData.filter(i => i._id !== itemId);
-    localStorage.setItem(localKey, JSON.stringify(filteredData));
+    // Mark as deleted in localStorage
+    item._deleted = true;
+    item._synced = false;
+    this.updateLocalItem(collectionName, item);
     
-    // If online, delete from Firestore
+    // If online and has Firebase ID, delete from Firestore
     if (this.isOnline && item._firebaseId) {
       try {
         await deleteDoc(doc(db, "users", user.uid, collectionName, item._firebaseId));
+        item._deleteSynced = true;
+        this.updateLocalItem(collectionName, item);
         console.log(`🗑️ Deleted from Firestore: ${collectionName} - ${item._firebaseId}`);
       } catch (error) {
         console.error('Error deleting from Firestore:', error);
-        
-        // If delete fails, mark for later deletion
-        item._deleted = true;
-        item._synced = false;
-        filteredData.push(item);
-        localStorage.setItem(localKey, JSON.stringify(filteredData));
       }
-    } else if (item._firebaseId) {
-      // Offline - mark for deletion
-      item._deleted = true;
-      item._synced = false;
-      filteredData.push(item);
-      localStorage.setItem(localKey, JSON.stringify(filteredData));
     }
     
-    console.log(`🗑️ Deleted from local: ${collectionName} - ${itemId}`);
+    console.log(`🗑️ Marked for deletion: ${collectionName} - ${itemId}`);
     return true;
+  }
+
+  async exportData() {
+    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
+    const exportData = {
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      collections: {}
+    };
+    
+    for (const collection of collections) {
+      const key = `worklog_${collection}`;
+      const data = JSON.parse(localStorage.getItem(key) || '[]');
+      exportData.collections[collection] = data.filter(item => !item._deleted);
+    }
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `worklog-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    console.log('✅ Data exported successfully');
+  }
+
+  async importData(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onload = async (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          
+          if (!data.collections || !data.version) {
+            throw new Error('Invalid backup file format');
+          }
+          
+          console.log('📥 Importing backup data...');
+          
+          // Import each collection
+          for (const [collectionName, items] of Object.entries(data.collections)) {
+            const key = `worklog_${collectionName}`;
+            const existingData = JSON.parse(localStorage.getItem(key) || '[]');
+            
+            // Merge items (avoid duplicates by ID)
+            const existingIds = new Set(existingData.map(item => item._id));
+            const newItems = items.filter(item => !existingIds.has(item._id));
+            
+            if (newItems.length > 0) {
+              const mergedData = [...existingData, ...newItems];
+              localStorage.setItem(key, JSON.stringify(mergedData));
+              console.log(`✅ Imported ${newItems.length} ${collectionName}`);
+            }
+          }
+          
+          resolve('Data imported successfully');
+        } catch (error) {
+          reject(error);
+        }
+      };
+      
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsText(file);
+    });
   }
 
   getSyncStatus() {
     const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
-    const status = {
-      total: 0,
-      unsynced: 0,
-      lastSync: localStorage.getItem('lastSync') || 'Never'
-    };
+    let total = 0;
+    let unsynced = 0;
     
     collections.forEach(collection => {
       const key = `worklog_${collection}`;
       try {
         const data = JSON.parse(localStorage.getItem(key) || '[]');
-        status.total += data.length;
-        status.unsynced += data.filter(item => !item._synced).length;
+        total += data.filter(item => !item._deleted).length;
+        unsynced += data.filter(item => !item._synced && !item._deleted).length;
       } catch (error) {
         console.error(`Error getting status for ${collection}:`, error);
       }
     });
     
-    return status;
+    return {
+      total,
+      unsynced,
+      lastSync: localStorage.getItem('lastSyncTime') || 'Never',
+      isOnline: this.isOnline
+    };
   }
 
-  async clearAllData() {
-    const user = auth.currentUser;
-    if (!user) return;
+  async manualSync() {
+    if (!auth.currentUser) {
+      throw new Error('Please log in to sync');
+    }
     
-    if (confirm('Are you sure? This will delete ALL local and cloud data!')) {
-      try {
-        // Clear localStorage
-        const keys = Object.keys(localStorage).filter(key => key.startsWith('worklog_'));
-        keys.forEach(key => localStorage.removeItem(key));
-        
-        // Clear Firestore data
-        const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
-        
-        for (const collection of collections) {
-          const querySnapshot = await getDocs(collection(db, "users", user.uid, collection));
-          const batch = writeBatch(db);
-          
-          querySnapshot.forEach((doc) => {
-            batch.delete(doc.ref);
-          });
-          
-          await batch.commit();
-          console.log(`🗑️ Cleared ${collection} from Firestore`);
-        }
-        
-        NotificationSystem.notifySuccess('All data cleared successfully');
-        setTimeout(() => location.reload(), 1000);
-      } catch (error) {
-        console.error('Error clearing data:', error);
-        NotificationSystem.notifyError('Failed to clear all data');
-      }
+    console.log('🔄 Manual sync started...');
+    
+    try {
+      await this.syncAllData();
+      localStorage.setItem('lastSyncTime', new Date().toLocaleString());
+      
+      const status = this.getSyncStatus();
+      console.log('✅ Manual sync completed');
+      
+      return {
+        success: true,
+        message: `Synced ${status.total} items (${status.unsynced} pending)`,
+        status
+      };
+    } catch (error) {
+      console.error('Manual sync failed:', error);
+      throw error;
     }
   }
 }
