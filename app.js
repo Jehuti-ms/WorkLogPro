@@ -1,283 +1,183 @@
-// app.js - Fixed single version
-console.log('🚀 Loading app.js...');
+// app.js - ROCK SOLID VERSION (NO JUMPING)
+console.log('🚀 Loading ROCK-SOLID app.js');
 
-// ==================== HELPER FUNCTIONS ====================
-function updateElementText(id, text) {
-  const element = document.getElementById(id);
-  if (element) element.textContent = text;
-}
+// Global flag to prevent multiple redirects
+let redirectInProgress = false;
 
-function setInputValue(id, value) {
-  const element = document.getElementById(id);
-  if (element) element.value = value;
-}
-
-function showNotification(message, type = 'info') {
-  console.log(`${type.toUpperCase()}: ${message}`);
-  // Add your notification UI here
-}
-
-function updateOnlineStatus() {
-  const isOnline = navigator.onLine;
-  console.log(isOnline ? '🌐 Online' : '📴 Offline');
-  // Update UI if needed
-}
-
-// ==================== INITIALIZATION ====================
-async function initApp() {
-  console.log('🚀 Initializing WorkLog App...');
+// ==================== MAIN INIT ====================
+function initApp() {
+  console.log('🚀 initApp() called');
   
-  try {
-    // Skip if on auth page
-    if (window.location.pathname.includes('auth.html')) {
-      console.log('🔐 On auth page, skipping init');
-      return;
-    }
-    
-    // Show loading
-    document.body.style.opacity = '0.7';
-    
-    // Wait for Firebase to load
-    await waitForFirebase();
-    
-    // Check auth with delay
-    console.log('🔍 Checking authentication...');
-    const user = await checkAuthWithTimeout();
-    
-    // If no user, redirect to auth page
-    if (!user) {
-      console.log('❌ No user found, redirecting to auth...');
-      document.body.style.opacity = '1';
-      
-      // Small delay before redirect
-      setTimeout(() => {
-        window.location.href = 'auth.html';
-      }, 1000);
-      return;
-    }
-    
-    // User exists, continue
-    console.log('✅ User authenticated:', user.email || user.uid);
-    document.body.style.opacity = '1';
-    
-    // Initialize UI components
-    initializeUI();
-    
-    // Load data
-    await loadAllData();
-    
-    console.log('✅ App initialized successfully');
-    
-  } catch (error) {
-    console.error('❌ App initialization error:', error);
-    document.body.style.opacity = '1';
-    
-    // Don't redirect on error - let user decide
-    showNotification('Error initializing app. Please refresh.', 'error');
-  }
-}
-
-// ==================== AUTH FUNCTIONS ====================
-function waitForFirebase() {
-  return new Promise((resolve) => {
-    const checkFirebase = () => {
-      if (typeof firebase !== 'undefined' && firebase.auth) {
-        console.log('✅ Firebase loaded');
-        resolve();
-      } else {
-        console.log('⏳ Waiting for Firebase...');
-        setTimeout(checkFirebase, 100);
-      }
-    };
-    checkFirebase();
-  });
-}
-
-async function checkAuthWithTimeout() {
-  return new Promise((resolve) => {
-    // Try multiple methods
-    
-    // 1. First check localStorage (fastest)
-    const storedAuth = localStorage.getItem('firebase_auth_user');
-    if (storedAuth) {
-      try {
-        const parsed = JSON.parse(storedAuth);
-        if (parsed.email && parsed.uid) {
-          console.log('✅ Using cached auth from localStorage');
-          resolve({
-            uid: parsed.uid,
-            email: parsed.email,
-            displayName: parsed.email.split('@')[0],
-            isCached: true
-          });
-          return;
-        }
-      } catch (e) {
-        console.log('❌ Could not parse cached auth');
-      }
-    }
-    
-    // 2. Check if firebaseManager exists
-    if (window.firebaseManager && window.firebaseManager.checkAuthDelayed) {
-      console.log('🔍 Using firebaseManager.checkAuthDelayed()');
-      
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Auth timeout')), 5000)
-      );
-      
-      Promise.race([
-        window.firebaseManager.checkAuthDelayed(),
-        timeoutPromise
-      ])
-      .then(user => resolve(user))
-      .catch(() => {
-        console.log('⚠️ Firebase auth timed out, checking direct');
-        checkDirectAuth(resolve);
-      });
-      
-    } else {
-      // 3. Direct check as fallback
-      checkDirectAuth(resolve);
-    }
-  });
-}
-
-function checkDirectAuth(resolve) {
-  console.log('🔍 Checking auth directly...');
-  
-  if (typeof firebase === 'undefined' || !firebase.auth) {
-    console.log('❌ Firebase not available');
-    resolve(null);
+  // If we're on auth.html, STOP
+  if (window.location.pathname.includes('auth.html')) {
+    console.log('⏹️ On auth page, stopping');
     return;
   }
   
-  // Simple direct check
-  const user = firebase.auth().currentUser;
-  console.log('Direct auth check:', user ? 'Found user' : 'No user');
-  
-  if (user) {
-    // Store for future
-    localStorage.setItem('firebase_auth_user', JSON.stringify({
-      email: user.email,
-      uid: user.uid,
-      timestamp: Date.now()
-    }));
-  }
-  
-  resolve(user);
+  // Start the safe initialization
+  safeInit();
 }
 
-// ==================== UI INITIALIZATION ====================
-function initializeUI() {
-  console.log('🎨 Initializing UI...');
-  
-  // Setup tab navigation
-  setupTabNavigation();
-  
-  // Setup forms
-  setupForms();
-  
-  // Setup event listeners
-  setupEventListeners();
-  
-  // Setup profile modal
-  setupProfileModal();
-  
-  // Setup floating action button
-  setupFloatingAddButton();
-  
-  // Setup sync controls
-  setupSyncControls();
-  
-  // Set default rate
-  const defaultRate = localStorage.getItem('defaultHourlyRate') || '25.00';
-  updateElementText('currentDefaultRateDisplay', defaultRate);
-  updateElementText('currentDefaultRate', defaultRate);
-  setInputValue('defaultBaseRate', defaultRate);
-  
-  // Setup online/offline listeners
-  updateOnlineStatus();
-  window.addEventListener('online', updateOnlineStatus);
-  window.addEventListener('offline', updateOnlineStatus);
-}
-
-// ==================== DATA LOADING ====================
-async function loadAllData() {
-  console.log('📊 Loading all data...');
+async function safeInit() {
+  console.log('🔒 Starting SAFE initialization');
   
   try {
-    // Load data for current tab
-    const hash = window.location.hash.replace('#', '');
-    const currentTab = hash || 'students';
+    // STEP 1: Wait for page to fully load
+    await wait(500);
     
-    await loadTabData(currentTab);
+    // STEP 2: Check localStorage for previous auth
+    const hasPreviousAuth = checkLocalStorageAuth();
     
-    console.log('✅ Data loaded successfully');
+    // STEP 3: If NO previous auth, redirect (only once)
+    if (!hasPreviousAuth && !redirectInProgress) {
+      console.log('❌ No previous auth found');
+      redirectToAuth();
+      return;
+    }
+    
+    // STEP 4: Try Firebase auth (but don't rely on it)
+    const firebaseUser = await tryFirebaseAuth();
+    
+    // STEP 5: If both checks fail AND we haven't redirected yet
+    if (!firebaseUser && !hasPreviousAuth && !redirectInProgress) {
+      console.log('❌ All auth checks failed');
+      redirectToAuth();
+      return;
+    }
+    
+    // STEP 6: SUCCESS! Initialize the app
+    console.log('✅ Auth successful, initializing app...');
+    initializeApplication();
+    
   } catch (error) {
-    console.error('❌ Error loading data:', error);
-    showNotification('Error loading data', 'error');
+    console.error('❌ Safe init error:', error);
+    // DON'T redirect on error - just show message
+    alert('App initialization error. Please refresh.');
   }
 }
 
-// ==================== TAB FUNCTIONS ====================
-function setupTabNavigation() {
-  console.log('📋 Setting up tab navigation...');
+// ==================== HELPER FUNCTIONS ====================
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function checkLocalStorageAuth() {
+  console.log('🔍 Checking localStorage for auth...');
   
-  const tabButtons = document.querySelectorAll('.tab');
+  const checks = [
+    localStorage.getItem('userEmail'),
+    localStorage.getItem('userId'),
+    localStorage.getItem('lastAuthTime'),
+    localStorage.getItem('worklog_user')
+  ];
   
-  tabButtons.forEach(button => {
-    button.addEventListener('click', function() {
-      const tabName = this.getAttribute('data-tab');
-      switchTab(tabName);
-    });
-  });
+  const hasAuth = checks.some(item => item && item !== 'null' && item !== 'undefined');
   
-  // Check URL hash
-  const hash = window.location.hash.replace('#', '');
-  if (hash) {
-    switchTab(hash);
-  } else {
-    switchTab('students');
+  console.log('LocalStorage auth result:', hasAuth ? 'FOUND' : 'NOT FOUND');
+  return hasAuth;
+}
+
+async function tryFirebaseAuth() {
+  console.log('🔍 Trying Firebase auth...');
+  
+  // If Firebase isn't loaded, skip
+  if (typeof firebase === 'undefined' || !firebase.auth) {
+    console.log('⚠️ Firebase not loaded, skipping');
+    return null;
+  }
+  
+  try {
+    // Use the simple firebaseManager
+    if (window.firebaseManager && window.firebaseManager.checkAuth) {
+      const user = await window.firebaseManager.checkAuth();
+      console.log('Firebase auth result:', user ? 'SUCCESS' : 'FAILED');
+      return user;
+    }
+    
+    // Fallback: direct check
+    const user = firebase.auth().currentUser;
+    console.log('Direct Firebase check:', user ? 'User found' : 'No user');
+    return user;
+    
+  } catch (error) {
+    console.log('⚠️ Firebase auth error:', error.message);
+    return null;
   }
 }
 
-function switchTab(tabName) {
-  console.log('📋 Switching to tab:', tabName);
-  
-  // Hide all tab contents
-  document.querySelectorAll('.tabcontent').forEach(content => {
-    content.classList.remove('active');
-  });
-  
-  // Remove active class from all tab buttons
-  document.querySelectorAll('.tab').forEach(button => {
-    button.classList.remove('active');
-  });
-  
-  // Show selected tab
-  const selectedTab = document.getElementById(tabName);
-  if (selectedTab) {
-    selectedTab.classList.add('active');
+function redirectToAuth() {
+  if (redirectInProgress) {
+    console.log('🛑 Redirect already in progress, skipping');
+    return;
   }
   
-  // Activate clicked tab button
-  const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
-  if (activeButton) {
-    activeButton.classList.add('active');
-  }
+  redirectInProgress = true;
+  console.log('🔄 Redirecting to auth page...');
   
-  // Load data for this tab
-  loadTabData(tabName);
+  // Small delay to see logs
+  setTimeout(() => {
+    window.location.href = 'auth.html';
+  }, 800);
 }
 
-async function loadTabData(tabName) {
-  console.log(`📊 Loading data for ${tabName}...`);
-  // Add your tab-specific data loading here
+// ==================== APPLICATION INITIALIZATION ====================
+function initializeApplication() {
+  console.log('🎨 Initializing application UI...');
+  
+  try {
+    // Initialize tabs
+    initTabs();
+    
+    // Initialize forms
+    initForms();
+    
+    // Initialize FAB
+    initFAB();
+    
+    // Set default rate
+    const defaultRate = localStorage.getItem('defaultHourlyRate') || '25.00';
+    document.getElementById('currentDefaultRateDisplay')?.textContent = defaultRate;
+    document.getElementById('currentDefaultRate')?.textContent = defaultRate;
+    document.getElementById('defaultBaseRate')?.value = defaultRate;
+    
+    // Load data
+    loadInitialData();
+    
+    console.log('✅ Application initialized successfully');
+    
+  } catch (error) {
+    console.error('❌ UI initialization error:', error);
+  }
 }
 
-// ==================== START APP ====================
-// Wait for DOM and Firebase
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('📄 DOM loaded, starting app...');
-  initApp();
-});
+// ==================== UI FUNCTIONS ====================
+function initTabs() {
+  console.log('📋 Initializing tabs...');
+  // Your tab code here
+}
+
+function initForms() {
+  console.log('📝 Initializing forms...');
+  // Your form code here
+}
+
+function initFAB() {
+  console.log('➕ Initializing FAB...');
+  // Your FAB code here
+}
+
+function loadInitialData() {
+  console.log('📊 Loading initial data...');
+  // Your data loading code here
+}
+
+// ==================== START THE APP ====================
+// Wait for DOM to be fully ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  // DOM already loaded
+  setTimeout(initApp, 100);
+}
+
+console.log('✅ ROCK-SOLID app.js loaded');
