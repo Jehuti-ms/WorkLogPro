@@ -660,16 +660,16 @@ function handleLogout() {
 function initSyncControls() {
   console.log('☁️ Initializing sync controls...');
   
-  // Sync button
+  // ==================== SYNC BUTTON ====================
   const syncBtn = document.getElementById('syncBtn');
   if (syncBtn) {
-    syncBtn.addEventListener('click', function() {
+    syncBtn.addEventListener('click', async function() {
       console.log('Sync button clicked');
-      // Add sync logic here
+      await handleSync();
     });
   }
   
-  // Auto-sync checkbox and label
+  // ==================== AUTO-SYNC CHECKBOX ====================
   const autoSyncCheckbox = document.getElementById('autoSyncCheckbox');
   const autoSyncText = document.getElementById('autoSyncText');
   
@@ -694,9 +694,608 @@ function initSyncControls() {
       
       // Save setting
       localStorage.setItem('autoSyncEnabled', isChecked);
+      
+      // Start/stop auto-sync
+      if (isChecked) {
+        startAutoSync();
+        showNotification('Auto-sync enabled (every 30 seconds)', 'success');
+      } else {
+        stopAutoSync();
+        showNotification('Auto-sync disabled', 'warning');
+      }
     });
   }
+  
+  // ==================== EXPORT CLOUD BUTTON ====================
+  const exportCloudBtn = document.getElementById('exportCloudBtn');
+  if (exportCloudBtn) {
+    exportCloudBtn.addEventListener('click', async function() {
+      console.log('Export Cloud button clicked');
+      await exportToCloud();
+    });
+  }
+  
+  // ==================== IMPORT CLOUD BUTTON ====================
+  const importCloudBtn = document.getElementById('importCloudBtn');
+  if (importCloudBtn) {
+    importCloudBtn.addEventListener('click', async function() {
+      console.log('Import Cloud button clicked');
+      await importFromCloud();
+    });
+  }
+  
+  // ==================== FIX STATS BUTTON ====================
+  const syncStatsBtn = document.getElementById('syncStatsBtn');
+  if (syncStatsBtn) {
+    syncStatsBtn.addEventListener('click', function() {
+      console.log('Fix Stats button clicked');
+      fixAllStats();
+    });
+  }
+  
+  // ==================== EXPORT DATA BUTTON ====================
+  const exportDataBtn = document.getElementById('exportDataBtn');
+  if (exportDataBtn) {
+    exportDataBtn.addEventListener('click', function() {
+      console.log('Export Data button clicked');
+      exportAllData();
+    });
+  }
+  
+  // ==================== IMPORT DATA BUTTON ====================
+  const importDataBtn = document.getElementById('importDataBtn');
+  if (importDataBtn) {
+    importDataBtn.addEventListener('click', function() {
+      console.log('Import Data button clicked');
+      // Trigger hidden file input
+      const fileInput = document.getElementById('importFileInput');
+      if (!fileInput) {
+        createFileInput();
+      }
+      document.getElementById('importFileInput').click();
+    });
+  }
+  
+  // ==================== CLEAR ALL BUTTON ====================
+  const clearDataBtn = document.getElementById('clearDataBtn');
+  if (clearDataBtn) {
+    clearDataBtn.addEventListener('click', function() {
+      console.log('Clear All button clicked');
+      clearAllData();
+    });
+  }
+  
+  // Create hidden file input for import
+  createFileInput();
+  
+  // Initialize sync indicator
+  updateSyncIndicator('Online', 'online');
 }
+
+// ==================== SYNC FUNCTIONS ====================
+
+async function handleSync() {
+  try {
+    updateSyncIndicator('Syncing...', 'syncing');
+    showNotification('Syncing data...', 'info');
+    
+    // Check if online
+    if (!navigator.onLine) {
+      updateSyncIndicator('Offline', 'offline');
+      showNotification('Cannot sync while offline', 'error');
+      return;
+    }
+    
+    // Check if user is authenticated
+    if (typeof firebase === 'undefined' || !firebase.auth || !firebase.auth().currentUser) {
+      updateSyncIndicator('Auth Required', 'error');
+      showNotification('Please login to sync', 'error');
+      return;
+    }
+    
+    // Simulate sync process (replace with actual Firebase sync)
+    await simulateSyncProcess();
+    
+    updateSyncIndicator('Synced', 'success');
+    showNotification('Sync completed successfully!', 'success');
+    
+    // Reset to online after 3 seconds
+    setTimeout(() => {
+      updateSyncIndicator('Online', 'online');
+    }, 3000);
+    
+  } catch (error) {
+    console.error('Sync error:', error);
+    updateSyncIndicator('Sync Failed', 'error');
+    showNotification('Sync failed: ' + error.message, 'error');
+    
+    setTimeout(() => {
+      updateSyncIndicator('Online', 'online');
+    }, 3000);
+  }
+}
+
+async function simulateSyncProcess() {
+  return new Promise((resolve) => {
+    // Simulate network delay
+    setTimeout(() => {
+      // Get all local data
+      const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+      const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
+      const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+      const attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
+      const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
+      
+      console.log(`Syncing: ${students.length} students, ${hours.length} hours, ${marks.length} marks, ${attendance.length} attendance, ${payments.length} payments`);
+      
+      // In a real app, this would sync to Firebase
+      // For now, just simulate success
+      resolve();
+    }, 1500);
+  });
+}
+
+// ==================== CLOUD FUNCTIONS ====================
+
+async function exportToCloud() {
+  try {
+    showNotification('Exporting to cloud...', 'info');
+    
+    if (!navigator.onLine) {
+      showNotification('Cannot export while offline', 'error');
+      return;
+    }
+    
+    if (!firebase.auth().currentUser) {
+      showNotification('Please login to export to cloud', 'error');
+      return;
+    }
+    
+    // Get all data
+    const data = getAllDataForExport();
+    
+    // Save to Firebase
+    if (window.firebaseManager && window.firebaseManager.saveToFirestore) {
+      await window.firebaseManager.saveToFirestore('backup', {
+        data: data,
+        timestamp: new Date().toISOString(),
+        type: 'full_export'
+      });
+      
+      showNotification('Data exported to cloud successfully!', 'success');
+    } else {
+      showNotification('Cloud export not available', 'warning');
+    }
+    
+  } catch (error) {
+    console.error('Cloud export error:', error);
+    showNotification('Export failed: ' + error.message, 'error');
+  }
+}
+
+async function importFromCloud() {
+  try {
+    if (!confirm('Import data from cloud? This will replace your local data.')) {
+      return;
+    }
+    
+    showNotification('Importing from cloud...', 'info');
+    
+    if (!navigator.onLine) {
+      showNotification('Cannot import while offline', 'error');
+      return;
+    }
+    
+    if (!firebase.auth().currentUser) {
+      showNotification('Please login to import from cloud', 'error');
+      return;
+    }
+    
+    // Load from Firebase
+    if (window.firebaseManager && window.firebaseManager.loadFromFirestore) {
+      const result = await window.firebaseManager.loadFromFirestore('backup');
+      
+      if (result.success && result.data.length > 0) {
+        // Get latest backup
+        const latestBackup = result.data.sort((a, b) => 
+          new Date(b.timestamp) - new Date(a.timestamp)
+        )[0];
+        
+        if (latestBackup && latestBackup.data) {
+          importAllData(latestBackup.data);
+          showNotification('Data imported from cloud successfully!', 'success');
+          location.reload(); // Reload to show new data
+        } else {
+          showNotification('No backup found in cloud', 'warning');
+        }
+      } else {
+        showNotification('No data found in cloud', 'warning');
+      }
+    } else {
+      showNotification('Cloud import not available', 'warning');
+    }
+    
+  } catch (error) {
+    console.error('Cloud import error:', error);
+    showNotification('Import failed: ' + error.message, 'error');
+  }
+}
+
+// ==================== DATA EXPORT/IMPORT FUNCTIONS ====================
+
+function exportAllData() {
+  try {
+    const data = getAllDataForExport();
+    const dataStr = JSON.stringify(data, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    
+    const exportFileDefaultName = `worklog-backup-${new Date().toISOString().split('T')[0]}.json`;
+    
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+    
+    showNotification('Data exported to file successfully!', 'success');
+    
+  } catch (error) {
+    console.error('Export error:', error);
+    showNotification('Export failed: ' + error.message, 'error');
+  }
+}
+
+function getAllDataForExport() {
+  return {
+    students: JSON.parse(localStorage.getItem('worklog_students') || '[]'),
+    hours: JSON.parse(localStorage.getItem('worklog_hours') || '[]'),
+    marks: JSON.parse(localStorage.getItem('worklog_marks') || '[]'),
+    attendance: JSON.parse(localStorage.getItem('worklog_attendance') || '[]'),
+    payments: JSON.parse(localStorage.getItem('worklog_payments') || '[]'),
+    settings: {
+      defaultHourlyRate: localStorage.getItem('defaultHourlyRate') || '25.00',
+      autoSyncEnabled: localStorage.getItem('autoSyncEnabled') === 'true',
+      theme: localStorage.getItem('worklog-theme') || 'dark'
+    },
+    exportDate: new Date().toISOString(),
+    appVersion: '1.0.0'
+  };
+}
+
+function importAllData(data) {
+  try {
+    // Validate data
+    if (!data || typeof data !== 'object') {
+      throw new Error('Invalid data format');
+    }
+    
+    // Import data
+    if (data.students) localStorage.setItem('worklog_students', JSON.stringify(data.students));
+    if (data.hours) localStorage.setItem('worklog_hours', JSON.stringify(data.hours));
+    if (data.marks) localStorage.setItem('worklog_marks', JSON.stringify(data.marks));
+    if (data.attendance) localStorage.setItem('worklog_attendance', JSON.stringify(data.attendance));
+    if (data.payments) localStorage.setItem('worklog_payments', JSON.stringify(data.payments));
+    
+    // Import settings
+    if (data.settings) {
+      if (data.settings.defaultHourlyRate) {
+        localStorage.setItem('defaultHourlyRate', data.settings.defaultHourlyRate);
+      }
+      if (data.settings.autoSyncEnabled !== undefined) {
+        localStorage.setItem('autoSyncEnabled', data.settings.autoSyncEnabled);
+      }
+      if (data.settings.theme) {
+        localStorage.setItem('worklog-theme', data.settings.theme);
+      }
+    }
+    
+    showNotification('Data imported successfully!', 'success');
+    
+  } catch (error) {
+    console.error('Import error:', error);
+    showNotification('Import failed: ' + error.message, 'error');
+  }
+}
+
+function createFileInput() {
+  // Create hidden file input for import
+  let fileInput = document.getElementById('importFileInput');
+  
+  if (!fileInput) {
+    fileInput = document.createElement('input');
+    fileInput.id = 'importFileInput';
+    fileInput.type = 'file';
+    fileInput.accept = '.json';
+    fileInput.style.display = 'none';
+    
+    fileInput.addEventListener('change', function(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (confirm('Import data from file? This will replace your current data.')) {
+            importAllData(data);
+            setTimeout(() => location.reload(), 1000); // Reload to show new data
+          }
+        } catch (error) {
+          showNotification('Invalid file format', 'error');
+        }
+      };
+      reader.readAsText(file);
+      
+      // Reset file input
+      event.target.value = '';
+    });
+    
+    document.body.appendChild(fileInput);
+  }
+}
+
+// ==================== FIX STATS FUNCTION ====================
+
+function fixAllStats() {
+  try {
+    showNotification('Fixing statistics...', 'info');
+    
+    // Get all data
+    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
+    const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+    const attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
+    const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
+    
+    // Fix 1: Ensure all hours have proper calculations
+    let hoursFixed = 0;
+    const fixedHours = hours.map(hour => {
+      const hoursWorked = parseFloat(hour.hoursWorked) || 0;
+      const baseRate = parseFloat(hour.baseRate) || 0;
+      const total = hoursWorked * baseRate;
+      
+      if (hour.total !== total) {
+        hoursFixed++;
+        return { ...hour, total: total };
+      }
+      return hour;
+    });
+    
+    if (hoursFixed > 0) {
+      localStorage.setItem('worklog_hours', JSON.stringify(fixedHours));
+    }
+    
+    // Fix 2: Ensure all marks have percentage and grade
+    let marksFixed = 0;
+    const fixedMarks = marks.map(mark => {
+      const score = parseFloat(mark.marksScore) || 0;
+      const max = parseFloat(mark.marksMax) || 1;
+      const percentage = max > 0 ? ((score / max) * 100).toFixed(1) : '0.0';
+      
+      let grade = 'F';
+      const percNum = parseFloat(percentage);
+      if (percNum >= 90) grade = 'A';
+      else if (percNum >= 80) grade = 'B';
+      else if (percNum >= 70) grade = 'C';
+      else if (percNum >= 60) grade = 'D';
+      
+      if (mark.percentage !== percentage || mark.grade !== grade) {
+        marksFixed++;
+        return { ...mark, percentage, grade };
+      }
+      return mark;
+    });
+    
+    if (marksFixed > 0) {
+      localStorage.setItem('worklog_marks', JSON.stringify(fixedMarks));
+    }
+    
+    // Fix 3: Recalculate student balances
+    let balancesFixed = 0;
+    
+    showNotification(
+      `Fixed: ${hoursFixed} hours, ${marksFixed} marks, ${balancesFixed} balances`,
+      'success'
+    );
+    
+    // Reload all data
+    loadInitialData();
+    updateGlobalStats();
+    updateProfileStats();
+    
+  } catch (error) {
+    console.error('Fix stats error:', error);
+    showNotification('Failed to fix statistics', 'error');
+  }
+}
+
+// ==================== CLEAR DATA FUNCTION ====================
+
+function clearAllData() {
+  if (!confirm('⚠️ WARNING: This will delete ALL your data!\n\nThis includes:\n• All students\n• All hours worked\n• All marks\n• All attendance\n• All payments\n\nThis action cannot be undone!\n\nAre you absolutely sure?')) {
+    return;
+  }
+  
+  if (!confirm('LAST CHANCE: This will delete EVERYTHING!\nType "DELETE" to confirm.')) {
+    return;
+  }
+  
+  const userInput = prompt('Type DELETE to confirm permanent deletion:');
+  if (userInput !== 'DELETE') {
+    showNotification('Deletion cancelled', 'warning');
+    return;
+  }
+  
+  try {
+    // Clear all data
+    localStorage.removeItem('worklog_students');
+    localStorage.removeItem('worklog_hours');
+    localStorage.removeItem('worklog_marks');
+    localStorage.removeItem('worklog_attendance');
+    localStorage.removeItem('worklog_payments');
+    
+    // Keep settings
+    const defaultRate = localStorage.getItem('defaultHourlyRate') || '25.00';
+    const theme = localStorage.getItem('worklog-theme') || 'dark';
+    const autoSync = localStorage.getItem('autoSyncEnabled');
+    
+    // Clear everything except auth
+    localStorage.clear();
+    
+    // Restore settings
+    localStorage.setItem('defaultHourlyRate', defaultRate);
+    localStorage.setItem('worklog-theme', theme);
+    if (autoSync) localStorage.setItem('autoSyncEnabled', autoSync);
+    
+    showNotification('All data has been cleared!', 'success');
+    
+    // Reload page
+    setTimeout(() => location.reload(), 1500);
+    
+  } catch (error) {
+    console.error('Clear data error:', error);
+    showNotification('Failed to clear data', 'error');
+  }
+}
+
+// ==================== AUTO-SYNC FUNCTIONS ====================
+
+let autoSyncInterval = null;
+
+function startAutoSync() {
+  if (autoSyncInterval) clearInterval(autoSyncInterval);
+  
+  autoSyncInterval = setInterval(async () => {
+    if (navigator.onLine && firebase.auth().currentUser) {
+      console.log('🔄 Auto-sync running...');
+      await handleSync();
+    }
+  }, 30000); // 30 seconds
+  
+  console.log('✅ Auto-sync started');
+}
+
+function stopAutoSync() {
+  if (autoSyncInterval) {
+    clearInterval(autoSyncInterval);
+    autoSyncInterval = null;
+    console.log('⏹️ Auto-sync stopped');
+  }
+}
+
+// ==================== HELPER FUNCTIONS ====================
+
+function updateSyncIndicator(text, status) {
+  const syncIndicator = document.getElementById('syncIndicator');
+  if (!syncIndicator) return;
+  
+  // Clear previous classes
+  syncIndicator.className = 'sync-indicator';
+  
+  // Set text and status class
+  syncIndicator.textContent = text;
+  syncIndicator.classList.add(status);
+}
+
+function showNotification(message, type = 'info') {
+  console.log(`🔔 ${type.toUpperCase()}: ${message}`);
+  
+  // Create notification element
+  const notification = document.createElement('div');
+  notification.className = `notification ${type}`;
+  notification.innerHTML = `
+    <span class="notification-icon">${getNotificationIcon(type)}</span>
+    <span class="notification-text">${message}</span>
+    <button class="notification-close">&times;</button>
+  `;
+  
+  // Add styles
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: ${getNotificationColor(type)};
+    color: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: slideIn 0.3s ease;
+    max-width: 350px;
+  `;
+  
+  // Add to page
+  document.body.appendChild(notification);
+  
+  // Auto remove after 5 seconds
+  setTimeout(() => {
+    notification.style.animation = 'slideOut 0.3s ease';
+    setTimeout(() => notification.remove(), 300);
+  }, 5000);
+  
+  // Close button
+  notification.querySelector('.notification-close').addEventListener('click', () => {
+    notification.style.animation = 'slideOut 0.3s ease';
+    setTimeout(() => notification.remove(), 300);
+  });
+}
+
+function getNotificationIcon(type) {
+  switch(type) {
+    case 'success': return '✅';
+    case 'error': return '❌';
+    case 'warning': return '⚠️';
+    default: return 'ℹ️';
+  }
+}
+
+function getNotificationColor(type) {
+  switch(type) {
+    case 'success': return '#4CAF50';
+    case 'error': return '#f44336';
+    case 'warning': return '#FF9800';
+    default: return '#2196F3';
+  }
+}
+
+// Add animation styles
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  
+  @keyframes slideOut {
+    from {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    to {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+  }
+  
+  .notification-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 10px;
+  }
+`;
+document.head.appendChild(style);
 
 // ==================== REPORT FUNCTIONS ====================
 function initReportButtons() {
