@@ -2,7 +2,7 @@
 // Student Tracker & Hours Management System
 
 // ==================== GLOBAL VARIABLES ====================
-let currentUser = null;
+/*let currentUser = null;
 let isOnline = navigator.onLine;
 let syncInterval = null;
 let autoSyncEnabled = false;
@@ -1032,4 +1032,4 @@ function applyDefaultRateToAll() {
   }
 }
 
-console.log('📦 app.js loaded successfully');
+console.log('📦 app.js loaded successfully'); */
