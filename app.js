@@ -1772,8 +1772,10 @@ function loadStudents() {
   let students = [];
   if (window.formHandler && window.formHandler.getStudents) {
     students = window.formHandler.getStudents();
+    console.log('Students from formHandler:', students.length, students);
   } else {
     students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    console.log('Students from localStorage:', students.length, students);
   }
   
   // Update count
