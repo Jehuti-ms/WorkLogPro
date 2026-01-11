@@ -27,6 +27,7 @@
         <button id="closeProfileModal" class="close">&times;</button>
       </div>
       <div class="modal-body">
+       
         <!-- User Info Section -->
         <div class="profile-section">
           <h3>Account Information</h3>
@@ -113,22 +114,23 @@
     </header>
      
     <!-- Cloud Sync Bar -->
-    <div class="sync-toolbar">
-      <div id="syncIndicator"></div>
-      <label class="auto-sync-label" id="autoSyncLabel">
-        <input type="checkbox" id="autoSyncCheckbox">
-        <span class="auto-sync-text" id="autoSyncText">Manual</span>
-      </label>
-
-      <button id="syncBtn" class="button primary">🔄 Sync Now</button>
-      <button id="exportCloudBtn" class="button success">Export Cloud</button>
-      <button id="importCloudBtn" class="button info">Import Cloud</button>
-      <button id="syncStatsBtn" class="button light">Fix Stats</button>
-
-      <button id="exportDataBtn" class="button primary">📤 Export Data</button>
-      <button id="importDataBtn" class="button primary">📥 Import Data</button>
-      <button id="clearDataBtn" class="button danger">🗑️ Clear All</button>
-    </div>
+      <div class="sync-toolbar">
+        <div id="syncIndicator" class="sync-indicator online">Online</div>
+        
+        <label class="auto-sync-label">
+          <input type="checkbox" id="autoSyncCheckbox">
+          <span class="auto-sync-text" id="autoSyncText">Manual</span>
+        </label>
+      
+        <button id="syncBtn" class="button primary">🔄 Sync Now</button>
+        <button id="exportCloudBtn" class="button success">Export Cloud</button>
+        <button id="importCloudBtn" class="button info">Import Cloud</button>
+        <button id="syncStatsBtn" class="button light">Fix Stats</button>
+      
+        <button id="exportDataBtn" class="button primary">📤 Export Data</button>
+        <button id="importDataBtn" class="button primary">📥 Import Data</button>
+        <button id="clearDataBtn" class="button danger">🗑️ Clear All</button>
+      </div>
 
     <!-- Tabs -->
     <div class="tabs-container">
