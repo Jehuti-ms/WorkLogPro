@@ -1,5 +1,5 @@
 // firebase-manager.js - ENHANCED WITH SYNC MONITORING
-import { auth, db } from "./firebase-config.js";
+/*import { auth, db } from "./firebase-config.js";
 import { 
   onAuthStateChanged,
   signOut
@@ -685,4 +685,4 @@ export class FirebaseManager {
 }
 
 // Export singleton instance
-export const firebaseManager = new FirebaseManager();
+export const firebaseManager = new FirebaseManager(); */
