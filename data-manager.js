@@ -350,6 +350,26 @@ export class DataManager {
     return await firebaseManager.importData(file);
   }
 
+  // Helper files
+  function getStudents() {
+  return JSON.parse(localStorage.getItem('worklog_students') || '[]');
+}
+
+function getHours() {
+  return JSON.parse(localStorage.getItem('worklog_hours') || '[]');
+}
+
+function getMarks() {
+  return JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+}
+
+function getAttendance() {
+  return JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
+}
+
+function getPayments() {
+  return JSON.parse(localStorage.getItem('worklog_payments') || '[]');
+}
   // Clear all data
   async clearAllData() {
     if (confirm('Are you sure? This will delete ALL local data and sync deletions to cloud!')) {
