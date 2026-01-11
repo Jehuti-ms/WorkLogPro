@@ -1,9 +1,7 @@
-// app.js - COMPLETE FIXED VERSION
-console.log('🚀 Loading COMPLETE app.js');
-
 // ==================== GLOBAL VARIABLES ====================
 let appInitialized = false;
 let redirectInProgress = false;
+let currentEditId = null;
 
 // ==================== MAIN INITIALIZATION ====================
 function initApp() {
@@ -58,6 +56,35 @@ async function safeInit() {
   } catch (error) {
     console.error('❌ Safe init error:', error);
     showErrorMessage('App initialization failed. Please refresh.');
+  }
+}
+
+// ==================== APP UI INITIALIZATION ====================
+function initAppUI() {
+  console.log('🎨 Initializing app UI...');
+  
+  try {
+    // Set default rate
+    initDefaultRate();
+    
+    // Update user info immediately
+    updateProfileInfo();
+    
+    // Initialize all components
+    initTabs();
+    initForms();
+    initFAB();
+    initProfileModal();
+    initSyncControls();
+    initReportButtons(); // Initialize report buttons
+    
+    // Load data
+    loadInitialData();
+    
+    console.log('✅ App UI initialized');
+    
+  } catch (error) {
+    console.error('❌ UI init error:', error);
   }
 }
 
@@ -200,31 +227,7 @@ function showErrorMessage(message) {
   document.body.appendChild(errorDiv);
 }
 
-// ==================== APP UI INITIALIZATION ====================
-function initAppUI() {
-  console.log('🎨 Initializing app UI...');
-  
-  try {
-    // Set default rate
-    initDefaultRate();
-    
-    // Initialize all components
-    initTabs();
-    initForms();
-    initFAB();
-    initProfileModal();
-    initSyncControls();
-    
-    // Load data
-    loadInitialData();
-    
-    console.log('✅ App UI initialized');
-    
-  } catch (error) {
-    console.error('❌ UI init error:', error);
-  }
-}
-
+// ==================== DEFAULT RATE ====================
 function initDefaultRate() {
   const defaultRate = localStorage.getItem('defaultHourlyRate') || '25.00';
   
@@ -241,6 +244,99 @@ function initDefaultRate() {
   const rateInput = document.getElementById('defaultBaseRate');
   if (rateInput) rateInput.value = defaultRate;
 }
+
+// ==================== PROFILE INFO FUNCTION ====================
+function updateProfileInfo() {
+  console.log('🔄 Updating profile info...');
+  
+  try {
+    // Get user email from multiple sources
+    let userEmail = 'Not logged in';
+    
+    // Try localStorage first
+    const storedEmail = localStorage.getItem('userEmail');
+    if (storedEmail) {
+      userEmail = storedEmail;
+    } else {
+      // Try parsing worklog_user
+      const worklogUser = localStorage.getItem('worklog_user');
+      if (worklogUser) {
+        try {
+          const parsed = JSON.parse(worklogUser);
+          if (parsed && parsed.email) {
+            userEmail = parsed.email;
+          }
+        } catch (e) {
+          console.log('Could not parse worklog_user');
+        }
+      }
+    }
+    
+    console.log('User email found:', userEmail);
+    
+    // Update UI elements
+    const profileEmail = document.getElementById('profileUserEmail');
+    const userName = document.getElementById('userName');
+    
+    if (profileEmail) profileEmail.textContent = userEmail;
+    
+    // Set username (email without domain)
+    const displayName = userEmail.split('@')[0] || 'User';
+    if (userName) userName.textContent = displayName;
+    
+    // Update stats
+    updateProfileStats();
+    
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    
+    // Set fallback values
+    const profileEmail = document.getElementById('profileUserEmail');
+    const userName = document.getElementById('userName');
+    
+    if (profileEmail) profileEmail.textContent = 'Not logged in';
+    if (userName) userName.textContent = 'User';
+  }
+}
+
+function updateProfileStats() {
+  console.log('📊 Updating profile stats...');
+  
+  try {
+    // Get data from localStorage
+    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
+    
+    // Calculate stats
+    const totalStudents = students.length;
+    
+    const totalHours = hours.reduce((sum, hour) => {
+      return sum + (parseFloat(hour.hoursWorked) || 0);
+    }, 0);
+    
+    const totalEarnings = hours.reduce((sum, hour) => {
+      const hoursWorked = parseFloat(hour.hoursWorked) || 0;
+      const rate = parseFloat(hour.baseRate) || 0;
+      return sum + (hoursWorked * rate);
+    }, 0);
+    
+    // Update UI
+    const studentsElem = document.getElementById('modalStatStudents');
+    const hoursElem = document.getElementById('modalStatHours');
+    const earningsElem = document.getElementById('modalStatEarnings');
+    const updatedElem = document.getElementById('modalStatUpdated');
+    
+    if (studentsElem) studentsElem.textContent = totalStudents;
+    if (hoursElem) hoursElem.textContent = totalHours.toFixed(1);
+    if (earningsElem) earningsElem.textContent = totalEarnings.toFixed(2);
+    if (updatedElem) updatedElem.textContent = new Date().toLocaleTimeString();
+    
+  } catch (error) {
+    console.error('Error updating profile stats:', error);
+  }
+}
+
+// ==================== COMPONENT INITIALIZATION FUNCTIONS ====================
 
 function initTabs() {
   console.log('📋 Initializing tabs...');
@@ -276,6 +372,9 @@ function initTabs() {
     
     // Update URL hash
     window.location.hash = tabName;
+    
+    // Load data for this tab
+    loadTabData(tabName);
   }
   
   // Add click listeners
@@ -298,6 +397,31 @@ function initTabs() {
   window.switchTab = switchTab;
 }
 
+function loadTabData(tabName) {
+  console.log(`📊 Loading data for ${tabName} tab...`);
+  
+  switch(tabName) {
+    case 'students':
+      loadStudents();
+      break;
+    case 'hours':
+      loadHours();
+      break;
+    case 'marks':
+      loadMarks();
+      break;
+    case 'attendance':
+      loadAttendance();
+      break;
+    case 'payments':
+      loadPayments();
+      break;
+    case 'reports':
+      loadReports(); // This was missing!
+      break;
+  }
+}
+
 function initForms() {
   console.log('📝 Initializing forms...');
   
@@ -318,8 +442,37 @@ function initForms() {
     studentForm.addEventListener('submit', function(e) {
       e.preventDefault();
       console.log('Student form submitted');
-      // Add your form handling here
+      handleStudentSubmit();
     });
+  }
+  
+  // Initialize hours form
+  const hoursForm = document.getElementById('hoursForm');
+  if (hoursForm) {
+    hoursForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      console.log('Hours form submitted');
+      handleHoursSubmit();
+    });
+    
+    // Auto-calculate total pay
+    const hoursWorkedInput = document.getElementById('hoursWorked');
+    const baseRateInput = document.getElementById('baseRate');
+    
+    if (hoursWorkedInput && baseRateInput) {
+      const calculateTotal = () => {
+        const hours = parseFloat(hoursWorkedInput.value) || 0;
+        const rate = parseFloat(baseRateInput.value) || 0;
+        const total = hours * rate;
+        const totalPayElement = document.getElementById('totalPay');
+        if (totalPayElement) {
+          totalPayElement.textContent = `$${total.toFixed(2)}`;
+        }
+      };
+      
+      hoursWorkedInput.addEventListener('input', calculateTotal);
+      baseRateInput.addEventListener('input', calculateTotal);
+    }
   }
 }
 
@@ -335,35 +488,57 @@ function initFAB() {
     return;
   }
   
+  let isFabOpen = false;
+  
   // Toggle FAB menu
   fab.addEventListener('click', function(e) {
     e.stopPropagation();
-    const isActive = fabMenu.classList.contains('active');
     
-    if (isActive) {
+    if (isFabOpen) {
       fabMenu.classList.remove('active');
-      fabOverlay.style.display = 'none';
+      fabOverlay.classList.remove('active');
       fab.textContent = '+';
+      fab.style.transform = 'rotate(0deg)';
     } else {
       fabMenu.classList.add('active');
-      fabOverlay.style.display = 'block';
+      fabOverlay.classList.add('active');
       fab.textContent = '×';
+      fab.style.transform = 'rotate(45deg)';
     }
+    
+    isFabOpen = !isFabOpen;
   });
   
   // Close on overlay click
   fabOverlay.addEventListener('click', function() {
     fabMenu.classList.remove('active');
-    fabOverlay.style.display = 'none';
+    fabOverlay.classList.remove('active');
     fab.textContent = '+';
+    fab.style.transform = 'rotate(0deg)';
+    isFabOpen = false;
   });
   
   // Close on escape key
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && fabMenu.classList.contains('active')) {
+    if (e.key === 'Escape' && isFabOpen) {
       fabMenu.classList.remove('active');
-      fabOverlay.style.display = 'none';
+      fabOverlay.classList.remove('active');
       fab.textContent = '+';
+      fab.style.transform = 'rotate(0deg)';
+      isFabOpen = false;
+    }
+  });
+  
+  // Close when clicking outside
+  document.addEventListener('click', function(e) {
+    if (isFabOpen && 
+        !fab.contains(e.target) && 
+        !fabMenu.contains(e.target)) {
+      fabMenu.classList.remove('active');
+      fabOverlay.classList.remove('active');
+      fab.textContent = '+';
+      fab.style.transform = 'rotate(0deg)';
+      isFabOpen = false;
     }
   });
   
@@ -381,21 +556,45 @@ function initFAB() {
       fabItem.addEventListener('click', function() {
         const tabName = fabActions[fabId];
         
+        // Close FAB menu
+        fabMenu.classList.remove('active');
+        fabOverlay.classList.remove('active');
+        fab.textContent = '+';
+        fab.style.transform = 'rotate(0deg)';
+        isFabOpen = false;
+        
         // Switch to tab
         if (window.switchTab) {
           window.switchTab(tabName);
         }
-        
-        // Close FAB menu
-        fabMenu.classList.remove('active');
-        fabOverlay.style.display = 'none';
-        fab.textContent = '+';
       });
     }
   });
+  
+  // Add Payment button if not exists
+  if (!document.getElementById('fabAddPayment')) {
+    const fabAddPayment = document.createElement('button');
+    fabAddPayment.id = 'fabAddPayment';
+    fabAddPayment.className = 'fab-item';
+    fabAddPayment.innerHTML = '<span class="icon">💰</span>Record Payment';
+    fabAddPayment.addEventListener('click', function() {
+      // Close FAB menu
+      fabMenu.classList.remove('active');
+      fabOverlay.classList.remove('active');
+      fab.textContent = '+';
+      fab.style.transform = 'rotate(0deg)';
+      isFabOpen = false;
+      
+      // Switch to payments tab
+      if (window.switchTab) {
+        window.switchTab('payments');
+      }
+    });
+    
+    fabMenu.appendChild(fabAddPayment);
+  }
 }
 
-// ==================== PROFILE FUNCTIONS ====================
 function initProfileModal() {
   console.log('👤 Initializing profile modal...');
   
@@ -436,96 +635,6 @@ function initProfileModal() {
       }
     });
   }
-  
-  // Make updateProfileInfo available globally
-  window.updateProfileInfo = updateProfileInfo;
-}
-
-function updateProfileInfo() {
-  console.log('🔄 Updating profile info...');
-  
-  try {
-    // Get user email from multiple sources
-    let userEmail = 'Not logged in';
-    
-    // Try localStorage first
-    const storedEmail = localStorage.getItem('userEmail');
-    if (storedEmail) {
-      userEmail = storedEmail;
-    } else {
-      // Try parsing worklog_user
-      const worklogUser = localStorage.getItem('worklog_user');
-      if (worklogUser) {
-        try {
-          const parsed = JSON.parse(worklogUser);
-          if (parsed && parsed.email) {
-            userEmail = parsed.email;
-          }
-        } catch (e) {
-          console.log('Could not parse worklog_user');
-        }
-      }
-    }
-    
-    console.log('User email found:', userEmail);
-    
-    // Update UI elements
-    const profileEmail = document.getElementById('profileUserEmail');
-    const userName = document.getElementById('userName');
-    const profileBtnName = document.getElementById('userName'); // The button text
-    
-    if (profileEmail) profileEmail.textContent = userEmail;
-    
-    // Set username (email without domain)
-    const displayName = userEmail.split('@')[0] || 'User';
-    if (userName) userName.textContent = displayName;
-    if (profileBtnName) profileBtnName.textContent = displayName;
-    
-    // Update stats
-    updateProfileStats();
-    
-  } catch (error) {
-    console.error('Error updating profile:', error);
-    
-    // Set fallback values
-    const profileEmail = document.getElementById('profileUserEmail');
-    const userName = document.getElementById('userName');
-    
-    if (profileEmail) profileEmail.textContent = 'Not logged in';
-    if (userName) userName.textContent = 'User';
-  }
-}
-
-function updateProfileStats() {
-  console.log('📊 Updating profile stats...');
-  
-  // Get data from localStorage
-  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-  const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
-  
-  // Calculate stats
-  const totalStudents = students.length;
-  
-  const totalHours = hours.reduce((sum, hour) => {
-    return sum + (parseFloat(hour.hoursWorked) || 0);
-  }, 0);
-  
-  const totalEarnings = hours.reduce((sum, hour) => {
-    const hoursWorked = parseFloat(hour.hoursWorked) || 0;
-    const rate = parseFloat(hour.baseRate) || 0;
-    return sum + (hoursWorked * rate);
-  }, 0);
-  
-  // Update UI
-  const studentsElem = document.getElementById('modalStatStudents');
-  const hoursElem = document.getElementById('modalStatHours');
-  const earningsElem = document.getElementById('modalStatEarnings');
-  const updatedElem = document.getElementById('modalStatUpdated');
-  
-  if (studentsElem) studentsElem.textContent = totalStudents;
-  if (hoursElem) hoursElem.textContent = totalHours.toFixed(1);
-  if (earningsElem) earningsElem.textContent = totalEarnings.toFixed(2);
-  if (updatedElem) updatedElem.textContent = new Date().toLocaleTimeString();
 }
 
 function handleLogout() {
@@ -548,7 +657,6 @@ function handleLogout() {
   window.location.href = 'auth.html';
 }
 
-// ==================== SYNC CONTROLS ====================
 function initSyncControls() {
   console.log('☁️ Initializing sync controls...');
   
@@ -557,16 +665,7 @@ function initSyncControls() {
   if (syncBtn) {
     syncBtn.addEventListener('click', function() {
       console.log('Sync button clicked');
-      // Show syncing status
-      updateSyncIndicator('Syncing...', 'syncing');
-      
-      // Simulate sync
-      setTimeout(() => {
-        updateSyncIndicator('Synced', 'success');
-        setTimeout(() => {
-          updateSyncIndicator('Online', 'online');
-        }, 2000);
-      }, 1500);
+      // Add sync logic here
     });
   }
   
@@ -595,60 +694,325 @@ function initSyncControls() {
       
       // Save setting
       localStorage.setItem('autoSyncEnabled', isChecked);
-      
-      // Show notification
-      showSyncNotification(isChecked ? 'Auto-sync enabled' : 'Auto-sync disabled');
+    });
+  }
+}
+
+// ==================== REPORT FUNCTIONS ====================
+function initReportButtons() {
+  console.log('📊 Initializing report buttons...');
+  
+  // Weekly report
+  const weeklyReportBtn = document.getElementById('weeklyReportBtn');
+  if (weeklyReportBtn) {
+    weeklyReportBtn.addEventListener('click', function() {
+      generateWeeklyReport();
     });
   }
   
-  // Initialize sync indicator
-  updateSyncIndicator('Online', 'online');
+  // Bi-weekly report
+  const biWeeklyReportBtn = document.getElementById('biWeeklyReportBtn');
+  if (biWeeklyReportBtn) {
+    biWeeklyReportBtn.addEventListener('click', function() {
+      generateBiWeeklyReport();
+    });
+  }
+  
+  // Monthly report
+  const monthlyReportBtn = document.getElementById('monthlyReportBtn');
+  if (monthlyReportBtn) {
+    monthlyReportBtn.addEventListener('click', function() {
+      generateMonthlyReport();
+    });
+  }
+  
+  // Subject report
+  const subjectReportBtn = document.getElementById('subjectReportBtn');
+  if (subjectReportBtn) {
+    subjectReportBtn.addEventListener('click', function() {
+      generateSubjectReport();
+    });
+  }
+  
+  // PDF report
+  const pdfReportBtn = document.getElementById('pdfReportBtn');
+  if (pdfReportBtn) {
+    pdfReportBtn.addEventListener('click', function() {
+      generatePDFReport();
+    });
+  }
+  
+  // Email report
+  const emailReportBtn = document.getElementById('emailReportBtn');
+  if (emailReportBtn) {
+    emailReportBtn.addEventListener('click', function() {
+      generateEmailReport();
+    });
+  }
 }
 
-function updateSyncIndicator(text, status) {
-  const syncIndicator = document.getElementById('syncIndicator');
-  if (!syncIndicator) return;
+function loadReports() {
+  console.log('📈 Loading reports...');
   
-  // Clear previous classes
-  syncIndicator.className = 'sync-indicator';
+  // Update report statistics
+  updateReportStats();
   
-  // Set text and status class
-  syncIndicator.textContent = text;
-  syncIndicator.classList.add(status);
+  // Generate weekly breakdown
+  generateWeeklyBreakdown();
   
-  console.log('Sync indicator:', text, status);
+  // Generate subject breakdown
+  generateSubjectBreakdown();
 }
 
-function showSyncNotification(message) {
-  console.log('🔔 Sync notification:', message);
+function updateReportStats() {
+  console.log('📊 Updating report statistics...');
   
-  // Create notification
-  const notification = document.createElement('div');
-  notification.className = 'sync-notification';
-  notification.textContent = message;
-  notification.style.cssText = `
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    background: #4CAF50;
-    color: white;
-    padding: 10px 15px;
-    border-radius: 5px;
-    z-index: 1000;
-    font-size: 14px;
-    animation: slideIn 0.3s ease;
-  `;
-  
-  document.body.appendChild(notification);
-  
-  // Remove after 3 seconds
-  setTimeout(() => {
-    notification.style.animation = 'slideOut 0.3s ease';
-    setTimeout(() => notification.remove(), 300);
-  }, 3000);
+  try {
+    // Get all data
+    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
+    const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+    const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
+    
+    // Calculate totals
+    const totalStudents = students.length;
+    
+    const totalHours = hours.reduce((sum, hour) => {
+      return sum + (parseFloat(hour.hoursWorked) || 0);
+    }, 0);
+    
+    const totalEarnings = hours.reduce((sum, hour) => {
+      const hoursWorked = parseFloat(hour.hoursWorked) || 0;
+      const rate = parseFloat(hour.baseRate) || 0;
+      return sum + (hoursWorked * rate);
+    }, 0);
+    
+    // Calculate average mark
+    let avgMark = 0;
+    if (marks.length > 0) {
+      const totalPercentage = marks.reduce((sum, mark) => {
+        return sum + (parseFloat(mark.percentage) || 0);
+      }, 0);
+      avgMark = totalPercentage / marks.length;
+    }
+    
+    // Calculate total payments
+    const totalPayments = payments.reduce((sum, payment) => {
+      return sum + (parseFloat(payment.paymentAmount) || 0);
+    }, 0);
+    
+    // Calculate outstanding balance
+    const outstandingBalance = totalEarnings - totalPayments;
+    
+    // Update UI
+    const updateElement = (id, value) => {
+      const element = document.getElementById(id);
+      if (element) element.textContent = value;
+    };
+    
+    updateElement('totalStudentsReport', totalStudents);
+    updateElement('totalHoursReport', totalHours.toFixed(1));
+    updateElement('totalEarningsReport', `$${totalEarnings.toFixed(2)}`);
+    updateElement('avgMarkReport', `${avgMark.toFixed(1)}%`);
+    updateElement('totalPaymentsReport', `$${totalPayments.toFixed(2)}`);
+    updateElement('outstandingBalance', `$${outstandingBalance.toFixed(2)}`);
+    
+  } catch (error) {
+    console.error('Error updating report stats:', error);
+  }
 }
 
-// ==================== DATA LOADING ====================
+function generateWeeklyBreakdown() {
+  console.log('📅 Generating weekly breakdown...');
+  
+  try {
+    const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
+    const weeklyBody = document.getElementById('weeklyBody');
+    
+    if (!weeklyBody) return;
+    
+    if (hours.length === 0) {
+      weeklyBody.innerHTML = '<tr><td colspan="5" class="empty-message">No data available</td></tr>';
+      return;
+    }
+    
+    // Group by week
+    const weeks = {};
+    hours.forEach(hour => {
+      const date = new Date(hour.workDate);
+      const weekStart = getWeekStart(date);
+      const weekKey = weekStart.toISOString().split('T')[0];
+      
+      if (!weeks[weekKey]) {
+        weeks[weekKey] = {
+          period: formatDate(weekStart) + ' - ' + formatDate(new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000)),
+          hours: 0,
+          earnings: 0,
+          subjects: new Set(),
+          net: 0
+        };
+      }
+      
+      const hoursWorked = parseFloat(hour.hoursWorked) || 0;
+      const rate = parseFloat(hour.baseRate) || 0;
+      const earnings = hoursWorked * rate;
+      
+      weeks[weekKey].hours += hoursWorked;
+      weeks[weekKey].earnings += earnings;
+      weeks[weekKey].net += earnings * 0.8; // 80% net
+      
+      if (hour.workSubject) {
+        weeks[weekKey].subjects.add(hour.workSubject);
+      }
+    });
+    
+    // Convert to array and sort by date
+    const weekArray = Object.values(weeks).sort((a, b) => {
+      return new Date(b.period.split(' - ')[0]) - new Date(a.period.split(' - ')[0]);
+    });
+    
+    // Update table
+    weeklyBody.innerHTML = weekArray.map(week => `
+      <tr>
+        <td>${week.period}</td>
+        <td>${week.hours.toFixed(1)}h</td>
+        <td>$${week.earnings.toFixed(2)}</td>
+        <td>${Array.from(week.subjects).slice(0, 3).join(', ')}${week.subjects.size > 3 ? '...' : ''}</td>
+        <td>$${week.net.toFixed(2)}</td>
+      </tr>
+    `).join('');
+    
+  } catch (error) {
+    console.error('Error generating weekly breakdown:', error);
+  }
+}
+
+function generateSubjectBreakdown() {
+  console.log('📚 Generating subject breakdown...');
+  
+  try {
+    const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
+    const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+    const subjectBody = document.getElementById('subjectBody');
+    
+    if (!subjectBody) return;
+    
+    if (hours.length === 0 && marks.length === 0) {
+      subjectBody.innerHTML = '<tr><td colspan="5" class="empty-message">No data available</td></tr>';
+      return;
+    }
+    
+    // Group by subject
+    const subjects = {};
+    
+    // Process hours
+    hours.forEach(hour => {
+      const subject = hour.workSubject || 'Uncategorized';
+      if (!subjects[subject]) {
+        subjects[subject] = {
+          hours: 0,
+          earnings: 0,
+          sessions: 0,
+          marks: []
+        };
+      }
+      
+      const hoursWorked = parseFloat(hour.hoursWorked) || 0;
+      const rate = parseFloat(hour.baseRate) || 0;
+      
+      subjects[subject].hours += hoursWorked;
+      subjects[subject].earnings += hoursWorked * rate;
+      subjects[subject].sessions += 1;
+    });
+    
+    // Process marks
+    marks.forEach(mark => {
+      const subject = mark.marksSubject || 'Uncategorized';
+      if (!subjects[subject]) {
+        subjects[subject] = {
+          hours: 0,
+          earnings: 0,
+          sessions: 0,
+          marks: []
+        };
+      }
+      
+      subjects[subject].marks.push(parseFloat(mark.percentage) || 0);
+    });
+    
+    // Calculate averages and convert to array
+    const subjectArray = Object.entries(subjects).map(([subject, data]) => {
+      const avgMark = data.marks.length > 0 
+        ? (data.marks.reduce((a, b) => a + b, 0) / data.marks.length).toFixed(1)
+        : 'N/A';
+      
+      return {
+        subject,
+        avgMark,
+        hours: data.hours.toFixed(1),
+        earnings: data.earnings.toFixed(2),
+        sessions: data.sessions
+      };
+    }).sort((a, b) => b.earnings - a.earnings);
+    
+    // Update table
+    subjectBody.innerHTML = subjectArray.map(item => `
+      <tr>
+        <td>${item.subject}</td>
+        <td>${item.avgMark}${item.avgMark !== 'N/A' ? '%' : ''}</td>
+        <td>${item.hours}h</td>
+        <td>$${item.earnings}</td>
+        <td>${item.sessions}</td>
+      </tr>
+    `).join('');
+    
+  } catch (error) {
+    console.error('Error generating subject breakdown:', error);
+  }
+}
+
+function getWeekStart(date) {
+  const day = date.getDay();
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Sunday
+  return new Date(date.setDate(diff));
+}
+
+function formatDate(date) {
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// Placeholder report functions
+function generateWeeklyReport() {
+  console.log('📅 Generating weekly report...');
+  alert('Weekly report would be generated here');
+}
+
+function generateBiWeeklyReport() {
+  console.log('📅 Generating bi-weekly report...');
+  alert('Bi-weekly report would be generated here');
+}
+
+function generateMonthlyReport() {
+  console.log('📅 Generating monthly report...');
+  alert('Monthly report would be generated here');
+}
+
+function generateSubjectReport() {
+  console.log('📚 Generating subject report...');
+  alert('Subject report would be generated here');
+}
+
+function generatePDFReport() {
+  console.log('📄 Generating PDF report...');
+  alert('PDF report would be generated here');
+}
+
+function generateEmailReport() {
+  console.log('📧 Generating email report...');
+  alert('Email report would be generated here');
+}
+
+// ==================== DATA LOADING FUNCTIONS ====================
 function loadInitialData() {
   console.log('📊 Loading initial data...');
   
@@ -658,7 +1022,16 @@ function loadInitialData() {
   // Load hours
   loadHours();
   
-  // Update stats
+  // Load marks
+  loadMarks();
+  
+  // Load attendance
+  loadAttendance();
+  
+  // Load payments
+  loadPayments();
+  
+  // Update global stats
   updateGlobalStats();
 }
 
@@ -698,6 +1071,56 @@ function loadHours() {
   // You can add more hours loading logic here
 }
 
+function loadMarks() {
+  console.log('📝 Loading marks...');
+  
+  const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+  const container = document.getElementById('marksContainer');
+  
+  if (!container) return;
+  
+  if (marks.length === 0) {
+    container.innerHTML = '<p class="empty-message">No marks recorded yet.</p>';
+    return;
+  }
+  
+  // Update count
+  const countElem = document.getElementById('marksCount');
+  if (countElem) countElem.textContent = marks.length;
+}
+
+function loadAttendance() {
+  console.log('✅ Loading attendance...');
+  
+  const attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
+  const container = document.getElementById('attendanceContainer');
+  
+  if (!container) return;
+  
+  if (attendance.length === 0) {
+    container.innerHTML = '<p class="empty-message">No attendance records yet.</p>';
+    return;
+  }
+  
+  // Update count
+  const countElem = document.getElementById('attendanceCount');
+  if (countElem) countElem.textContent = attendance.length;
+}
+
+function loadPayments() {
+  console.log('💰 Loading payments...');
+  
+  const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
+  const container = document.getElementById('paymentActivityLog');
+  
+  if (!container) return;
+  
+  if (payments.length === 0) {
+    container.innerHTML = '<p class="empty-message">No recent payment activity.</p>';
+    return;
+  }
+}
+
 function updateGlobalStats() {
   console.log('📈 Updating global stats...');
   
@@ -717,6 +1140,17 @@ function updateGlobalStats() {
   if (hoursElem) hoursElem.textContent = totalHours.toFixed(1);
 }
 
+// ==================== FORM HANDLERS (Placeholders) ====================
+function handleStudentSubmit() {
+  console.log('Handling student submission...');
+  // Add your student form handling logic here
+}
+
+function handleHoursSubmit() {
+  console.log('Handling hours submission...');
+  // Add your hours form handling logic here
+}
+
 // ==================== START APP ====================
 // Wait for DOM to be ready
 if (document.readyState === 'loading') {
@@ -729,4 +1163,4 @@ if (document.readyState === 'loading') {
   setTimeout(initApp, 300);
 }
 
-console.log('✅ COMPLETE app.js loaded');
+console.log('✅ App initialization script loaded');
