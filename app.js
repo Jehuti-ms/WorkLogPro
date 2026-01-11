@@ -1739,15 +1739,232 @@ function updateGlobalStats() {
   if (hoursElem) hoursElem.textContent = totalHours.toFixed(1);
 }
 
-// ==================== FORM HANDLERS (Placeholders) ====================
-function handleStudentSubmit() {
-  console.log('Handling student submission...');
-  // Add your student form handling logic here
+// ==================== FORM HANDLERS =========================
+function initForms() {
+  console.log('📝 Initializing forms...');
+  
+  // Set today's date in date fields
+  const today = new Date().toISOString().split('T')[0];
+  const dateFields = ['workDate', 'marksDate', 'attendanceDate', 'paymentDate'];
+  
+  dateFields.forEach(fieldId => {
+    const field = document.getElementById(fieldId);
+    if (field) {
+      field.value = today;
+    }
+  });
+  
+  // Initialize student form
+  const studentForm = document.getElementById('studentForm');
+  if (studentForm) {
+    studentForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      console.log('Student form submitted');
+      
+      // Check if data-manager.js is available
+      if (window.dataManager && window.dataManager.saveStudent) {
+        const studentData = {
+          id: currentEditId || generateId(),
+          name: document.getElementById('studentName').value.trim(),
+          studentId: document.getElementById('studentId').value.trim(),
+          gender: document.getElementById('studentGender').value,
+          email: document.getElementById('studentEmail').value.trim(),
+          phone: document.getElementById('studentPhone').value.trim(),
+          rate: parseFloat(document.getElementById('studentRate').value) || 0
+        };
+        
+        // Validate required fields
+        if (!studentData.name || !studentData.studentId || !studentData.gender) {
+          showNotification('Please fill in all required fields (Name, ID, Gender)', 'error');
+          return;
+        }
+        
+        window.dataManager.saveStudent(studentData)
+          .then(result => {
+            if (result.success) {
+              showNotification('Student saved successfully!', 'success');
+              studentForm.reset();
+              currentEditId = null;
+              document.getElementById('studentCancelBtn').style.display = 'none';
+              document.getElementById('studentSubmitBtn').textContent = '➕ Add Student';
+              loadStudents(); // Refresh the list
+            } else {
+              showNotification('Error saving student: ' + result.error, 'error');
+            }
+          })
+          .catch(error => {
+            showNotification('Error saving student: ' + error.message, 'error');
+          });
+      } else {
+        showNotification('Data manager not available', 'error');
+      }
+    });
+  }
+  
+  // Initialize hours form
+  const hoursForm = document.getElementById('hoursForm');
+  if (hoursForm) {
+    hoursForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      console.log('Hours form submitted');
+      
+      if (window.dataManager && window.dataManager.saveHour) {
+        const hourData = {
+          id: generateId(),
+          organization: document.getElementById('organization').value.trim(),
+          workSubject: document.getElementById('workSubject').value.trim(),
+          hoursStudent: document.getElementById('hoursStudent').value,
+          workType: document.getElementById('workType').value,
+          workDate: document.getElementById('workDate').value,
+          hoursWorked: parseFloat(document.getElementById('hoursWorked').value) || 0,
+          baseRate: parseFloat(document.getElementById('baseRate').value) || 0,
+          hoursNotes: document.getElementById('hoursNotes').value.trim()
+        };
+        
+        // Validate required fields
+        if (!hourData.organization || !hourData.workDate || !hourData.hoursWorked || !hourData.baseRate) {
+          showNotification('Please fill in all required fields', 'error');
+          return;
+        }
+        
+        window.dataManager.saveHour(hourData)
+          .then(result => {
+            if (result.success) {
+              showNotification('Hours logged successfully!', 'success');
+              hoursForm.reset();
+              document.getElementById('workDate').value = today;
+              document.getElementById('totalPay').textContent = '$0.00';
+              loadHours(); // Refresh the list
+            } else {
+              showNotification('Error saving hours: ' + result.error, 'error');
+            }
+          })
+          .catch(error => {
+            showNotification('Error saving hours: ' + error.message, 'error');
+          });
+      } else {
+        showNotification('Data manager not available', 'error');
+      }
+    });
+    
+    // Auto-calculate total pay
+    const hoursWorkedInput = document.getElementById('hoursWorked');
+    const baseRateInput = document.getElementById('baseRate');
+    
+    if (hoursWorkedInput && baseRateInput) {
+      const calculateTotal = () => {
+        const hours = parseFloat(hoursWorkedInput.value) || 0;
+        const rate = parseFloat(baseRateInput.value) || 0;
+        const total = hours * rate;
+        const totalPayElement = document.getElementById('totalPay');
+        if (totalPayElement) {
+          totalPayElement.textContent = `$${total.toFixed(2)}`;
+        }
+      };
+      
+      hoursWorkedInput.addEventListener('input', calculateTotal);
+      baseRateInput.addEventListener('input', calculateTotal);
+    }
+  }
+  
+  // Initialize marks form
+  const marksForm = document.getElementById('marksForm');
+  if (marksForm && window.dataManager && window.dataManager.saveMark) {
+    marksForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const markData = {
+        id: generateId(),
+        marksStudent: document.getElementById('marksStudent').value,
+        marksSubject: document.getElementById('marksSubject').value.trim(),
+        marksTopic: document.getElementById('marksTopic').value.trim(),
+        marksDate: document.getElementById('marksDate').value,
+        marksScore: parseFloat(document.getElementById('marksScore').value) || 0,
+        marksMax: parseFloat(document.getElementById('marksMax').value) || 100,
+        marksNotes: document.getElementById('marksNotes').value.trim()
+      };
+      
+      window.dataManager.saveMark(markData)
+        .then(result => {
+          if (result.success) {
+            showNotification('Mark saved successfully!', 'success');
+            marksForm.reset();
+            document.getElementById('marksDate').value = today;
+            loadMarks();
+          }
+        });
+    });
+  }
+  
+  // Initialize attendance form
+  const attendanceForm = document.getElementById('attendanceForm');
+  if (attendanceForm && window.dataManager && window.dataManager.saveAttendance) {
+    attendanceForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      // Get checked students
+      const checkedStudents = Array.from(
+        document.querySelectorAll('#attendanceStudents input[type="checkbox"]:checked')
+      ).map(cb => cb.value);
+      
+      const attendanceData = {
+        id: generateId(),
+        attendanceDate: document.getElementById('attendanceDate').value,
+        attendanceSubject: document.getElementById('attendanceSubject').value.trim(),
+        attendanceTopic: document.getElementById('attendanceTopic').value.trim(),
+        presentStudents: checkedStudents,
+        attendanceNotes: document.getElementById('attendanceNotes').value.trim()
+      };
+      
+      window.dataManager.saveAttendance(attendanceData)
+        .then(result => {
+          if (result.success) {
+            showNotification('Attendance saved successfully!', 'success');
+            attendanceForm.reset();
+            document.getElementById('attendanceDate').value = today;
+            loadAttendance();
+          }
+        });
+    });
+  }
+  
+  // Initialize payment form
+  const paymentForm = document.getElementById('paymentForm');
+  if (paymentForm && window.dataManager && window.dataManager.savePayment) {
+    paymentForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const paymentData = {
+        id: generateId(),
+        paymentStudent: document.getElementById('paymentStudent').value,
+        paymentAmount: parseFloat(document.getElementById('paymentAmount').value) || 0,
+        paymentDate: document.getElementById('paymentDate').value,
+        paymentMethod: document.getElementById('paymentMethod').value,
+        paymentNotes: document.getElementById('paymentNotes').value.trim()
+      };
+      
+      window.dataManager.savePayment(paymentData)
+        .then(result => {
+          if (result.success) {
+            showNotification('Payment recorded successfully!', 'success');
+            paymentForm.reset();
+            document.getElementById('paymentDate').value = today;
+            loadPayments();
+          }
+        });
+    });
+  }
 }
 
-function handleHoursSubmit() {
-  console.log('Handling hours submission...');
-  // Add your hours form handling logic here
+// Helper function to generate IDs
+function generateId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
+// Helper function to show notifications (make sure this exists)
+function showNotification(message, type = 'info') {
+  console.log(`${type.toUpperCase()}: ${message}`);
+  // Your notification implementation here
 }
 
 // ==================== START APP ====================
