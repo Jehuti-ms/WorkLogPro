@@ -990,5 +990,14 @@ initializeData();
 
 console.log('✅ data-manager.js loaded successfully');
 
+// Make DataManager available globally
+window.DataManager = DataManager;
+
+// Create and expose a global instance
+if (!window.dataManager) {
+    window.dataManager = new DataManager();
+    console.log('Global dataManager instance created');
+}
+
 // Export functions globally (simpler approach)
 // These functions will be available globally since they're defined in global scope
