@@ -500,7 +500,7 @@ function initFAB() {
     'fabAddStudent': 'students',
     'fabAddHours': 'hours',
     'fabAddMark': 'marks',
-    'fabAddAttendance': 'attendance'
+    'fabAddAttendance': 'attendance',
     'fabViewReports': 'reports'
   };
   
