@@ -1,4 +1,3 @@
-<script>
 // Service Worker Control
 if ('serviceWorker' in navigator) {
   // Check if we should skip service worker
@@ -38,4 +37,4 @@ if ('serviceWorker' in navigator) {
     }
   }
 }
-</script>
+
