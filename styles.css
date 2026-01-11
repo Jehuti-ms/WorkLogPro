@@ -3066,3 +3066,146 @@ button:focus:not(:focus-visible) {
   }
 }
 
+/* ==================== FLOATING ACTION BUTTON ==================== */
+.fab-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+}
+
+.fab {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4361ee, #3a0ca3);
+  border: none;
+  color: white;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(67, 97, 238, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  z-index: 1001;
+}
+
+.fab:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(67, 97, 238, 0.6);
+}
+
+.fab:active {
+  transform: scale(0.95);
+}
+
+/* FAB Menu */
+.fab-menu {
+  position: absolute;
+  bottom: 70px;
+  right: 0;
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(20px);
+  transition: all 0.3s ease;
+  min-width: 200px;
+  z-index: 1002;
+  border: 1px solid var(--border);
+}
+
+.fab-menu.active {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.fab-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 12px 15px;
+  margin: 5px 0;
+  border: none;
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+.fab-item:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+  transform: translateX(-5px);
+}
+
+.fab-item .icon {
+  font-size: 20px;
+  margin-right: 10px;
+  min-width: 30px;
+}
+
+/* FAB Overlay */
+.fab-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 999;
+}
+
+.fab-overlay.active {
+  display: block;
+}
+
+/* Ensure FAB is visible on all tabs */
+.tabcontent {
+  min-height: calc(100vh - 250px);
+  padding-bottom: 100px; /* Space for FAB */
+}
+
+/* Responsive FAB */
+@media (max-width: 768px) {
+  .fab {
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+    bottom: 15px;
+    right: 15px;
+  }
+  
+  .fab-menu {
+    bottom: 60px;
+    right: 0;
+    min-width: 180px;
+  }
+}
+
+@media (max-width: 480px) {
+  .fab-container {
+    bottom: 10px;
+    right: 10px;
+  }
+  
+  .fab {
+    width: 45px;
+    height: 45px;
+    font-size: 22px;
+  }
+  
+  .fab-menu {
+    min-width: 160px;
+  }
+}
+
