@@ -553,6 +553,405 @@ function formatDate(dateString) {
   }
 }
 
+// ==================== REPORTING =========================
+  // data-manager.js - Add these Firebase report methods
+    
+async generateWeeklyReport() {
+        return await this.generateDateRangeReport('weekly');
+    }
+
+    async generateBiWeeklyReport() {
+        return await this.generateDateRangeReport('biweekly');
+    }
+
+    async generateMonthlyReport() {
+        return await this.generateDateRangeReport('monthly');
+    }
+
+    async generateDateRangeReport(type) {
+        try {
+            const allLogs = await this.getAllLogs();
+            const students = await this.getAllStudents();
+            
+            const now = new Date();
+            let startDate = new Date(now);
+            
+            switch(type) {
+                case 'weekly':
+                    startDate.setDate(now.getDate() - 7);
+                    break;
+                case 'biweekly':
+                    startDate.setDate(now.getDate() - 14);
+                    break;
+                case 'monthly':
+                    startDate.setMonth(now.getMonth() - 1);
+                    break;
+            }
+            
+            const filteredLogs = allLogs.filter(log => {
+                const logDate = new Date(log.date);
+                return logDate >= startDate && logDate <= now;
+            });
+            
+            return this.formatReport(filteredLogs, students, `${type.toUpperCase()} REPORT`, startDate, now);
+        } catch (error) {
+            console.error('Error generating report:', error);
+            return `Error generating report: ${error.message}`;
+        }
+    }
+
+    async generateSubjectReport(subject) {
+        try {
+            const allLogs = await this.getAllLogs();
+            const students = await this.getAllStudents();
+            
+            const subjectLogs = allLogs.filter(log => 
+                log.activity.toLowerCase().includes(subject.toLowerCase()) || 
+                (log.notes && log.notes.toLowerCase().includes(subject.toLowerCase()))
+            );
+            
+            return this.formatReport(subjectLogs, students, `SUBJECT REPORT: ${subject}`);
+        } catch (error) {
+            console.error('Error generating subject report:', error);
+            return `Error generating report: ${error.message}`;
+        }
+    }
+
+    async generateClaimForm(type, periodEndDate = null) {
+        try {
+            const allLogs = await this.getAllLogs();
+            const students = await this.getAllStudents();
+            
+            // Create a map of student rates for quick lookup
+            const studentRateMap = {};
+            students.forEach(student => {
+                studentRateMap[student.name] = student.hourlyRate || 0;
+            });
+            
+            const now = new Date();
+            let startDate = new Date(now);
+            let endDate = now;
+            
+            if (periodEndDate) {
+                endDate = new Date(periodEndDate);
+            }
+            
+            // Set start date based on type
+            switch(type) {
+                case 'weekly':
+                    startDate = new Date(endDate);
+                    startDate.setDate(endDate.getDate() - 7);
+                    break;
+                case 'biweekly':
+                    startDate = new Date(endDate);
+                    startDate.setDate(endDate.getDate() - 14);
+                    break;
+                case 'monthly':
+                    startDate = new Date(endDate);
+                    startDate.setMonth(endDate.getMonth() - 1);
+                    break;
+            }
+            
+            const filteredLogs = allLogs.filter(log => {
+                const logDate = new Date(log.date);
+                return logDate >= startDate && logDate <= endDate;
+            });
+            
+            // Format for claim submission
+            let claim = 'CLAIM FORM FOR PAYMENT\n';
+            claim += '='.repeat(30) + '\n\n';
+            claim += `Period: ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}\n`;
+            claim += `Type: ${type.toUpperCase()} CLAIM\n`;
+            claim += `Generated: ${new Date().toLocaleDateString()}\n`;
+            claim += `Provider: [Your Name/Company]\n\n`;
+            
+            // Group by student and calculate amounts
+            const groupedByStudent = {};
+            let grandTotalHours = 0;
+            let grandTotalAmount = 0;
+            
+            filteredLogs.forEach(log => {
+                if (!groupedByStudent[log.studentName]) {
+                    groupedByStudent[log.studentName] = {
+                        logs: [],
+                        totalHours: 0,
+                        rate: studentRateMap[log.studentName] || 0,
+                        amount: 0
+                    };
+                }
+                
+                const hours = parseFloat(log.duration) || 0;
+                groupedByStudent[log.studentName].logs.push(log);
+                groupedByStudent[log.studentName].totalHours += hours;
+            });
+            
+            // Calculate amounts for each student
+            Object.keys(groupedByStudent).forEach(student => {
+                const data = groupedByStudent[student];
+                data.amount = data.totalHours * data.rate;
+                grandTotalHours += data.totalHours;
+                grandTotalAmount += data.amount;
+            });
+            
+            claim += 'DETAILED BREAKDOWN:\n';
+            claim += '-'.repeat(30) + '\n\n';
+            
+            Object.keys(groupedByStudent).forEach(student => {
+                const data = groupedByStudent[student];
+                
+                claim += `Student: ${student}\n`;
+                claim += `Rate: $${data.rate.toFixed(2)}/hour\n`;
+                claim += `Total Hours: ${data.totalHours.toFixed(2)}\n`;
+                claim += `Amount Due: $${data.amount.toFixed(2)}\n\n`;
+                
+                claim += 'Date         Hours  Activity\n';
+                claim += '-'.repeat(35) + '\n';
+                
+                data.logs.forEach(log => {
+                    claim += `${log.date.padEnd(12)} ${log.duration.toString().padStart(5)}  ${log.activity}\n`;
+                });
+                
+                claim += '\n';
+            });
+            
+            claim += 'SUMMARY:\n';
+            claim += '-'.repeat(30) + '\n';
+            claim += `Total Hours: ${grandTotalHours.toFixed(2)}\n`;
+            claim += `Total Students: ${Object.keys(groupedByStudent).length}\n`;
+            claim += `Grand Total Due: $${grandTotalAmount.toFixed(2)}\n\n`;
+            
+            claim += 'PAYMENT INFORMATION:\n';
+            claim += '-'.repeat(30) + '\n';
+            claim += 'Payable to: [Your Name/Company]\n';
+            claim += 'Payment Method: [Bank Transfer/Check/etc.]\n';
+            claim += 'Account Details: [If applicable]\n\n';
+            
+            claim += 'AUTHORIZATION:\n';
+            claim += '-'.repeat(30) + '\n';
+            claim += 'Provider Signature: __________________________\n';
+            claim += 'Date: ______________\n\n';
+            claim += 'Approver Signature: __________________________\n';
+            claim += 'Date: ______________\n';
+            
+            return claim;
+        } catch (error) {
+            console.error('Error generating claim form:', error);
+            return `Error generating claim form: ${error.message}`;
+        }
+    }
+
+    async generateInvoice(studentName, periodStart, periodEnd) {
+        try {
+            const allLogs = await this.getAllLogs();
+            const students = await this.getAllStudents();
+            
+            const student = students.find(s => s.name === studentName);
+            if (!student) {
+                return `Student "${studentName}" not found.`;
+            }
+            
+            const rate = student.hourlyRate || 0;
+            const studentLogs = allLogs.filter(log => {
+                if (log.studentName !== studentName) return false;
+                const logDate = new Date(log.date);
+                const start = new Date(periodStart);
+                const end = new Date(periodEnd);
+                return logDate >= start && logDate <= end;
+            });
+            
+            if (studentLogs.length === 0) {
+                return `No logs found for ${studentName} in the specified period.`;
+            }
+            
+            const totalHours = studentLogs.reduce((sum, log) => sum + parseFloat(log.duration || 0), 0);
+            const subtotal = totalHours * rate;
+            const tax = subtotal * 0.10; // Assuming 10% tax - adjust as needed
+            const total = subtotal + tax;
+            
+            let invoice = 'INVOICE\n';
+            invoice += '='.repeat(50) + '\n\n';
+            invoice += `Invoice Date: ${new Date().toLocaleDateString()}\n`;
+            invoice += `Invoice #: INV-${Date.now().toString().slice(-8)}\n\n`;
+            
+            invoice += 'BILL TO:\n';
+            invoice += `  Student: ${studentName}\n`;
+            invoice += `  Grade: ${student.grade || 'N/A'}\n`;
+            invoice += `  Subjects: ${student.subjects ? student.subjects.join(', ') : 'N/A'}\n\n`;
+            
+            invoice += 'SERVICE PERIOD:\n';
+            invoice += `  From: ${new Date(periodStart).toLocaleDateString()}\n`;
+            invoice += `  To: ${new Date(periodEnd).toLocaleDateString()}\n\n`;
+            
+            invoice += 'SERVICES RENDERED:\n';
+            invoice += '-'.repeat(80) + '\n';
+            invoice += 'Date         Hours  Rate        Activity          Notes\n';
+            invoice += '-'.repeat(80) + '\n';
+            
+            studentLogs.forEach(log => {
+                invoice += `${log.date.padEnd(12)} ${log.duration.toString().padStart(5)}  $${rate.toFixed(2).padStart(8)}  ${log.activity.padEnd(18)} ${log.notes || ''}\n`;
+            });
+            
+            invoice += '-'.repeat(80) + '\n\n';
+            
+            invoice += 'PAYMENT SUMMARY:\n';
+            invoice += `  Total Hours: ${totalHours.toFixed(2)}\n`;
+            invoice += `  Hourly Rate: $${rate.toFixed(2)}\n`;
+            invoice += `  Subtotal: $${subtotal.toFixed(2)}\n`;
+            invoice += `  Tax (10%): $${tax.toFixed(2)}\n`;
+            invoice += `  TOTAL DUE: $${total.toFixed(2)}\n\n`;
+            
+            invoice += 'PAYMENT TERMS:\n';
+            invoice += '  Due upon receipt. Please make payment within 30 days.\n\n';
+            
+            invoice += 'THANK YOU FOR YOUR BUSINESS!\n';
+            
+            return invoice;
+        } catch (error) {
+            console.error('Error generating invoice:', error);
+            return `Error generating invoice: ${error.message}`;
+        }
+    }
+
+    formatReport(logs, students, title, startDate = null, endDate = null) {
+        if (logs.length === 0) {
+            return `No data found for ${title}`;
+        }
+        
+        // Create student rate map
+        const studentRateMap = {};
+        students.forEach(student => {
+            studentRateMap[student.name] = student.hourlyRate || 0;
+        });
+        
+        let report = `${title}\n`;
+        report += '='.repeat(title.length) + '\n\n';
+        
+        if (startDate && endDate) {
+            report += `Period: ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}\n`;
+        }
+        report += `Report Date: ${new Date().toLocaleDateString()}\n`;
+        report += `Total Entries: ${logs.length}\n`;
+        
+        const totalHours = logs.reduce((sum, log) => sum + parseFloat(log.duration || 0), 0);
+        report += `Total Hours: ${totalHours.toFixed(2)}\n`;
+        
+        // Calculate total amount if rates are available
+        let totalAmount = 0;
+        logs.forEach(log => {
+            const rate = studentRateMap[log.studentName] || 0;
+            totalAmount += (parseFloat(log.duration || 0) * rate);
+        });
+        
+        if (totalAmount > 0) {
+            report += `Estimated Value: $${totalAmount.toFixed(2)}\n`;
+        }
+        
+        report += '\n';
+        
+        // Group by student
+        const groupedByStudent = {};
+        logs.forEach(log => {
+            if (!groupedByStudent[log.studentName]) {
+                groupedByStudent[log.studentName] = {
+                    logs: [],
+                    hours: 0,
+                    amount: 0
+                };
+            }
+            const hours = parseFloat(log.duration || 0);
+            const rate = studentRateMap[log.studentName] || 0;
+            groupedByStudent[log.studentName].logs.push(log);
+            groupedByStudent[log.studentName].hours += hours;
+            groupedByStudent[log.studentName].amount += (hours * rate);
+        });
+        
+        report += 'BY STUDENT:\n';
+        report += '-'.repeat(50) + '\n\n';
+        
+        Object.keys(groupedByStudent).forEach(student => {
+            const data = groupedByStudent[student];
+            const activities = [...new Set(data.logs.map(log => log.activity))];
+            
+            report += `Student: ${student}\n`;
+            report += `  Total Hours: ${data.hours.toFixed(2)}\n`;
+            if (data.amount > 0) {
+                const rate = studentRateMap[student] || 0;
+                report += `  Hourly Rate: $${rate.toFixed(2)}\n`;
+                report += `  Total Amount: $${data.amount.toFixed(2)}\n`;
+            }
+            report += `  Activities: ${activities.join(', ')}\n`;
+            report += `  Average per session: ${(data.hours / data.logs.length).toFixed(2)} hours\n\n`;
+        });
+        
+        // Group by activity
+        const groupedByActivity = {};
+        logs.forEach(log => {
+            if (!groupedByActivity[log.activity]) {
+                groupedByActivity[log.activity] = {
+                    logs: [],
+                    hours: 0,
+                    students: new Set()
+                };
+            }
+            groupedByActivity[log.activity].logs.push(log);
+            groupedByActivity[log.activity].hours += parseFloat(log.duration || 0);
+            groupedByActivity[log.activity].students.add(log.studentName);
+        });
+        
+        report += 'BY ACTIVITY:\n';
+        report += '-'.repeat(50) + '\n\n';
+        
+        Object.keys(groupedByActivity).forEach(activity => {
+            const data = groupedByActivity[activity];
+            
+            report += `Activity: ${activity}\n`;
+            report += `  Total Hours: ${data.hours.toFixed(2)}\n`;
+            report += `  Sessions: ${data.logs.length}\n`;
+            report += `  Students: ${[...data.students].join(', ')}\n\n`;
+        });
+        
+        return report;
+    }
+
+    async getAllSubjects() {
+        try {
+            const allLogs = await this.getAllLogs();
+            const subjects = new Set();
+            
+            allLogs.forEach(log => {
+                // Extract subjects from activity
+                const activity = log.activity.toLowerCase();
+                const commonSubjects = ['math', 'reading', 'writing', 'science', 'history', 'english', 
+                                       'algebra', 'geometry', 'biology', 'chemistry', 'physics', 
+                                       'art', 'music', 'pe', 'physical', 'education', 'tutoring',
+                                       'homework', 'study', 'test', 'exam', 'project', 'essay',
+                                       'grammar', 'vocabulary', 'spelling', 'calculus', 'trigonometry'];
+                
+                commonSubjects.forEach(subject => {
+                    if (activity.includes(subject)) {
+                        subjects.add(subject);
+                    }
+                });
+                
+                // Also check notes
+                if (log.notes) {
+                    const notes = log.notes.toLowerCase();
+                    commonSubjects.forEach(subject => {
+                        if (notes.includes(subject)) {
+                            subjects.add(subject);
+                        }
+                    });
+                }
+            });
+            
+            return Array.from(subjects).sort();
+        } catch (error) {
+            console.error('Error getting subjects:', error);
+            return [];
+        }
+    }
+}
+
 // ==================== INITIALIZATION ====================
 
 function initializeData() {
