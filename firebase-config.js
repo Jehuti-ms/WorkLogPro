@@ -29,4 +29,12 @@ if (typeof firebase === 'undefined') {
   } catch (error) {
     console.error('❌ Firebase init error:', error.message);
   }
+
+  // Add this to firebase-config.js after initialization:
+firebase.auth().onAuthStateChanged((user) => {
+  if (user && window.AuthManager) {
+    console.log('🔥 Firebase auth detected, storing...');
+    window.AuthManager.storeAuth(user);
+  }
+});
 }
