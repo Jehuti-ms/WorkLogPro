@@ -249,63 +249,63 @@ class FormHandler {
   }
 
   // ==================== HELPER METHODS ====================
-  getStatistics() {
-    try {
-      const students = this.getStudents();
-      const hours = this.getHours();
-      const marks = this.getMarks();
-      const payments = this.getPayments();
-      
-      // Calculate totals
-      const totalStudents = students.length;
-      
-      const totalHours = hours.reduce((sum, hour) => {
-        return sum + (parseFloat(hour.hoursWorked) || 0);
+getStatistics() {
+  try {
+    const students = this.getStudents();
+    const hours = this.getHours();
+    const marks = this.getMarks();
+    const payments = this.getPayments();
+    
+    // Calculate totals - ensure they're numbers
+    const totalStudents = students.length;
+    
+    const totalHours = hours.reduce((sum, hour) => {
+      return sum + (parseFloat(hour.hoursWorked) || 0);
+    }, 0);
+    
+    const totalEarnings = hours.reduce((sum, hour) => {
+      const hoursWorked = parseFloat(hour.hoursWorked) || 0;
+      const rate = parseFloat(hour.baseRate) || 0;
+      return sum + (hoursWorked * rate);
+    }, 0);
+    
+    // Calculate average mark
+    let avgMark = 0;
+    if (marks.length > 0) {
+      const totalPercentage = marks.reduce((sum, mark) => {
+        return sum + parseFloat(mark.percentage || 0);
       }, 0);
-      
-      const totalEarnings = hours.reduce((sum, hour) => {
-        const hoursWorked = parseFloat(hour.hoursWorked) || 0;
-        const rate = parseFloat(hour.baseRate) || 0;
-        return sum + (hoursWorked * rate);
-      }, 0);
-      
-      // Calculate average mark
-      let avgMark = 0;
-      if (marks.length > 0) {
-        const totalPercentage = marks.reduce((sum, mark) => {
-          return sum + parseFloat(mark.percentage || 0);
-        }, 0);
-        avgMark = (totalPercentage / marks.length).toFixed(1);
-      }
-      
-      // Calculate total payments
-      const totalPayments = payments.reduce((sum, payment) => {
-        return sum + (parseFloat(payment.paymentAmount) || 0);
-      }, 0);
-      
-      // Calculate outstanding balance
-      const outstandingBalance = totalEarnings - totalPayments;
-      
-      return {
-        students: totalStudents,
-        totalHours: totalHours.toFixed(1),
-        totalEarnings: totalEarnings.toFixed(2),
-        averageMark: avgMark,
-        totalPayments: totalPayments.toFixed(2),
-        outstandingBalance: outstandingBalance.toFixed(2)
-      };
-    } catch (error) {
-      console.error('❌ Error getting statistics:', error);
-      return {
-        students: 0,
-        totalHours: '0.0',
-        totalEarnings: '0.00',
-        averageMark: 0,
-        totalPayments: '0.00',
-        outstandingBalance: '0.00'
-      };
+      avgMark = parseFloat((totalPercentage / marks.length).toFixed(1));
     }
+    
+    // Calculate total payments
+    const totalPayments = payments.reduce((sum, payment) => {
+      return sum + (parseFloat(payment.paymentAmount) || 0);
+    }, 0);
+    
+    // Calculate outstanding balance
+    const outstandingBalance = totalEarnings - totalPayments;
+    
+    return {
+      students: totalStudents,  // Number
+      totalHours: totalHours,    // Number
+      totalEarnings: totalEarnings, // Number
+      averageMark: avgMark,      // Number
+      totalPayments: totalPayments, // Number
+      outstandingBalance: outstandingBalance // Number
+    };
+  } catch (error) {
+    console.error('❌ Error getting statistics:', error);
+    return {
+      students: 0,
+      totalHours: 0,
+      totalEarnings: 0,
+      averageMark: 0,
+      totalPayments: 0,
+      outstandingBalance: 0
+    };
   }
+}
 
   // Clear all data
   clearAllData() {
