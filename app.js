@@ -43,6 +43,103 @@ async function initApp() {
     console.error('❌ App initialization error:', error);
     showNotification('Error initializing app. Please refresh.', 'error');
   }
+}// app.js - Updated initialization
+console.log('🚀 Loading SAFE app.js...');
+
+async function initApp() {
+  console.log('🚀 Initializing app SAFELY...');
+  
+  try {
+    // 1. First, check if we're on auth page - if so, STOP
+    if (window.location.pathname.includes('auth.html')) {
+      console.log('🔐 On auth page, stopping init');
+      return;
+    }
+    
+    // 2. Show loading state
+    document.body.style.opacity = '0.5';
+    
+    // 3. Wait a bit for everything to settle
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // 4. Check for existing auth in localStorage FIRST (before Firebase)
+    const hasLocalAuth = localStorage.getItem('lastAuthSuccess') || 
+                         localStorage.getItem('firebase:authUser:') ||
+                         localStorage.getItem('userEmail');
+    
+    console.log('🔍 Local auth check:', hasLocalAuth ? 'Found' : 'Not found');
+    
+    // 5. If no local auth, redirect IMMEDIATELY (no Firebase check)
+    if (!hasLocalAuth) {
+      console.log('❌ No local auth found, redirecting to login');
+      document.body.style.opacity = '1';
+      window.location.href = 'auth.html';
+      return;
+    }
+    
+    // 6. We have local auth, now check Firebase (with timeout)
+    console.log('✅ Local auth found, checking Firebase...');
+    
+    let user = null;
+    let firebaseError = false;
+    
+    try {
+      // Setup auth listener with timeout
+      const authPromise = firebaseManager.setupAuthListener();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Auth timeout')), 3000)
+      );
+      
+      user = await Promise.race([authPromise, timeoutPromise]);
+    } catch (error) {
+      console.log('⚠️ Firebase auth check failed:', error.message);
+      firebaseError = true;
+    }
+    
+    // 7. If Firebase check failed but we have local auth, continue anyway
+    if (firebaseError && hasLocalAuth) {
+      console.log('⚠️ Firebase error but local auth exists - continuing offline');
+      user = { 
+        uid: 'offline-user',
+        email: localStorage.getItem('userEmail') || 'offline@user.com',
+        displayName: localStorage.getItem('userName') || 'Offline User'
+      };
+    }
+    
+    // 8. If we get here, we're authenticated (or offline with cached auth)
+    console.log('✅ Auth successful, user:', user?.email || 'offline');
+    
+    // 9. Restore UI and continue
+    document.body.style.opacity = '1';
+    
+    // 10. Initialize the rest of the app
+    initializeUI();
+    loadData();
+    
+  } catch (error) {
+    console.error('❌ Fatal init error:', error);
+    document.body.style.opacity = '1';
+    
+    // Last resort: go to auth page
+    window.location.href = 'auth.html';
+  }
+}
+
+function initializeUI() {
+  console.log('🎨 Initializing UI...');
+  // Your existing UI initialization code here
+}
+
+function loadData() {
+  console.log('📊 Loading data...');
+  // Your existing data loading code here
+}
+
+// Start the app
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
 }
 
 // ==================== UTILITY FUNCTIONS ====================
