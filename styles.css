@@ -2879,7 +2879,7 @@ button:focus:not(:focus-visible) {
 }
 
 .fab-menu {
-  position: absolute;
+  position: relative;
   bottom: 70px;
   right: 0;
   display: none;
