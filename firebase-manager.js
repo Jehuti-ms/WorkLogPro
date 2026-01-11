@@ -1,4 +1,4 @@
-// firebase-manager.js
+// firebase-manager.js - ENHANCED WITH SYNC MONITORING
 import { auth, db } from "./firebase-config.js";
 import { 
   onAuthStateChanged,
@@ -12,33 +12,41 @@ import {
   collection,
   addDoc,
   getDocs,
-  query,
-  orderBy,
-  where,
   deleteDoc,
-  writeBatch,
   enableIndexedDbPersistence
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 export class FirebaseManager {
   constructor() {
     this.isOnline = navigator.onLine;
-    this.pendingSync = [];
+    this.isSyncing = false;
+    this.lastSyncTime = null;
+    this.syncQueue = [];
     this.syncInterval = null;
     this.initNetworkListener();
+    this.initSyncMonitor();
   }
 
   initNetworkListener() {
     window.addEventListener('online', () => {
       this.isOnline = true;
       console.log('🌐 Online - syncing queued operations');
-      this.processPendingSync();
+      this.showNetworkStatus('🟢 Online - syncing...');
+      this.processSyncQueue();
     });
     
     window.addEventListener('offline', () => {
       this.isOnline = false;
       console.log('📴 Offline - operations will be queued');
+      this.showNetworkStatus('🔴 Offline - working locally');
     });
+  }
+
+  initSyncMonitor() {
+    // Update sync status every 5 seconds
+    setInterval(() => {
+      this.updateSyncIndicator();
+    }, 5000);
   }
 
   async init() {
@@ -68,9 +76,11 @@ export class FirebaseManager {
       console.log('✅ Offline persistence enabled');
     } catch (err) {
       if (err.code === 'failed-precondition') {
-        console.warn('⚠️ Multiple tabs open, persistence can only be enabled in one tab');
+        console.log('ℹ️ Multiple tabs open - using existing persistence');
       } else if (err.code === 'unimplemented') {
         console.warn('⚠️ Browser does not support offline persistence');
+      } else {
+        console.warn('⚠️ Offline persistence error:', err);
       }
     }
   }
@@ -80,7 +90,14 @@ export class FirebaseManager {
       if (user) {
         console.log("🟢 User authenticated:", user.email);
         await this.initUserData(user.uid);
-        this.processPendingSync();
+        
+        // Update UI
+        this.updateUserProfile(user);
+        
+        // Process any pending sync
+        if (this.isOnline) {
+          this.processSyncQueue();
+        }
       } else {
         console.log("🔴 No user authenticated");
         this.clearLocalUserData();
@@ -105,6 +122,11 @@ export class FirebaseManager {
           }
         });
         console.log('✅ User document created');
+      } else {
+        // Update last login
+        await updateDoc(userRef, {
+          lastLogin: new Date().toISOString()
+        });
       }
       
       // Load user settings to localStorage
@@ -113,6 +135,7 @@ export class FirebaseManager {
       };
       
       localStorage.setItem('userSettings', JSON.stringify(userData.settings));
+      localStorage.setItem('userEmail', userData.email || auth.currentUser.email);
       
     } catch (error) {
       console.error('Error initializing user data:', error);
@@ -133,77 +156,124 @@ export class FirebaseManager {
     // Clear any existing interval
     if (this.syncInterval) clearInterval(this.syncInterval);
     
-    // Sync every 60 seconds if auto-sync is enabled
-    this.syncInterval = setInterval(() => {
-      const autoSync = localStorage.getItem('autoSyncEnabled') === 'true';
-      if (this.isOnline && auth.currentUser && autoSync) {
-        this.syncAllData();
-      }
-    }, 60000);
+    // Check auto-sync setting
+    const autoSyncEnabled = localStorage.getItem('autoSyncEnabled') !== 'false'; // Default to true
+    
+    if (autoSyncEnabled) {
+      // Sync every 30 seconds if online
+      this.syncInterval = setInterval(() => {
+        if (this.isOnline && auth.currentUser && !this.isSyncing) {
+          this.syncAllData();
+        }
+      }, 30000);
+      
+      console.log('🔄 Auto-sync enabled (every 30 seconds)');
+    } else {
+      console.log('⏸️ Auto-sync disabled');
+    }
   }
 
   async syncAllData() {
-    if (!auth.currentUser || !this.isOnline) return;
+    if (!auth.currentUser || !this.isOnline || this.isSyncing) return;
     
-    console.log('🔄 Auto-syncing data...');
+    this.isSyncing = true;
+    this.updateSyncIndicator();
+    
+    console.log('🔄 Syncing data to cloud...');
     const uid = auth.currentUser.uid;
     const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
     
     let syncedCount = 0;
+    let errorCount = 0;
     
-    for (const collectionName of collections) {
+    try {
+      for (const collectionName of collections) {
+        try {
+          const result = await this.syncCollection(collectionName, uid);
+          syncedCount += result.synced;
+          errorCount += result.errors;
+        } catch (error) {
+          console.error(`Error syncing ${collectionName}:`, error);
+          errorCount++;
+        }
+      }
+      
+      this.lastSyncTime = new Date().toISOString();
+      localStorage.setItem('lastSyncTime', this.lastSyncTime);
+      
+      console.log(`✅ Sync completed: ${syncedCount} items synced, ${errorCount} errors`);
+      
+      if (syncedCount > 0) {
+        this.showNotification(`Synced ${syncedCount} items to cloud`, 'success');
+      }
+      
+    } catch (error) {
+      console.error('Sync failed:', error);
+      this.showNotification('Sync failed', 'error');
+    } finally {
+      this.isSyncing = false;
+      this.updateSyncIndicator();
+    }
+    
+    return { synced: syncedCount, errors: errorCount };
+  }
+
+  async syncCollection(collectionName, uid) {
+    const localKey = `worklog_${collectionName}`;
+    const localData = JSON.parse(localStorage.getItem(localKey) || '[]');
+    
+    let synced = 0;
+    let errors = 0;
+    
+    // Sync new/updated items
+    const unsynced = localData.filter(item => !item._synced && !item._deleted);
+    
+    for (const item of unsynced) {
       try {
-        const localKey = `worklog_${collectionName}`;
-        const localData = JSON.parse(localStorage.getItem(localKey) || '[]');
-        const unsynced = localData.filter(item => !item._synced && !item._deleted);
-        
-        for (const item of unsynced) {
-          await this.syncItem(collectionName, item, uid);
-          syncedCount++;
-        }
-        
-        // Handle deleted items
-        const deletedItems = localData.filter(item => item._deleted && !item._deleteSynced);
-        for (const item of deletedItems) {
-          if (item._firebaseId) {
-            await deleteDoc(doc(db, "users", uid, collectionName, item._firebaseId));
-            item._deleteSynced = true;
-            this.updateLocalItem(collectionName, item);
-          }
-        }
-        
+        await this.syncItem(collectionName, item, uid);
+        synced++;
       } catch (error) {
-        console.error(`Error syncing ${collectionName}:`, error);
+        console.error(`Failed to sync ${collectionName} item:`, error);
+        errors++;
       }
     }
     
-    if (syncedCount > 0) {
-      console.log(`✅ Auto-sync completed: ${syncedCount} items synced`);
+    // Sync deletions
+    const deletedItems = localData.filter(item => item._deleted && !item._deleteSynced);
+    
+    for (const item of deletedItems) {
+      try {
+        if (item._firebaseId) {
+          await deleteDoc(doc(db, "users", uid, collectionName, item._firebaseId));
+          item._deleteSynced = true;
+          this.updateLocalItem(collectionName, item);
+        }
+      } catch (error) {
+        console.error(`Failed to delete ${collectionName} item:`, error);
+        errors++;
+      }
     }
+    
+    return { synced, errors };
   }
 
   async syncItem(collectionName, item, uid) {
-    try {
-      const { _id, _cachedAt, _synced, _deleted, _deleteSynced, ...cleanData } = item;
-      
-      if (item._firebaseId) {
-        // Update existing
-        await updateDoc(doc(db, "users", uid, collectionName, item._firebaseId), cleanData);
-      } else {
-        // Create new
-        const docRef = await addDoc(collection(db, "users", uid, collectionName), cleanData);
-        item._firebaseId = docRef.id;
-      }
-      
-      item._synced = true;
-      item._lastSynced = new Date().toISOString();
-      this.updateLocalItem(collectionName, item);
-      
-      return true;
-    } catch (error) {
-      console.error(`Failed to sync ${collectionName}:`, error);
-      return false;
+    const { _id, _cachedAt, _synced, _deleted, _deleteSynced, ...cleanData } = item;
+    
+    if (item._firebaseId) {
+      // Update existing document
+      await updateDoc(doc(db, "users", uid, collectionName, item._firebaseId), cleanData);
+    } else {
+      // Create new document
+      const docRef = await addDoc(collection(db, "users", uid, collectionName), cleanData);
+      item._firebaseId = docRef.id;
     }
+    
+    item._synced = true;
+    item._lastSynced = new Date().toISOString();
+    this.updateLocalItem(collectionName, item);
+    
+    return true;
   }
 
   updateLocalItem(collectionName, item) {
@@ -227,7 +297,7 @@ export class FirebaseManager {
     
     const localKey = `worklog_${collectionName}`;
     
-    // Always check localStorage first
+    // Always check localStorage first (offline-first)
     try {
       const localData = JSON.parse(localStorage.getItem(localKey) || '[]');
       
@@ -241,7 +311,7 @@ export class FirebaseManager {
       console.error(`Error reading local ${collectionName}:`, error);
     }
     
-    // If online, fetch from Firestore
+    // If online and (forceRefresh or no local data), fetch from Firestore
     if (this.isOnline) {
       try {
         console.log(`☁️ Fetching ${collectionName} from Firestore...`);
@@ -364,11 +434,150 @@ export class FirebaseManager {
     return true;
   }
 
+  // Manual sync with progress indication
+  async manualSync() {
+    if (!auth.currentUser) {
+      throw new Error('Please log in to sync');
+    }
+    
+    if (!this.isOnline) {
+      throw new Error('You are offline. Please connect to the internet to sync.');
+    }
+    
+    console.log('🔄 Manual sync started...');
+    this.showNotification('Starting sync...', 'info');
+    
+    try {
+      const result = await this.syncAllData();
+      
+      const message = result.synced > 0 
+        ? `Synced ${result.synced} items to cloud${result.errors > 0 ? ` (${result.errors} errors)` : ''}`
+        : 'Everything is already synced';
+      
+      this.showNotification(message, result.errors > 0 ? 'warning' : 'success');
+      
+      return {
+        success: true,
+        synced: result.synced,
+        errors: result.errors,
+        message: message
+      };
+      
+    } catch (error) {
+      console.error('Manual sync failed:', error);
+      this.showNotification('Sync failed: ' + error.message, 'error');
+      throw error;
+    }
+  }
+
+  // Update UI indicators
+  updateSyncIndicator() {
+    const syncIndicator = document.getElementById('syncIndicator');
+    if (!syncIndicator) return;
+    
+    if (this.isSyncing) {
+      syncIndicator.innerHTML = '<i class="fas fa-sync fa-spin"></i>';
+      syncIndicator.title = 'Syncing to cloud...';
+      syncIndicator.className = 'syncing';
+    } else if (!this.isOnline) {
+      syncIndicator.innerHTML = '<i class="fas fa-wifi-slash"></i>';
+      syncIndicator.title = 'Offline - working locally';
+      syncIndicator.className = 'offline';
+    } else {
+      const status = this.getSyncStatus();
+      if (status.unsynced > 0) {
+        syncIndicator.innerHTML = `<i class="fas fa-cloud-upload-alt"></i> ${status.unsynced}`;
+        syncIndicator.title = `${status.unsynced} items pending sync`;
+        syncIndicator.className = 'pending';
+      } else {
+        syncIndicator.innerHTML = '<i class="fas fa-cloud-check"></i>';
+        syncIndicator.title = 'All data synced';
+        syncIndicator.className = 'synced';
+      }
+    }
+  }
+
+  updateUserProfile(user) {
+    const userName = document.getElementById('userName');
+    if (userName) {
+      userName.textContent = user.email.split('@')[0];
+    }
+    
+    const profileUserEmail = document.getElementById('profileUserEmail');
+    if (profileUserEmail) {
+      profileUserEmail.textContent = user.email;
+    }
+  }
+
+  showNetworkStatus(message) {
+    const syncStatus = document.getElementById('syncStatus');
+    if (syncStatus) {
+      syncStatus.innerHTML = message;
+    }
+  }
+
+  getSyncStatus() {
+    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
+    let total = 0;
+    let unsynced = 0;
+    
+    collections.forEach(collection => {
+      const key = `worklog_${collection}`;
+      try {
+        const data = JSON.parse(localStorage.getItem(key) || '[]');
+        total += data.filter(item => !item._deleted).length;
+        unsynced += data.filter(item => !item._synced && !item._deleted).length;
+      } catch (error) {
+        console.error(`Error getting status for ${collection}:`, error);
+      }
+    });
+    
+    const lastSync = localStorage.getItem('lastSyncTime');
+    const lastSyncTime = lastSync ? new Date(lastSync).toLocaleTimeString() : 'Never';
+    
+    return {
+      total,
+      unsynced,
+      lastSync: lastSyncTime,
+      isOnline: this.isOnline,
+      isSyncing: this.isSyncing
+    };
+  }
+
+  showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = `
+      <div class="notification-content">
+        <span class="notification-icon">${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
+        <span class="notification-message">${message}</span>
+        <button class="notification-close">&times;</button>
+      </div>
+    `;
+    
+    // Add to body
+    document.body.appendChild(notification);
+    
+    // Add close button event
+    notification.querySelector('.notification-close').addEventListener('click', () => {
+      notification.remove();
+    });
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.remove();
+      }
+    }, 5000);
+  }
+
   async exportData() {
     const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
     const exportData = {
       version: '1.0',
       exportedAt: new Date().toISOString(),
+      user: auth.currentUser?.email || 'anonymous',
       collections: {}
     };
     
@@ -389,6 +598,7 @@ export class FirebaseManager {
     URL.revokeObjectURL(url);
     
     console.log('✅ Data exported successfully');
+    this.showNotification('Data exported successfully', 'success');
   }
 
   async importData(file) {
@@ -404,8 +614,10 @@ export class FirebaseManager {
           }
           
           console.log('📥 Importing backup data...');
+          this.showNotification('Importing data...', 'info');
           
           // Import each collection
+          let totalImported = 0;
           for (const [collectionName, items] of Object.entries(data.collections)) {
             const key = `worklog_${collectionName}`;
             const existingData = JSON.parse(localStorage.getItem(key) || '[]');
@@ -417,67 +629,57 @@ export class FirebaseManager {
             if (newItems.length > 0) {
               const mergedData = [...existingData, ...newItems];
               localStorage.setItem(key, JSON.stringify(mergedData));
+              totalImported += newItems.length;
               console.log(`✅ Imported ${newItems.length} ${collectionName}`);
             }
           }
           
-          resolve('Data imported successfully');
+          this.showNotification(`Imported ${totalImported} items successfully`, 'success');
+          resolve(`Data imported successfully (${totalImported} items)`);
+          
         } catch (error) {
+          this.showNotification('Import failed: ' + error.message, 'error');
           reject(error);
         }
       };
       
-      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.onerror = () => {
+        this.showNotification('Failed to read file', 'error');
+        reject(new Error('Failed to read file'));
+      };
       reader.readAsText(file);
     });
   }
 
-  getSyncStatus() {
-    const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
-    let total = 0;
-    let unsynced = 0;
-    
-    collections.forEach(collection => {
-      const key = `worklog_${collection}`;
-      try {
-        const data = JSON.parse(localStorage.getItem(key) || '[]');
-        total += data.filter(item => !item._deleted).length;
-        unsynced += data.filter(item => !item._synced && !item._deleted).length;
-      } catch (error) {
-        console.error(`Error getting status for ${collection}:`, error);
-      }
-    });
-    
-    return {
-      total,
-      unsynced,
-      lastSync: localStorage.getItem('lastSyncTime') || 'Never',
-      isOnline: this.isOnline
-    };
-  }
-
-  async manualSync() {
-    if (!auth.currentUser) {
-      throw new Error('Please log in to sync');
+  async clearAllData() {
+    if (!confirm('Are you sure? This will delete ALL local data and sync deletions to cloud!')) {
+      return false;
     }
     
-    console.log('🔄 Manual sync started...');
-    
     try {
-      await this.syncAllData();
-      localStorage.setItem('lastSyncTime', new Date().toLocaleString());
+      const user = auth.currentUser;
+      const collections = ['students', 'hours', 'marks', 'attendance', 'payments'];
       
-      const status = this.getSyncStatus();
-      console.log('✅ Manual sync completed');
+      // Mark all local items for deletion
+      for (const collection of collections) {
+        const key = `worklog_${collection}`;
+        const data = JSON.parse(localStorage.getItem(key) || '[]');
+        
+        for (const item of data) {
+          await this.deleteItem(collection, item._id);
+        }
+      }
       
-      return {
-        success: true,
-        message: `Synced ${status.total} items (${status.unsynced} pending)`,
-        status
-      };
+      // Clear local storage
+      localStorage.clear();
+      
+      this.showNotification('All data cleared successfully', 'success');
+      return true;
+      
     } catch (error) {
-      console.error('Manual sync failed:', error);
-      throw error;
+      console.error('Error clearing data:', error);
+      this.showNotification('Failed to clear data', 'error');
+      return false;
     }
   }
 }
