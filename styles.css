@@ -2811,7 +2811,7 @@ button:focus:not(:focus-visible) {
   background: var(--success);
   display: inline-block;
   margin-right: 8px;
-  animation: pulse 2s infinite;
+  
 }
 
 #syncIndicator.syncing {
