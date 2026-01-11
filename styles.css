@@ -3693,3 +3693,32 @@ button:focus:not(:focus-visible) {
 .notification-hide {
   animation: slideOut 0.3s forwards;
 }
+
+/* Ensure all sync toolbar items are vertically aligned */
+.sync-toolbar > * {
+  vertical-align: middle;
+}
+
+/* Fix for auto-sync label */
+.auto-sync-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text);
+  height: 32px;
+  margin: 0;
+}
+
+.auto-sync-label input[type="checkbox"] {
+  margin: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.auto-sync-text {
+  color: var(--text);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
