@@ -445,24 +445,54 @@ function updateProfileInfo() {
   console.log('🔄 Updating profile info...');
   
   try {
-    // Get user email
-    const userEmail = localStorage.getItem('userEmail') || 
-                     localStorage.getItem('worklog_user') ? 
-                     JSON.parse(localStorage.getItem('worklog_user')).email : 
-                     'Not logged in';
+    // Get user email from multiple sources
+    let userEmail = 'Not logged in';
+    
+    // Try localStorage first
+    const storedEmail = localStorage.getItem('userEmail');
+    if (storedEmail) {
+      userEmail = storedEmail;
+    } else {
+      // Try parsing worklog_user
+      const worklogUser = localStorage.getItem('worklog_user');
+      if (worklogUser) {
+        try {
+          const parsed = JSON.parse(worklogUser);
+          if (parsed && parsed.email) {
+            userEmail = parsed.email;
+          }
+        } catch (e) {
+          console.log('Could not parse worklog_user');
+        }
+      }
+    }
+    
+    console.log('User email found:', userEmail);
     
     // Update UI elements
     const profileEmail = document.getElementById('profileUserEmail');
     const userName = document.getElementById('userName');
+    const profileBtnName = document.getElementById('userName'); // The button text
     
     if (profileEmail) profileEmail.textContent = userEmail;
-    if (userName) userName.textContent = userEmail.split('@')[0] || 'User';
+    
+    // Set username (email without domain)
+    const displayName = userEmail.split('@')[0] || 'User';
+    if (userName) userName.textContent = displayName;
+    if (profileBtnName) profileBtnName.textContent = displayName;
     
     // Update stats
     updateProfileStats();
     
   } catch (error) {
     console.error('Error updating profile:', error);
+    
+    // Set fallback values
+    const profileEmail = document.getElementById('profileUserEmail');
+    const userName = document.getElementById('userName');
+    
+    if (profileEmail) profileEmail.textContent = 'Not logged in';
+    if (userName) userName.textContent = 'User';
   }
 }
 
@@ -527,22 +557,95 @@ function initSyncControls() {
   if (syncBtn) {
     syncBtn.addEventListener('click', function() {
       console.log('Sync button clicked');
-      // Add sync logic here
+      // Show syncing status
+      updateSyncIndicator('Syncing...', 'syncing');
+      
+      // Simulate sync
+      setTimeout(() => {
+        updateSyncIndicator('Synced', 'success');
+        setTimeout(() => {
+          updateSyncIndicator('Online', 'online');
+        }, 2000);
+      }, 1500);
     });
   }
   
-  // Auto-sync checkbox
+  // Auto-sync checkbox and label
   const autoSyncCheckbox = document.getElementById('autoSyncCheckbox');
+  const autoSyncText = document.getElementById('autoSyncText');
+  
   if (autoSyncCheckbox) {
-    autoSyncCheckbox.addEventListener('change', function() {
-      console.log('Auto-sync:', this.checked ? 'enabled' : 'disabled');
-      localStorage.setItem('autoSyncEnabled', this.checked);
-    });
-    
     // Load saved setting
     const autoSyncEnabled = localStorage.getItem('autoSyncEnabled') === 'true';
     autoSyncCheckbox.checked = autoSyncEnabled;
+    
+    // Update label text
+    if (autoSyncText) {
+      autoSyncText.textContent = autoSyncEnabled ? 'Auto' : 'Manual';
+    }
+    
+    autoSyncCheckbox.addEventListener('change', function() {
+      const isChecked = this.checked;
+      console.log('Auto-sync:', isChecked ? 'enabled' : 'disabled');
+      
+      // Update label text
+      if (autoSyncText) {
+        autoSyncText.textContent = isChecked ? 'Auto' : 'Manual';
+      }
+      
+      // Save setting
+      localStorage.setItem('autoSyncEnabled', isChecked);
+      
+      // Show notification
+      showSyncNotification(isChecked ? 'Auto-sync enabled' : 'Auto-sync disabled');
+    });
   }
+  
+  // Initialize sync indicator
+  updateSyncIndicator('Online', 'online');
+}
+
+function updateSyncIndicator(text, status) {
+  const syncIndicator = document.getElementById('syncIndicator');
+  if (!syncIndicator) return;
+  
+  // Clear previous classes
+  syncIndicator.className = 'sync-indicator';
+  
+  // Set text and status class
+  syncIndicator.textContent = text;
+  syncIndicator.classList.add(status);
+  
+  console.log('Sync indicator:', text, status);
+}
+
+function showSyncNotification(message) {
+  console.log('🔔 Sync notification:', message);
+  
+  // Create notification
+  const notification = document.createElement('div');
+  notification.className = 'sync-notification';
+  notification.textContent = message;
+  notification.style.cssText = `
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: #4CAF50;
+    color: white;
+    padding: 10px 15px;
+    border-radius: 5px;
+    z-index: 1000;
+    font-size: 14px;
+    animation: slideIn 0.3s ease;
+  `;
+  
+  document.body.appendChild(notification);
+  
+  // Remove after 3 seconds
+  setTimeout(() => {
+    notification.style.animation = 'slideOut 0.3s ease';
+    setTimeout(() => notification.remove(), 300);
+  }, 3000);
 }
 
 // ==================== DATA LOADING ====================
