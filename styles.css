@@ -1732,7 +1732,7 @@ body {
 }
 
 .fab-menu {
-  position: absolute;
+  position: relative;
   bottom: 64px;
   right: 0;
   display: flex;
