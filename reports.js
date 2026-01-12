@@ -176,14 +176,14 @@ class ReportManager {
         }
     }
 
-    showLoading() {
-        this.updateReportContent(`
-            <div style="text-align: center; padding: 50px;">
-                <div class="spinner"></div>
-                <p>Generating report...</p>
-            </div>
-        `);
-    }
+   showLoading() {
+    this.updateReportContent(`
+        <div style="text-align: center; padding: 40px;">
+            <div class="spinner"></div>
+            <p class="loading-text">Generating report...</p>
+        </div>
+    `);
+}
 
     showError(message) {
         this.updateReportContent(`
@@ -402,15 +402,40 @@ showNotification(message) {
 }
 
     // SIMPLIFIED VERSIONS OF OTHER METHODS (for testing)
-    showSubjectSelector() {
-        this.updateReportContent(`
-            <div style="padding: 20px;">
-                <h4>📚 Subject Report</h4>
-                <p>This feature is working!</p>
-                <p>Click any other button to test different reports.</p>
-            </div>
-        `);
+showSubjectSelector() {
+    this.clearReport();
+    
+    let html = '<div class="report-form">';
+    html += '<div class="report-header">';
+    html += '<h4>📚 Subject Report</h4>';
+    html += '<button class="report-close-btn" onclick="window.reportManager.clearReport()">×</button>';
+    html += '</div>';
+    
+    html += '<div class="report-form-content">';
+    html += '<p>Select or enter a subject to generate a report:</p>';
+    
+    if (this.subjects.length === 0) {
+        html += '<p class="text-muted">No subjects detected in your logs.</p>';
+    } else {
+        html += '<select id="subjectSelect" class="form-input" style="width: 100%; margin-bottom: 15px;">';
+        html += '<option value="">Choose a subject...</option>';
+        this.subjects.forEach(subject => {
+            html += `<option value="${subject}">${subject.charAt(0).toUpperCase() + subject.slice(1)}</option>`;
+        });
+        html += '</select>';
     }
+    
+    html += '<input type="text" id="customSubject" class="form-input" placeholder="Or enter custom subject" style="width: 100%; margin-bottom: 15px;">';
+    html += '<button onclick="window.reportManager.generateSubjectReport()" class="button" style="width: 100%;">Generate Subject Report</button>';
+    html += '</div>';
+    
+    html += '<div class="report-footer">';
+    html += '<button onclick="window.reportManager.clearReport()" class="button small">← Back to Reports</button>';
+    html += '</div>';
+    html += '</div>';
+    
+    this.updateReportContent(html);
+}
 
     showPDFOptions() {
         this.updateReportContent(`
