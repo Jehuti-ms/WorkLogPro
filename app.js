@@ -1140,4 +1140,893 @@ function clearAllData() {
     return;
   }
   
-  if (!confirm('LAST CHANCE: This will delete EVERYTHING!\
+  if (!confirm('LAST CHANCE: This will delete EVERYTHING!\nType "DELETE" to confirm.')) {
+    return;
+  }
+  
+  const userInput = prompt('Type DELETE to confirm permanent deletion:');
+  if (userInput !== 'DELETE') {
+    showNotification('Deletion cancelled', 'warning');
+    return;
+  }
+  
+  try {
+    const defaultRate = localStorage.getItem('defaultHourlyRate') || '25.00';
+    const theme = localStorage.getItem('worklog-theme') || 'dark';
+    const autoSync = localStorage.getItem('autoSyncEnabled');
+    
+    localStorage.clear();
+    
+    localStorage.setItem('defaultHourlyRate', defaultRate);
+    localStorage.setItem('worklog-theme', theme);
+    if (autoSync) localStorage.setItem('autoSyncEnabled', autoSync);
+    
+    showNotification('All data has been cleared!', 'success');
+    
+    setTimeout(() => location.reload(), 1500);
+    
+  } catch (error) {
+    console.error('Clear data error:', error);
+    showNotification('Failed to clear data', 'error');
+  }
+}
+
+// ==================== FORM INITIALIZATION ====================
+function initForms() {
+  console.log('📝 Initializing forms...');
+  
+  const today = new Date().toISOString().split('T')[0];
+  const dateFields = ['workDate', 'marksDate', 'attendanceDate', 'paymentDate'];
+  
+  dateFields.forEach(fieldId => {
+    const field = document.getElementById(fieldId);
+    if (field) {
+      field.value = today;
+    }
+  });
+  
+  // Student form - use formHandler
+  const studentForm = document.getElementById('studentForm');
+  if (studentForm) {
+    studentForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const studentData = {
+        name: document.getElementById('studentName').value.trim(),
+        studentId: document.getElementById('studentId').value.trim(),
+        gender: document.getElementById('studentGender').value,
+        email: document.getElementById('studentEmail').value.trim(),
+        phone: document.getElementById('studentPhone').value.trim(),
+        rate: parseFloat(document.getElementById('studentRate').value) || 25.00
+      };
+      
+      if (!studentData.name || !studentData.studentId) {
+        showNotification('Name and Student ID are required!', 'error');
+        return;
+      }
+      
+      if (window.formHandler && window.formHandler.handleStudentSubmit) {
+        window.formHandler.handleStudentSubmit(studentForm);
+      } else {
+        saveStudentToLocalStorage(studentData);
+      }
+    });
+  }
+}
+
+function saveStudentToLocalStorage(studentData) {
+  try {
+    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    
+    studentData.id = 'student_' + Date.now();
+    studentData.createdAt = new Date().toISOString();
+    
+    students.push(studentData);
+    localStorage.setItem('worklog_students', JSON.stringify(students));
+    
+    showNotification('Student saved locally!', 'success');
+    document.getElementById('studentForm').reset();
+    
+    loadStudents();
+    updateProfileStats();
+    updateGlobalStats();
+    
+  } catch (error) {
+    console.error('Error saving student:', error);
+    showNotification('Error saving student: ' + error.message, 'error');
+  }
+}
+
+// ==================== REPORT FUNCTIONS ====================
+function initReportButtons() {
+  console.log('📊 Initializing report buttons...');
+  
+  setTimeout(() => {
+    const weeklyReportBtn = document.getElementById('weeklyReportBtn');
+    if (weeklyReportBtn) {
+      weeklyReportBtn.addEventListener('click', function() {
+        if (window.reportManager && window.reportManager.generateWeeklyReport) {
+          window.reportManager.generateWeeklyReport();
+        } else {
+          generateWeeklyReport();
+        }
+      });
+    }
+    
+    const biWeeklyReportBtn = document.getElementById('biWeeklyReportBtn');
+    if (biWeeklyReportBtn) {
+      biWeeklyReportBtn.addEventListener('click', function() {
+        if (window.reportManager && window.reportManager.generateBiWeeklyReport) {
+          window.reportManager.generateBiWeeklyReport();
+        } else {
+          generateBiWeeklyReport();
+        }
+      });
+    }
+    
+    const monthlyReportBtn = document.getElementById('monthlyReportBtn');
+    if (monthlyReportBtn) {
+      monthlyReportBtn.addEventListener('click', function() {
+        if (window.reportManager && window.reportManager.generateMonthlyReport) {
+          window.reportManager.generateMonthlyReport();
+        } else {
+          generateMonthlyReport();
+        }
+      });
+    }
+    
+    const subjectReportBtn = document.getElementById('subjectReportBtn');
+    if (subjectReportBtn) {
+      subjectReportBtn.addEventListener('click', function() {
+        if (window.reportManager && window.reportManager.generateSubjectReport) {
+          window.reportManager.generateSubjectReport();
+        } else {
+          generateSubjectReport();
+        }
+      });
+    }
+    
+    const pdfReportBtn = document.getElementById('pdfReportBtn');
+    if (pdfReportBtn) {
+      pdfReportBtn.addEventListener('click', function() {
+        if (window.reportManager && window.reportManager.exportToPDF) {
+          window.reportManager.exportToPDF();
+        } else {
+          generatePDFReport();
+        }
+      });
+    }
+    
+    const emailReportBtn = document.getElementById('emailReportBtn');
+    if (emailReportBtn) {
+      emailReportBtn.addEventListener('click', function() {
+        if (window.reportManager && window.reportManager.emailReport) {
+          window.reportManager.emailReport();
+        } else {
+          generateEmailReport();
+        }
+      });
+    }
+    
+    const claimFormBtn = document.getElementById('claimFormBtn');
+    if (claimFormBtn && window.reportManager && window.reportManager.generateClaimForm) {
+      claimFormBtn.addEventListener('click', function() {
+        window.reportManager.generateClaimForm();
+      });
+    }
+    
+    const invoiceBtn = document.getElementById('invoiceBtn');
+    if (invoiceBtn && window.reportManager && window.reportManager.generateInvoice) {
+      invoiceBtn.addEventListener('click', function() {
+        window.reportManager.generateInvoice();
+      });
+    }
+    
+  }, 500);
+}
+
+function loadReports() {
+  console.log('📈 Loading reports...');
+  updateReportStats();
+  generateWeeklyBreakdown();
+  generateSubjectBreakdown();
+}
+
+function updateReportStats() {
+  console.log('📊 Updating report statistics...');
+  
+  try {
+    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
+    const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+    const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
+    
+    const totalStudents = students.length;
+    
+    const totalHours = hours.reduce((sum, hour) => {
+      return sum + (parseFloat(hour.hoursWorked) || 0);
+    }, 0);
+    
+    const totalEarnings = hours.reduce((sum, hour) => {
+      const hoursWorked = parseFloat(hour.hoursWorked) || 0;
+      const rate = parseFloat(hour.baseRate) || 0;
+      return sum + (hoursWorked * rate);
+    }, 0);
+    
+    let avgMark = 0;
+    if (marks.length > 0) {
+      const totalPercentage = marks.reduce((sum, mark) => {
+        return sum + (parseFloat(mark.percentage) || 0);
+      }, 0);
+      avgMark = totalPercentage / marks.length;
+    }
+    
+    const totalPayments = payments.reduce((sum, payment) => {
+      return sum + (parseFloat(payment.paymentAmount) || 0);
+    }, 0);
+    
+    const outstandingBalance = totalEarnings - totalPayments;
+    
+    const updateElement = (id, value) => {
+      const element = document.getElementById(id);
+      if (element) element.textContent = value;
+    };
+    
+    updateElement('totalStudentsReport', totalStudents);
+    updateElement('totalHoursReport', totalHours.toFixed(1));
+    updateElement('totalEarningsReport', `$${totalEarnings.toFixed(2)}`);
+    updateElement('avgMarkReport', `${avgMark.toFixed(1)}%`);
+    updateElement('totalPaymentsReport', `$${totalPayments.toFixed(2)}`);
+    updateElement('outstandingBalance', `$${outstandingBalance.toFixed(2)}`);
+    
+  } catch (error) {
+    console.error('Error updating report stats:', error);
+  }
+}
+
+function generateWeeklyBreakdown() {
+  console.log('📅 Generating weekly breakdown...');
+  
+  try {
+    const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
+    const weeklyBody = document.getElementById('weeklyBody');
+    
+    if (!weeklyBody) return;
+    
+    if (hours.length === 0) {
+      weeklyBody.innerHTML = '<tr><td colspan="5" class="empty-message">No data available</td></tr>';
+      return;
+    }
+    
+    const weeks = {};
+    hours.forEach(hour => {
+      const date = new Date(hour.workDate);
+      const weekStart = getWeekStart(date);
+      const weekKey = weekStart.toISOString().split('T')[0];
+      
+      if (!weeks[weekKey]) {
+        weeks[weekKey] = {
+          period: formatDate(weekStart) + ' - ' + formatDate(new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000)),
+          hours: 0,
+          earnings: 0,
+          subjects: new Set(),
+          net: 0
+        };
+      }
+      
+      const hoursWorked = parseFloat(hour.hoursWorked) || 0;
+      const rate = parseFloat(hour.baseRate) || 0;
+      const earnings = hoursWorked * rate;
+      
+      weeks[weekKey].hours += hoursWorked;
+      weeks[weekKey].earnings += earnings;
+      weeks[weekKey].net += earnings * 0.8;
+      
+      if (hour.workSubject) {
+        weeks[weekKey].subjects.add(hour.workSubject);
+      }
+    });
+    
+    const weekArray = Object.values(weeks).sort((a, b) => {
+      return new Date(b.period.split(' - ')[0]) - new Date(a.period.split(' - ')[0]);
+    });
+    
+    weeklyBody.innerHTML = weekArray.map(week => `
+      <tr>
+        <td>${week.period}</td>
+        <td>${week.hours.toFixed(1)}h</td>
+        <td>$${week.earnings.toFixed(2)}</td>
+        <td>${Array.from(week.subjects).slice(0, 3).join(', ')}${week.subjects.size > 3 ? '...' : ''}</td>
+        <td>$${week.net.toFixed(2)}</td>
+      </tr>
+    `).join('');
+    
+  } catch (error) {
+    console.error('Error generating weekly breakdown:', error);
+  }
+}
+
+function generateSubjectBreakdown() {
+  console.log('📚 Generating subject breakdown...');
+  
+  try {
+    const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
+    const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+    const subjectBody = document.getElementById('subjectBody');
+    
+    if (!subjectBody) return;
+    
+    if (hours.length === 0 && marks.length === 0) {
+      subjectBody.innerHTML = '<tr><td colspan="5" class="empty-message">No data available</td></tr>';
+      return;
+    }
+    
+    const subjects = {};
+    
+    hours.forEach(hour => {
+      const subject = hour.workSubject || 'Uncategorized';
+      if (!subjects[subject]) {
+        subjects[subject] = {
+          hours: 0,
+          earnings: 0,
+          sessions: 0,
+          marks: []
+        };
+      }
+      
+      const hoursWorked = parseFloat(hour.hoursWorked) || 0;
+      const rate = parseFloat(hour.baseRate) || 0;
+      
+      subjects[subject].hours += hoursWorked;
+      subjects[subject].earnings += hoursWorked * rate;
+      subjects[subject].sessions += 1;
+    });
+    
+    marks.forEach(mark => {
+      const subject = mark.marksSubject || 'Uncategorized';
+      if (!subjects[subject]) {
+        subjects[subject] = {
+          hours: 0,
+          earnings: 0,
+          sessions: 0,
+          marks: []
+        };
+      }
+      
+      subjects[subject].marks.push(parseFloat(mark.percentage) || 0);
+    });
+    
+    const subjectArray = Object.entries(subjects).map(([subject, data]) => {
+      const avgMark = data.marks.length > 0 
+        ? (data.marks.reduce((a, b) => a + b, 0) / data.marks.length).toFixed(1)
+        : 'N/A';
+      
+      return {
+        subject,
+        avgMark,
+        hours: data.hours.toFixed(1),
+        earnings: data.earnings.toFixed(2),
+        sessions: data.sessions
+      };
+    }).sort((a, b) => b.earnings - a.earnings);
+    
+    subjectBody.innerHTML = subjectArray.map(item => `
+      <tr>
+        <td>${item.subject}</td>
+        <td>${item.avgMark}${item.avgMark !== 'N/A' ? '%' : ''}</td>
+        <td>${item.hours}h</td>
+        <td>$${item.earnings}</td>
+        <td>${item.sessions}</td>
+      </tr>
+    `).join('');
+    
+  } catch (error) {
+    console.error('Error generating subject breakdown:', error);
+  }
+}
+
+function getWeekStart(date) {
+  const day = date.getDay();
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+  return new Date(date.setDate(diff));
+}
+
+function formatDate(date) {
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function generateWeeklyReport() {
+  console.log('📅 Generating weekly report...');
+  alert('Weekly report would be generated here');
+}
+
+function generateBiWeeklyReport() {
+  console.log('📅 Generating bi-weekly report...');
+  alert('Bi-weekly report would be generated here');
+}
+
+function generateMonthlyReport() {
+  console.log('📅 Generating monthly report...');
+  alert('Monthly report would be generated here');
+}
+
+function generateSubjectReport() {
+  console.log('📚 Generating subject report...');
+  alert('Subject report would be generated here');
+}
+
+function generatePDFReport() {
+  console.log('📄 Generating PDF report...');
+  alert('PDF report would be generated here');
+}
+
+function generateEmailReport() {
+  console.log('📧 Generating email report...');
+  alert('Email report would be generated here');
+}
+
+// ==================== DATA LOADING FUNCTIONS ====================
+function loadInitialData() {
+  console.log('📊 Loading initial data...');
+  
+  if (window.formHandler && window.formHandler.initializeStorage) {
+    window.formHandler.initializeStorage();
+  }
+  
+  loadStudents();
+  loadHours();
+  loadMarks();
+  loadAttendance();
+  loadPayments();
+  populateStudentDropdowns();
+  updateGlobalStats();
+  updateProfileStats();
+  
+  if (document.getElementById('reports').classList.contains('active')) {
+    loadReports();
+  }
+}
+
+function loadStudents() {
+  console.log('👥 Loading students...');
+  
+  const container = document.getElementById('studentsContainer');
+  if (!container) return;
+  
+  let students = [];
+  if (window.formHandler && window.formHandler.getStudents) {
+    students = window.formHandler.getStudents();
+  } else {
+    students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+  }
+  
+  const countElem = document.getElementById('studentCount');
+  if (countElem) countElem.textContent = students.length;
+  
+  if (students.length === 0) {
+    container.innerHTML = '<p class="empty-message">No students registered yet.</p>';
+    return;
+  }
+  
+  container.innerHTML = students.map(student => `
+    <div class="student-card" data-id="${student.id}">
+      <div class="student-card-header">
+        <strong>${student.name}</strong>
+        <span class="student-id">${student.studentId}</span>
+        <div class="student-actions">
+          <button class="btn-icon edit-student" onclick="editStudent('${student.id}')" title="Edit">✏️</button>
+          <button class="btn-icon delete-student" onclick="deleteStudent('${student.id}')" title="Delete">🗑️</button>
+        </div>
+      </div>
+      <div class="student-details">
+        <div class="student-rate">$${student.rate || '0.00'}/session</div>
+        <div>${student.gender} • ${student.email || 'No email'}</div>
+        <div>${student.phone || 'No phone'}</div>
+        <div class="student-meta">
+          Added: ${new Date(student.createdAt).toLocaleDateString()}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function loadHours() {
+  console.log('⏱️ Loading hours...');
+  
+  const container = document.getElementById('hoursContainer');
+  if (!container) return;
+  
+  let hours = [];
+  if (window.formHandler && window.formHandler.getHours) {
+    hours = window.formHandler.getHours();
+  } else {
+    hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
+  }
+  
+  if (hours.length === 0) {
+    container.innerHTML = '<p class="empty-message">No hours logged yet.</p>';
+    return;
+  }
+  
+  const recentHours = hours.slice(0, 10);
+  container.innerHTML = recentHours.map(hour => `
+    <div class="hours-entry" data-id="${hour.id}">
+      <div class="hours-header">
+        <div>
+          <strong>${hour.organization}</strong>
+          <span class="hours-type">${hour.workType || 'Hourly'}</span>
+        </div>
+        <div class="hours-total">$${hour.total?.toFixed(2) || '0.00'}</div>
+      </div>
+      <div class="hours-details">
+        <span>📅 ${new Date(hour.workDate).toLocaleDateString()}</span>
+        <span>⏱️ ${hour.hoursWorked} hours</span>
+        <span>💰 $${hour.baseRate}/hr</span>
+        ${hour.workSubject ? `<span>📚 ${hour.workSubject}</span>` : ''}
+      </div>
+      ${hour.hoursNotes ? `<div class="muted">Notes: ${hour.hoursNotes}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function loadMarks() {
+  console.log('📝 Loading marks...');
+  
+  const container = document.getElementById('marksContainer');
+  if (!container) return;
+  
+  let marks = [];
+  if (window.formHandler && window.formHandler.getMarks) {
+    marks = window.formHandler.getMarks();
+  } else {
+    marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+  }
+  
+  const countElem = document.getElementById('marksCount');
+  if (countElem) countElem.textContent = marks.length;
+  
+  if (marks.length === 0) {
+    container.innerHTML = '<p class="empty-message">No marks recorded yet.</p>';
+    return;
+  }
+  
+  const recentMarks = marks.slice(0, 10);
+  container.innerHTML = recentMarks.map(mark => `
+    <div class="mark-entry" data-id="${mark.id}">
+      <div class="mark-header">
+        <div>
+          <strong>${mark.marksSubject || 'Subject'}</strong>
+          <span>${mark.marksTopic || 'Topic'}</span>
+        </div>
+        <div class="hours-total">
+          ${mark.percentage || '0.0'}% (${mark.grade || 'F'})
+        </div>
+      </div>
+      <div class="hours-details">
+        <span>📅 ${new Date(mark.marksDate).toLocaleDateString()}</span>
+        <span>📊 ${mark.marksScore || 0}/${mark.marksMax || 100}</span>
+        <span>👤 Student ID: ${mark.marksStudent || 'N/A'}</span>
+      </div>
+      ${mark.marksNotes ? `<div class="muted">Notes: ${mark.marksNotes}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function loadAttendance() {
+  console.log('✅ Loading attendance...');
+  
+  const container = document.getElementById('attendanceContainer');
+  if (!container) return;
+  
+  let attendance = [];
+  if (window.formHandler && window.formHandler.getAttendance) {
+    attendance = window.formHandler.getAttendance();
+  } else {
+    attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
+  }
+  
+  const countElem = document.getElementById('attendanceCount');
+  if (countElem) countElem.textContent = attendance.length;
+  
+  const lastSessionElem = document.getElementById('lastSessionDate');
+  if (lastSessionElem && attendance.length > 0) {
+    const latest = attendance[0];
+    lastSessionElem.textContent = new Date(latest.attendanceDate).toLocaleDateString();
+  } else if (lastSessionElem) {
+    lastSessionElem.textContent = 'Never';
+  }
+  
+  if (attendance.length === 0) {
+    container.innerHTML = '<p class="empty-message">No attendance records yet.</p>';
+    return;
+  }
+  
+  const recentAttendance = attendance.slice(0, 5);
+  container.innerHTML = recentAttendance.map(record => `
+    <div class="attendance-entry" data-id="${record.id}">
+      <div class="attendance-header">
+        <div>
+          <strong>${record.attendanceSubject || 'Subject'}</strong>
+          <div>${record.attendanceTopic || 'General Session'}</div>
+        </div>
+        <div>📅 ${new Date(record.attendanceDate).toLocaleDateString()}</div>
+      </div>
+      <div class="hours-details">
+        <span>👥 ${record.presentStudents?.length || 0} students present</span>
+        ${record.attendanceNotes ? `<div class="muted">Notes: ${record.attendanceNotes}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function loadPayments() {
+  console.log('💰 Loading payments...');
+  
+  const container = document.getElementById('paymentActivityLog');
+  const balancesContainer = document.getElementById('studentBalancesContainer');
+  
+  let payments = [];
+  if (window.formHandler && window.formHandler.getPayments) {
+    payments = window.formHandler.getPayments();
+  } else {
+    payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
+  }
+  
+  let students = [];
+  if (window.formHandler && window.formHandler.getStudents) {
+    students = window.formHandler.getStudents();
+  } else {
+    students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+  }
+  
+  let hours = [];
+  if (window.formHandler && window.formHandler.getHours) {
+    hours = window.formHandler.getHours();
+  } else {
+    hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
+  }
+  
+  const totalStudentsElem = document.getElementById('totalStudentsCount');
+  if (totalStudentsElem) totalStudentsElem.textContent = students.length;
+  
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  
+  let totalOwed = 0;
+  let monthlyPayments = 0;
+  
+  const studentBalances = students.map(student => {
+    const studentHours = hours.filter(h => h.hoursStudent === student.id);
+    const studentPayments = payments.filter(p => p.paymentStudent === student.id);
+    
+    const hoursEarnings = studentHours.reduce((sum, hour) => {
+      const hoursWorked = parseFloat(hour.hoursWorked) || 0;
+      const rate = parseFloat(hour.baseRate) || parseFloat(student.rate) || 0;
+      return sum + (hoursWorked * rate);
+    }, 0);
+    
+    const totalPayments = studentPayments.reduce((sum, payment) => {
+      const amount = parseFloat(payment.paymentAmount) || 0;
+      
+      const paymentDate = new Date(payment.paymentDate);
+      if (paymentDate.getMonth() === currentMonth && paymentDate.getFullYear() === currentYear) {
+        monthlyPayments += amount;
+      }
+      
+      return sum + amount;
+    }, 0);
+    
+    const balance = hoursEarnings - totalPayments;
+    if (balance > 0) totalOwed += balance;
+    
+    return {
+      id: student.id,
+      name: student.name,
+      owed: balance,
+      hoursEarnings: hoursEarnings,
+      payments: totalPayments
+    };
+  });
+  
+  const totalOwedElem = document.getElementById('totalOwed');
+  const monthlyPaymentsElem = document.getElementById('monthlyPayments');
+  
+  if (totalOwedElem) totalOwedElem.textContent = `$${totalOwed.toFixed(2)}`;
+  if (monthlyPaymentsElem) monthlyPaymentsElem.textContent = `$${monthlyPayments.toFixed(2)}`;
+  
+  if (balancesContainer) {
+    if (students.length === 0) {
+      balancesContainer.innerHTML = '<p class="empty-message">No student data yet.</p>';
+    } else {
+      balancesContainer.innerHTML = studentBalances.map(balance => `
+        <div class="payment-item">
+          <div class="payment-header">
+            <strong>${balance.name}</strong>
+            <span class="payment-amount ${balance.owed > 0 ? 'warning' : 'success'}">
+              ${balance.owed > 0 ? `Owes: $${balance.owed.toFixed(2)}` : 'Paid up'}
+            </span>
+          </div>
+          <div class="payment-meta">
+            <span>Earned: $${balance.hoursEarnings.toFixed(2)}</span>
+            <span>Paid: $${balance.payments.toFixed(2)}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+  
+  if (container) {
+    if (payments.length === 0) {
+      container.innerHTML = '<p class="empty-message">No recent payment activity.</p>';
+      return;
+    }
+    
+    const recentPayments = payments.slice(0, 10);
+    container.innerHTML = recentPayments.map(payment => `
+      <div class="payment-item" data-id="${payment.id}">
+        <div class="payment-header">
+          <div>
+            <strong>Payment Received</strong>
+            <div>Student ID: ${payment.paymentStudent || 'N/A'}</div>
+          </div>
+          <div class="payment-amount success">$${parseFloat(payment.paymentAmount || 0).toFixed(2)}</div>
+        </div>
+        <div class="payment-meta">
+          <span>📅 ${new Date(payment.paymentDate).toLocaleDateString()}</span>
+          <span>💳 ${payment.paymentMethod || 'Cash'}</span>
+        </div>
+        ${payment.paymentNotes ? `<div class="payment-notes">${payment.paymentNotes}</div>` : ''}
+      </div>
+    `).join('');
+  }
+}
+
+// ==================== HELPER FUNCTIONS ====================
+function populateStudentDropdowns() {
+  console.log('👥 Populating student dropdowns...');
+  
+  let students = [];
+  if (window.formHandler && window.formHandler.getStudents) {
+    students = window.formHandler.getStudents();
+  } else {
+    students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+  }
+  
+  const dropdownIds = [
+    'hoursStudent',
+    'marksStudent', 
+    'paymentStudent',
+    'attendanceStudents'
+  ];
+  
+  dropdownIds.forEach(dropdownId => {
+    const element = document.getElementById(dropdownId);
+    if (!element) return;
+    
+    if (dropdownId === 'attendanceStudents') {
+      if (students.length === 0) {
+        element.innerHTML = '<p class="empty-message">No students registered. Add students first.</p>';
+      } else {
+        element.innerHTML = students.map(student => `
+          <div class="attendance-student-item">
+            <input type="checkbox" id="student_${student.id}" value="${student.id}">
+            <label for="student_${student.id}">${student.name} (${student.studentId})</label>
+          </div>
+        `).join('');
+      }
+    } else {
+      element.innerHTML = '<option value="">Select Student</option>' + 
+        students.map(student => `
+          <option value="${student.id}">${student.name} (${student.studentId})</option>
+        `).join('');
+    }
+  });
+  
+  console.log(`✅ Populated ${students.length} students in dropdowns`);
+}
+
+function updateGlobalStats() {
+  console.log('📈 Updating global stats...');
+  
+  let stats = { students: 0, totalHours: 0, totalEarnings: 0 };
+  
+  if (window.formHandler && window.formHandler.getStatistics) {
+    stats = window.formHandler.getStatistics();
+  } else {
+    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
+    
+    stats.students = students.length;
+    stats.totalHours = hours.reduce((sum, hour) => sum + (parseFloat(hour.hoursWorked) || 0), 0);
+    stats.totalEarnings = hours.reduce((sum, hour) => {
+      const hoursWorked = parseFloat(hour.hoursWorked) || 0;
+      const rate = parseFloat(hour.baseRate) || 0;
+      return sum + (hoursWorked * rate);
+    }, 0);
+  }
+  
+  const totalHours = parseFloat(stats.totalHours) || 0;
+  const totalEarnings = parseFloat(stats.totalEarnings) || 0;
+  
+  const studentCountElem = document.getElementById('statStudents');
+  const hoursElem = document.getElementById('statHours');
+  const avgRateElem = document.getElementById('averageRate');
+  
+  if (studentCountElem) studentCountElem.textContent = stats.students || 0;
+  if (hoursElem) hoursElem.textContent = totalHours.toFixed(1);
+  
+  if (avgRateElem) {
+    let students = [];
+    if (window.formHandler && window.formHandler.getStudents) {
+      students = window.formHandler.getStudents();
+    } else {
+      students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    }
+    
+    if (students.length > 0) {
+      const totalRate = students.reduce((sum, student) => sum + (parseFloat(student.rate) || 0), 0);
+      const avgRate = totalRate / students.length;
+      avgRateElem.textContent = avgRate.toFixed(2);
+    } else {
+      avgRateElem.textContent = '0.00';
+    }
+  }
+}
+
+function showNotification(message, type = 'info') {
+  console.log(`🔔 ${type}: ${message}`);
+  
+  const existingNotification = document.querySelector('.notification');
+  if (existingNotification) {
+    existingNotification.remove();
+  }
+  
+  const notification = document.createElement('div');
+  notification.className = `notification notification-${type}`;
+  notification.innerHTML = `
+    <div class="notification-content">
+      <span class="notification-icon">${type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️'}</span>
+      <span class="notification-message">${message}</span>
+      <button class="notification-close">&times;</button>
+    </div>
+  `;
+  
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.classList.add('notification-show');
+  }, 10);
+  
+  setTimeout(() => {
+    notification.classList.remove('notification-show');
+    notification.classList.add('notification-hide');
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.remove();
+      }
+    }, 300);
+  }, 5000);
+  
+  notification.querySelector('.notification-close').addEventListener('click', () => {
+    notification.classList.remove('notification-show');
+    notification.classList.add('notification-hide');
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.remove();
+      }
+    }, 300);
+  });
+}
+
+// ==================== START APP ====================
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 DOM fully loaded');
+    setTimeout(initApp, 300);
+  });
+} else {
+  console.log('📄 DOM already loaded');
+  setTimeout(initApp, 300);
+}
+
+console.log('✅ App initialization script loaded');
