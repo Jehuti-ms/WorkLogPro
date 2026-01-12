@@ -2592,7 +2592,6 @@ if (window.formHandler && window.formHandler.saveStudent) {
         });
     });
   }
-}
 
 // Helper function to generate IDs
 function generateId() {
