@@ -526,59 +526,66 @@
       </div>
     </div>
 
-    <!-- Reports Tab -->
-    <div id="reports" class="tabcontent">
-      <div class="section-header">
-        <h2>📈 Reports</h2>
-        <p>Summaries of students, hours, marks, and payments.</p>
-      </div>
+   <!-- Reports Tab -->
+<div id="reports" class="tabcontent">
+  <div class="section-header">
+    <h2>📈 Reports</h2>
+    <p>Summaries of students, hours, marks, and payments.</p>
+  </div>
 
-      <div class="form-grid">
-        <div class="section-card">
-          <h3>📊 Overview</h3>
-          <ul>
-            <li>Total Students: <span id="totalStudentsReport">0</span></li>
-            <li>Total Hours: <span id="totalHoursReport">0</span></li>
-            <li>Total Earnings: <span id="totalEarningsReport">$0</span></li>
-            <li>Average Mark: <span id="avgMarkReport">0%</span></li>
-            <li>Total Payments: <span id="totalPaymentsReport">$0</span></li>
-            <li>Outstanding Balance: <span id="outstandingBalance">$0</span></li>
-          </ul>
-          <div class="form-actions">
-            <div class="form-actions">
-              <button id="weeklyReportBtn" class="button small">Weekly</button>
-              <button id="biWeeklyReportBtn" class="button small">Bi-Weekly</button>
-              <button id="monthlyReportBtn" class="button small">Monthly</button>
-              <button id="subjectReportBtn" class="button small">By Subject</button>
-              <button id="claimFormBtn" class="button small warning">💰 Claim</button>
-              <button id="invoiceBtn" class="button small warning">🧾 Invoice</button>
-              <button id="pdfReportBtn" class="button small success">📄 PDF</button>
-              <button id="emailReportBtn" class="button small info">📧 Email</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="section-card">
-          <h3>📅 Breakdown</h3>
-          <table class="table">
-            <thead>
-              <tr><th>Period</th><th>Hours</th><th>Earnings</th><th>Subjects</th><th>Net (80%)</th></tr>
-            </thead>
-            <tbody id="weeklyBody">
-              <tr><td colspan="5" class="empty-message">No data available</td></tr>
-            </tbody>
-          </table>
-          <table class="table">
-            <thead>
-              <tr><th>Subject</th><th>Avg Mark</th><th>Hours</th><th>Earnings</th><th>Sessions</th></tr>
-            </thead>
-            <tbody id="subjectBody">
-              <tr><td colspan="5" class="empty-message">No data available</td></tr>
-            </tbody>
-          </table>
-        </div>
+  <div class="form-grid">
+    <div class="section-card">
+      <h3>📊 Overview</h3>
+      <ul>
+        <li>Total Students: <span id="totalStudentsReport">0</span></li>
+        <li>Total Hours: <span id="totalHoursReport">0</span></li>
+        <li>Total Earnings: <span id="totalEarningsReport">$0</span></li>
+        <li>Average Mark: <span id="avgMarkReport">0%</span></li>
+        <li>Total Payments: <span id="totalPaymentsReport">$0</span></li>
+        <li>Outstanding Balance: <span id="outstandingBalance">$0</span></li>
+      </ul>
+      <div class="form-actions">
+        <button id="weeklyReportBtn" class="button small">Weekly</button>
+        <button id="biWeeklyReportBtn" class="button small">Bi-Weekly</button>
+        <button id="monthlyReportBtn" class="button small">Monthly</button>
+        <button id="subjectReportBtn" class="button small">By Subject</button>
+        <button id="claimFormBtn" class="button small warning">💰 Claim</button>
+        <button id="invoiceBtn" class="button small warning">🧾 Invoice</button>
+        <button id="pdfReportBtn" class="button small success">📄 PDF</button>
+        <button id="emailReportBtn" class="button small info">📧 Email</button>
       </div>
     </div>
+
+    <div class="section-card">
+      <h3>📅 Breakdown</h3>
+      
+      <!-- THIS IS THE CORRECT CONTAINER FOR REPORTS -->
+      <div id="report-content" style="min-height: 400px; padding: 20px;">
+        <p class="empty-message">Select a report type to generate.</p>
+      </div>
+      
+      <!-- You can keep your tables BELOW the report content if you want -->
+      <div style="margin-top: 30px;">
+        <table class="table">
+          <thead>
+            <tr><th>Period</th><th>Hours</th><th>Earnings</th><th>Subjects</th><th>Net (80%)</th></tr>
+          </thead>
+          <tbody id="weeklyBody">
+            <tr><td colspan="5" class="empty-message">No data available</td></tr>
+          </tbody>
+        </table>
+        <table class="table">
+          <thead>
+            <tr><th>Subject</th><th>Avg Mark</th><th>Hours</th><th>Earnings</th><th>Sessions</th></tr>
+          </thead>
+          <tbody id="subjectBody">
+            <tr><td colspan="5" class="empty-message">No data available</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
 
     <!-- Sync Stats Modal -->
     <div id="syncStatsModal" class="modal">
