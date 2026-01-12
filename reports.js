@@ -204,36 +204,12 @@ class ReportManager {
     }
 
     // UPDATED: Show report content with close button
-    showReportContent(report, title) {
-        let html = '<div class="report-display">';
-        
-        // Header with close button
-        html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #ddd;">';
-        html += `<h4 style="margin: 0;">${title}</h4>`;
-        html += '<button onclick="window.reportManager.clearReport()" style="background: #dc3545; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; font-size: 18px; cursor: pointer;">×</button>';
-        html += '</div>';
-        
-        // Action buttons
-        html += '<div style="margin-bottom: 15px; display: flex; gap: 10px;">';
-        html += '<button onclick="window.reportManager.copyToClipboard()" class="button small">Copy</button>';
-        html += '<button onclick="window.reportManager.printReport()" class="button small">Print</button>';
-        html += '<button onclick="window.reportManager.saveAsText()" class="button small">Save</button>';
-        html += '</div>';
-        
-        // Report content
-        html += '<div style="background: #f8f9fa; padding: 15px; border-radius: 5px; max-height: 400px; overflow-y: auto;">';
-        html += `<pre style="white-space: pre-wrap; font-family: monospace; font-size: 12px; margin: 0;">${report}</pre>`;
-        html += '</div>';
-        
-        // Back button
-        html += '<div style="margin-top: 15px; text-align: center;">';
-        html += '<button onclick="window.reportManager.clearReport()" class="button small">Back to Reports</button>';
-        html += '</div>';
-        
-        html += '</div>';
-        
-        this.updateReportContent(html);
-    }
+// Update showReportContent to use the template
+showReportContent(report, title) {
+    const content = `<pre style="white-space: pre-wrap; font-family: monospace; font-size: 12px; margin: 0;">${report}</pre>`;
+    const html = this.createReportTemplate(title, content, true);
+    this.updateReportContent(html);
+}
 
     updateReportContent(html) {
         const reportContent = document.getElementById('report-content');
@@ -288,118 +264,163 @@ class ReportManager {
     }
 
     // SIMPLIFIED VERSIONS OF OTHER METHODS
-    showSubjectSelector() {
-        this.clearReport();
-        
-        let html = '<div style="padding: 20px;">';
-        html += '<h4>📚 Subject Report</h4>';
-        html += '<p>Select or enter a subject:</p>';
-        
-        if (this.subjects.length === 0) {
-            html += '<p>No subjects found. Add some activities with subject names.</p>';
-        } else {
-            html += '<select id="subjectSelect" class="form-input" style="width: 100%; margin-bottom: 15px;">';
-            html += '<option value="">Choose a subject...</option>';
-            this.subjects.forEach(subject => {
-                html += `<option value="${subject}">${subject.charAt(0).toUpperCase() + subject.slice(1)}</option>`;
-            });
-            html += '</select>';
-        }
-        
-        html += '<input type="text" id="customSubject" class="form-input" placeholder="Or enter custom subject" style="width: 100%; margin-bottom: 15px;">';
-        html += '<button onclick="generateSubjectReport()" class="button" style="width: 100%;">Generate Report</button>';
-        html += '</div>';
-        
-        this.updateReportContent(html);
-    }
-
-    showPDFOptions() {
-        this.clearReport();
-        
-        let html = '<div style="padding: 20px;">';
-        html += '<h4>📄 PDF Export</h4>';
-        html += '<p>Select report type:</p>';
-        
-        html += '<div style="margin-bottom: 15px;">';
-        html += '<label><input type="radio" name="pdfType" value="weekly" checked> Weekly Report</label><br>';
-        html += '<label><input type="radio" name="pdfType" value="biweekly"> Bi-Weekly Report</label><br>';
-        html += '<label><input type="radio" name="pdfType" value="monthly"> Monthly Report</label>';
-        html += '</div>';
-        
-        html += '<button onclick="generatePDF()" class="button success" style="width: 100%;">Generate PDF</button>';
-        html += '</div>';
-        
-        this.updateReportContent(html);
-    }
-
-    showEmailForm() {
-        this.clearReport();
-        
-        let html = '<div style="padding: 20px;">';
-        html += '<h4>📧 Email Report</h4>';
-        
-        html += '<div style="margin-bottom: 15px;">';
-        html += '<label>Recipient Email:</label>';
-        html += '<input type="email" id="emailTo" class="form-input" placeholder="recipient@example.com" style="width: 100%;">';
-        html += '</div>';
-        
-        html += '<div style="margin-bottom: 15px;">';
-        html += '<label>Report Type:</label>';
-        html += '<select id="emailType" class="form-input" style="width: 100%;">';
-        html += '<option value="weekly">Weekly Report</option>';
-        html += '<option value="biweekly">Bi-Weekly Report</option>';
-        html += '<option value="monthly">Monthly Report</option>';
-        html += '</select>';
-        html += '</div>';
-        
-        html += '<button onclick="sendEmail()" class="button info" style="width: 100%;">Send Email</button>';
-        html += '</div>';
-        
-        this.updateReportContent(html);
-    }
-
-    showClaimFormOptions() {
-        this.clearReport();
-        
-        let html = '<div style="padding: 20px;">';
-        html += '<h4>💰 Claim Form</h4>';
-        
-        html += '<div style="margin-bottom: 15px;">';
-        html += '<label>Claim Type:</label>';
-        html += '<select id="claimType" class="form-input" style="width: 100%;">';
-        html += '<option value="weekly">Weekly</option>';
-        html += '<option value="biweekly">Bi-Weekly</option>';
-        html += '<option value="monthly">Monthly</option>';
-        html += '</select>';
-        html += '</div>';
-        
-        html += '<button onclick="generateClaimForm()" class="button warning" style="width: 100%;">Generate Claim Form</button>';
-        html += '</div>';
-        
-        this.updateReportContent(html);
-    }
-
-    showInvoiceGenerator() {
-        this.clearReport();
-        
-        let html = '<div style="padding: 20px;">';
-        html += '<h4>🧾 Invoice Generator</h4>';
-        
-        html += '<div style="margin-bottom: 15px;">';
-        html += '<label>Select Student:</label>';
-        html += '<select id="invoiceStudent" class="form-input" style="width: 100%;">';
-        html += '<option value="">Choose a student...</option>';
-        this.students.forEach(student => {
-            html += `<option value="${student.name}">${student.name} ($${student.hourlyRate || 0}/hr)</option>`;
+   showSubjectSelector() {
+    this.clearReport();
+    
+    let content = '<p>Select or enter a subject:</p>';
+    
+    if (this.subjects.length === 0) {
+        content += '<p style="color: #666; font-style: italic;">No subjects found. Add some activities with subject names.</p>';
+    } else {
+        content += '<select id="subjectSelect" class="form-input" style="width: 100%; margin-bottom: 15px;">';
+        content += '<option value="">Choose a subject...</option>';
+        this.subjects.forEach(subject => {
+            content += `<option value="${subject}">${subject.charAt(0).toUpperCase() + subject.slice(1)}</option>`;
         });
-        html += '</select>';
-        html += '</div>';
-        
-        html += '<button onclick="generateInvoice()" class="button warning" style="width: 100%;">Generate Invoice</button>';
-        html += '</div>';
-        
-        this.updateReportContent(html);
+        content += '</select>';
     }
+    
+    content += '<input type="text" id="customSubject" class="form-input" placeholder="Or enter custom subject" style="width: 100%; margin-bottom: 15px;">';
+    content += '<button onclick="generateSubjectReport()" class="button" style="width: 100%;">Generate Report</button>';
+    
+    const html = this.createReportTemplate('📚 Subject Report', content, false);
+    this.updateReportContent(html);
+}
+    
+   showPDFOptions() {
+    this.clearReport();
+    
+    let content = '<p>Select report type:</p>';
+    content += '<div style="margin-bottom: 15px;">';
+    content += '<label style="display: block; margin-bottom: 8px;"><input type="radio" name="pdfType" value="weekly" checked> Weekly Report</label>';
+    content += '<label style="display: block; margin-bottom: 8px;"><input type="radio" name="pdfType" value="biweekly"> Bi-Weekly Report</label>';
+    content += '<label style="display: block; margin-bottom: 8px;"><input type="radio" name="pdfType" value="monthly"> Monthly Report</label>';
+    content += '</div>';
+    
+    content += '<button onclick="generatePDF()" class="button success" style="width: 100%;">📄 Generate PDF</button>';
+    
+    const html = this.createReportTemplate('PDF Export', content, false);
+    this.updateReportContent(html);
+}
+
+
+   showEmailForm() {
+    this.clearReport();
+    
+    let content = '<div style="margin-bottom: 15px;">';
+    content += '<label style="display: block; margin-bottom: 5px;">Recipient Email:</label>';
+    content += '<input type="email" id="emailTo" class="form-input" placeholder="recipient@example.com" style="width: 100%;">';
+    content += '</div>';
+    
+    content += '<div style="margin-bottom: 15px;">';
+    content += '<label style="display: block; margin-bottom: 5px;">Report Type:</label>';
+    content += '<select id="emailType" class="form-input" style="width: 100%;">';
+    content += '<option value="weekly">Weekly Report</option>';
+    content += '<option value="biweekly">Bi-Weekly Report</option>';
+    content += '<option value="monthly">Monthly Report</option>';
+    content += '</select>';
+    content += '</div>';
+    
+    content += '<button onclick="sendEmail()" class="button info" style="width: 100%;">📧 Send Email</button>';
+    
+    const html = this.createReportTemplate('Email Report', content, false);
+    this.updateReportContent(html);
+}
+
+ showClaimFormOptions() {
+    this.clearReport();
+    
+    let content = '<div style="margin-bottom: 15px;">';
+    content += '<label style="display: block; margin-bottom: 5px;">Claim Type:</label>';
+    content += '<select id="claimType" class="form-input" style="width: 100%;">';
+    content += '<option value="weekly">Weekly</option>';
+    content += '<option value="biweekly">Bi-Weekly</option>';
+    content += '<option value="monthly">Monthly</option>';
+    content += '</select>';
+    content += '</div>';
+    
+    content += '<div style="margin-bottom: 15px;">';
+    content += '<label style="display: block; margin-bottom: 5px;">Period End Date:</label>';
+    content += '<input type="date" id="claimDate" class="form-input" style="width: 100%;" value="' + new Date().toISOString().split('T')[0] + '">';
+    content += '</div>';
+    
+    content += '<button onclick="generateClaimForm()" class="button warning" style="width: 100%; margin-bottom: 10px;">💰 Generate Claim Form</button>';
+    content += '<button onclick="emailClaimForm()" class="button info" style="width: 100%;">📧 Email Claim Form</button>';
+    
+    const html = this.createReportTemplate('Claim Form', content, false);
+    this.updateReportContent(html);
+}
+
+showInvoiceGenerator() {
+    this.clearReport();
+    
+    let content = '<div style="margin-bottom: 15px;">';
+    content += '<label style="display: block; margin-bottom: 5px;">Select Student:</label>';
+    content += '<select id="invoiceStudent" class="form-input" style="width: 100%;">';
+    content += '<option value="">Choose a student...</option>';
+    
+    // Students should be loaded here - check if they exist
+    if (this.students && this.students.length > 0) {
+        this.students.forEach(student => {
+            const rate = student.hourlyRate ? ` ($${student.hourlyRate}/hr)` : '';
+            content += `<option value="${student.name}">${student.name}${rate}</option>`;
+        });
+    } else {
+        content += '<option value="" disabled>No students found. Add students first.</option>';
+    }
+    
+    content += '</select>';
+    content += '</div>';
+    
+    content += '<div style="margin-bottom: 15px;">';
+    content += '<label style="display: block; margin-bottom: 5px;">Start Date:</label>';
+    content += '<input type="date" id="invoiceStart" class="form-input" style="width: 100%;">';
+    content += '</div>';
+    
+    content += '<div style="margin-bottom: 15px;">';
+    content += '<label style="display: block; margin-bottom: 5px;">End Date:</label>';
+    content += '<input type="date" id="invoiceEnd" class="form-input" style="width: 100%;" value="' + new Date().toISOString().split('T')[0] + '">';
+    content += '</div>';
+    
+    content += '<button onclick="generateInvoice()" class="button warning" style="width: 100%; margin-bottom: 10px;">🧾 Generate Invoice</button>';
+    content += '<button onclick="emailInvoice()" class="button info" style="width: 100%;">📧 Email Invoice</button>';
+    
+    const html = this.createReportTemplate('Invoice Generator', content, false);
+    this.updateReportContent(html);
+}
+
+// Add this helper method for consistent report display
+createReportTemplate(title, content, showActions = true) {
+    let html = '<div class="report-display">';
+    
+    // Header with close button
+    html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #ddd;">';
+    html += `<h4 style="margin: 0;">${title}</h4>`;
+    html += '<button onclick="window.reportManager.clearReport()" style="background: #dc3545; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; font-size: 18px; cursor: pointer; line-height: 1;">×</button>';
+    html += '</div>';
+    
+    // Action buttons (if requested)
+    if (showActions) {
+        html += '<div style="margin-bottom: 15px; display: flex; gap: 10px;">';
+        html += '<button onclick="window.reportManager.copyToClipboard()" class="button small">📋 Copy</button>';
+        html += '<button onclick="window.reportManager.printReport()" class="button small">🖨️ Print</button>';
+        html += '<button onclick="window.reportManager.saveAsText()" class="button small">💾 Save</button>';
+        html += '</div>';
+    }
+    
+    // Content area
+    html += '<div style="background: #f8f9fa; padding: 15px; border-radius: 5px; max-height: 400px; overflow-y: auto;">';
+    html += content;
+    html += '</div>';
+    
+    // Back button
+    html += '<div style="margin-top: 15px; text-align: center;">';
+    html += '<button onclick="window.reportManager.clearReport()" class="button small">← Back to Reports</button>';
+    html += '</div>';
+    
+    html += '</div>';
+    
+    return html;
 }
 
 // Global helper functions (keep these outside the class)
