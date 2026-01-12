@@ -487,29 +487,882 @@ class FormHandler {
         }
     }
 
-    setupMarksForm() {
-        const form = document.getElementById('marksForm');
-        if (form) {
-            console.log('📝 Found marks form');
-            // Add similar logic for marks form
-        }
-    }
+    // Add this to the FormHandler class after the setupStudentForm method:
 
-    setupAttendanceForm() {
-        const form = document.getElementById('attendanceForm');
-        if (form) {
-            console.log('✅ Found attendance form');
-            // Add similar logic for attendance form
-        }
+setupMarksForm() {
+    console.log('📝 Found marks form');
+    const form = document.getElementById('marksForm');
+    
+    if (!form) {
+        console.log('⚠️ Marks form not found');
+        return;
     }
+    
+    // Get submit button
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (!submitBtn) {
+        console.log('⚠️ No submit button found in marks form');
+        return;
+    }
+    
+    // Remove existing listener and add new one
+    const newBtn = submitBtn.cloneNode(true);
+    submitBtn.parentNode.replaceChild(newBtn, submitBtn);
+    
+    newBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.handleMarksSubmit(form);
+    });
+    
+    console.log('✅ Marks form handler attached');
+}
 
-    setupPaymentForm() {
-        const form = document.getElementById('paymentForm');
-        if (form) {
-            console.log('💰 Found payment form');
-            // Add similar logic for payment form
+async handleMarksSubmit(form) {
+    console.log('📤 Handling marks form submission...');
+    
+    try {
+        // Get form values
+        const marksData = {
+            marksStudent: document.getElementById('marksStudent').value,
+            marksSubject: document.getElementById('marksSubject').value.trim(),
+            marksTopic: document.getElementById('marksTopic').value.trim(),
+            marksDate: document.getElementById('marksDate').value,
+            marksScore: parseFloat(document.getElementById('marksScore').value) || 0,
+            marksMax: parseFloat(document.getElementById('marksMax').value) || 100,
+            marksNotes: document.getElementById('marksNotes').value.trim()
+        };
+        
+        console.log('📄 Marks data from form:', marksData);
+        
+        // Validate
+        if (!marksData.marksStudent) {
+            this.showNotification('Please select a student', 'error');
+            return;
+        }
+        
+        if (!marksData.marksSubject) {
+            this.showNotification('Subject is required', 'error');
+            return;
+        }
+        
+        if (marksData.marksScore <= 0) {
+            this.showNotification('Score must be greater than 0', 'error');
+            return;
+        }
+        
+        // Calculate percentage and grade
+        const percentage = ((marksData.marksScore / marksData.marksMax) * 100).toFixed(1);
+        let grade = 'F';
+        const percNum = parseFloat(percentage);
+        if (percNum >= 90) grade = 'A';
+        else if (percNum >= 80) grade = 'B';
+        else if (percNum >= 70) grade = 'C';
+        else if (percNum >= 60) grade = 'D';
+        
+        // Complete data object
+        const completeMarksData = {
+            ...marksData,
+            id: 'mark_' + Date.now(),
+            percentage: percentage,
+            grade: grade,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        
+        // Show loading
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.textContent = 'Saving...';
+        submitBtn.disabled = true;
+        
+        let success = false;
+        
+        // Try Firebase first
+        if (this.useFirebase && this.dataManager && this.dataManager.saveMark) {
+            try {
+                console.log('☁️ Saving mark to Firebase...');
+                success = await this.dataManager.saveMark(completeMarksData);
+            } catch (error) {
+                console.log('⚠️ Firebase failed:', error.message);
+            }
+        }
+        
+        // Fallback to localStorage
+        if (!success) {
+            console.log('💾 Saving mark to localStorage...');
+            success = await this.saveMarkToLocalStorage(completeMarksData);
+        }
+        
+        // Reset button
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+        
+        if (success) {
+            this.showNotification('Mark saved successfully!', 'success');
+            form.reset();
+            
+            // Reset date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('marksDate').value = today;
+            
+            // Refresh marks display
+            this.loadMarks();
+            
+        } else {
+            this.showNotification('Failed to save mark', 'error');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error submitting marks form:', error);
+        this.showNotification('Error: ' + error.message, 'error');
+    }
+}
+
+async saveMarkToLocalStorage(markData) {
+    try {
+        console.log('💾 Saving mark to localStorage...');
+        
+        // Get existing marks
+        const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+        
+        // Add mark
+        marks.push(markData);
+        
+        // Save back to localStorage
+        localStorage.setItem('worklog_marks', JSON.stringify(marks));
+        
+        console.log(`✅ Saved ${marks.length} marks to localStorage`);
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Error saving mark to localStorage:', error);
+        return false;
+    }
+}
+
+async loadMarks() {
+    console.log('📊 Loading marks list...');
+    try {
+        const marks = await this.getAllMarks();
+        console.log(`✅ Loaded ${marks.length} marks`);
+        
+        // Update marks count
+        const marksCount = document.getElementById('marksCount');
+        if (marksCount) {
+            marksCount.textContent = marks.length;
+        }
+        
+        // Update marks display
+        this.updateMarksDisplay(marks);
+        
+    } catch (error) {
+        console.error('❌ Error loading marks:', error);
+    }
+}
+
+async getAllMarks() {
+    console.log('📊 Getting all marks...');
+    
+    // Try DataManager first
+    if (this.dataManager && this.dataManager.getAllMarks) {
+        try {
+            const marks = await this.dataManager.getAllMarks();
+            if (marks && marks.length > 0) {
+                console.log(`✅ Got ${marks.length} marks from DataManager`);
+                return marks;
+            }
+        } catch (error) {
+            console.log('⚠️ DataManager failed, trying localStorage:', error);
         }
     }
+    
+    // Fallback to localStorage
+    try {
+        const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+        console.log(`✅ Got ${marks.length} marks from localStorage`);
+        return marks;
+    } catch (error) {
+        console.error('❌ Error getting marks:', error);
+        return [];
+    }
+}
+
+updateMarksDisplay(marks) {
+    // Look for marks container
+    const container = document.getElementById('marksContainer');
+    
+    if (!container) {
+        console.log('No marks container found to update');
+        return;
+    }
+    
+    if (marks.length === 0) {
+        container.innerHTML = '<p class="empty-message">No marks recorded yet</p>';
+        return;
+    }
+    
+    // Show recent marks (last 10)
+    const recentMarks = marks.slice(-10).reverse();
+    
+    container.innerHTML = recentMarks.map(mark => `
+        <div class="mark-entry" data-id="${mark.id}">
+            <div class="mark-header">
+                <div>
+                    <strong>${mark.marksSubject || 'Subject'}</strong>
+                    <span>${mark.marksTopic || 'Topic'}</span>
+                </div>
+                <div class="hours-total">
+                    ${mark.percentage || '0.0'}% (${mark.grade || 'F'})
+                </div>
+            </div>
+            <div class="hours-details">
+                <span>📅 ${new Date(mark.marksDate).toLocaleDateString()}</span>
+                <span>📊 ${mark.marksScore || 0}/${mark.marksMax || 100}</span>
+                <span>👤 Student ID: ${mark.marksStudent || 'N/A'}</span>
+            </div>
+            ${mark.marksNotes ? `<div class="muted">Notes: ${mark.marksNotes}</div>` : ''}
+        </div>
+    `).join('');
+}
+
+   setupAttendanceForm() {
+    console.log('✅ Setting up attendance form...');
+    const form = document.getElementById('attendanceForm');
+    
+    if (!form) {
+        console.log('⚠️ Attendance form not found');
+        return;
+    }
+    
+    // Get submit button
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (!submitBtn) {
+        console.log('⚠️ No submit button found in attendance form');
+        return;
+    }
+    
+    // Remove existing listener and add new one
+    const newBtn = submitBtn.cloneNode(true);
+    submitBtn.parentNode.replaceChild(newBtn, submitBtn);
+    
+    newBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.handleAttendanceSubmit(form);
+    });
+    
+    console.log('✅ Attendance form handler attached');
+    
+    // Populate student checkboxes
+    this.populateAttendanceStudents();
+}
+
+async handleAttendanceSubmit(form) {
+    console.log('📤 Handling attendance form submission...');
+    
+    try {
+        // Get form values
+        const attendanceData = {
+            attendanceDate: document.getElementById('attendanceDate').value,
+            attendanceSubject: document.getElementById('attendanceSubject').value.trim(),
+            attendanceTopic: document.getElementById('attendanceTopic').value.trim(),
+            attendanceNotes: document.getElementById('attendanceNotes').value.trim()
+        };
+        
+        console.log('📄 Attendance data from form:', attendanceData);
+        
+        // Validate
+        if (!attendanceData.attendanceDate) {
+            this.showNotification('Date is required', 'error');
+            return;
+        }
+        
+        if (!attendanceData.attendanceSubject) {
+            this.showNotification('Subject is required', 'error');
+            return;
+        }
+        
+        // Get checked students
+        const checkedStudents = Array.from(
+            document.querySelectorAll('#attendanceStudents input[type="checkbox"]:checked')
+        ).map(cb => cb.value);
+        
+        if (checkedStudents.length === 0) {
+            this.showNotification('Please select at least one student', 'error');
+            return;
+        }
+        
+        attendanceData.presentStudents = checkedStudents;
+        
+        // Complete data object
+        const completeAttendanceData = {
+            ...attendanceData,
+            id: 'attendance_' + Date.now(),
+            totalPresent: checkedStudents.length,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        
+        // Show loading
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.textContent = 'Saving...';
+        submitBtn.disabled = true;
+        
+        let success = false;
+        
+        // Try Firebase first
+        if (this.useFirebase && this.dataManager && this.dataManager.saveAttendance) {
+            try {
+                console.log('☁️ Saving attendance to Firebase...');
+                success = await this.dataManager.saveAttendance(completeAttendanceData);
+            } catch (error) {
+                console.log('⚠️ Firebase failed:', error.message);
+            }
+        }
+        
+        // Fallback to localStorage
+        if (!success) {
+            console.log('💾 Saving attendance to localStorage...');
+            success = await this.saveAttendanceToLocalStorage(completeAttendanceData);
+        }
+        
+        // Reset button
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+        
+        if (success) {
+            this.showNotification('Attendance saved successfully!', 'success');
+            form.reset();
+            
+            // Reset date to today and clear checkboxes
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('attendanceDate').value = today;
+            
+            // Uncheck all checkboxes
+            document.querySelectorAll('#attendanceStudents input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+            });
+            
+            // Refresh attendance display
+            this.loadAttendance();
+            
+        } else {
+            this.showNotification('Failed to save attendance', 'error');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error submitting attendance form:', error);
+        this.showNotification('Error: ' + error.message, 'error');
+    }
+}
+
+async saveAttendanceToLocalStorage(attendanceData) {
+    try {
+        console.log('💾 Saving attendance to localStorage...');
+        
+        // Get existing attendance records
+        const attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
+        
+        // Add attendance record
+        attendance.push(attendanceData);
+        
+        // Sort by date (newest first)
+        attendance.sort((a, b) => new Date(b.attendanceDate) - new Date(a.attendanceDate));
+        
+        // Save back to localStorage
+        localStorage.setItem('worklog_attendance', JSON.stringify(attendance));
+        
+        console.log(`✅ Saved ${attendance.length} attendance records to localStorage`);
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Error saving attendance to localStorage:', error);
+        return false;
+    }
+}
+
+async populateAttendanceStudents() {
+    const container = document.getElementById('attendanceStudents');
+    if (!container) return;
+    
+    try {
+        const students = await this.getAllStudents();
+        
+        if (students.length === 0) {
+            container.innerHTML = '<p class="empty-message">No students registered. Add students first.</p>';
+            return;
+        }
+        
+        container.innerHTML = students.map(student => `
+            <div class="attendance-student-item">
+                <input type="checkbox" id="attendance_student_${student.id}" value="${student.id}">
+                <label for="attendance_student_${student.id}">
+                    ${student.name} (${student.studentId || 'No ID'})
+                </label>
+            </div>
+        `).join('');
+        
+        console.log(`✅ Populated ${students.length} students for attendance`);
+        
+    } catch (error) {
+        console.error('❌ Error populating attendance students:', error);
+        container.innerHTML = '<p class="error-message">Error loading students</p>';
+    }
+}
+
+async loadAttendance() {
+    console.log('📊 Loading attendance list...');
+    try {
+        const attendance = await this.getAllAttendance();
+        console.log(`✅ Loaded ${attendance.length} attendance records`);
+        
+        // Update attendance count
+        const attendanceCount = document.getElementById('attendanceCount');
+        if (attendanceCount) {
+            attendanceCount.textContent = attendance.length;
+        }
+        
+        // Update last session date
+        const lastSessionElem = document.getElementById('lastSessionDate');
+        if (lastSessionElem) {
+            if (attendance.length > 0) {
+                const latest = attendance[0]; // Already sorted by date
+                lastSessionElem.textContent = new Date(latest.attendanceDate).toLocaleDateString();
+            } else {
+                lastSessionElem.textContent = 'Never';
+            }
+        }
+        
+        // Update attendance display
+        this.updateAttendanceDisplay(attendance);
+        
+    } catch (error) {
+        console.error('❌ Error loading attendance:', error);
+    }
+}
+
+async getAllAttendance() {
+    console.log('📊 Getting all attendance records...');
+    
+    // Try DataManager first
+    if (this.dataManager && this.dataManager.getAllAttendance) {
+        try {
+            const attendance = await this.dataManager.getAllAttendance();
+            if (attendance && attendance.length > 0) {
+                console.log(`✅ Got ${attendance.length} attendance records from DataManager`);
+                return attendance;
+            }
+        } catch (error) {
+            console.log('⚠️ DataManager failed, trying localStorage:', error);
+        }
+    }
+    
+    // Fallback to localStorage
+    try {
+        const attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
+        console.log(`✅ Got ${attendance.length} attendance records from localStorage`);
+        return attendance;
+    } catch (error) {
+        console.error('❌ Error getting attendance:', error);
+        return [];
+    }
+}
+
+updateAttendanceDisplay(attendance) {
+    // Look for attendance container
+    const container = document.getElementById('attendanceContainer');
+    
+    if (!container) {
+        console.log('No attendance container found to update');
+        return;
+    }
+    
+    if (attendance.length === 0) {
+        container.innerHTML = '<p class="empty-message">No attendance records yet</p>';
+        return;
+    }
+    
+    // Show recent attendance (last 5)
+    const recentAttendance = attendance.slice(0, 5);
+    
+    container.innerHTML = recentAttendance.map(record => {
+        // Get student names for display
+        let studentNames = 'No students';
+        if (record.presentStudents && record.presentStudents.length > 0) {
+            studentNames = record.presentStudents.length + ' students';
+        }
+        
+        return `
+            <div class="attendance-entry" data-id="${record.id}">
+                <div class="attendance-header">
+                    <div>
+                        <strong>${record.attendanceSubject || 'Subject'}</strong>
+                        <div>${record.attendanceTopic || 'General Session'}</div>
+                    </div>
+                    <div>📅 ${new Date(record.attendanceDate).toLocaleDateString()}</div>
+                </div>
+                <div class="hours-details">
+                    <span>👥 ${studentNames}</span>
+                    ${record.attendanceNotes ? `<div class="muted">Notes: ${record.attendanceNotes}</div>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+setupPaymentForm() {
+    console.log('💰 Setting up payment form...');
+    const form = document.getElementById('paymentForm');
+    
+    if (!form) {
+        console.log('⚠️ Payment form not found');
+        return;
+    }
+    
+    // Get submit button
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (!submitBtn) {
+        console.log('⚠️ No submit button found in payment form');
+        return;
+    }
+    
+    // Remove existing listener and add new one
+    const newBtn = submitBtn.cloneNode(true);
+    submitBtn.parentNode.replaceChild(newBtn, submitBtn);
+    
+    newBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.handlePaymentSubmit(form);
+    });
+    
+    console.log('✅ Payment form handler attached');
+}
+
+async handlePaymentSubmit(form) {
+    console.log('📤 Handling payment form submission...');
+    
+    try {
+        // Get form values
+        const paymentData = {
+            paymentStudent: document.getElementById('paymentStudent').value,
+            paymentAmount: parseFloat(document.getElementById('paymentAmount').value) || 0,
+            paymentDate: document.getElementById('paymentDate').value,
+            paymentMethod: document.getElementById('paymentMethod').value,
+            paymentNotes: document.getElementById('paymentNotes').value.trim()
+        };
+        
+        console.log('📄 Payment data from form:', paymentData);
+        
+        // Validate
+        if (!paymentData.paymentStudent) {
+            this.showNotification('Please select a student', 'error');
+            return;
+        }
+        
+        if (paymentData.paymentAmount <= 0) {
+            this.showNotification('Payment amount must be greater than 0', 'error');
+            return;
+        }
+        
+        if (!paymentData.paymentMethod) {
+            this.showNotification('Payment method is required', 'error');
+            return;
+        }
+        
+        // Complete data object
+        const completePaymentData = {
+            ...paymentData,
+            id: 'payment_' + Date.now(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        
+        // Show loading
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.textContent = 'Processing...';
+        submitBtn.disabled = true;
+        
+        let success = false;
+        
+        // Try Firebase first
+        if (this.useFirebase && this.dataManager && this.dataManager.savePayment) {
+            try {
+                console.log('☁️ Saving payment to Firebase...');
+                success = await this.dataManager.savePayment(completePaymentData);
+            } catch (error) {
+                console.log('⚠️ Firebase failed:', error.message);
+            }
+        }
+        
+        // Fallback to localStorage
+        if (!success) {
+            console.log('💾 Saving payment to localStorage...');
+            success = await this.savePaymentToLocalStorage(completePaymentData);
+        }
+        
+        // Reset button
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+        
+        if (success) {
+            this.showNotification(`Payment of $${paymentData.paymentAmount} recorded!`, 'success');
+            form.reset();
+            
+            // Reset date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('paymentDate').value = today;
+            
+            // Refresh payments display
+            this.loadPayments();
+            
+            // Update balances
+            this.updatePaymentBalances();
+            
+        } else {
+            this.showNotification('Failed to record payment', 'error');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error submitting payment form:', error);
+        this.showNotification('Error: ' + error.message, 'error');
+    }
+}
+
+async savePaymentToLocalStorage(paymentData) {
+    try {
+        console.log('💾 Saving payment to localStorage...');
+        
+        // Get existing payments
+        const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
+        
+        // Add payment
+        payments.push(paymentData);
+        
+        // Sort by date (newest first)
+        payments.sort((a, b) => new Date(b.paymentDate) - new Date(a.paymentDate));
+        
+        // Save back to localStorage
+        localStorage.setItem('worklog_payments', JSON.stringify(payments));
+        
+        console.log(`✅ Saved ${payments.length} payments to localStorage`);
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Error saving payment to localStorage:', error);
+        return false;
+    }
+}
+
+async loadPayments() {
+    console.log('📊 Loading payments list...');
+    try {
+        const payments = await this.getAllPayments();
+        console.log(`✅ Loaded ${payments.length} payments`);
+        
+        // Update payments display
+        this.updatePaymentsDisplay(payments);
+        
+        // Update balances
+        this.updatePaymentBalances();
+        
+    } catch (error) {
+        console.error('❌ Error loading payments:', error);
+    }
+}
+
+async getAllPayments() {
+    console.log('💰 Getting all payments...');
+    
+    // Try DataManager first
+    if (this.dataManager && this.dataManager.getAllPayments) {
+        try {
+            const payments = await this.dataManager.getAllPayments();
+            if (payments && payments.length > 0) {
+                console.log(`✅ Got ${payments.length} payments from DataManager`);
+                return payments;
+            }
+        } catch (error) {
+            console.log('⚠️ DataManager failed, trying localStorage:', error);
+        }
+    }
+    
+    // Fallback to localStorage
+    try {
+        const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
+        console.log(`✅ Got ${payments.length} payments from localStorage`);
+        return payments;
+    } catch (error) {
+        console.error('❌ Error getting payments:', error);
+        return [];
+    }
+}
+
+updatePaymentsDisplay(payments) {
+    // Look for payments container
+    const container = document.getElementById('paymentActivityLog');
+    
+    if (!container) {
+        console.log('No payments container found to update');
+        return;
+    }
+    
+    if (payments.length === 0) {
+        container.innerHTML = '<p class="empty-message">No recent payment activity</p>';
+        return;
+    }
+    
+    // Show recent payments (last 10)
+    const recentPayments = payments.slice(0, 10);
+    
+    container.innerHTML = recentPayments.map(payment => `
+        <div class="payment-item" data-id="${payment.id}">
+            <div class="payment-header">
+                <div>
+                    <strong>Payment Received</strong>
+                    <div>${this.getStudentName(payment.paymentStudent) || 'Unknown Student'}</div>
+                </div>
+                <div class="payment-amount success">$${parseFloat(payment.paymentAmount || 0).toFixed(2)}</div>
+            </div>
+            <div class="payment-meta">
+                <span>📅 ${new Date(payment.paymentDate).toLocaleDateString()}</span>
+                <span>💳 ${payment.paymentMethod || 'Cash'}</span>
+            </div>
+            ${payment.paymentNotes ? `<div class="payment-notes">${payment.paymentNotes}</div>` : ''}
+        </div>
+    `).join('');
+}
+
+async updatePaymentBalances() {
+    try {
+        const students = await this.getAllStudents();
+        const hours = await this.getAllHours();
+        const payments = await this.getAllPayments();
+        
+        if (students.length === 0) {
+            const balancesContainer = document.getElementById('studentBalancesContainer');
+            if (balancesContainer) {
+                balancesContainer.innerHTML = '<p class="empty-message">No student data yet</p>';
+            }
+            return;
+        }
+        
+        // Calculate balances for each student
+        const studentBalances = students.map(student => {
+            // Get hours for this student
+            const studentHours = hours.filter(h => h.hoursStudent === student.id);
+            const studentPayments = payments.filter(p => p.paymentStudent === student.id);
+            
+            // Calculate total earnings from hours
+            const hoursEarnings = studentHours.reduce((sum, hour) => {
+                const hoursWorked = parseFloat(hour.hoursWorked) || 0;
+                const rate = parseFloat(hour.baseRate) || parseFloat(student.rate) || 0;
+                return sum + (hoursWorked * rate);
+            }, 0);
+            
+            // Calculate total payments
+            const totalPayments = studentPayments.reduce((sum, payment) => {
+                return sum + (parseFloat(payment.paymentAmount) || 0);
+            }, 0);
+            
+            const balance = hoursEarnings - totalPayments;
+            
+            return {
+                id: student.id,
+                name: student.name,
+                owed: balance,
+                hoursEarnings: hoursEarnings,
+                payments: totalPayments,
+                status: balance > 0 ? 'Owes' : balance < 0 ? 'Credit' : 'Paid up'
+            };
+        });
+        
+        // Update balances container
+        const balancesContainer = document.getElementById('studentBalancesContainer');
+        if (balancesContainer) {
+            balancesContainer.innerHTML = studentBalances.map(balance => `
+                <div class="payment-item">
+                    <div class="payment-header">
+                        <strong>${balance.name}</strong>
+                        <span class="payment-amount ${balance.owed > 0 ? 'warning' : balance.owed < 0 ? 'info' : 'success'}">
+                            ${balance.owed > 0 ? `Owes: $${balance.owed.toFixed(2)}` : 
+                              balance.owed < 0 ? `Credit: $${Math.abs(balance.owed).toFixed(2)}` : 'Paid up'}
+                        </span>
+                    </div>
+                    <div class="payment-meta">
+                        <span>Earned: $${balance.hoursEarnings.toFixed(2)}</span>
+                        <span>Paid: $${balance.payments.toFixed(2)}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Update total owed
+        const totalOwed = studentBalances.reduce((sum, balance) => sum + Math.max(0, balance.owed), 0);
+        const totalOwedElem = document.getElementById('totalOwed');
+        if (totalOwedElem) {
+            totalOwedElem.textContent = `$${totalOwed.toFixed(2)}`;
+        }
+        
+        // Update monthly payments
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+        const monthlyPayments = payments.reduce((sum, payment) => {
+            const paymentDate = new Date(payment.paymentDate);
+            if (paymentDate.getMonth() === currentMonth && paymentDate.getFullYear() === currentYear) {
+                return sum + (parseFloat(payment.paymentAmount) || 0);
+            }
+            return sum;
+        }, 0);
+        
+        const monthlyPaymentsElem = document.getElementById('monthlyPayments');
+        if (monthlyPaymentsElem) {
+            monthlyPaymentsElem.textContent = `$${monthlyPayments.toFixed(2)}`;
+        }
+        
+    } catch (error) {
+        console.error('❌ Error updating payment balances:', error);
+    }
+}
+
+// Helper function to get student name by ID
+async getStudentName(studentId) {
+    try {
+        const students = await this.getAllStudents();
+        const student = students.find(s => s.id === studentId);
+        return student ? student.name : 'Unknown Student';
+    } catch (error) {
+        return 'Unknown Student';
+    }
+}
+
+// Add these methods to get hours data
+async getAllHours() {
+    console.log('⏱️ Getting all hours...');
+    
+    // Try DataManager first
+    if (this.dataManager && this.dataManager.getAllHours) {
+        try {
+            const hours = await this.dataManager.getAllHours();
+            if (hours && hours.length > 0) {
+                console.log(`✅ Got ${hours.length} hours from DataManager`);
+                return hours;
+            }
+        } catch (error) {
+            console.log('⚠️ DataManager failed, trying localStorage:', error);
+        }
+    }
+    
+    // Fallback to localStorage
+    try {
+        const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
+        console.log(`✅ Got ${hours.length} hours from localStorage`);
+        return hours;
+    } catch (error) {
+        console.error('❌ Error getting hours:', error);
+        return [];
+    }
+}
 
     showNotification(message, type = 'info') {
         // Remove existing notifications
