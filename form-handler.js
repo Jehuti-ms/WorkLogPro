@@ -1637,6 +1637,73 @@ window.deleteStudent = async function(studentId) {
             window.formHandler.showNotification('Error deleting student', 'error');
         }
     }
+
+    // ==================== ADD THIS TO THE END OF YOUR FILE ====================
+
+// Add necessary styles for form displays
+document.addEventListener('DOMContentLoaded', function() {
+    if (!document.getElementById('worklog-form-styles')) {
+        const style = document.createElement('style');
+        style.id = 'worklog-form-styles';
+        style.textContent = `
+            /* Basic styling for form elements */
+            .attendance-student-item {
+                display: flex;
+                align-items: center;
+                margin: 5px 0;
+                padding: 5px;
+            }
+            
+            .attendance-student-item input {
+                margin-right: 10px;
+            }
+            
+            .student-card, .attendance-entry, .payment-item, .mark-entry, .hours-entry {
+                background: white;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                padding: 10px;
+                margin: 10px 0;
+            }
+            
+            .student-card-header, .attendance-header, .payment-header {
+                display: flex;
+                justify-content: space-between;
+            }
+            
+            .student-actions {
+                display: flex;
+                gap: 5px;
+            }
+            
+            .btn-icon {
+                background: none;
+                border: none;
+                cursor: pointer;
+            }
+            
+            .payment-amount {
+                font-weight: bold;
+            }
+            
+            .payment-amount.success {
+                color: green;
+            }
+            
+            .payment-amount.warning {
+                color: orange;
+            }
+            
+            .empty-message {
+                text-align: center;
+                color: #666;
+                font-style: italic;
+                padding: 20px;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+});
 };
 
 console.log('✅ FormHandler script loaded');
