@@ -551,7 +551,7 @@ function formatDate(dateString) {
   } catch (error) {
     return dateString;
   }
-},
+}
 
 // ==================== REPORTING =========================
   // data-manager.js - Add these Firebase report methods
