@@ -64,8 +64,8 @@ async function initAppUI() {
   console.log('🎨 Initializing app UI...');
   
   try {
-    // Wait for DataManager to be ready
-    await waitForDataManager();
+    // Sync DataManager with authentication FIRST
+    syncDataManagerWithAuth();
     
     // Set default rate
     initDefaultRate();
@@ -106,6 +106,49 @@ function waitForDataManager() {
       resolve(); // Continue even if dataManager not found
     }, 5000);
   });
+}
+
+// Add this function to app.js after the initAppUI function
+function syncDataManagerWithAuth() {
+  console.log('🔄 Syncing DataManager with authentication...');
+  
+  try {
+    // Get user from localStorage
+    const userEmail = localStorage.getItem('userEmail');
+    const worklogUser = localStorage.getItem('worklog_user');
+    
+    if (userEmail && window.dataManager) {
+      console.log('📱 Setting user in DataManager:', userEmail);
+      
+      // Extract user ID from worklog_user if available
+      let userId = null;
+      if (worklogUser) {
+        try {
+          const parsed = JSON.parse(worklogUser);
+          userId = parsed.uid || userEmail.replace(/[^a-zA-Z0-9]/g, '_');
+        } catch (e) {
+          userId = userEmail.replace(/[^a-zA-Z0-9]/g, '_');
+        }
+      }
+      
+      // Manually set the user in DataManager
+      window.dataManager.userId = userId;
+      window.dataManager.currentUserEmail = userEmail;
+      
+      console.log('✅ DataManager synced with auth');
+      
+      // Test if it works
+      setTimeout(() => {
+        if (window.dataManager && window.dataManager.userId) {
+          console.log('✅ DataManager ready with user:', window.dataManager.currentUserEmail);
+        }
+      }, 100);
+    } else {
+      console.log('⚠️ Cannot sync DataManager: no user or DataManager not found');
+    }
+  } catch (error) {
+    console.error('❌ Error syncing DataManager:', error);
+  }
 }
 
 // ==================== HELPER FUNCTIONS ====================
@@ -2363,27 +2406,62 @@ function initForms() {
     }
     
     // Save using formHandler
-    if (window.formHandler && window.formHandler.saveStudent) {
-      const result = window.formHandler.saveStudent(studentData);
-      if (result.success) {
-        showNotification('Student saved!', 'success');
-        studentForm.reset();
-        currentEditId = null;
-        document.getElementById('studentCancelBtn').style.display = 'none';
-        document.getElementById('studentSubmitBtn').textContent = '➕ Add Student';
-        
-        // Refresh data
-        loadStudents();
-        populateStudentDropdowns();
-        updateProfileStats();
-        updateGlobalStats();
-      } else {
-        showNotification('Error: ' + result.error, 'error');
-      }
-    }
-  });
+   // Save using formHandler OR directly to localStorage
+if (window.formHandler && window.formHandler.saveStudent) {
+  const result = window.formHandler.saveStudent(studentData);
+  if (result.success) {
+    showNotification('Student saved!', 'success');
+    studentForm.reset();
+    currentEditId = null;
+    document.getElementById('studentCancelBtn').style.display = 'none';
+    document.getElementById('studentSubmitBtn').textContent = '➕ Add Student';
+    
+    // Refresh data
+    loadStudents();
+    populateStudentDropdowns();
+    updateProfileStats();
+    updateGlobalStats();
+  } else {
+    // If formHandler fails, save directly to localStorage
+    console.log('FormHandler failed, saving to localStorage directly...');
+    saveStudentToLocalStorage(studentData);
+  }
+} else {
+  // Fallback: save directly to localStorage
+  saveStudentToLocalStorage(studentData);
 }
-  
+
+    function saveStudentToLocalStorage(studentData) {
+  try {
+    // Get existing students
+    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    
+    // Add new student
+    students.push({
+      ...studentData,
+      createdAt: new Date().toISOString()
+    });
+    
+    // Save back to localStorage
+    localStorage.setItem('worklog_students', JSON.stringify(students));
+    
+    showNotification('Student saved locally!', 'success');
+    studentForm.reset();
+    currentEditId = null;
+    document.getElementById('studentCancelBtn').style.display = 'none';
+    document.getElementById('studentSubmitBtn').textContent = '➕ Add Student';
+    
+    // Refresh data
+    loadStudents();
+    populateStudentDropdowns();
+    updateProfileStats();
+    updateGlobalStats();
+  } catch (error) {
+    console.error('Error saving student:', error);
+    showNotification('Error saving student: ' + error.message, 'error');
+  }
+}
+    
   // Initialize hours form
   const hoursForm = document.getElementById('hoursForm');
   if (hoursForm) {
