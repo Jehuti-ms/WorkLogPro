@@ -81,139 +81,71 @@ class FormHandler {
         this.setupStudentEditButtons();
     }
 
-    async handleStudentSubmit(form) {
-        console.log('📤 Handling student form submission...');
-        
-        try {
-            // Get values from ID-based fields
-            const studentData = {
-                name: document.getElementById('studentName').value.trim(),
-                studentId: document.getElementById('studentId').value.trim(),
-                gender: document.getElementById('studentGender').value,
-                email: document.getElementById('studentEmail').value.trim(),
-                phone: document.getElementById('studentPhone').value.trim(),
-                rate: parseFloat(document.getElementById('studentRate').value) || 0  // Note: using 'rate' not 'hourlyRate'
-            };
-            
-            console.log('📄 Student data from form:', studentData);
-            
-            // Validate required fields
-            if (!studentData.name) {
-                this.showNotification('Student name is required!', 'error');
-                document.getElementById('studentName').focus();
-                return;
-            }
-            
-            if (!studentData.studentId) {
-                this.showNotification('Student ID is required!', 'error');
-                document.getElementById('studentId').focus();
-                return;
-            }
-            
-            if (!studentData.gender) {
-                this.showNotification('Gender is required!', 'error');
-                document.getElementById('studentGender').focus();
-                return;
-            }
-            
-            // Show loading state
-            const submitBtn = document.getElementById('studentSubmitBtn');
-            const originalText = submitBtn.textContent;
-            submitBtn.textContent = 'Adding...';
-            submitBtn.disabled = true;
-            
-            // Prepare data for Firebase (use correct field names)
-            const firebaseData = {
-                name: studentData.name,
-                studentId: studentData.studentId,
-                gender: studentData.gender,
-                email: studentData.email || '',
-                phone: studentData.phone || '',
-                rate: studentData.rate,  // Note: using 'rate' here
-                // Add timestamp
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
-            
-            console.log('📊 Data for saving:', firebaseData);
-            
-            let success = false;
-            
-            // TRY 1: Use DataManager/Firebase if available
-            if (this.dataManager && this.dataManager.addStudent) {
-                try {
-                    console.log('☁️ Trying to add student via DataManager...');
-                    success = await this.dataManager.addStudent(firebaseData);
-                    console.log('DataManager result:', success);
-                } catch (firebaseError) {
-                    console.log('⚠️ Firebase failed, falling back to localStorage:', firebaseError);
-                    success = false;
-                }
-            }
-            
-            // TRY 2: Fallback to localStorage if Firebase fails
-            if (!success) {
-                console.log('💾 Falling back to localStorage...');
-                success = await this.addStudentToLocalStorage(firebaseData);
-            }
-            
-            // Restore button
-            submitBtn.textContent = originalText;
-            submitBtn.disabled = false;
-            
-            if (success) {
-                console.log('✅ Student added successfully!');
-                
-                // Show success message
-                this.showNotification(`Student "${studentData.name}" added successfully!`, 'success');
-                
-                // Clear form
-                this.clearStudentForm();
-                
-                // Refresh student list
-                await this.loadStudents();
-                
-                // Update reports
-                if (window.reportManager) {
-                    window.reportManager.loadDataInBackground();
-                }
-                
-                // Update UI stats
-                this.updateStudentStats();
-                
-                // Update global student dropdowns if function exists
-                if (typeof refreshStudentDropdowns === 'function') {
-                    refreshStudentDropdowns();
-                }
-                
-                // Trigger app.js loadStudents if exists
-                if (typeof loadStudents === 'function') {
-                    loadStudents();
-                }
-                
-                // Trigger app.js updateGlobalStats if exists
-                if (typeof updateGlobalStats === 'function') {
-                    updateGlobalStats();
-                }
-                
-            } else {
-                console.error('❌ Failed to add student');
-                this.showNotification('Failed to add student. Please try again.', 'error');
-            }
-            
-        } catch (error) {
-            console.error('❌ Error submitting student form:', error);
-            
-            // Restore button
-            const submitBtn = document.getElementById('studentSubmitBtn');
-            if (submitBtn) {
-                submitBtn.textContent = '➕ Add Student';
-                submitBtn.disabled = false;
-            }
-            
-            this.showNotification('Error: ' + error.message, 'error');
-        }
+   async addStudent(studentData) {
+  try {
+    console.log('📤 Adding student to Firebase:', studentData);
+    
+    // Check if user is authenticated
+    if (!this.userId) {
+      console.error('❌ User not authenticated');
+      return false;
     }
+    
+    // Generate ID if not provided
+    const studentId = studentData.id || `student_${Date.now()}`;
+    
+    // Create complete student object
+    const studentWithId = {
+      ...studentData,
+      id: studentId,
+      userId: this.userId,
+      createdAt: studentData.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    console.log('💾 Saving student:', studentWithId);
+    
+    // Add to Firestore with timeout
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Firestore timeout')), 3000);
+    });
+    
+    const savePromise = this.db
+      .collection('users')
+      .doc(this.userId)
+      .collection('students')
+      .doc(studentId)
+      .set(studentWithId, { merge: true });
+    
+    // Race between save and timeout
+    await Promise.race([savePromise, timeoutPromise]);
+    
+    console.log('✅ Student added to Firebase successfully');
+    
+    // Also save to localStorage for offline access
+    this.saveToLocalStorage('students', studentWithId);
+    
+    return true;
+    
+  } catch (error) {
+    console.error('❌ Error adding student:', error);
+    
+    // Fallback to localStorage
+    try {
+      console.log('🔄 Falling back to localStorage...');
+      this.saveToLocalStorage('students', {
+        ...studentData,
+        id: studentData.id || `student_${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+      return true;
+    } catch (localError) {
+      console.error('❌ LocalStorage fallback failed:', localError);
+      return false;
+    }
+  }
+}
 
     async addStudentToLocalStorage(studentData) {
         try {
@@ -256,7 +188,44 @@ class FormHandler {
             return false;
         }
     }
-
+        // Add this helper function
+        showLoadingState(show = true) {
+          const submitBtn = document.getElementById('studentSubmitBtn');
+          if (!submitBtn) return;
+          
+          if (show) {
+            submitBtn.innerHTML = '<span class="spinner"></span> Saving...';
+            submitBtn.disabled = true;
+            
+            // Add spinner styles if not already present
+            if (!document.getElementById('form-spinner-styles')) {
+              const style = document.createElement('style');
+              style.id = 'form-spinner-styles';
+              style.textContent = `
+                .spinner {
+                  display: inline-block;
+                  width: 16px;
+                  height: 16px;
+                  border: 2px solid rgba(255,255,255,0.3);
+                  border-radius: 50%;
+                  border-top-color: white;
+                  animation: spin 1s ease-in-out infinite;
+                  margin-right: 8px;
+                  vertical-align: middle;
+                }
+                
+                @keyframes spin {
+                  to { transform: rotate(360deg); }
+                }
+              `;
+              document.head.appendChild(style);
+            }
+          } else {
+            const isEditMode = window.editingStudentId ? true : false;
+            submitBtn.textContent = isEditMode ? '💾 Update Student' : '➕ Add Student';
+            submitBtn.disabled = false;
+          }
+        }
     async getAllStudents() {
         console.log('👥 Getting all students...');
         
