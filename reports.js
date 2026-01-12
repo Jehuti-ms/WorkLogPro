@@ -211,14 +211,66 @@ class ReportManager {
     }
 
     updateReportContent(html) {
-        const reportContent = document.getElementById('report-content');
-        if (reportContent) {
-            reportContent.innerHTML = html;
-        } else {
-            console.error('Element #report-content not found!');
-        }
+    const reportContent = document.getElementById('report-content');
+    if (reportContent) {
+        reportContent.innerHTML = html;
+        console.log('✅ Report content updated successfully');
+        
+        // Scroll to the report content area
+        reportContent.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+        console.error('❌ #report-content element not found!');
+        
+        // Try to create it dynamically as fallback
+        this.createReportContainer(html);
     }
+}
 
+createReportContainer(html) {
+    console.log('Creating report container dynamically...');
+    
+    const reportsSection = document.getElementById('reports');
+    if (!reportsSection) {
+        console.error('❌ #reports section not found either!');
+        return;
+    }
+    
+    // Find the second section-card
+    const sectionCards = reportsSection.querySelectorAll('.section-card');
+    if (sectionCards.length < 2) {
+        console.error('❌ Not enough section cards found');
+        return;
+    }
+    
+    const secondCard = sectionCards[1];
+    
+    // Clear existing content except tables
+    const tables = secondCard.querySelectorAll('table');
+    secondCard.innerHTML = '';
+    
+    // Re-add the title
+    const title = document.createElement('h3');
+    title.textContent = '📅 Breakdown';
+    secondCard.appendChild(title);
+    
+    // Add report content container
+    const reportDiv = document.createElement('div');
+    reportDiv.id = 'report-content';
+    reportDiv.style.cssText = 'min-height: 400px; padding: 20px; margin-bottom: 20px; background: #f8f9fa; border-radius: 5px;';
+    reportDiv.innerHTML = html;
+    secondCard.appendChild(reportDiv);
+    
+    // Re-add tables if they exist
+    if (tables.length > 0) {
+        const tableContainer = document.createElement('div');
+        tableContainer.style.marginTop = '20px';
+        tables.forEach(table => tableContainer.appendChild(table));
+        secondCard.appendChild(tableContainer);
+    }
+    
+    console.log('✅ Created report container dynamically');
+}
+    
     // Add these helper methods
     copyToClipboard() {
         const pre = document.querySelector('#report-content pre');
