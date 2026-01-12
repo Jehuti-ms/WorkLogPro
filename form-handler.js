@@ -1,4 +1,4 @@
-// form-handler.js - UPDATED WITH LOCALSTORAGE FALLBACK
+// form-handler.js - COMPLETE FIXED VERSION
 console.log('📝 Loading form-handler.js...');
 
 class FormHandler {
@@ -6,6 +6,14 @@ class FormHandler {
         console.log('✅ FormHandler constructor called');
         this.dataManager = window.dataManager;
         this.currentUserEmail = null;
+        this.useFirebase = true; // Set to false to disable Firebase
+        
+        // Bind methods to maintain 'this' context
+        this.handleStudentSubmit = this.handleStudentSubmit.bind(this);
+        this.handleStudentSubmitClick = this.handleStudentSubmitClick.bind(this);
+        this.addStudentToLocalStorage = this.addStudentToLocalStorage.bind(this);
+        this.getAllStudents = this.getAllStudents.bind(this);
+        this.loadStudents = this.loadStudents.bind(this);
         
         this.init();
     }
@@ -58,12 +66,7 @@ class FormHandler {
         submitBtn.parentNode.replaceChild(newBtn, submitBtn);
         
         // Add click handler to the button
-        newBtn.addEventListener('click', async (e) => {
-            e.preventDefault();
-            console.log('🟢 Add Student button clicked!');
-            
-            await this.handleStudentSubmit(form);
-        });
+        newBtn.addEventListener('click', this.handleStudentSubmitClick);
         
         console.log('✅ Student form handler attached');
         
@@ -81,71 +84,192 @@ class FormHandler {
         this.setupStudentEditButtons();
     }
 
-   async addStudent(studentData) {
-  try {
-    console.log('📤 Adding student to Firebase:', studentData);
-    
-    // Check if user is authenticated
-    if (!this.userId) {
-      console.error('❌ User not authenticated');
-      return false;
+    handleStudentSubmitClick(e) {
+        e.preventDefault();
+        console.log('🟢 Add Student button clicked!');
+        
+        const form = document.getElementById('studentForm');
+        if (form) {
+            this.handleStudentSubmit(form);
+        }
     }
-    
-    // Generate ID if not provided
-    const studentId = studentData.id || `student_${Date.now()}`;
-    
-    // Create complete student object
-    const studentWithId = {
-      ...studentData,
-      id: studentId,
-      userId: this.userId,
-      createdAt: studentData.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    
-    console.log('💾 Saving student:', studentWithId);
-    
-    // Add to Firestore with timeout
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Firestore timeout')), 3000);
-    });
-    
-    const savePromise = this.db
-      .collection('users')
-      .doc(this.userId)
-      .collection('students')
-      .doc(studentId)
-      .set(studentWithId, { merge: true });
-    
-    // Race between save and timeout
-    await Promise.race([savePromise, timeoutPromise]);
-    
-    console.log('✅ Student added to Firebase successfully');
-    
-    // Also save to localStorage for offline access
-    this.saveToLocalStorage('students', studentWithId);
-    
-    return true;
-    
-  } catch (error) {
-    console.error('❌ Error adding student:', error);
-    
-    // Fallback to localStorage
-    try {
-      console.log('🔄 Falling back to localStorage...');
-      this.saveToLocalStorage('students', {
-        ...studentData,
-        id: studentData.id || `student_${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-      return true;
-    } catch (localError) {
-      console.error('❌ LocalStorage fallback failed:', localError);
-      return false;
+
+    async handleStudentSubmit(form) {
+        console.log('📤 Handling student form submission...');
+        
+        try {
+            // Get values from ID-based fields
+            const studentData = {
+                name: document.getElementById('studentName').value.trim(),
+                studentId: document.getElementById('studentId').value.trim(),
+                gender: document.getElementById('studentGender').value,
+                email: document.getElementById('studentEmail').value.trim(),
+                phone: document.getElementById('studentPhone').value.trim(),
+                rate: parseFloat(document.getElementById('studentRate').value) || 0
+            };
+            
+            console.log('📄 Student data from form:', studentData);
+            
+            // Validate required fields
+            if (!studentData.name) {
+                this.showNotification('Student name is required!', 'error');
+                document.getElementById('studentName').focus();
+                return;
+            }
+            
+            if (!studentData.studentId) {
+                this.showNotification('Student ID is required!', 'error');
+                document.getElementById('studentId').focus();
+                return;
+            }
+            
+            if (!studentData.gender) {
+                this.showNotification('Gender is required!', 'error');
+                document.getElementById('studentGender').focus();
+                return;
+            }
+            
+            // Show loading state IMMEDIATELY
+            this.showLoadingState(true);
+            
+            // Prepare data for saving
+            const saveData = {
+                name: studentData.name,
+                studentId: studentData.studentId,
+                gender: studentData.gender,
+                email: studentData.email || '',
+                phone: studentData.phone || '',
+                rate: studentData.rate,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+            
+            console.log('📊 Data for saving:', saveData);
+            
+            let success = false;
+            let usedFirebase = false;
+            
+            // TRY 1: Use DataManager/Firebase with timeout (if enabled)
+            if (this.useFirebase && this.dataManager && this.dataManager.addStudent) {
+                try {
+                    console.log('☁️ Trying to add student via DataManager...');
+                    usedFirebase = true;
+                    
+                    // Set a timeout
+                    const timeoutPromise = new Promise((_, reject) => {
+                        setTimeout(() => reject(new Error('Firebase timeout')), 3000);
+                    });
+                    
+                    // Race between Firebase and timeout
+                    success = await Promise.race([
+                        this.dataManager.addStudent(saveData),
+                        timeoutPromise
+                    ]);
+                    
+                    console.log('Firebase result:', success);
+                } catch (firebaseError) {
+                    console.log('⚠️ Firebase failed:', firebaseError.message);
+                    success = false;
+                }
+            }
+            
+            // TRY 2: Fallback to localStorage if Firebase fails or is disabled
+            if (!success) {
+                console.log(usedFirebase ? '💾 Falling back to localStorage...' : '💾 Using localStorage...');
+                success = await this.addStudentToLocalStorage(saveData);
+            }
+            
+            // Hide loading state
+            this.showLoadingState(false);
+            
+            if (success) {
+                console.log('✅ Student added successfully!');
+                
+                // Show success message
+                const source = usedFirebase ? 'cloud' : 'local';
+                this.showNotification(`Student "${studentData.name}" saved to ${source}!`, 'success');
+                
+                // Clear form
+                this.clearStudentForm();
+                
+                // Refresh student list
+                await this.loadStudents();
+                
+                // Update reports
+                if (window.reportManager) {
+                    window.reportManager.loadDataInBackground();
+                }
+                
+                // Update UI stats
+                this.updateStudentStats();
+                
+                // Update global student dropdowns if function exists
+                if (typeof refreshStudentDropdowns === 'function') {
+                    refreshStudentDropdowns();
+                }
+                
+                // Trigger app.js loadStudents if exists
+                if (typeof loadStudents === 'function') {
+                    loadStudents();
+                }
+                
+                // Trigger app.js updateGlobalStats if exists
+                if (typeof updateGlobalStats === 'function') {
+                    updateGlobalStats();
+                }
+                
+            } else {
+                console.error('❌ Failed to add student');
+                this.showNotification('Failed to add student. Please try again.', 'error');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error submitting student form:', error);
+            
+            // Hide loading state
+            this.showLoadingState(false);
+            
+            this.showNotification('Error: ' + error.message, 'error');
+        }
     }
-  }
-}
+
+    showLoadingState(show = true) {
+        const submitBtn = document.getElementById('studentSubmitBtn');
+        if (!submitBtn) return;
+        
+        if (show) {
+            submitBtn.innerHTML = '<span class="spinner"></span> Saving...';
+            submitBtn.disabled = true;
+            
+            // Add spinner styles if not already present
+            if (!document.getElementById('form-spinner-styles')) {
+                const style = document.createElement('style');
+                style.id = 'form-spinner-styles';
+                style.textContent = `
+                    .spinner {
+                        display: inline-block;
+                        width: 16px;
+                        height: 16px;
+                        border: 2px solid rgba(255,255,255,0.3);
+                        border-radius: 50%;
+                        border-top-color: white;
+                        animation: spin 1s ease-in-out infinite;
+                        margin-right: 8px;
+                        vertical-align: middle;
+                    }
+                    
+                    @keyframes spin {
+                        to { transform: rotate(360deg); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        } else {
+            const isEditMode = window.editingStudentId ? true : false;
+            submitBtn.textContent = isEditMode ? '💾 Update Student' : '➕ Add Student';
+            submitBtn.disabled = false;
+        }
+    }
 
     async addStudentToLocalStorage(studentData) {
         try {
@@ -188,44 +312,7 @@ class FormHandler {
             return false;
         }
     }
-        // Add this helper function
-        showLoadingState(show = true) {
-          const submitBtn = document.getElementById('studentSubmitBtn');
-          if (!submitBtn) return;
-          
-          if (show) {
-            submitBtn.innerHTML = '<span class="spinner"></span> Saving...';
-            submitBtn.disabled = true;
-            
-            // Add spinner styles if not already present
-            if (!document.getElementById('form-spinner-styles')) {
-              const style = document.createElement('style');
-              style.id = 'form-spinner-styles';
-              style.textContent = `
-                .spinner {
-                  display: inline-block;
-                  width: 16px;
-                  height: 16px;
-                  border: 2px solid rgba(255,255,255,0.3);
-                  border-radius: 50%;
-                  border-top-color: white;
-                  animation: spin 1s ease-in-out infinite;
-                  margin-right: 8px;
-                  vertical-align: middle;
-                }
-                
-                @keyframes spin {
-                  to { transform: rotate(360deg); }
-                }
-              `;
-              document.head.appendChild(style);
-            }
-          } else {
-            const isEditMode = window.editingStudentId ? true : false;
-            submitBtn.textContent = isEditMode ? '💾 Update Student' : '➕ Add Student';
-            submitBtn.disabled = false;
-          }
-        }
+
     async getAllStudents() {
         console.log('👥 Getting all students...');
         
@@ -569,6 +656,24 @@ if (!document.getElementById('form-handler-styles')) {
             padding: 20px;
             font-style: italic;
         }
+        
+        .form-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 5px;
+            color: white;
+            z-index: 1000;
+            font-weight: 500;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            animation: slideIn 0.3s ease;
+        }
+        
+        .form-notification.success { background: #28a745; }
+        .form-notification.error { background: #dc3545; }
+        .form-notification.info { background: #17a2b8; }
+        .form-notification.warning { background: #ffc107; color: #000; }
     `;
     document.head.appendChild(style);
 }
@@ -579,6 +684,7 @@ window.FormHandler = FormHandler;
 // Initialize when DOM is ready
 console.log('📄 Initializing FormHandler...');
 
+// Create global instance
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         window.formHandler = new FormHandler();
@@ -592,11 +698,18 @@ window.editStudent = async function(studentId) {
     console.log('✏️ Editing student:', studentId);
     
     try {
+        if (!window.formHandler) {
+            console.error('FormHandler not available');
+            return;
+        }
+        
         const students = await window.formHandler.getAllStudents();
         const student = students.find(s => s.id === studentId);
         
         if (!student) {
-            window.formHandler.showNotification('Student not found', 'error');
+            if (window.formHandler.showNotification) {
+                window.formHandler.showNotification('Student not found', 'error');
+            }
             return;
         }
         
@@ -617,14 +730,18 @@ window.editStudent = async function(studentId) {
         if (submitBtn) submitBtn.textContent = '💾 Update Student';
         if (cancelBtn) cancelBtn.style.display = 'inline-block';
         
-        window.formHandler.showNotification('Editing student: ' + student.name, 'info');
+        if (window.formHandler.showNotification) {
+            window.formHandler.showNotification('Editing student: ' + student.name, 'info');
+        }
         
         // Scroll to form
         document.getElementById('studentName').focus();
         
     } catch (error) {
         console.error('Error editing student:', error);
-        window.formHandler.showNotification('Error editing student', 'error');
+        if (window.formHandler && window.formHandler.showNotification) {
+            window.formHandler.showNotification('Error editing student', 'error');
+        }
     }
 };
 
@@ -639,10 +756,12 @@ window.deleteStudent = async function(studentId) {
         // Save to localStorage
         localStorage.setItem('worklog_students', JSON.stringify(filtered));
         
-        window.formHandler.showNotification('Student deleted', 'success');
+        if (window.formHandler && window.formHandler.showNotification) {
+            window.formHandler.showNotification('Student deleted', 'success');
+        }
         
         // Refresh UI
-        if (window.formHandler.loadStudents) {
+        if (window.formHandler && window.formHandler.loadStudents) {
             await window.formHandler.loadStudents();
         }
         
@@ -661,7 +780,9 @@ window.deleteStudent = async function(studentId) {
         
     } catch (error) {
         console.error('Error deleting student:', error);
-        window.formHandler.showNotification('Error deleting student', 'error');
+        if (window.formHandler && window.formHandler.showNotification) {
+            window.formHandler.showNotification('Error deleting student', 'error');
+        }
     }
 };
 
