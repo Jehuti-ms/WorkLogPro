@@ -194,21 +194,53 @@ class ReportManager {
         `);
     }
 
-    showReportContent(report, title) {
-        let html = '<div class="report-display">';
-        html += `<h4>${title}</h4>`;
-        html += '<div style="margin-bottom: 15px;">';
-        html += '<button onclick="window.reportManager.copyToClipboard()" class="button small">Copy</button>';
-        html += '<button onclick="window.reportManager.printReport()" class="button small" style="margin-left: 10px;">Print</button>';
-        html += '<button onclick="window.reportManager.saveAsText()" class="button small" style="margin-left: 10px;">Save</button>';
-        html += '</div>';
-        html += `<div style="background: #f8f9fa; padding: 15px; border-radius: 5px; max-height: 400px; overflow-y: auto;">`;
-        html += `<pre style="white-space: pre-wrap; font-family: monospace; font-size: 12px; margin: 0;">${report}</pre>`;
-        html += `</div>`;
-        html += '</div>';
-        
-        this.updateReportContent(html);
+   showReportContent(report, title) {
+    // Clear any existing reports first
+    this.clearReport();
+    
+    let html = '<div class="report-display active">';
+    
+    // Report header with close button
+    html += '<div class="report-header">';
+    html += `<h4>${title}</h4>`;
+    html += '<button class="report-close-btn" onclick="window.reportManager.clearReport()" title="Close report">';
+    html += '×';
+    html += '</button>';
+    html += '</div>';
+    
+    // Report actions (Copy, Print, Save)
+    html += '<div class="report-actions">';
+    html += '<button onclick="window.reportManager.copyToClipboard()" class="button small">📋 Copy</button>';
+    html += '<button onclick="window.reportManager.printReport()" class="button small">🖨️ Print</button>';
+    html += '<button onclick="window.reportManager.saveAsText()" class="button small">💾 Save</button>';
+    html += '</div>';
+    
+    // Report content with scroll
+    html += '<div class="report-content-scroll">';
+    html += `<pre>${report}</pre>`;
+    html += '</div>';
+    
+    // Back to reports button
+    html += '<div class="report-footer">';
+    html += '<button onclick="window.reportManager.clearReport()" class="button small">';
+    html += '← Back to Reports';
+    html += '</button>';
+    html += '</div>';
+    
+    html += '</div>';
+    
+    this.updateReportContent(html);
+    console.log(`✅ Report displayed: ${title}`);
+}
+
+// Add this new method to clear reports
+clearReport() {
+    const reportContent = document.getElementById('report-content');
+    if (reportContent) {
+        reportContent.innerHTML = '<p class="empty-message">Select a report type to generate.</p>';
+        console.log('🗑️ Report cleared');
     }
+}
 
     updateReportContent(html) {
     const reportContent = document.getElementById('report-content');
@@ -272,42 +304,102 @@ createReportContainer(html) {
 }
     
     // Add these helper methods
-    copyToClipboard() {
-        const pre = document.querySelector('#report-content pre');
-        if (pre) {
-            navigator.clipboard.writeText(pre.textContent).then(() => {
-                alert('Report copied to clipboard!');
-            });
-        }
+   copyToClipboard() {
+    const pre = document.querySelector('#report-content pre');
+    if (pre) {
+        navigator.clipboard.writeText(pre.textContent).then(() => {
+            // Show temporary notification
+            this.showNotification('Report copied to clipboard!');
+        });
     }
+}
 
-    printReport() {
-        const pre = document.querySelector('#report-content pre');
-        if (pre) {
-            const printWindow = window.open('', '_blank');
-            printWindow.document.write(`
-                <html>
-                <head><title>Report</title></head>
-                <body><pre>${pre.textContent}</pre></body>
-                </html>
-            `);
-            printWindow.document.close();
-            printWindow.print();
-        }
+   printReport() {
+    const pre = document.querySelector('#report-content pre');
+    if (pre) {
+        const printWindow = window.open('', '_blank');
+        const title = document.querySelector('.report-header h4')?.textContent || 'Report';
+        
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>${title}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 20px; }
+                    pre { white-space: pre-wrap; font-size: 12px; line-height: 1.4; }
+                    h1 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+                    @media print {
+                        body { padding: 0; }
+                        @page { margin: 0.5in; }
+                    }
+                </style>
+            </head>
+            <body>
+                <h1>${title}</h1>
+                <pre>${pre.textContent}</pre>
+                <script>
+                    window.onload = function() {
+                        window.print();
+                        setTimeout(function() {
+                            window.close();
+                        }, 500);
+                    }
+                <\/script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
     }
-
+}
+    
     saveAsText() {
-        const pre = document.querySelector('#report-content pre');
-        if (pre) {
-            const blob = new Blob([pre.textContent], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `report_${new Date().toISOString().slice(0,10)}.txt`;
-            a.click();
-            URL.revokeObjectURL(url);
-        }
+    const pre = document.querySelector('#report-content pre');
+    const title = document.querySelector('.report-header h4')?.textContent || 'Report';
+    
+    if (pre) {
+        const blob = new Blob([pre.textContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${title.replace(/[^\w\s]/gi, '').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        this.showNotification('Report saved as text file!');
     }
+}
+
+    // Add notification helper
+showNotification(message) {
+    // Remove existing notifications
+    const existing = document.querySelector('.report-notification');
+    if (existing) existing.remove();
+    
+    // Create notification
+    const notification = document.createElement('div');
+    notification.className = 'report-notification';
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #28a745;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 5px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        z-index: 1000;
+        animation: slideIn 0.3s ease;
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
 
     // SIMPLIFIED VERSIONS OF OTHER METHODS (for testing)
     showSubjectSelector() {
