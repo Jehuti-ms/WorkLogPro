@@ -990,14 +990,28 @@ initializeData();
 
 console.log('✅ data-manager.js loaded successfully');
 
-// Make DataManager available globally
-window.DataManager = DataManager;
+// Create global instance when script loads
+console.log('DataManager script loaded, creating global instance...');
 
-// Create and expose a global instance
-if (!window.dataManager) {
-    window.dataManager = new DataManager();
-    console.log('Global dataManager instance created');
+// Check if we need to wait for Firebase
+if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
+    // Firebase is ready, create instance now
+    if (!window.dataManager) {
+        window.dataManager = new DataManager();
+        console.log('✅ Global dataManager instance created');
+    }
+} else {
+    // Wait for Firebase
+    console.log('⚠️ Waiting for Firebase to initialize...');
+    const checkFirebase = setInterval(() => {
+        if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
+            clearInterval(checkFirebase);
+            if (!window.dataManager) {
+                window.dataManager = new DataManager();
+                console.log('✅ Global dataManager instance created (after wait)');
+            }
+        }
+    }, 100);
 }
-
 // Export functions globally (simpler approach)
 // These functions will be available globally since they're defined in global scope
