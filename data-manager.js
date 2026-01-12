@@ -29,25 +29,38 @@ class DataManager {
     }
 
     // STUDENT METHODS
-    async addStudent(studentData) {
-        try {
-            if (!this.userId) throw new Error('User not authenticated');
-            
-            const studentRef = this.db.collection('users').doc(this.userId).collection('students').doc();
-            
-            await studentRef.set({
-                ...studentData,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            
-            console.log('✅ Student added:', studentData.name);
-            return true;
-        } catch (error) {
-            console.error('❌ Error adding student:', error);
+   async addStudent(studentData) {
+    try {
+        if (!this.userId) {
+            console.error('❌ User not authenticated');
             return false;
         }
+        
+        console.log('📤 Adding student to Firebase:', studentData);
+        
+        const studentRef = this.db.collection('users').doc(this.userId).collection('students').doc();
+        
+        await studentRef.set({
+            name: studentData.name,
+            studentId: studentData.studentId || '',
+            gender: studentData.gender || '',
+            email: studentData.email || '',
+            phone: studentData.phone || '',
+            hourlyRate: studentData.hourlyRate || studentData.rate || 0,
+            grade: studentData.grade || '',
+            subjects: studentData.subjects || [],
+            notes: studentData.notes || '',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        console.log('✅ Student added:', studentData.name);
+        return true;
+    } catch (error) {
+        console.error('❌ Error adding student:', error);
+        return false;
     }
+}
 
     async getAllStudents() {
         try {
