@@ -324,9 +324,14 @@ function updateProfileStats() {
   console.log('📊 Updating profile stats...');
   
   try {
+    // Get all data
     const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
     const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
+    const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+    const attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
+    const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
     
+    // Calculate totals
     const totalStudents = students.length;
     
     const totalHours = hours.reduce((sum, hour) => {
@@ -339,26 +344,119 @@ function updateProfileStats() {
       return sum + (hoursWorked * rate);
     }, 0);
     
-    const studentsElem = document.getElementById('modalStatStudents');
-    const hoursElem = document.getElementById('modalStatHours');
-    const earningsElem = document.getElementById('modalStatEarnings');
-    const updatedElem = document.getElementById('modalStatUpdated');
+    // Calculate average rate
+    let avgRate = 0;
+    if (students.length > 0) {
+      const totalRate = students.reduce((sum, student) => {
+        return sum + (parseFloat(student.rate) || 0);
+      }, 0);
+      avgRate = totalRate / students.length;
+    }
     
-    if (studentsElem) studentsElem.textContent = totalStudents;
-    if (hoursElem) hoursElem.textContent = totalHours.toFixed(1);
-    if (earningsElem) earningsElem.textContent = totalEarnings.toFixed(2);
-    if (updatedElem) updatedElem.textContent = new Date().toLocaleTimeString();
+    // Calculate average mark
+    let avgMark = 0;
+    if (marks.length > 0) {
+      const totalPercentage = marks.reduce((sum, mark) => {
+        return sum + (parseFloat(mark.percentage) || 0);
+      }, 0);
+      avgMark = totalPercentage / marks.length;
+    }
     
+    // Calculate total payments
+    const totalPayments = payments.reduce((sum, payment) => {
+      return sum + (parseFloat(payment.paymentAmount) || 0);
+    }, 0);
+    
+    // Calculate outstanding balance
+    const outstandingBalance = totalEarnings - totalPayments;
+    
+    // Update PROFILE MODAL stats
+    const updateElement = (id, value) => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.textContent = value;
+        console.log(`✅ Updated ${id}: ${value}`);
+      } else {
+        console.log(`⚠️ Element ${id} not found`);
+      }
+    };
+    
+    // Update student count
+    updateElement('modalStatStudents', totalStudents);
+    
+    // Update hours
+    updateElement('modalStatHours', totalHours.toFixed(1));
+    
+    // Update earnings
+    updateElement('modalStatEarnings', `$${totalEarnings.toFixed(2)}`);
+    
+    // Update average rate (if element exists)
+    updateElement('modalStatRate', `$${avgRate.toFixed(2)}`);
+    
+    // Update average mark (if element exists)
+    updateElement('modalStatMarks', `${avgMark.toFixed(1)}%`);
+    
+    // Update last updated time
+    updateElement('modalStatUpdated', new Date().toLocaleTimeString());
+    
+    // Also update header stats (top of page)
     const headerStudents = document.getElementById('statStudents');
     const headerHours = document.getElementById('statHours');
+    const headerAvgRate = document.getElementById('averageRate');
     
     if (headerStudents) headerStudents.textContent = totalStudents;
     if (headerHours) headerHours.textContent = totalHours.toFixed(1);
+    if (headerAvgRate) headerAvgRate.textContent = avgRate.toFixed(2);
+    
+    console.log(`📊 Stats updated: ${totalStudents} students, ${totalHours.toFixed(1)} hours, $${totalEarnings.toFixed(2)} earned`);
     
   } catch (error) {
-    console.error('Error updating profile stats:', error);
+    console.error('❌ Error updating profile stats:', error);
+    
+    // Set fallback values
+    const updateElement = (id, value) => {
+      const element = document.getElementById(id);
+      if (element) element.textContent = value;
+    };
+    
+    updateElement('modalStatStudents', '0');
+    updateElement('modalStatHours', '0.0');
+    updateElement('modalStatEarnings', '$0.00');
+    updateElement('modalStatRate', '$0.00');
+    updateElement('modalStatMarks', '0.0%');
+    updateElement('modalStatUpdated', 'Error');
   }
 }
+
+// Function to refresh all stats
+function refreshAllStats() {
+  console.log('🔄 Refreshing all statistics...');
+  
+  // Update profile modal stats
+  updateProfileStats();
+  
+  // Update global header stats
+  updateGlobalStats();
+  
+  // Update report stats if on reports tab
+  if (document.getElementById('reports')?.classList.contains('active')) {
+    if (typeof updateReportStats === 'function') {
+      updateReportStats();
+    }
+  }
+  
+  // Update payments tab stats if on payments tab
+  if (document.getElementById('payments')?.classList.contains('active')) {
+    if (typeof loadPayments === 'function') {
+      loadPayments();
+    }
+  }
+  
+  console.log('✅ All stats refreshed');
+}
+
+// Make it globally available
+window.refreshAllStats = refreshAllStats;
 
 // ==================== COMPONENT INITIALIZATION FUNCTIONS ====================
 function initTabs() {
