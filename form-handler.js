@@ -1,4 +1,4 @@
-// form-handler.js - UPDATED FOR ID-BASED FIELDS
+// form-handler.js - UPDATED WITH LOCALSTORAGE FALLBACK
 console.log('📝 Loading form-handler.js...');
 
 class FormHandler {
@@ -6,11 +6,6 @@ class FormHandler {
         console.log('✅ FormHandler constructor called');
         this.dataManager = window.dataManager;
         this.currentUserEmail = null;
-        
-        if (!this.dataManager) {
-            console.error('❌ DataManager not found!');
-            return;
-        }
         
         this.init();
     }
@@ -30,6 +25,12 @@ class FormHandler {
         
         // Setup student form
         this.setupStudentForm();
+        
+        // Setup other forms if needed
+        this.setupHoursForm();
+        this.setupMarksForm();
+        this.setupAttendanceForm();
+        this.setupPaymentForm();
     }
 
     setupStudentForm() {
@@ -37,7 +38,7 @@ class FormHandler {
         const form = document.getElementById('studentForm');
         
         if (!form) {
-            console.error('❌ Student form not found!');
+            console.log('⚠️ Student form not found - may be on different tab');
             return;
         }
         
@@ -91,26 +92,26 @@ class FormHandler {
                 gender: document.getElementById('studentGender').value,
                 email: document.getElementById('studentEmail').value.trim(),
                 phone: document.getElementById('studentPhone').value.trim(),
-                hourlyRate: parseFloat(document.getElementById('studentRate').value) || 0
+                rate: parseFloat(document.getElementById('studentRate').value) || 0  // Note: using 'rate' not 'hourlyRate'
             };
             
             console.log('📄 Student data from form:', studentData);
             
             // Validate required fields
             if (!studentData.name) {
-                alert('Student name is required!');
+                this.showNotification('Student name is required!', 'error');
                 document.getElementById('studentName').focus();
                 return;
             }
             
             if (!studentData.studentId) {
-                alert('Student ID is required!');
+                this.showNotification('Student ID is required!', 'error');
                 document.getElementById('studentId').focus();
                 return;
             }
             
             if (!studentData.gender) {
-                alert('Gender is required!');
+                this.showNotification('Gender is required!', 'error');
                 document.getElementById('studentGender').focus();
                 return;
             }
@@ -128,17 +129,33 @@ class FormHandler {
                 gender: studentData.gender,
                 email: studentData.email || '',
                 phone: studentData.phone || '',
-                hourlyRate: studentData.hourlyRate,
+                rate: studentData.rate,  // Note: using 'rate' here
                 // Add timestamp
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
             
-            console.log('📊 Data for Firebase:', firebaseData);
+            console.log('📊 Data for saving:', firebaseData);
             
-            // Add student to Firebase
-            console.log('☁️ Adding student to Firebase...');
-            const success = await this.dataManager.addStudent(firebaseData);
+            let success = false;
+            
+            // TRY 1: Use DataManager/Firebase if available
+            if (this.dataManager && this.dataManager.addStudent) {
+                try {
+                    console.log('☁️ Trying to add student via DataManager...');
+                    success = await this.dataManager.addStudent(firebaseData);
+                    console.log('DataManager result:', success);
+                } catch (firebaseError) {
+                    console.log('⚠️ Firebase failed, falling back to localStorage:', firebaseError);
+                    success = false;
+                }
+            }
+            
+            // TRY 2: Fallback to localStorage if Firebase fails
+            if (!success) {
+                console.log('💾 Falling back to localStorage...');
+                success = await this.addStudentToLocalStorage(firebaseData);
+            }
             
             // Restore button
             submitBtn.textContent = originalText;
@@ -154,7 +171,7 @@ class FormHandler {
                 this.clearStudentForm();
                 
                 // Refresh student list
-                this.loadStudents();
+                await this.loadStudents();
                 
                 // Update reports
                 if (window.reportManager) {
@@ -163,6 +180,21 @@ class FormHandler {
                 
                 // Update UI stats
                 this.updateStudentStats();
+                
+                // Update global student dropdowns if function exists
+                if (typeof refreshStudentDropdowns === 'function') {
+                    refreshStudentDropdowns();
+                }
+                
+                // Trigger app.js loadStudents if exists
+                if (typeof loadStudents === 'function') {
+                    loadStudents();
+                }
+                
+                // Trigger app.js updateGlobalStats if exists
+                if (typeof updateGlobalStats === 'function') {
+                    updateGlobalStats();
+                }
                 
             } else {
                 console.error('❌ Failed to add student');
@@ -183,6 +215,75 @@ class FormHandler {
         }
     }
 
+    async addStudentToLocalStorage(studentData) {
+        try {
+            console.log('💾 Saving student to localStorage...');
+            
+            // Get existing students
+            const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+            
+            // Generate ID if not provided
+            const studentId = studentData.id || 'student_' + Date.now();
+            
+            // Create complete student object
+            const student = {
+                ...studentData,
+                id: studentId,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+            
+            // Check if student ID already exists
+            const existingIndex = students.findIndex(s => s.studentId === student.studentId);
+            if (existingIndex >= 0) {
+                // Update existing
+                students[existingIndex] = { ...students[existingIndex], ...student };
+                console.log('📝 Updated existing student:', student.studentId);
+            } else {
+                // Add new
+                students.push(student);
+                console.log('➕ Added new student:', student.studentId);
+            }
+            
+            // Save to localStorage
+            localStorage.setItem('worklog_students', JSON.stringify(students));
+            
+            console.log(`✅ Saved ${students.length} students to localStorage`);
+            return true;
+            
+        } catch (error) {
+            console.error('❌ Error saving to localStorage:', error);
+            return false;
+        }
+    }
+
+    async getAllStudents() {
+        console.log('👥 Getting all students...');
+        
+        // Try DataManager first
+        if (this.dataManager && this.dataManager.getAllStudents) {
+            try {
+                const students = await this.dataManager.getAllStudents();
+                if (students && students.length > 0) {
+                    console.log(`✅ Got ${students.length} students from DataManager`);
+                    return students;
+                }
+            } catch (error) {
+                console.log('⚠️ DataManager failed, trying localStorage:', error);
+            }
+        }
+        
+        // Fallback to localStorage
+        try {
+            const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+            console.log(`✅ Got ${students.length} students from localStorage`);
+            return students;
+        } catch (error) {
+            console.error('❌ Error getting students:', error);
+            return [];
+        }
+    }
+        
     clearStudentForm() {
         const form = document.getElementById('studentForm');
         if (form) {
@@ -206,7 +307,7 @@ class FormHandler {
     async loadStudents() {
         console.log('👥 Loading students list...');
         try {
-            const students = await this.dataManager.getAllStudents();
+            const students = await this.getAllStudents();
             console.log(`✅ Loaded ${students.length} students`);
             
             // Update student count
@@ -218,7 +319,7 @@ class FormHandler {
             // Update average rate
             const averageRate = document.getElementById('averageRate');
             if (averageRate && students.length > 0) {
-                const totalRate = students.reduce((sum, student) => sum + (student.hourlyRate || 0), 0);
+                const totalRate = students.reduce((sum, student) => sum + (student.rate || 0), 0);
                 const avgRate = totalRate / students.length;
                 averageRate.textContent = avgRate.toFixed(2);
             }
@@ -226,8 +327,11 @@ class FormHandler {
             // Update students table if it exists
             this.updateStudentsTable(students);
             
+            return students;
+            
         } catch (error) {
             console.error('❌ Error loading students:', error);
+            return [];
         }
     }
 
@@ -235,37 +339,69 @@ class FormHandler {
         // Look for students table
         const table = document.querySelector('#studentsTable tbody') || 
                      document.querySelector('.students-table tbody') ||
-                     document.querySelector('table tbody');
+                     document.querySelector('#studentsContainer');
         
         if (!table) {
             console.log('No students table found to update');
             return;
         }
         
-        table.innerHTML = '';
+        // Clear table
+        if (table.tagName === 'TBODY' || table.tagName === 'DIV') {
+            table.innerHTML = '';
+        }
         
         if (students.length === 0) {
-            const row = document.createElement('tr');
-            row.innerHTML = '<td colspan="5" class="empty-message">No students added yet</td>';
-            table.appendChild(row);
+            if (table.tagName === 'TBODY') {
+                const row = document.createElement('tr');
+                row.innerHTML = '<td colspan="6" class="empty-message">No students added yet</td>';
+                table.appendChild(row);
+            } else {
+                table.innerHTML = '<p class="empty-message">No students added yet</p>';
+            }
             return;
         }
         
-        students.forEach(student => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${student.name}</td>
-                <td>${student.studentId || ''}</td>
-                <td>${student.gender || ''}</td>
-                <td>${student.email || ''}</td>
-                <td>$${student.hourlyRate || 0}</td>
-                <td>
-                    <button onclick="editStudent('${student.id}')" class="btn btn-sm btn-outline-primary">Edit</button>
-                    <button onclick="deleteStudent('${student.id}')" class="btn btn-sm btn-outline-danger">Delete</button>
-                </td>
-            `;
-            table.appendChild(row);
-        });
+        if (table.tagName === 'TBODY') {
+            // Table format
+            students.forEach(student => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${student.name}</td>
+                    <td>${student.studentId || ''}</td>
+                    <td>${student.gender || ''}</td>
+                    <td>${student.email || ''}</td>
+                    <td>$${(student.rate || 0).toFixed(2)}</td>
+                    <td>
+                        <button onclick="editStudent('${student.id}')" class="btn btn-sm btn-outline-primary">Edit</button>
+                        <button onclick="deleteStudent('${student.id}')" class="btn btn-sm btn-outline-danger">Delete</button>
+                    </td>
+                `;
+                table.appendChild(row);
+            });
+        } else if (table.tagName === 'DIV') {
+            // Card/div format
+            table.innerHTML = students.map(student => `
+                <div class="student-card" data-id="${student.id}">
+                    <div class="student-card-header">
+                        <strong>${student.name}</strong>
+                        <span class="student-id">${student.studentId}</span>
+                        <div class="student-actions">
+                            <button class="btn-icon edit-student" onclick="editStudent('${student.id}')" title="Edit">✏️</button>
+                            <button class="btn-icon delete-student" onclick="deleteStudent('${student.id}')" title="Delete">🗑️</button>
+                        </div>
+                    </div>
+                    <div class="student-details">
+                        <div class="student-rate">$${student.rate || '0.00'}/session</div>
+                        <div>${student.gender} • ${student.email || 'No email'}</div>
+                        <div>${student.phone || 'No phone'}</div>
+                        <div class="student-meta">
+                            Added: ${new Date(student.createdAt).toLocaleDateString()}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
     }
 
     updateStudentStats() {
@@ -283,6 +419,39 @@ class FormHandler {
             newCancelBtn.addEventListener('click', () => {
                 this.clearStudentForm();
             });
+        }
+    }
+
+    // Setup other forms (simplified versions)
+    setupHoursForm() {
+        const form = document.getElementById('hoursForm');
+        if (form) {
+            console.log('⏱️ Found hours form');
+            // Add similar logic for hours form
+        }
+    }
+
+    setupMarksForm() {
+        const form = document.getElementById('marksForm');
+        if (form) {
+            console.log('📝 Found marks form');
+            // Add similar logic for marks form
+        }
+    }
+
+    setupAttendanceForm() {
+        const form = document.getElementById('attendanceForm');
+        if (form) {
+            console.log('✅ Found attendance form');
+            // Add similar logic for attendance form
+        }
+    }
+
+    setupPaymentForm() {
+        const form = document.getElementById('paymentForm');
+        if (form) {
+            console.log('💰 Found payment form');
+            // Add similar logic for payment form
         }
     }
 
@@ -309,6 +478,7 @@ class FormHandler {
             ${type === 'success' ? 'background: #28a745;' : ''}
             ${type === 'error' ? 'background: #dc3545;' : ''}
             ${type === 'info' ? 'background: #17a2b8;' : ''}
+            ${type === 'warning' ? 'background: #ffc107; color: #000;' : ''}
         `;
         
         document.body.appendChild(notification);
@@ -319,38 +489,211 @@ class FormHandler {
             setTimeout(() => notification.remove(), 300);
         }, 3000);
     }
+
+    // Utility function to save any data type
+    async saveData(dataType, data) {
+        try {
+            // Try Firebase first if available
+            if (this.dataManager && this.dataManager[`save${dataType}`]) {
+                const result = await this.dataManager[`save${dataType}`](data);
+                if (result && result.success) return true;
+            }
+            
+            // Fallback to localStorage
+            const key = `worklog_${dataType.toLowerCase()}s`;
+            const existing = JSON.parse(localStorage.getItem(key) || '[]');
+            
+            // Add ID if not present
+            if (!data.id) {
+                data.id = `${dataType.toLowerCase()}_${Date.now()}`;
+            }
+            
+            data.createdAt = data.createdAt || new Date().toISOString();
+            data.updatedAt = new Date().toISOString();
+            
+            existing.push(data);
+            localStorage.setItem(key, JSON.stringify(existing));
+            
+            return true;
+        } catch (error) {
+            console.error(`❌ Error saving ${dataType}:`, error);
+            return false;
+        }
+    }
 }
 
-// Add CSS for notifications
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideIn {
-        from {
-            transform: translateX(100%);
-            opacity: 0;
+// Add CSS for notifications (only if not already added)
+if (!document.getElementById('form-handler-styles')) {
+    const style = document.createElement('style');
+    style.id = 'form-handler-styles';
+    style.textContent = `
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
-        to {
-            transform: translateX(0);
-            opacity: 1;
+        
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
         }
-    }
-    
-    @keyframes slideOut {
-        from {
-            transform: translateX(0);
-            opacity: 1;
+        
+        .student-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: white;
         }
-        to {
-            transform: translateX(100%);
-            opacity: 0;
+        
+        .student-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
         }
-    }
-`;
-document.head.appendChild(style);
+        
+        .student-id {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .student-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .btn-icon {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+            font-size: 16px;
+        }
+        
+        .student-rate {
+            font-weight: bold;
+            color: #28a745;
+            margin-bottom: 5px;
+        }
+        
+        .student-meta {
+            font-size: 0.8em;
+            color: #888;
+            margin-top: 5px;
+        }
+        
+        .empty-message {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+            font-style: italic;
+        }
+    `;
+    document.head.appendChild(style);
+}
 
 // Make sure it's globally accessible
 window.FormHandler = FormHandler;
 
-// Initialize
+// Initialize when DOM is ready
 console.log('📄 Initializing FormHandler...');
-window.formHandler = new FormHandler();
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        window.formHandler = new FormHandler();
+    });
+} else {
+    window.formHandler = new FormHandler();
+}
+
+// Global functions for student operations
+window.editStudent = async function(studentId) {
+    console.log('✏️ Editing student:', studentId);
+    
+    try {
+        const students = await window.formHandler.getAllStudents();
+        const student = students.find(s => s.id === studentId);
+        
+        if (!student) {
+            window.formHandler.showNotification('Student not found', 'error');
+            return;
+        }
+        
+        // Fill form with student data
+        document.getElementById('studentName').value = student.name || '';
+        document.getElementById('studentId').value = student.studentId || '';
+        document.getElementById('studentGender').value = student.gender || '';
+        document.getElementById('studentEmail').value = student.email || '';
+        document.getElementById('studentPhone').value = student.phone || '';
+        document.getElementById('studentRate').value = student.rate || '';
+        
+        // Set edit mode
+        window.editingStudentId = studentId;
+        
+        const submitBtn = document.getElementById('studentSubmitBtn');
+        const cancelBtn = document.getElementById('studentCancelBtn');
+        
+        if (submitBtn) submitBtn.textContent = '💾 Update Student';
+        if (cancelBtn) cancelBtn.style.display = 'inline-block';
+        
+        window.formHandler.showNotification('Editing student: ' + student.name, 'info');
+        
+        // Scroll to form
+        document.getElementById('studentName').focus();
+        
+    } catch (error) {
+        console.error('Error editing student:', error);
+        window.formHandler.showNotification('Error editing student', 'error');
+    }
+};
+
+window.deleteStudent = async function(studentId) {
+    if (!confirm('Are you sure you want to delete this student?')) return;
+    
+    try {
+        // Get students
+        const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+        const filtered = students.filter(student => student.id !== studentId);
+        
+        // Save to localStorage
+        localStorage.setItem('worklog_students', JSON.stringify(filtered));
+        
+        window.formHandler.showNotification('Student deleted', 'success');
+        
+        // Refresh UI
+        if (window.formHandler.loadStudents) {
+            await window.formHandler.loadStudents();
+        }
+        
+        // Update other parts of the app
+        if (typeof refreshStudentDropdowns === 'function') {
+            refreshStudentDropdowns();
+        }
+        
+        if (typeof updateGlobalStats === 'function') {
+            updateGlobalStats();
+        }
+        
+        if (typeof updateProfileStats === 'function') {
+            updateProfileStats();
+        }
+        
+    } catch (error) {
+        console.error('Error deleting student:', error);
+        window.formHandler.showNotification('Error deleting student', 'error');
+    }
+};
+
+console.log('✅ FormHandler script loaded');
