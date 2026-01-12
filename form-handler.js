@@ -95,143 +95,217 @@ class FormHandler {
     }
 
     async handleStudentSubmit(form) {
-        console.log('📤 Handling student form submission...');
+    console.log('📤 Handling student form submission...');
+    
+    try {
+        // Get values from ID-based fields
+        const studentData = {
+            name: document.getElementById('studentName').value.trim(),
+            studentId: document.getElementById('studentId').value.trim(),
+            gender: document.getElementById('studentGender').value,
+            email: document.getElementById('studentEmail').value.trim(),
+            phone: document.getElementById('studentPhone').value.trim(),
+            rate: parseFloat(document.getElementById('studentRate').value) || 0
+        };
         
-        try {
-            // Get values from ID-based fields
-            const studentData = {
-                name: document.getElementById('studentName').value.trim(),
-                studentId: document.getElementById('studentId').value.trim(),
-                gender: document.getElementById('studentGender').value,
-                email: document.getElementById('studentEmail').value.trim(),
-                phone: document.getElementById('studentPhone').value.trim(),
-                rate: parseFloat(document.getElementById('studentRate').value) || 0
-            };
+        console.log('📄 Student data from form:', studentData);
+        
+        // Validate required fields
+        if (!studentData.name) {
+            this.showNotification('Student name is required!', 'error');
+            document.getElementById('studentName').focus();
+            return;
+        }
+        
+        if (!studentData.studentId) {
+            this.showNotification('Student ID is required!', 'error');
+            document.getElementById('studentId').focus();
+            return;
+        }
+        
+        if (!studentData.gender) {
+            this.showNotification('Gender is required!', 'error');
+            document.getElementById('studentGender').focus();
+            return;
+        }
+        
+        // Show loading state IMMEDIATELY
+        this.showLoadingState(true);
+        
+        // Prepare data for saving
+        const saveData = {
+            name: studentData.name,
+            studentId: studentData.studentId,
+            gender: studentData.gender,
+            email: studentData.email || '',
+            phone: studentData.phone || '',
+            rate: studentData.rate,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        
+        console.log('📊 Data for saving:', saveData);
+        
+        let success = false;
+        let usedFirebase = false;
+        
+        // TRY 1: Use DataManager/Firebase with timeout (if enabled)
+        if (this.useFirebase && this.dataManager && this.dataManager.addStudent) {
+            try {
+                console.log('☁️ Trying to add student via DataManager...');
+                usedFirebase = true;
+                
+                // Set a timeout
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('Firebase timeout')), 3000);
+                });
+                
+                // Race between Firebase and timeout
+                success = await Promise.race([
+                    this.dataManager.addStudent(saveData),
+                    timeoutPromise
+                ]);
+                
+                console.log('Firebase result:', success);
+            } catch (firebaseError) {
+                console.log('⚠️ Firebase failed:', firebaseError.message);
+                success = false;
+            }
+        }
+        
+        // TRY 2: Fallback to localStorage if Firebase fails or is disabled
+        if (!success) {
+            console.log(usedFirebase ? '💾 Falling back to localStorage...' : '💾 Using localStorage...');
+            success = await this.addStudentToLocalStorage(saveData);
+        }
+        
+        // Hide loading state
+        this.showLoadingState(false);
+        
+        if (success) {
+            console.log('✅ Student added successfully!');
             
-            console.log('📄 Student data from form:', studentData);
+            // Show success message
+            const source = usedFirebase ? 'cloud' : 'local';
+            this.showNotification(`Student "${studentData.name}" saved to ${source}!`, 'success');
             
-            // Validate required fields
-            if (!studentData.name) {
-                this.showNotification('Student name is required!', 'error');
-                document.getElementById('studentName').focus();
-                return;
+            // Clear form
+            this.clearStudentForm();
+            
+            // Refresh student list
+            await this.loadStudents();
+            
+            // Update reports
+            if (window.reportManager) {
+                window.reportManager.loadDataInBackground();
             }
             
-            if (!studentData.studentId) {
-                this.showNotification('Student ID is required!', 'error');
-                document.getElementById('studentId').focus();
-                return;
+            // Update UI stats
+            this.updateStudentStats();
+            
+            // ========== ADDED: UPDATE PROFILE STATS ==========
+            // Update profile stats in modal
+            if (typeof updateProfileStats === 'function') {
+                updateProfileStats();
+                console.log('✅ Profile stats updated');
             }
             
-            if (!studentData.gender) {
-                this.showNotification('Gender is required!', 'error');
-                document.getElementById('studentGender').focus();
-                return;
+            // Update global stats (header)
+            if (typeof updateGlobalStats === 'function') {
+                updateGlobalStats();
+                console.log('✅ Global stats updated');
             }
             
-            // Show loading state IMMEDIATELY
-            this.showLoadingState(true);
+            // Try to refresh all stats if function exists
+            if (typeof refreshAllStats === 'function') {
+                refreshAllStats();
+                console.log('✅ All stats refreshed');
+            }
             
-            // Prepare data for saving
-            const saveData = {
-                name: studentData.name,
-                studentId: studentData.studentId,
-                gender: studentData.gender,
-                email: studentData.email || '',
-                phone: studentData.phone || '',
-                rate: studentData.rate,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
+            // Force update if needed (emergency function)
+            if (typeof forceUpdateProfileStats === 'function') {
+                setTimeout(() => forceUpdateProfileStats(), 500);
+                console.log('✅ Force update scheduled');
+            }
+            // ========== END ADDED SECTION ==========
             
-            console.log('📊 Data for saving:', saveData);
+            // Update global student dropdowns if function exists
+            if (typeof refreshStudentDropdowns === 'function') {
+                refreshStudentDropdowns();
+            }
             
-            let success = false;
-            let usedFirebase = false;
+            // Trigger app.js loadStudents if exists
+            if (typeof loadStudents === 'function') {
+                loadStudents();
+            }
             
-            // TRY 1: Use DataManager/Firebase with timeout (if enabled)
-            if (this.useFirebase && this.dataManager && this.dataManager.addStudent) {
+            // ========== ADDED: DIRECT DOM UPDATES ==========
+            // Directly update DOM elements as fallback
+            setTimeout(() => {
                 try {
-                    console.log('☁️ Trying to add student via DataManager...');
-                    usedFirebase = true;
+                    // Get current student count
+                    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+                    const studentCount = students.length;
                     
-                    // Set a timeout
-                    const timeoutPromise = new Promise((_, reject) => {
-                        setTimeout(() => reject(new Error('Firebase timeout')), 3000);
+                    // Calculate average rate
+                    let avgRate = 0;
+                    if (students.length > 0) {
+                        const totalRate = students.reduce((sum, student) => sum + (parseFloat(student.rate) || 0), 0);
+                        avgRate = totalRate / students.length;
+                    }
+                    
+                    console.log(`📊 Direct update: ${studentCount} students, avg rate: $${avgRate.toFixed(2)}`);
+                    
+                    // Update ALL possible student count elements
+                    const studentCountIds = [
+                        'modalStatStudents', 'statStudents', 
+                        'profileStatStudents', 'totalStudentsCount'
+                    ];
+                    
+                    studentCountIds.forEach(id => {
+                        const elem = document.getElementById(id);
+                        if (elem) {
+                            elem.textContent = studentCount;
+                            console.log(`✅ Set ${id} = ${studentCount}`);
+                        }
                     });
                     
-                    // Race between Firebase and timeout
-                    success = await Promise.race([
-                        this.dataManager.addStudent(saveData),
-                        timeoutPromise
-                    ]);
+                    // Update ALL possible rate elements
+                    const rateIds = ['modalStatRate', 'averageRate', 'profileStatRate'];
+                    rateIds.forEach(id => {
+                        const elem = document.getElementById(id);
+                        if (elem) {
+                            elem.textContent = `$${avgRate.toFixed(2)}`;
+                            console.log(`✅ Set ${id} = $${avgRate.toFixed(2)}`);
+                        }
+                    });
                     
-                    console.log('Firebase result:', success);
-                } catch (firebaseError) {
-                    console.log('⚠️ Firebase failed:', firebaseError.message);
-                    success = false;
+                    // Update timestamp
+                    const timeElem = document.getElementById('modalStatUpdated');
+                    if (timeElem) {
+                        timeElem.textContent = new Date().toLocaleTimeString();
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Error in direct DOM update:', error);
                 }
-            }
+            }, 100);
+            // ========== END DIRECT DOM UPDATES ==========
             
-            // TRY 2: Fallback to localStorage if Firebase fails or is disabled
-            if (!success) {
-                console.log(usedFirebase ? '💾 Falling back to localStorage...' : '💾 Using localStorage...');
-                success = await this.addStudentToLocalStorage(saveData);
-            }
-            
-            // Hide loading state
-            this.showLoadingState(false);
-            
-            if (success) {
-                console.log('✅ Student added successfully!');
-                
-                // Show success message
-                const source = usedFirebase ? 'cloud' : 'local';
-                this.showNotification(`Student "${studentData.name}" saved to ${source}!`, 'success');
-                
-                // Clear form
-                this.clearStudentForm();
-                
-                // Refresh student list
-                await this.loadStudents();
-                
-                // Update reports
-                if (window.reportManager) {
-                    window.reportManager.loadDataInBackground();
-                }
-                
-                // Update UI stats
-                this.updateStudentStats();
-                
-                // Update global student dropdowns if function exists
-                if (typeof refreshStudentDropdowns === 'function') {
-                    refreshStudentDropdowns();
-                }
-                
-                // Trigger app.js loadStudents if exists
-                if (typeof loadStudents === 'function') {
-                    loadStudents();
-                }
-                
-                // Trigger app.js updateGlobalStats if exists
-                if (typeof updateGlobalStats === 'function') {
-                    updateGlobalStats();
-                }
-                
-            } else {
-                console.error('❌ Failed to add student');
-                this.showNotification('Failed to add student. Please try again.', 'error');
-            }
-            
-        } catch (error) {
-            console.error('❌ Error submitting student form:', error);
-            
-            // Hide loading state
-            this.showLoadingState(false);
-            
-            this.showNotification('Error: ' + error.message, 'error');
+        } else {
+            console.error('❌ Failed to add student');
+            this.showNotification('Failed to add student. Please try again.', 'error');
         }
+        
+    } catch (error) {
+        console.error('❌ Error submitting student form:', error);
+        
+        // Hide loading state
+        this.showLoadingState(false);
+        
+        this.showNotification('Error: ' + error.message, 'error');
     }
+}
 
     showLoadingState(show = true) {
         const submitBtn = document.getElementById('studentSubmitBtn');
