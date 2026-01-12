@@ -1,11 +1,11 @@
-// reports.js - REGULAR SCRIPT VERSION
+// reports.js - UPDATED WITH YOUR ACTUAL METHODS
 console.log('reports.js loading...');
 
 class ReportManager {
     constructor() {
         console.log('Creating ReportManager instance');
         
-        // Get DataManager instance (it's global)
+        // Get DataManager instance
         this.dataManager = window.dataManager;
         if (!this.dataManager) {
             console.error('DataManager not found! Make sure data-manager.js is loaded first.');
@@ -176,326 +176,413 @@ class ReportManager {
         }
     }
 
-   showLoading() {
-    this.updateReportContent(`
-        <div style="text-align: center; padding: 40px;">
-            <div class="spinner"></div>
-            <p class="loading-text">Generating report...</p>
-        </div>
-    `);
-}
+    // NEW: Clear report method
+    clearReport() {
+        const reportContent = document.getElementById('report-content');
+        if (reportContent) {
+            reportContent.innerHTML = '<p class="empty-message">Select a report type to generate.</p>';
+            console.log('Report cleared');
+        }
+    }
+
+    showLoading() {
+        this.updateReportContent(`
+            <div style="text-align: center; padding: 50px;">
+                <div class="spinner"></div>
+                <p>Generating report...</p>
+            </div>
+        `);
+    }
 
     showError(message) {
         this.updateReportContent(`
-            <div style="padding: 15px; background: #f8d7da; border: 1px solid #dc3545; border-radius: 5px; color: #721c24;">
+            <div style="padding: 15px; background: #f8d7da; border-radius: 5px; border: 1px solid #dc3545; color: #721c24;">
                 <h4 style="margin-top: 0;">❌ Error</h4>
                 <p>${message}</p>
             </div>
         `);
     }
 
-   showReportContent(report, title) {
-    // Clear any existing reports first
-    this.clearReport();
-    
-    let html = '<div class="report-display active">';
-    
-    // Report header with close button
-    html += '<div class="report-header">';
-    html += `<h4>${title}</h4>`;
-    html += '<button class="report-close-btn" onclick="window.reportManager.clearReport()" title="Close report">';
-    html += '×';
-    html += '</button>';
-    html += '</div>';
-    
-    // Report actions (Copy, Print, Save)
-    html += '<div class="report-actions">';
-    html += '<button onclick="window.reportManager.copyToClipboard()" class="button small">📋 Copy</button>';
-    html += '<button onclick="window.reportManager.printReport()" class="button small">🖨️ Print</button>';
-    html += '<button onclick="window.reportManager.saveAsText()" class="button small">💾 Save</button>';
-    html += '</div>';
-    
-    // Report content with scroll
-    html += '<div class="report-content-scroll">';
-    html += `<pre>${report}</pre>`;
-    html += '</div>';
-    
-    // Back to reports button
-    html += '<div class="report-footer">';
-    html += '<button onclick="window.reportManager.clearReport()" class="button small">';
-    html += '← Back to Reports';
-    html += '</button>';
-    html += '</div>';
-    
-    html += '</div>';
-    
-    this.updateReportContent(html);
-    console.log(`✅ Report displayed: ${title}`);
-}
-
-// Add this new method to clear reports
-clearReport() {
-    const reportContent = document.getElementById('report-content');
-    if (reportContent) {
-        reportContent.innerHTML = '<p class="empty-message">Select a report type to generate.</p>';
-        console.log('🗑️ Report cleared');
+    // UPDATED: Show report content with close button
+    showReportContent(report, title) {
+        let html = '<div class="report-display">';
+        
+        // Header with close button
+        html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #ddd;">';
+        html += `<h4 style="margin: 0;">${title}</h4>`;
+        html += '<button onclick="window.reportManager.clearReport()" style="background: #dc3545; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; font-size: 18px; cursor: pointer;">×</button>';
+        html += '</div>';
+        
+        // Action buttons
+        html += '<div style="margin-bottom: 15px; display: flex; gap: 10px;">';
+        html += '<button onclick="window.reportManager.copyToClipboard()" class="button small">Copy</button>';
+        html += '<button onclick="window.reportManager.printReport()" class="button small">Print</button>';
+        html += '<button onclick="window.reportManager.saveAsText()" class="button small">Save</button>';
+        html += '</div>';
+        
+        // Report content
+        html += '<div style="background: #f8f9fa; padding: 15px; border-radius: 5px; max-height: 400px; overflow-y: auto;">';
+        html += `<pre style="white-space: pre-wrap; font-family: monospace; font-size: 12px; margin: 0;">${report}</pre>`;
+        html += '</div>';
+        
+        // Back button
+        html += '<div style="margin-top: 15px; text-align: center;">';
+        html += '<button onclick="window.reportManager.clearReport()" class="button small">Back to Reports</button>';
+        html += '</div>';
+        
+        html += '</div>';
+        
+        this.updateReportContent(html);
     }
-}
 
     updateReportContent(html) {
-    const reportContent = document.getElementById('report-content');
-    if (reportContent) {
-        reportContent.innerHTML = html;
-        console.log('✅ Report content updated successfully');
-        
-        // Scroll to the report content area
-        reportContent.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    } else {
-        console.error('❌ #report-content element not found!');
-        
-        // Try to create it dynamically as fallback
-        this.createReportContainer(html);
+        const reportContent = document.getElementById('report-content');
+        if (reportContent) {
+            reportContent.innerHTML = html;
+        } else {
+            console.error('Element #report-content not found!');
+        }
     }
-}
 
-createReportContainer(html) {
-    console.log('Creating report container dynamically...');
-    
-    const reportsSection = document.getElementById('reports');
-    if (!reportsSection) {
-        console.error('❌ #reports section not found either!');
-        return;
+    // Helper methods
+    copyToClipboard() {
+        const pre = document.querySelector('#report-content pre');
+        if (pre) {
+            navigator.clipboard.writeText(pre.textContent).then(() => {
+                alert('Report copied to clipboard!');
+            });
+        }
     }
-    
-    // Find the second section-card
-    const sectionCards = reportsSection.querySelectorAll('.section-card');
-    if (sectionCards.length < 2) {
-        console.error('❌ Not enough section cards found');
-        return;
-    }
-    
-    const secondCard = sectionCards[1];
-    
-    // Clear existing content except tables
-    const tables = secondCard.querySelectorAll('table');
-    secondCard.innerHTML = '';
-    
-    // Re-add the title
-    const title = document.createElement('h3');
-    title.textContent = '📅 Breakdown';
-    secondCard.appendChild(title);
-    
-    // Add report content container
-    const reportDiv = document.createElement('div');
-    reportDiv.id = 'report-content';
-    reportDiv.style.cssText = 'min-height: 400px; padding: 20px; margin-bottom: 20px; background: #f8f9fa; border-radius: 5px;';
-    reportDiv.innerHTML = html;
-    secondCard.appendChild(reportDiv);
-    
-    // Re-add tables if they exist
-    if (tables.length > 0) {
-        const tableContainer = document.createElement('div');
-        tableContainer.style.marginTop = '20px';
-        tables.forEach(table => tableContainer.appendChild(table));
-        secondCard.appendChild(tableContainer);
-    }
-    
-    console.log('✅ Created report container dynamically');
-}
-    
-    // Add these helper methods
-   copyToClipboard() {
-    const pre = document.querySelector('#report-content pre');
-    if (pre) {
-        navigator.clipboard.writeText(pre.textContent).then(() => {
-            // Show temporary notification
-            this.showNotification('Report copied to clipboard!');
-        });
-    }
-}
 
-   printReport() {
-    const pre = document.querySelector('#report-content pre');
-    if (pre) {
-        const printWindow = window.open('', '_blank');
-        const title = document.querySelector('.report-header h4')?.textContent || 'Report';
-        
-        printWindow.document.write(`
-            <html>
-            <head>
-                <title>${title}</title>
-                <style>
-                    body { font-family: Arial, sans-serif; padding: 20px; }
-                    pre { white-space: pre-wrap; font-size: 12px; line-height: 1.4; }
-                    h1 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
-                    @media print {
-                        body { padding: 0; }
-                        @page { margin: 0.5in; }
-                    }
-                </style>
-            </head>
-            <body>
-                <h1>${title}</h1>
-                <pre>${pre.textContent}</pre>
-                <script>
-                    window.onload = function() {
-                        window.print();
-                        setTimeout(function() {
-                            window.close();
-                        }, 500);
-                    }
-                <\/script>
-            </body>
-            </html>
-        `);
-        printWindow.document.close();
+    printReport() {
+        const pre = document.querySelector('#report-content pre');
+        if (pre) {
+            const printWindow = window.open('', '_blank');
+            const title = document.querySelector('#report-content h4')?.textContent || 'Report';
+            
+            printWindow.document.write(`
+                <html>
+                <head><title>${title}</title></head>
+                <body><pre>${pre.textContent}</pre></body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
+        }
     }
-}
-    
+
     saveAsText() {
-    const pre = document.querySelector('#report-content pre');
-    const title = document.querySelector('.report-header h4')?.textContent || 'Report';
-    
-    if (pre) {
-        const blob = new Blob([pre.textContent], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${title.replace(/[^\w\s]/gi, '').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.txt`;
-        a.click();
-        URL.revokeObjectURL(url);
+        const pre = document.querySelector('#report-content pre');
+        const title = document.querySelector('#report-content h4')?.textContent || 'Report';
         
-        this.showNotification('Report saved as text file!');
+        if (pre) {
+            const blob = new Blob([pre.textContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title.replace(/[^\w\s]/gi, '').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            alert('Report saved as text file!');
+        }
     }
-}
 
-    // Add notification helper
-showNotification(message) {
-    // Remove existing notifications
-    const existing = document.querySelector('.report-notification');
-    if (existing) existing.remove();
-    
-    // Create notification
-    const notification = document.createElement('div');
-    notification.className = 'report-notification';
-    notification.textContent = message;
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #28a745;
-        color: white;
-        padding: 12px 20px;
-        border-radius: 5px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-        z-index: 1000;
-        animation: slideIn 0.3s ease;
-    `;
-    
-    document.body.appendChild(notification);
-    
-    // Auto-remove after 3 seconds
-    setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease';
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
-}
-
-    // SIMPLIFIED VERSIONS OF OTHER METHODS (for testing)
-showSubjectSelector() {
-    this.clearReport();
-    
-    let html = '<div class="report-form">';
-    html += '<div class="report-header">';
-    html += '<h4>📚 Subject Report</h4>';
-    html += '<button class="report-close-btn" onclick="window.reportManager.clearReport()">×</button>';
-    html += '</div>';
-    
-    html += '<div class="report-form-content">';
-    html += '<p>Select or enter a subject to generate a report:</p>';
-    
-    if (this.subjects.length === 0) {
-        html += '<p class="text-muted">No subjects detected in your logs.</p>';
-    } else {
-        html += '<select id="subjectSelect" class="form-input" style="width: 100%; margin-bottom: 15px;">';
-        html += '<option value="">Choose a subject...</option>';
-        this.subjects.forEach(subject => {
-            html += `<option value="${subject}">${subject.charAt(0).toUpperCase() + subject.slice(1)}</option>`;
-        });
-        html += '</select>';
+    // SIMPLIFIED VERSIONS OF OTHER METHODS
+    showSubjectSelector() {
+        this.clearReport();
+        
+        let html = '<div style="padding: 20px;">';
+        html += '<h4>📚 Subject Report</h4>';
+        html += '<p>Select or enter a subject:</p>';
+        
+        if (this.subjects.length === 0) {
+            html += '<p>No subjects found. Add some activities with subject names.</p>';
+        } else {
+            html += '<select id="subjectSelect" class="form-input" style="width: 100%; margin-bottom: 15px;">';
+            html += '<option value="">Choose a subject...</option>';
+            this.subjects.forEach(subject => {
+                html += `<option value="${subject}">${subject.charAt(0).toUpperCase() + subject.slice(1)}</option>`;
+            });
+            html += '</select>';
+        }
+        
+        html += '<input type="text" id="customSubject" class="form-input" placeholder="Or enter custom subject" style="width: 100%; margin-bottom: 15px;">';
+        html += '<button onclick="generateSubjectReport()" class="button" style="width: 100%;">Generate Report</button>';
+        html += '</div>';
+        
+        this.updateReportContent(html);
     }
-    
-    html += '<input type="text" id="customSubject" class="form-input" placeholder="Or enter custom subject" style="width: 100%; margin-bottom: 15px;">';
-    html += '<button onclick="window.reportManager.generateSubjectReport()" class="button" style="width: 100%;">Generate Subject Report</button>';
-    html += '</div>';
-    
-    html += '<div class="report-footer">';
-    html += '<button onclick="window.reportManager.clearReport()" class="button small">← Back to Reports</button>';
-    html += '</div>';
-    html += '</div>';
-    
-    this.updateReportContent(html);
-}
 
     showPDFOptions() {
-        this.updateReportContent(`
-            <div style="padding: 20px;">
-                <h4>📄 PDF Export</h4>
-                <p>PDF export is ready!</p>
-                <button onclick="window.reportManager.testPDF()" class="button success">
-                    Test PDF Generation
-                </button>
-            </div>
-        `);
+        this.clearReport();
+        
+        let html = '<div style="padding: 20px;">';
+        html += '<h4>📄 PDF Export</h4>';
+        html += '<p>Select report type:</p>';
+        
+        html += '<div style="margin-bottom: 15px;">';
+        html += '<label><input type="radio" name="pdfType" value="weekly" checked> Weekly Report</label><br>';
+        html += '<label><input type="radio" name="pdfType" value="biweekly"> Bi-Weekly Report</label><br>';
+        html += '<label><input type="radio" name="pdfType" value="monthly"> Monthly Report</label>';
+        html += '</div>';
+        
+        html += '<button onclick="generatePDF()" class="button success" style="width: 100%;">Generate PDF</button>';
+        html += '</div>';
+        
+        this.updateReportContent(html);
     }
 
     showEmailForm() {
-        this.updateReportContent(`
-            <div style="padding: 20px;">
-                <h4>📧 Email Report</h4>
-                <p>Email functionality is working!</p>
-            </div>
-        `);
+        this.clearReport();
+        
+        let html = '<div style="padding: 20px;">';
+        html += '<h4>📧 Email Report</h4>';
+        
+        html += '<div style="margin-bottom: 15px;">';
+        html += '<label>Recipient Email:</label>';
+        html += '<input type="email" id="emailTo" class="form-input" placeholder="recipient@example.com" style="width: 100%;">';
+        html += '</div>';
+        
+        html += '<div style="margin-bottom: 15px;">';
+        html += '<label>Report Type:</label>';
+        html += '<select id="emailType" class="form-input" style="width: 100%;">';
+        html += '<option value="weekly">Weekly Report</option>';
+        html += '<option value="biweekly">Bi-Weekly Report</option>';
+        html += '<option value="monthly">Monthly Report</option>';
+        html += '</select>';
+        html += '</div>';
+        
+        html += '<button onclick="sendEmail()" class="button info" style="width: 100%;">Send Email</button>';
+        html += '</div>';
+        
+        this.updateReportContent(html);
     }
 
     showClaimFormOptions() {
-        this.updateReportContent(`
-            <div style="padding: 20px;">
-                <h4>💰 Claim Form</h4>
-                <p>Claim form generator is ready!</p>
-            </div>
-        `);
+        this.clearReport();
+        
+        let html = '<div style="padding: 20px;">';
+        html += '<h4>💰 Claim Form</h4>';
+        
+        html += '<div style="margin-bottom: 15px;">';
+        html += '<label>Claim Type:</label>';
+        html += '<select id="claimType" class="form-input" style="width: 100%;">';
+        html += '<option value="weekly">Weekly</option>';
+        html += '<option value="biweekly">Bi-Weekly</option>';
+        html += '<option value="monthly">Monthly</option>';
+        html += '</select>';
+        html += '</div>';
+        
+        html += '<button onclick="generateClaimForm()" class="button warning" style="width: 100%;">Generate Claim Form</button>';
+        html += '</div>';
+        
+        this.updateReportContent(html);
     }
 
     showInvoiceGenerator() {
-        this.updateReportContent(`
-            <div style="padding: 20px;">
-                <h4>🧾 Invoice Generator</h4>
-                <p>Invoice generator is working!</p>
-            </div>
-        `);
-    }
-
-    testPDF() {
-        if (typeof jspdf === 'undefined') {
-            alert('jsPDF not loaded. Check your script tags.');
-            return;
-        }
+        this.clearReport();
         
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        doc.text('Test PDF from WorkLogPro', 10, 10);
-        doc.save('test_report.pdf');
+        let html = '<div style="padding: 20px;">';
+        html += '<h4>🧾 Invoice Generator</h4>';
         
-        this.updateReportContent(`
-            <div style="padding: 15px; background: #d1e7dd; border: 1px solid #198754; border-radius: 5px; color: #0f5132;">
-                <h4 style="margin-top: 0;">✅ Test PDF Generated</h4>
-                <p>Check your downloads for test_report.pdf</p>
-            </div>
-        `);
+        html += '<div style="margin-bottom: 15px;">';
+        html += '<label>Select Student:</label>';
+        html += '<select id="invoiceStudent" class="form-input" style="width: 100%;">';
+        html += '<option value="">Choose a student...</option>';
+        this.students.forEach(student => {
+            html += `<option value="${student.name}">${student.name} ($${student.hourlyRate || 0}/hr)</option>`;
+        });
+        html += '</select>';
+        html += '</div>';
+        
+        html += '<button onclick="generateInvoice()" class="button warning" style="width: 100%;">Generate Invoice</button>';
+        html += '</div>';
+        
+        this.updateReportContent(html);
     }
 }
 
-// Initialize ReportManager when scripts are loaded
+// Global helper functions (keep these outside the class)
+window.generateSubjectReport = async function() {
+    const select = document.getElementById('subjectSelect');
+    const custom = document.getElementById('customSubject');
+    
+    const subject = select?.value || custom?.value.trim();
+    
+    if (!subject) {
+        alert('Please select or enter a subject');
+        return;
+    }
+    
+    if (window.reportManager) {
+        window.reportManager.showLoading();
+        
+        try {
+            const report = await window.reportManager.dataManager.generateSubjectReport(subject);
+            window.reportManager.showReportContent(report, `📚 ${subject} Report`);
+        } catch (error) {
+            window.reportManager.showError(`Error generating subject report: ${error.message}`);
+        }
+    }
+};
+
+window.generatePDF = async function() {
+    const selected = document.querySelector('input[name="pdfType"]:checked');
+    if (!selected || !window.reportManager) return;
+    
+    window.reportManager.showLoading();
+    
+    try {
+        let report;
+        let filename;
+        
+        switch(selected.value) {
+            case 'weekly':
+                report = await window.reportManager.dataManager.generateWeeklyReport();
+                filename = `Weekly_Report_${new Date().toISOString().slice(0,10)}`;
+                break;
+            case 'biweekly':
+                report = await window.reportManager.dataManager.generateBiWeeklyReport();
+                filename = `BiWeekly_Report_${new Date().toISOString().slice(0,10)}`;
+                break;
+            case 'monthly':
+                report = await window.reportManager.dataManager.generateMonthlyReport();
+                filename = `Monthly_Report_${new Date().toISOString().slice(0,10)}`;
+                break;
+        }
+        
+        // Simple PDF generation
+        if (typeof jspdf !== 'undefined') {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.text(report, 10, 10);
+            doc.save(`${filename}.pdf`);
+            
+            window.reportManager.updateReportContent(`
+                <div style="padding: 15px; background: #d1e7dd; border: 1px solid #198754; border-radius: 5px; color: #0f5132;">
+                    <h4 style="margin-top: 0;">✅ PDF Generated</h4>
+                    <p>File <strong>${filename}.pdf</strong> has been downloaded.</p>
+                    <button onclick="window.reportManager.clearReport()" class="button small success">
+                        Back to Reports
+                    </button>
+                </div>
+            `);
+        } else {
+            // Fallback to text
+            const blob = new Blob([report], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${filename}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            window.reportManager.updateReportContent(`
+                <div style="padding: 15px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 5px; color: #856404;">
+                    <h4 style="margin-top: 0;">⚠️ Text File Downloaded</h4>
+                    <p>jsPDF not available. File <strong>${filename}.txt</strong> has been downloaded instead.</p>
+                    <button onclick="window.reportManager.clearReport()" class="button small">
+                        Back to Reports
+                    </button>
+                </div>
+            `);
+        }
+        
+    } catch (error) {
+        window.reportManager.showError(`Error generating PDF: ${error.message}`);
+    }
+};
+
+window.sendEmail = async function() {
+    const to = document.getElementById('emailTo')?.value;
+    const type = document.getElementById('emailType')?.value;
+    
+    if (!to || !type || !window.reportManager) {
+        alert('Please fill all fields');
+        return;
+    }
+    
+    window.reportManager.showLoading();
+    
+    try {
+        let report;
+        let subject;
+        
+        switch(type) {
+            case 'weekly':
+                report = await window.reportManager.dataManager.generateWeeklyReport();
+                subject = 'Weekly Report';
+                break;
+            case 'biweekly':
+                report = await window.reportManager.dataManager.generateBiWeeklyReport();
+                subject = 'Bi-Weekly Report';
+                break;
+            case 'monthly':
+                report = await window.reportManager.dataManager.generateMonthlyReport();
+                subject = 'Monthly Report';
+                break;
+        }
+        
+        const body = `Hello,\n\nPlease find the attached report:\n\n${report}\n\nBest regards,\nWorkLogPro Team`;
+        
+        window.open(`mailto:${to}?subject=${encodeURIComponent(`WorkLogPro ${subject}`)}&body=${encodeURIComponent(body)}`, '_blank');
+        
+        window.reportManager.updateReportContent(`
+            <div style="padding: 15px; background: #d1e7dd; border: 1px solid #198754; border-radius: 5px; color: #0f5132;">
+                <h4 style="margin-top: 0;">✅ Email Ready</h4>
+                <p>Your email client has been opened with the report.</p>
+                <button onclick="window.reportManager.clearReport()" class="button small success">
+                    Back to Reports
+                </button>
+            </div>
+        `);
+        
+    } catch (error) {
+        window.reportManager.showError(`Error sending email: ${error.message}`);
+    }
+};
+
+window.generateClaimForm = async function() {
+    const type = document.getElementById('claimType')?.value;
+    if (!type || !window.reportManager) return;
+    
+    window.reportManager.showLoading();
+    
+    try {
+        const report = await window.reportManager.dataManager.generateClaimForm(type);
+        window.reportManager.showReportContent(report, `💰 ${type.toUpperCase()} Claim Form`);
+    } catch (error) {
+        window.reportManager.showError(`Error generating claim form: ${error.message}`);
+    }
+};
+
+window.generateInvoice = async function() {
+    const student = document.getElementById('invoiceStudent')?.value;
+    if (!student || !window.reportManager) {
+        alert('Please select a student');
+        return;
+    }
+    
+    window.reportManager.showLoading();
+    
+    try {
+        // Use current month as default period
+        const now = new Date();
+        const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        
+        const report = await window.reportManager.dataManager.generateInvoice(
+            student,
+            startDate.toISOString().split('T')[0],
+            endDate.toISOString().split('T')[0]
+        );
+        
+        window.reportManager.showReportContent(report, `🧾 Invoice for ${student}`);
+    } catch (error) {
+        window.reportManager.showError(`Error generating invoice: ${error.message}`);
+    }
+};
+
+// Initialize ReportManager
 console.log('Creating ReportManager...');
 new ReportManager();
