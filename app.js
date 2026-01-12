@@ -60,10 +60,13 @@ async function safeInit() {
 }
 
 // ==================== APP UI INITIALIZATION ====================
-function initAppUI() {
+async function initAppUI() {
   console.log('🎨 Initializing app UI...');
   
   try {
+    // Wait for DataManager to be ready
+    await waitForDataManager();
+    
     // Set default rate
     initDefaultRate();
     
@@ -76,7 +79,7 @@ function initAppUI() {
     initFAB();
     initProfileModal();
     initSyncControls();
-    initReportButtons(); // Initialize report buttons
+    initReportButtons();
     
     // Load data
     loadInitialData();
@@ -86,6 +89,23 @@ function initAppUI() {
   } catch (error) {
     console.error('❌ UI init error:', error);
   }
+}
+
+function waitForDataManager() {
+  return new Promise((resolve) => {
+    const checkInterval = setInterval(() => {
+      if (window.dataManager) {
+        clearInterval(checkInterval);
+        resolve();
+      }
+    }, 100);
+    
+    // Timeout after 5 seconds
+    setTimeout(() => {
+      clearInterval(checkInterval);
+      resolve(); // Continue even if dataManager not found
+    }, 5000);
+  });
 }
 
 // ==================== HELPER FUNCTIONS ====================
@@ -100,6 +120,23 @@ function delay(ms) {
 
 async function checkAuthentication() {
   console.log('🔍 Checking authentication...');
+  
+  // Check if we're in a development/local environment
+  const isLocal = window.location.hostname === 'localhost' || 
+                  window.location.hostname === '127.0.0.1' ||
+                  window.location.protocol === 'file:';
+  
+  if (isLocal) {
+    console.log('🏠 Local environment detected, auto-authenticating');
+    // Create a mock user for local development
+    const mockUser = {
+      uid: 'local_user_' + Date.now(),
+      email: 'local@example.com',
+      displayName: 'Local User'
+    };
+    storeUserInLocalStorage(mockUser);
+    return true;
+  }
   
   // Check localStorage first
   if (checkLocalStorageAuth()) {
@@ -407,26 +444,41 @@ function initTabs() {
 function loadTabData(tabName) {
   console.log(`📊 Loading data for ${tabName} tab...`);
   
-  switch(tabName) {
-    case 'students':
-      loadStudents();
-      break;
-    case 'hours':
-      loadHours();
-      break;
-    case 'marks':
-      loadMarks();
-      break;
-    case 'attendance':
-      loadAttendance();
-      break;
-    case 'payments':
-      loadPayments();
-      break;
-    case 'reports':
-      loadReports(); // This was missing!
-      break;
-  }
+  // Use setTimeout to ensure DOM is ready
+  setTimeout(() => {
+    switch(tabName) {
+      case 'students':
+        loadStudents();
+        break;
+      case 'hours':
+        loadHours();
+        break;
+      case 'marks':
+        loadMarks();
+        break;
+      case 'attendance':
+        loadAttendance();
+        break;
+      case 'payments':
+        loadPayments();
+        break;
+      case 'reports':
+        // Ensure ReportManager is initialized
+        if (window.reportManager && window.reportManager.loadData) {
+          window.reportManager.loadData().then(() => {
+            updateReportStats();
+            generateWeeklyBreakdown();
+            generateSubjectBreakdown();
+          });
+        } else {
+          // Fallback
+          updateReportStats();
+          generateWeeklyBreakdown();
+          generateSubjectBreakdown();
+        }
+        break;
+    }
+  }, 100);
 }
 
 function initFAB() {
@@ -1315,93 +1367,148 @@ function getNotificationColor(type) {
 }
 
 // Add animation styles
-const style = document.createElement('style');
-style.textContent = `
-  @keyframes slideIn {
-    from {
-      transform: translateX(100%);
-      opacity: 0;
-    }
-    to {
-      transform: translateX(0);
-      opacity: 1;
-    }
-  }
+// Add animation styles
+function addNotificationStyles() {
+  // Check if styles are already added
+  if (document.getElementById('notification-styles')) return;
   
-  @keyframes slideOut {
-    from {
-      transform: translateX(0);
-      opacity: 1;
+  const styleElement = document.createElement('style');
+  styleElement.id = 'notification-styles';
+  styleElement.textContent = `
+    @keyframes slideIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
     }
-    to {
-      transform: translateX(100%);
-      opacity: 0;
+    
+    @keyframes slideOut {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(100%);
+        opacity: 0;
+      }
     }
-  }
-  
-  .notification-close {
-    background: none;
-    border: none;
-    color: white;
-    font-size: 20px;
-    cursor: pointer;
-    padding: 0;
-    margin-left: 10px;
-  }
-`;
-document.head.appendChild(style);
+    
+    .notification-close {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0;
+      margin-left: 10px;
+    }
+  `;
+  document.head.appendChild(styleElement);
+}
+
+// Call the function to add styles
+addNotificationStyles();
 
 // ==================== REPORT FUNCTIONS ====================
 function initReportButtons() {
   console.log('📊 Initializing report buttons...');
   
-  // Weekly report
-  const weeklyReportBtn = document.getElementById('weeklyReportBtn');
-  if (weeklyReportBtn) {
-    weeklyReportBtn.addEventListener('click', function() {
-      generateWeeklyReport();
-    });
-  }
-  
-  // Bi-weekly report
-  const biWeeklyReportBtn = document.getElementById('biWeeklyReportBtn');
-  if (biWeeklyReportBtn) {
-    biWeeklyReportBtn.addEventListener('click', function() {
-      generateBiWeeklyReport();
-    });
-  }
-  
-  // Monthly report
-  const monthlyReportBtn = document.getElementById('monthlyReportBtn');
-  if (monthlyReportBtn) {
-    monthlyReportBtn.addEventListener('click', function() {
-      generateMonthlyReport();
-    });
-  }
-  
-  // Subject report
-  const subjectReportBtn = document.getElementById('subjectReportBtn');
-  if (subjectReportBtn) {
-    subjectReportBtn.addEventListener('click', function() {
-      generateSubjectReport();
-    });
-  }
-  
-  // PDF report
-  const pdfReportBtn = document.getElementById('pdfReportBtn');
-  if (pdfReportBtn) {
-    pdfReportBtn.addEventListener('click', function() {
-      generatePDFReport();
-    });
-  }
-  
-  // Email report
-  const emailReportBtn = document.getElementById('emailReportBtn');
-  if (emailReportBtn) {
-    emailReportBtn.addEventListener('click', function() {
-      generateEmailReport();
-    });
-  }
+  // Add a small delay to ensure ReportManager is ready
+  setTimeout(() => {
+    // Weekly report
+    const weeklyReportBtn = document.getElementById('weeklyReportBtn');
+    if (weeklyReportBtn) {
+      weeklyReportBtn.addEventListener('click', function() {
+        if (window.reportManager && window.reportManager.generateWeeklyReport) {
+          window.reportManager.generateWeeklyReport();
+        } else {
+          console.warn('ReportManager not available, using fallback');
+          generateWeeklyReport(); // Fallback function
+        }
+      });
+    }
+    
+    // Bi-weekly report
+    const biWeeklyReportBtn = document.getElementById('biWeeklyReportBtn');
+    if (biWeeklyReportBtn) {
+      biWeeklyReportBtn.addEventListener('click', function() {
+        if (window.reportManager && window.reportManager.generateBiWeeklyReport) {
+          window.reportManager.generateBiWeeklyReport();
+        } else {
+          generateBiWeeklyReport();
+        }
+      });
+    }
+    
+    // Monthly report
+    const monthlyReportBtn = document.getElementById('monthlyReportBtn');
+    if (monthlyReportBtn) {
+      monthlyReportBtn.addEventListener('click', function() {
+        if (window.reportManager && window.reportManager.generateMonthlyReport) {
+          window.reportManager.generateMonthlyReport();
+        } else {
+          generateMonthlyReport();
+        }
+      });
+    }
+    
+    // Subject report
+    const subjectReportBtn = document.getElementById('subjectReportBtn');
+    if (subjectReportBtn) {
+      subjectReportBtn.addEventListener('click', function() {
+        if (window.reportManager && window.reportManager.generateSubjectReport) {
+          window.reportManager.generateSubjectReport();
+        } else {
+          generateSubjectReport();
+        }
+      });
+    }
+    
+    // PDF report
+    const pdfReportBtn = document.getElementById('pdfReportBtn');
+    if (pdfReportBtn) {
+      pdfReportBtn.addEventListener('click', function() {
+        if (window.reportManager && window.reportManager.exportToPDF) {
+          window.reportManager.exportToPDF();
+        } else {
+          generatePDFReport();
+        }
+      });
+    }
+    
+    // Email report
+    const emailReportBtn = document.getElementById('emailReportBtn');
+    if (emailReportBtn) {
+      emailReportBtn.addEventListener('click', function() {
+        if (window.reportManager && window.reportManager.emailReport) {
+          window.reportManager.emailReport();
+        } else {
+          generateEmailReport();
+        }
+      });
+    }
+    
+    // Claim Form button (if exists)
+    const claimFormBtn = document.getElementById('claimFormBtn');
+    if (claimFormBtn && window.reportManager && window.reportManager.generateClaimForm) {
+      claimFormBtn.addEventListener('click', function() {
+        window.reportManager.generateClaimForm();
+      });
+    }
+    
+    // Invoice button (if exists)
+    const invoiceBtn = document.getElementById('invoiceBtn');
+    if (invoiceBtn && window.reportManager && window.reportManager.generateInvoice) {
+      invoiceBtn.addEventListener('click', function() {
+        window.reportManager.generateInvoice();
+      });
+    }
+    
+  }, 500); // 500ms delay
 }
 
 function loadReports() {
