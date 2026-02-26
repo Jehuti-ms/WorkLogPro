@@ -28,8 +28,8 @@ class DataManager {
         }
     }
 
-    // STUDENT METHODS
-   async addStudent(studentData) {
+   // STUDENT METHODS - FIXED VERSION
+async addStudent(studentData) {
     try {
         if (!this.userId) {
             console.error('❌ User not authenticated');
@@ -38,26 +38,49 @@ class DataManager {
         
         console.log('📤 Adding student to Firebase:', studentData);
         
-        const studentRef = this.db.collection('users').doc(this.userId).collection('students').doc();
+        // Generate a new document reference with auto-ID
+        const studentsCollectionRef = this.db
+            .collection('users')
+            .doc(this.userId)
+            .collection('students');
         
-        await studentRef.set({
+        const studentRef = studentsCollectionRef.doc(); // Auto-generate ID
+        
+        // Prepare data for Firestore
+        const studentToSave = {
             name: studentData.name,
             studentId: studentData.studentId || '',
             gender: studentData.gender || '',
             email: studentData.email || '',
             phone: studentData.phone || '',
-            hourlyRate: studentData.hourlyRate || studentData.rate || 0,
+            hourlyRate: parseFloat(studentData.hourlyRate || studentData.rate || 0),
             grade: studentData.grade || '',
-            subjects: studentData.subjects || [],
+            subjects: Array.isArray(studentData.subjects) ? studentData.subjects : 
+                      (studentData.subjects ? studentData.subjects.split(',').map(s => s.trim()) : []),
             notes: studentData.notes || '',
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        };
         
-        console.log('✅ Student added:', studentData.name);
+        // IMPORTANT: Actually await the Firestore save
+        await studentRef.set(studentToSave);
+        console.log('✅ Student saved to Firestore with ID:', studentRef.id);
+        
+        // Also save student ID to the data object for localStorage
+        studentData.id = studentRef.id;
+        
+        // Save to localStorage as backup
+        this.saveToLocalStorage();
+        
         return true;
     } catch (error) {
-        console.error('❌ Error adding student:', error);
+        console.error('❌ Error adding student to Firestore:', error);
+        
+        // Fallback: save only to localStorage with a generated ID
+        console.log('⚠️ Falling back to localStorage only');
+        studentData.id = studentData.id || 'local-' + Date.now();
+        this.saveToLocalStorage();
+        
         return false;
     }
 }
