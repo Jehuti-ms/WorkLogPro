@@ -28,8 +28,8 @@ class DataManager {
         }
     }
 
-  // TEMPORARY FIX - Replace the addStudent function
-window.dataManager.addStudent = async function(studentData) {
+ // STUDENT METHODS - FIXED VERSION
+async addStudent(studentData) {
     try {
         if (!this.userId) {
             console.error('❌ User not authenticated');
@@ -38,20 +38,17 @@ window.dataManager.addStudent = async function(studentData) {
         
         console.log('📤 Adding student to Firebase:', studentData);
         
-        // Get Firestore reference
-        const db = this.db;
-        const userId = this.userId;
-        
-        // Generate a new document reference
-        const studentRef = db
+        // Generate a new document reference with auto-ID
+        const studentsCollectionRef = this.db
             .collection('users')
-            .doc(userId)
-            .collection('students')
-            .doc(); // Auto-generate ID
+            .doc(this.userId)
+            .collection('students');
+        
+        const studentRef = studentsCollectionRef.doc(); // Auto-generate ID
         
         // Prepare data for Firestore
         const studentToSave = {
-            name: studentData.name || studentData.studentName || '',
+            name: studentData.name,
             studentId: studentData.studentId || '',
             gender: studentData.gender || '',
             email: studentData.email || '',
@@ -59,42 +56,34 @@ window.dataManager.addStudent = async function(studentData) {
             hourlyRate: parseFloat(studentData.hourlyRate || studentData.rate || 0),
             grade: studentData.grade || '',
             subjects: Array.isArray(studentData.subjects) ? studentData.subjects : 
-                      (studentData.subjects ? [studentData.subjects] : []),
+                      (studentData.subjects ? studentData.subjects.split(',').map(s => s.trim()) : []),
             notes: studentData.notes || '',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
         
-        // Save to Firestore
+        // IMPORTANT: Actually await the Firestore save
         await studentRef.set(studentToSave);
         console.log('✅ Student saved to Firestore with ID:', studentRef.id);
         
-        // Add the Firestore ID to the student data
+        // Also save student ID to the data object for localStorage
         studentData.id = studentRef.id;
         
         // Save to localStorage as backup
-        const students = this.getStudents() || [];
-        students.push(studentData);
-        localStorage.setItem('worklog_students', JSON.stringify(students));
-        console.log('✅ Student saved to localStorage');
-        
-        // Trigger UI update
-        if (window.loadStudents) window.loadStudents();
+        this.saveToLocalStorage();
         
         return true;
     } catch (error) {
         console.error('❌ Error adding student to Firestore:', error);
         
-        // Fallback: save only to localStorage
+        // Fallback: save only to localStorage with a generated ID
+        console.log('⚠️ Falling back to localStorage only');
         studentData.id = studentData.id || 'local-' + Date.now();
-        const students = this.getStudents() || [];
-        students.push(studentData);
-        localStorage.setItem('worklog_students', JSON.stringify(students));
-        console.log('⚠️ Saved to localStorage only');
+        this.saveToLocalStorage();
         
         return false;
     }
-};
+}
 
     async getAllStudents() {
         try {
