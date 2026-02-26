@@ -28,84 +28,113 @@ class DataManager {
         }
     }
 
- // STUDENT METHODS - FIXED VERSION
-async addStudent(studentData) {
-    try {
-        if (!this.userId) {
-            console.error('❌ User not authenticated');
-            return false;
+    // SYNC UI METHOD - ADD THIS NEW METHOD
+    syncUI() {
+        // Get students from localStorage (which is kept in sync)
+        let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+        
+        // Sort by studentId numerically for consistent display
+        students.sort((a, b) => {
+            const idA = parseInt(a.studentId) || 999999;
+            const idB = parseInt(b.studentId) || 999999;
+            return idA - idB;
+        });
+        
+        // Update formHandler if it exists
+        if (window.formHandler) {
+            window.formHandler.students = students;
         }
         
-        console.log('📤 Adding student to Firebase:', studentData);
+        // Trigger UI update
+        if (window.loadStudents) {
+            window.loadStudents();
+        }
         
-        // Generate a new document reference with auto-ID
-        const studentsCollectionRef = this.db
-            .collection('users')
-            .doc(this.userId)
-            .collection('students');
-        
-        const studentRef = studentsCollectionRef.doc(); // Auto-generate ID
-        
-        // Prepare data for Firestore
-        const studentToSave = {
-            name: studentData.name,
-            studentId: studentData.studentId || '',
-            gender: studentData.gender || '',
-            email: studentData.email || '',
-            phone: studentData.phone || '',
-            hourlyRate: parseFloat(studentData.hourlyRate || studentData.rate || 0),
-            grade: studentData.grade || '',
-            subjects: Array.isArray(studentData.subjects) ? studentData.subjects : 
-                      (studentData.subjects ? studentData.subjects.split(',').map(s => s.trim()) : []),
-            notes: studentData.notes || '',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        
-        // IMPORTANT: Actually await the Firestore save
-        await studentRef.set(studentToSave);
-        console.log('✅ Student saved to Firestore with ID:', studentRef.id);
-        
-        // Also save student ID to the data object for localStorage
-        studentData.id = studentRef.id;
-        
-        // Save to localStorage as backup
-        this.saveToLocalStorage();
-        
-        return true;
-    } catch (error) {
-        console.error('❌ Error adding student to Firestore:', error);
-        
-        // Fallback: save only to localStorage with a generated ID
-        console.log('⚠️ Falling back to localStorage only');
-        studentData.id = studentData.id || 'local-' + Date.now();
-        this.saveToLocalStorage();
-        
-        return false;
+        console.log(`🔄 UI synced with ${students.length} students (sorted by ID)`);
+        return students;
     }
 
-    // At the end of your addStudent method, after saveToLocalStorage():
-        await studentRef.set(studentToSave);
-        console.log('✅ Student saved to Firestore with ID:', studentRef.id);
-        
-        studentData.id = studentRef.id;
-        this.saveToLocalStorage();
-        
-        // ADD THIS LINE:
-        this.syncUI();  // Auto-refresh the UI
-        
-        return true;
-}
+    // STUDENT METHODS - FIXED VERSION
+    async addStudent(studentData) {
+        try {
+            if (!this.userId) {
+                console.error('❌ User not authenticated');
+                return false;
+            }
+            
+            console.log('📤 Adding student to Firebase:', studentData);
+            
+            // Generate a new document reference with auto-ID
+            const studentsCollectionRef = this.db
+                .collection('users')
+                .doc(this.userId)
+                .collection('students');
+            
+            const studentRef = studentsCollectionRef.doc(); // Auto-generate ID
+            
+            // Prepare data for Firestore
+            const studentToSave = {
+                name: studentData.name,
+                studentId: studentData.studentId || '',
+                gender: studentData.gender || '',
+                email: studentData.email || '',
+                phone: studentData.phone || '',
+                hourlyRate: parseFloat(studentData.hourlyRate || studentData.rate || 0),
+                grade: studentData.grade || '',
+                subjects: Array.isArray(studentData.subjects) ? studentData.subjects : 
+                          (studentData.subjects ? studentData.subjects.split(',').map(s => s.trim()) : []),
+                notes: studentData.notes || '',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            
+            // IMPORTANT: Actually await the Firestore save
+            await studentRef.set(studentToSave);
+            console.log('✅ Student saved to Firestore with ID:', studentRef.id);
+            
+            // Also save student ID to the data object for localStorage
+            studentData.id = studentRef.id;
+            
+            // Save to localStorage as backup
+            this.saveToLocalStorage();
+            
+            // Auto-refresh the UI
+            this.syncUI();
+            
+            return true;
+        } catch (error) {
+            console.error('❌ Error adding student to Firestore:', error);
+            
+            // Fallback: save only to localStorage with a generated ID
+            console.log('⚠️ Falling back to localStorage only');
+            studentData.id = studentData.id || 'local-' + Date.now();
+            this.saveToLocalStorage();
+            
+            // Still try to refresh UI with localStorage data
+            this.syncUI();
+            
+            return false;
+        }
+    }
 
     async getAllStudents() {
         try {
             if (!this.userId) return [];
             
             const snapshot = await this.db.collection('users').doc(this.userId).collection('students').get();
-            return snapshot.docs.map(doc => ({
+            let students = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             }));
+            
+            // Sort by studentId for consistent display
+            students.sort((a, b) => {
+                const idA = parseInt(a.studentId) || 999999;
+                const idB = parseInt(b.studentId) || 999999;
+                return idA - idB;
+            });
+            
+            return students;
         } catch (error) {
             console.error('❌ Error getting students:', error);
             return [];
@@ -122,6 +151,11 @@ async addStudent(studentData) {
             });
             
             console.log('✅ Student updated:', studentId);
+            
+            // Refresh localStorage and UI
+            await this.loadFromFirestore();
+            this.syncUI();
+            
             return true;
         } catch (error) {
             console.error('❌ Error updating student:', error);
@@ -135,11 +169,36 @@ async addStudent(studentData) {
             
             await this.db.collection('users').doc(this.userId).collection('students').doc(studentId).delete();
             console.log('✅ Student deleted:', studentId);
+            
+            // Refresh localStorage and UI
+            await this.loadFromFirestore();
+            this.syncUI();
+            
             return true;
         } catch (error) {
             console.error('❌ Error deleting student:', error);
             return false;
         }
+    }
+
+    // Load from Firestore to localStorage
+    async loadFromFirestore() {
+        try {
+            const students = await this.getAllStudents();
+            localStorage.setItem('worklog_students', JSON.stringify(students));
+            console.log(`📚 Loaded ${students.length} students from Firestore to localStorage`);
+            return students;
+        } catch (error) {
+            console.error('❌ Error loading from Firestore:', error);
+            return [];
+        }
+    }
+
+    // Save to localStorage
+    saveToLocalStorage() {
+        // This method should be implemented based on your storage structure
+        // For now, it's a placeholder
+        console.log('💾 Saving to localStorage...');
     }
 
     // HOURS/LOGS METHODS
@@ -208,25 +267,6 @@ async addStudent(studentData) {
         }
     }
 
-    // Add this method to your DataManager class (around line 200)
-syncUI() {
-    // Get students from localStorage (which is kept in sync)
-    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-    
-    // Update formHandler if it exists
-    if (window.formHandler) {
-        window.formHandler.students = students;
-    }
-    
-    // Trigger UI update
-    if (window.loadStudents) {
-        window.loadStudents();
-    }
-    
-    console.log(`🔄 UI synced with ${students.length} students`);
-    return students;
-}
-    
     // MARKS METHODS
     async addMark(markData) {
         try {
@@ -335,7 +375,7 @@ syncUI() {
         }
     }
 
-    // REPORT METHODS - ADD THESE CORRECTLY
+    // REPORT METHODS
     generateWeeklyReport() {
         return this.generateDateRangeReport('weekly');
     }
