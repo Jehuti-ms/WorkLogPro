@@ -83,6 +83,18 @@ async addStudent(studentData) {
         
         return false;
     }
+
+    // At the end of your addStudent method, after saveToLocalStorage():
+        await studentRef.set(studentToSave);
+        console.log('✅ Student saved to Firestore with ID:', studentRef.id);
+        
+        studentData.id = studentRef.id;
+        this.saveToLocalStorage();
+        
+        // ADD THIS LINE:
+        this.syncUI();  // Auto-refresh the UI
+        
+        return true;
 }
 
     async getAllStudents() {
@@ -196,6 +208,25 @@ async addStudent(studentData) {
         }
     }
 
+    // Add this method to your DataManager class (around line 200)
+syncUI() {
+    // Get students from localStorage (which is kept in sync)
+    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    
+    // Update formHandler if it exists
+    if (window.formHandler) {
+        window.formHandler.students = students;
+    }
+    
+    // Trigger UI update
+    if (window.loadStudents) {
+        window.loadStudents();
+    }
+    
+    console.log(`🔄 UI synced with ${students.length} students`);
+    return students;
+}
+    
     // MARKS METHODS
     async addMark(markData) {
         try {
