@@ -29,31 +29,97 @@ class DataManager {
     }
 
     // SYNC UI METHOD - ADD THIS NEW METHOD
-    syncUI() {
-        // Get students from localStorage (which is kept in sync)
-        let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    // SYNC UI METHOD - WITH BETTER SORTING
+// SYNC UI METHOD - DIRECT UI RENDERING
+syncUI() {
+    console.log('🔄 Syncing UI with student data...');
+    
+    // Get students from localStorage
+    let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    
+    // Sort by studentId numerically
+    students.sort((a, b) => {
+        // Extract numbers from studentId
+        const getNumericId = (student) => {
+            if (!student.studentId) return 999999;
+            const match = student.studentId.toString().match(/\d+/);
+            return match ? parseInt(match[0], 10) : 999999;
+        };
         
-        // Sort by studentId numerically for consistent display
-        students.sort((a, b) => {
-            const idA = parseInt(a.studentId) || 999999;
-            const idB = parseInt(b.studentId) || 999999;
-            return idA - idB;
-        });
+        const idA = getNumericId(a);
+        const idB = getNumericId(b);
         
-        // Update formHandler if it exists
-        if (window.formHandler) {
-            window.formHandler.students = students;
-        }
-        
-        // Trigger UI update
-        if (window.loadStudents) {
-            window.loadStudents();
-        }
-        
-        console.log(`🔄 UI synced with ${students.length} students (sorted by ID)`);
-        return students;
+        return idA - idB;
+    });
+    
+    // Update formHandler
+    if (window.formHandler) {
+        window.formHandler.students = students;
     }
-
+    
+    // DIRECT UI UPDATE - NO DEPENDENCY ON loadStudents()
+    const container = document.getElementById('studentsContainer');
+    if (container) {
+        if (students.length === 0) {
+            container.innerHTML = '<p class="empty-message">No students registered yet.</p>';
+        } else {
+            container.innerHTML = students.map(student => {
+                // Format the date properly
+                let dateStr = 'Unknown';
+                if (student.createdAt) {
+                    try {
+                        // Handle Firestore timestamp or ISO string
+                        const date = student.createdAt.toDate ? 
+                            student.createdAt.toDate() : 
+                            new Date(student.createdAt);
+                        dateStr = date.toLocaleDateString();
+                    } catch (e) {
+                        dateStr = 'Unknown';
+                    }
+                }
+                
+                return `
+                    <div class="student-card" data-id="${student.id}">
+                        <div class="student-card-header">
+                            <strong>${student.name || ''}</strong>
+                            <span class="student-id">${student.studentId || ''}</span>
+                            <div class="student-actions">
+                                <button class="btn-icon edit-student" onclick="window.editStudent('${student.id}')" title="Edit">✏️</button>
+                                <button class="btn-icon delete-student" onclick="window.deleteStudent('${student.id}')" title="Delete">🗑️</button>
+                            </div>
+                        </div>
+                        <div class="student-details">
+                            <div class="student-rate">$${(student.hourlyRate || student.rate || 0).toFixed(2)}/hour</div>
+                            <div>${student.gender || ''} • ${student.email || 'No email'}</div>
+                            <div>${student.phone || 'No phone'}</div>
+                            <div class="student-meta">
+                                Added: ${dateStr}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Update student count
+        const countElem = document.getElementById('studentCount');
+        if (countElem) countElem.textContent = students.length;
+        
+        // Also update any other stats elements
+        const statStudents = document.getElementById('statStudents');
+        if (statStudents) statStudents.textContent = students.length;
+    }
+    
+    console.log(`✅ UI synced with ${students.length} students (sorted by ID)`);
+    
+    // Log the sorted order for debugging
+    if (students.length > 0) {
+        console.log('📋 Student order:', students.map(s => `${s.studentId}: ${s.name}`).join(' → '));
+    }
+    
+    return students;
+}
+    
     // STUDENT METHODS - FIXED VERSION
     async addStudent(studentData) {
         try {
@@ -118,28 +184,35 @@ class DataManager {
     }
 
     async getAllStudents() {
-        try {
-            if (!this.userId) return [];
+    try {
+        if (!this.userId) return [];
+        
+        const snapshot = await this.db.collection('users').doc(this.userId).collection('students').get();
+        let students = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        
+        // Sort by studentId numerically
+        students.sort((a, b) => {
+            const getNumericId = (student) => {
+                if (!student.studentId) return 999999;
+                const match = student.studentId.toString().match(/\d+/);
+                return match ? parseInt(match[0], 10) : 999999;
+            };
             
-            const snapshot = await this.db.collection('users').doc(this.userId).collection('students').get();
-            let students = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
+            const idA = getNumericId(a);
+            const idB = getNumericId(b);
             
-            // Sort by studentId for consistent display
-            students.sort((a, b) => {
-                const idA = parseInt(a.studentId) || 999999;
-                const idB = parseInt(b.studentId) || 999999;
-                return idA - idB;
-            });
-            
-            return students;
-        } catch (error) {
-            console.error('❌ Error getting students:', error);
-            return [];
-        }
+            return idA - idB;
+        });
+        
+        return students;
+    } catch (error) {
+        console.error('❌ Error getting students:', error);
+        return [];
     }
+}
 
     async updateStudent(studentId, studentData) {
         try {
