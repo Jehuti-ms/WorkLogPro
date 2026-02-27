@@ -1,4 +1,4 @@
-// data-manager.js - FIXED VERSION
+// data-manager.js - COMPLETE FIXED VERSION
 console.log('📊 Loading data-manager.js...');
 
 class DataManager {
@@ -8,6 +8,7 @@ class DataManager {
         this.auth = firebase.auth();
         this.userId = null;
         this.currentUserEmail = null;
+        this.students = []; // Add students array to store in memory
         
         this.init();
     }
@@ -20,6 +21,9 @@ class DataManager {
                 this.userId = user.uid;
                 this.currentUserEmail = user.email;
                 console.log(`📊 DataManager initialized for user: ${this.currentUserEmail}`);
+                
+                // Load students from Firestore on init
+                await this.loadFromFirestore();
             } else {
                 console.log('📊 DataManager: No user logged in');
             }
@@ -28,97 +32,95 @@ class DataManager {
         }
     }
 
-    // SYNC UI METHOD - ADD THIS NEW METHOD
-    // SYNC UI METHOD - WITH BETTER SORTING
-// SYNC UI METHOD - DIRECT UI RENDERING
-syncUI() {
-    console.log('🔄 Syncing UI with student data...');
-    
-    // Get students from localStorage
-    let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-    
-    // Sort by studentId numerically
-    students.sort((a, b) => {
-        // Extract numbers from studentId
-        const getNumericId = (student) => {
-            if (!student.studentId) return 999999;
-            const match = student.studentId.toString().match(/\d+/);
-            return match ? parseInt(match[0], 10) : 999999;
-        };
+    // SYNC UI METHOD - WITH PROPER SORTING AND TEST DATA HANDLING
+    syncUI() {
+        console.log('🔄 Syncing UI with student data...');
         
-        const idA = getNumericId(a);
-        const idB = getNumericId(b);
+        // Get students from localStorage
+        let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
         
-        return idA - idB;
-    });
-    
-    // Update formHandler
-    if (window.formHandler) {
-        window.formHandler.students = students;
-    }
-    
-    // DIRECT UI UPDATE - NO DEPENDENCY ON loadStudents()
-    const container = document.getElementById('studentsContainer');
-    if (container) {
-        if (students.length === 0) {
-            container.innerHTML = '<p class="empty-message">No students registered yet.</p>';
-        } else {
-            container.innerHTML = students.map(student => {
-                // Format the date properly
-                let dateStr = 'Unknown';
-                if (student.createdAt) {
-                    try {
-                        // Handle Firestore timestamp or ISO string
-                        const date = student.createdAt.toDate ? 
-                            student.createdAt.toDate() : 
-                            new Date(student.createdAt);
-                        dateStr = date.toLocaleDateString();
-                    } catch (e) {
-                        dateStr = 'Unknown';
-                    }
-                }
-                
-                return `
-                    <div class="student-card" data-id="${student.id}">
-                        <div class="student-card-header">
-                            <strong>${student.name || ''}</strong>
-                            <span class="student-id">${student.studentId || ''}</span>
-                            <div class="student-actions">
-                                <button class="btn-icon edit-student" onclick="window.editStudent('${student.id}')" title="Edit">✏️</button>
-                                <button class="btn-icon delete-student" onclick="window.deleteStudent('${student.id}')" title="Delete">🗑️</button>
-                            </div>
-                        </div>
-                        <div class="student-details">
-                            <div class="student-rate">$${(student.hourlyRate || student.rate || 0).toFixed(2)}/hour</div>
-                            <div>${student.gender || ''} • ${student.email || 'No email'}</div>
-                            <div>${student.phone || 'No phone'}</div>
-                            <div class="student-meta">
-                                Added: ${dateStr}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
+        // Split into real students (with valid studentId) and test data
+        const realStudents = students.filter(s => s.studentId && s.studentId.toString().trim() !== '');
+        const testStudents = students.filter(s => !s.studentId || s.studentId.toString().trim() === '');
+        
+        // Sort real students by studentId numerically
+        realStudents.sort((a, b) => {
+            const getNum = (id) => {
+                const match = id.toString().match(/\d+/);
+                return match ? parseInt(match[0], 10) : 999999;
+            };
+            return getNum(a.studentId) - getNum(b.studentId);
+        });
+        
+        // Combine real students first, then test data at the end
+        students = [...realStudents, ...testStudents];
+        
+        // Update formHandler
+        if (window.formHandler) {
+            window.formHandler.students = students;
         }
         
-        // Update student count
-        const countElem = document.getElementById('studentCount');
-        if (countElem) countElem.textContent = students.length;
+        // DIRECT UI UPDATE
+        const container = document.getElementById('studentsContainer');
+        if (container) {
+            if (students.length === 0) {
+                container.innerHTML = '<p class="empty-message">No students registered yet.</p>';
+            } else {
+                container.innerHTML = students.map(student => {
+                    // Format the date properly
+                    let dateStr = 'Unknown';
+                    if (student.createdAt) {
+                        try {
+                            const date = student.createdAt.toDate ? 
+                                student.createdAt.toDate() : 
+                                new Date(student.createdAt);
+                            dateStr = date.toLocaleDateString();
+                        } catch (e) {
+                            dateStr = 'Unknown';
+                        }
+                    }
+                    
+                    // Add a visual indicator for test students
+                    const isTestStudent = !student.studentId || student.studentId.toString().trim() === '';
+                    
+                    return `
+                        <div class="student-card" data-id="${student.id}" style="${isTestStudent ? 'opacity: 0.7; border-left: 3px solid orange;' : ''}">
+                            <div class="student-card-header">
+                                <strong>${student.name || ''}</strong>
+                                <span class="student-id">${student.studentId || '⚠️ No ID'}</span>
+                                <div class="student-actions">
+                                    <button class="btn-icon edit-student" onclick="window.editStudent('${student.id}')" title="Edit">✏️</button>
+                                    <button class="btn-icon delete-student" onclick="window.deleteStudent('${student.id}')" title="Delete">🗑️</button>
+                                </div>
+                            </div>
+                            <div class="student-details">
+                                <div class="student-rate">$${(student.hourlyRate || student.rate || 0).toFixed(2)}/hour</div>
+                                <div>${student.gender || ''} • ${student.email || 'No email'}</div>
+                                <div>${student.phone || 'No phone'}</div>
+                                <div class="student-meta">
+                                    Added: ${dateStr}
+                                    ${isTestStudent ? '<span style="color: orange; margin-left: 10px;">⚠️ Test Data</span>' : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
+            // Update student count
+            const countElem = document.getElementById('studentCount');
+            if (countElem) countElem.textContent = realStudents.length;
+            
+            // Also update stats
+            const statStudents = document.getElementById('statStudents');
+            if (statStudents) statStudents.textContent = realStudents.length;
+        }
         
-        // Also update any other stats elements
-        const statStudents = document.getElementById('statStudents');
-        if (statStudents) statStudents.textContent = students.length;
+        console.log(`✅ UI synced with ${realStudents.length} real students + ${testStudents.length} test entries`);
+        console.log('📋 Real student order:', realStudents.map(s => `${s.studentId}: ${s.name}`).join(' → '));
+        
+        return students;
     }
-    
-    console.log(`✅ UI synced with ${students.length} students (sorted by ID)`);
-    
-    // Log the sorted order for debugging
-    if (students.length > 0) {
-        console.log('📋 Student order:', students.map(s => `${s.studentId}: ${s.name}`).join(' → '));
-    }
-    
-    return students;
-}
     
     // STUDENT METHODS - FIXED VERSION
     async addStudent(studentData) {
@@ -161,6 +163,13 @@ syncUI() {
             // Also save student ID to the data object for localStorage
             studentData.id = studentRef.id;
             
+            // Add to in-memory array
+            this.students.push({
+                id: studentRef.id,
+                ...studentToSave,
+                createdAt: new Date() // Use regular date for localStorage
+            });
+            
             // Save to localStorage as backup
             this.saveToLocalStorage();
             
@@ -174,6 +183,25 @@ syncUI() {
             // Fallback: save only to localStorage with a generated ID
             console.log('⚠️ Falling back to localStorage only');
             studentData.id = studentData.id || 'local-' + Date.now();
+            
+            // Add to in-memory array
+            this.students.push({
+                id: studentData.id,
+                name: studentData.name,
+                studentId: studentData.studentId || '',
+                gender: studentData.gender || '',
+                email: studentData.email || '',
+                phone: studentData.phone || '',
+                hourlyRate: parseFloat(studentData.hourlyRate || studentData.rate || 0),
+                grade: studentData.grade || '',
+                subjects: Array.isArray(studentData.subjects) ? studentData.subjects : 
+                          (studentData.subjects ? [studentData.subjects] : []),
+                notes: studentData.notes || '',
+                createdAt: new Date(),
+                updatedAt: new Date()
+            });
+            
+            // Save to localStorage
             this.saveToLocalStorage();
             
             // Still try to refresh UI with localStorage data
@@ -184,35 +212,38 @@ syncUI() {
     }
 
     async getAllStudents() {
-    try {
-        if (!this.userId) return [];
-        
-        const snapshot = await this.db.collection('users').doc(this.userId).collection('students').get();
-        let students = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
-        
-        // Sort by studentId numerically
-        students.sort((a, b) => {
-            const getNumericId = (student) => {
-                if (!student.studentId) return 999999;
-                const match = student.studentId.toString().match(/\d+/);
-                return match ? parseInt(match[0], 10) : 999999;
-            };
+        try {
+            if (!this.userId) return [];
             
-            const idA = getNumericId(a);
-            const idB = getNumericId(b);
+            const snapshot = await this.db.collection('users').doc(this.userId).collection('students').get();
+            let students = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
             
-            return idA - idB;
-        });
-        
-        return students;
-    } catch (error) {
-        console.error('❌ Error getting students:', error);
-        return [];
+            // Sort by studentId numerically
+            students.sort((a, b) => {
+                const getNumericId = (student) => {
+                    if (!student.studentId) return 999999;
+                    const match = student.studentId.toString().match(/\d+/);
+                    return match ? parseInt(match[0], 10) : 999999;
+                };
+                
+                const idA = getNumericId(a);
+                const idB = getNumericId(b);
+                
+                return idA - idB;
+            });
+            
+            // Update in-memory array
+            this.students = students;
+            
+            return students;
+        } catch (error) {
+            console.error('❌ Error getting students:', error);
+            return [];
+        }
     }
-}
 
     async updateStudent(studentId, studentData) {
         try {
@@ -225,8 +256,19 @@ syncUI() {
             
             console.log('✅ Student updated:', studentId);
             
+            // Update in-memory array
+            const index = this.students.findIndex(s => s.id === studentId);
+            if (index !== -1) {
+                this.students[index] = {
+                    ...this.students[index],
+                    ...studentData,
+                    updatedAt: new Date()
+                };
+            }
+            
             // Refresh localStorage and UI
             await this.loadFromFirestore();
+            this.saveToLocalStorage();
             this.syncUI();
             
             return true;
@@ -243,8 +285,12 @@ syncUI() {
             await this.db.collection('users').doc(this.userId).collection('students').doc(studentId).delete();
             console.log('✅ Student deleted:', studentId);
             
+            // Remove from in-memory array
+            this.students = this.students.filter(s => s.id !== studentId);
+            
             // Refresh localStorage and UI
             await this.loadFromFirestore();
+            this.saveToLocalStorage();
             this.syncUI();
             
             return true;
@@ -267,11 +313,19 @@ syncUI() {
         }
     }
 
-    // Save to localStorage
+    // Save to localStorage - FIXED VERSION
     saveToLocalStorage() {
-        // This method should be implemented based on your storage structure
-        // For now, it's a placeholder
-        console.log('💾 Saving to localStorage...');
+        try {
+            // Use in-memory students array or get from wherever they're stored
+            const students = this.students && this.students.length > 0 ? 
+                this.students : 
+                JSON.parse(localStorage.getItem('worklog_students') || '[]');
+            
+            localStorage.setItem('worklog_students', JSON.stringify(students));
+            console.log(`💾 Saved ${students.length} students to localStorage`);
+        } catch (error) {
+            console.error('❌ Error saving to localStorage:', error);
+        }
     }
 
     // HOURS/LOGS METHODS
@@ -778,3 +832,31 @@ const initDataManager = () => {
 
 // Start initialization
 initDataManager();
+
+// Add global helper functions
+window.editStudent = function(studentId) {
+    console.log('✏️ Edit student:', studentId);
+    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    const student = students.find(s => s.id === studentId);
+    if (student) {
+        // Populate your edit form here
+        console.log('Student data to edit:', student);
+        alert(`Edit student: ${student.name}\nThis feature is coming soon!`);
+    }
+};
+
+window.deleteStudent = function(studentId) {
+    console.log('🗑️ Delete student:', studentId);
+    if (confirm('Are you sure you want to delete this student?')) {
+        if (window.dataManager) {
+            window.dataManager.deleteStudent(studentId);
+        }
+    }
+};
+
+// Force render helper
+window.forceRender = function() {
+    if (window.dataManager) {
+        window.dataManager.syncUI();
+    }
+};
