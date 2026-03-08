@@ -4,6 +4,67 @@ let redirectInProgress = false;
 let currentEditId = null;
 let autoSyncInterval = null;
 
+// ==================== IMPROVED AUTH CHECK ====================
+async function checkAuthentication() {
+  console.log('🔍 Checking authentication...');
+  
+  // First check Firebase directly (it has persistence)
+  if (typeof firebase !== 'undefined' && firebase.auth) {
+    try {
+      // Wait for Firebase to initialize
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const user = firebase.auth().currentUser;
+      if (user) {
+        console.log('✅ Found Firebase user:', user.email);
+        storeUserInLocalStorage(user);
+        return true;
+      }
+      
+      // If no current user, wait for auth state (but with timeout)
+      const authUser = await new Promise((resolve) => {
+        const unsubscribe = firebase.auth().onAuthStateChanged((user) => {
+          unsubscribe();
+          resolve(user);
+        });
+        setTimeout(() => {
+          unsubscribe();
+          resolve(null);
+        }, 2000);
+      });
+      
+      if (authUser) {
+        console.log('✅ Firebase auth state resolved:', authUser.email);
+        storeUserInLocalStorage(authUser);
+        return true;
+      }
+    } catch (error) {
+      console.log('Firebase auth error:', error);
+    }
+  }
+  
+  // Check localStorage as fallback
+  if (checkLocalStorageAuth()) {
+    console.log('✅ Found user in localStorage');
+    
+    // Try to restore Firebase session
+    try {
+      const userEmail = localStorage.getItem('userEmail');
+      if (userEmail && typeof firebase !== 'undefined') {
+        console.log('🔄 Attempting to restore Firebase session for:', userEmail);
+        // Firebase will automatically restore if persistence is working
+      }
+    } catch (e) {
+      console.log('Could not restore Firebase session:', e);
+    }
+    
+    return true;
+  }
+  
+  console.log('❌ No authentication found');
+  return false;
+}
+
 // ==================== MAIN INITIALIZATION ====================
 function initApp() {
   console.log('🚀 Initializing app...');
