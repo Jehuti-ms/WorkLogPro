@@ -1672,27 +1672,149 @@ window.editStudent = async function(studentId) {
     }
 };
 
+// Updated window.deleteStudent function for form-handler.js
+
 window.deleteStudent = async function(studentId) {
-    if (!confirm('Are you sure you want to delete this student?')) return;
+    console.log('🗑️ Delete student called for ID:', studentId);
+    
+    if (!studentId) {
+        console.error('❌ No student ID provided');
+        return;
+    }
+    
+    // Double confirmation for safety
+    if (!confirm('⚠️ Are you sure you want to permanently delete this student?\n\nThis will also delete all related:\n• Hours worked\n• Marks/assessments\n• Attendance records\n• Payment history\n\nThis action CANNOT be undone!')) {
+        return;
+    }
+    
+    // Show loading state
+    const deleteBtn = document.querySelector(`button[onclick*="deleteStudent('${studentId}')"]`);
+    if (deleteBtn) {
+        const originalText = deleteBtn.textContent;
+        deleteBtn.textContent = '⏳ Deleting...';
+        deleteBtn.disabled = true;
+    }
     
     try {
-        // Get students
-        const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-        const filtered = students.filter(student => student.id !== studentId);
-        
-        // Save to localStorage
-        localStorage.setItem('worklog_students', JSON.stringify(filtered));
-        
-        if (window.formHandler && window.formHandler.showNotification) {
-            window.formHandler.showNotification('Student deleted', 'success');
+        // 1. DELETE FROM FIREBASE if user is logged in
+        if (typeof firebase !== 'undefined' && firebase.auth().currentUser) {
+            try {
+                console.log('☁️ Deleting from Firebase...');
+                const user = firebase.auth().currentUser;
+                const db = firebase.firestore();
+                const userRef = db.collection('users').doc(user.uid);
+                
+                // Delete from consolidated data document
+                const dataDocRef = userRef.collection('data').doc('worklog');
+                const dataDoc = await dataDocRef.get();
+                
+                if (dataDoc.exists) {
+                    const data = dataDoc.data();
+                    if (data.students) {
+                        data.students = data.students.filter(s => s.id !== studentId);
+                        await dataDocRef.set(data, { merge: true });
+                        console.log('✅ Removed from consolidated data');
+                    }
+                }
+                
+                // Delete from separate students collection
+                try {
+                    await userRef.collection('students').doc(studentId).delete();
+                    console.log('✅ Deleted from students collection');
+                } catch (e) {
+                    console.log('No separate student document to delete');
+                }
+                
+                // Delete related data from Firebase
+                const collections = ['hours', 'marks', 'attendance', 'payments'];
+                for (const col of collections) {
+                    try {
+                        const snapshot = await userRef.collection(col)
+                            .where('studentId', '==', studentId)
+                            .get();
+                        
+                        const batch = db.batch();
+                        snapshot.docs.forEach(doc => batch.delete(doc.ref));
+                        await batch.commit();
+                        console.log(`✅ Deleted ${snapshot.size} from ${col}`);
+                    } catch (e) {
+                        console.log(`Could not delete from ${col}:`, e);
+                    }
+                }
+                
+            } catch (firebaseError) {
+                console.error('⚠️ Firebase delete error:', firebaseError);
+                // Continue with local delete anyway
+            }
         }
         
-        // Refresh UI
+        // 2. DELETE FROM LOCALSTORAGE (ALWAYS DO THIS)
+        console.log('💾 Deleting from localStorage...');
+        
+        // Get all data types
+        const dataTypes = [
+            { key: 'worklog_students', field: 'id', value: studentId },
+            { key: 'worklog_hours', field: 'hoursStudent', value: studentId },
+            { key: 'worklog_marks', field: 'marksStudent', value: studentId },
+            { key: 'worklog_payments', field: 'paymentStudent', value: studentId },
+            { key: 'worklog_attendance', field: 'presentStudents', value: studentId, isArray: true }
+        ];
+        
+        let totalDeleted = 0;
+        
+        dataTypes.forEach(({ key, field, value, isArray }) => {
+            const items = JSON.parse(localStorage.getItem(key) || '[]');
+            const beforeCount = items.length;
+            
+            let filtered;
+            if (isArray) {
+                // For attendance arrays, remove student from presentStudents array
+                filtered = items.map(item => {
+                    if (item[field] && Array.isArray(item[field])) {
+                        item[field] = item[field].filter(id => id !== value);
+                    }
+                    return item;
+                }).filter(item => !item[field] || item[field].length > 0);
+            } else {
+                // For simple field matches
+                filtered = items.filter(item => item[field] !== value);
+            }
+            
+            const afterCount = filtered.length;
+            if (beforeCount !== afterCount) {
+                localStorage.setItem(key, JSON.stringify(filtered));
+                totalDeleted += (beforeCount - afterCount);
+                console.log(`✅ Removed ${beforeCount - afterCount} from ${key}`);
+            }
+        });
+        
+        console.log(`✅ Total records deleted: ${totalDeleted}`);
+        
+        // 3. FORCE A SYNC to ensure Firebase reflects deletion
+        if (window.syncService) {
+            console.log('🔄 Syncing deletion to cloud...');
+            setTimeout(async () => {
+                await window.syncService.sync(true);
+                console.log('✅ Deletion synced');
+            }, 500);
+        }
+        
+        // 4. Show success message
+        if (window.formHandler && window.formHandler.showNotification) {
+            window.formHandler.showNotification(
+                'Student and all related data permanently deleted!', 
+                'success'
+            );
+        } else {
+            alert('✅ Student permanently deleted!');
+        }
+        
+        // 5. Refresh UI
         if (window.formHandler && window.formHandler.loadStudents) {
             await window.formHandler.loadStudents();
         }
         
-        // Update other parts of the app
+        // 6. Update all stats
         if (typeof refreshStudentDropdowns === 'function') {
             refreshStudentDropdowns();
         }
@@ -1705,12 +1827,27 @@ window.deleteStudent = async function(studentId) {
             updateProfileStats();
         }
         
+        // Also refresh dataManager if it exists
+        if (window.dataManager) {
+            window.dataManager.syncUI();
+        }
+        
     } catch (error) {
-        console.error('Error deleting student:', error);
+        console.error('❌ Error deleting student:', error);
         if (window.formHandler && window.formHandler.showNotification) {
-            window.formHandler.showNotification('Error deleting student', 'error');
+            window.formHandler.showNotification(
+                'Error deleting student: ' + error.message, 
+                'error'
+            );
+        }
+    } finally {
+        // Reset button if it exists
+        if (deleteBtn) {
+            deleteBtn.textContent = '🗑️';
+            deleteBtn.disabled = false;
         }
     }
+};
 
     // ==================== ADD THIS TO THE END OF YOUR FILE ====================
 
