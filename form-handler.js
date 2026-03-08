@@ -1915,6 +1915,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.head.appendChild(style);
     }
 });
-};
+
 
 console.log('✅ FormHandler script loaded');
