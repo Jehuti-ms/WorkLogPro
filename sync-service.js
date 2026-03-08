@@ -48,84 +48,122 @@ class SyncService {
     console.log('✅ SyncService initialized');
   }
 
-  async sync(force = false) {
+ // In sync-service.js, modify the sync method:
+
+async sync(force = false, showNotifications = false) {
     if (this.syncInProgress) {
-      console.log('⚠️ Sync already in progress');
-      return { success: false, message: 'Sync already in progress' };
+        console.log('⚠️ Sync already in progress');
+        return { success: false, message: 'Sync already in progress' };
     }
 
     if (!navigator.onLine) {
-      console.log('⚠️ Cannot sync: offline');
-      this.updateSyncIndicator('Offline', 'offline');
-      return { success: false, message: 'Offline' };
+        console.log('⚠️ Cannot sync: offline');
+        this.updateSyncIndicator('Offline', 'offline');
+        return { success: false, message: 'Offline' };
     }
 
     try {
-      this.syncInProgress = true;
-      console.log('🔄 Starting sync...');
-      this.updateSyncIndicator('Syncing...', 'syncing');
+        this.syncInProgress = true;
+        console.log('🔄 Starting sync...');
+        this.updateSyncIndicator('Syncing...', 'syncing');
+        
+        // Only show notification on manual sync (showNotifications = true)
+        if (showNotifications) {
+            this.showNotification('Syncing data...', 'info');
+        }
 
-      // Check authentication
-      const user = await this.getCurrentUser();
-      if (!user) {
-        console.log('⚠️ No authenticated user');
-        this.updateSyncIndicator('Login Required', 'warning');
+        // Check authentication
+        const user = await this.getCurrentUser();
+        if (!user) {
+            console.log('⚠️ No authenticated user');
+            this.updateSyncIndicator('Login Required', 'warning');
+            this.syncInProgress = false;
+            
+            if (showNotifications) {
+                this.showNotification('Please login to sync', 'warning');
+            }
+            return { success: false, message: 'Not authenticated' };
+        }
+
+        console.log(`👤 Syncing as: ${user.email}`);
+
+        // Get local data
+        const localData = this.getAllLocalData();
+        
+        // Get remote data
+        const remoteData = await this.getRemoteData(user.uid);
+        
+        // Merge data
+        const mergedData = this.mergeData(localData, remoteData);
+        
+        // Save merged data to Firestore
+        await this.saveToFirestore(user.uid, mergedData);
+        
+        // Save merged data to localStorage
+        this.saveToLocalStorage(mergedData);
+        
+        // Update sync timestamp
+        const timestamp = new Date().toISOString();
+        localStorage.setItem('lastSyncTime', timestamp);
+        this.lastSyncTime = timestamp;
+        
+        console.log('✅ Sync completed successfully');
+        this.updateSyncIndicator('Synced', 'success');
+        
+        // Only show success notification on manual sync
+        if (showNotifications) {
+            this.showNotification('Data synced successfully!', 'success');
+        }
+        
+        // Refresh UI
+        this.refreshUI();
+        
         this.syncInProgress = false;
-        return { success: false, message: 'Not authenticated' };
-      }
-
-      console.log(`👤 Syncing as: ${user.email}`);
-
-      // Get local data
-      const localData = this.getAllLocalData();
-      
-      // Get remote data
-      const remoteData = await this.getRemoteData(user.uid);
-      
-      // Merge data (Firestore wins by default)
-      const mergedData = this.mergeData(localData, remoteData);
-      
-      // Save merged data to Firestore
-      await this.saveToFirestore(user.uid, mergedData);
-      
-      // Save merged data to localStorage
-      this.saveToLocalStorage(mergedData);
-      
-      // Update sync timestamp
-      const timestamp = new Date().toISOString();
-      localStorage.setItem('lastSyncTime', timestamp);
-      this.lastSyncTime = timestamp;
-      
-      console.log('✅ Sync completed successfully');
-      this.updateSyncIndicator('Synced', 'success');
-      this.showNotification('Data synced successfully!', 'success');
-      
-      // Refresh UI
-      this.refreshUI();
-      
-      this.syncInProgress = false;
-      
-      // Reset indicator after 3 seconds
-      setTimeout(() => {
-        this.updateSyncIndicator('Online', 'online');
-      }, 3000);
-      
-      return { success: true, timestamp };
-      
+        
+        // Reset indicator after 3 seconds
+        setTimeout(() => {
+            this.updateSyncIndicator('Online', 'online');
+        }, 3000);
+        
+        return { success: true, timestamp };
+        
     } catch (error) {
-      console.error('❌ Sync failed:', error);
-      this.updateSyncIndicator('Sync Failed', 'error');
-      this.showNotification(`Sync failed: ${error.message}`, 'error');
-      this.syncInProgress = false;
-      
-      setTimeout(() => {
-        this.updateSyncIndicator('Online', 'online');
-      }, 3000);
-      
-      return { success: false, error: error.message };
+        console.error('❌ Sync failed:', error);
+        this.updateSyncIndicator('Sync Failed', 'error');
+        
+        // Only show error notification on manual sync
+        if (showNotifications) {
+            this.showNotification(`Sync failed: ${error.message}`, 'error');
+        }
+        
+        this.syncInProgress = false;
+        
+        setTimeout(() => {
+            this.updateSyncIndicator('Online', 'online');
+        }, 3000);
+        
+        return { success: false, error: error.message };
     }
-  }
+}
 
+// Update startAutoSync to use showNotifications = false
+startAutoSync(interval = 30000) {
+    if (this.syncInterval) {
+        clearInterval(this.syncInterval);
+    }
+    
+    this.syncInterval = setInterval(() => {
+        if (navigator.onLine && !this.syncInProgress) {
+            console.log('🔄 Auto-sync triggered');
+            // Pass false to hide notifications
+            this.sync(false, false);
+        }
+    }, interval);
+    
+    localStorage.setItem('autoSyncEnabled', 'true');
+    console.log(`✅ Auto-sync started (every ${interval/1000}s) - notifications disabled`);
+}
+  
   async getCurrentUser() {
     return new Promise((resolve) => {
       const user = firebase.auth().currentUser;
