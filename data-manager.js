@@ -173,7 +173,7 @@ class DataManager {
     return students;
 }
 
-// Add sorting controls to your UI
+// ==================== STUDENT SORTING CONTROLS ====================
 function addSortingControls() {
     const container = document.querySelector('.section-header');
     if (!container) return;
@@ -196,7 +196,7 @@ function addSortingControls() {
     container.appendChild(sortControls);
 }
 
-// Global function to change sort method
+// Make changeStudentSort globally available
 window.changeStudentSort = function(method) {
     console.log(`🔄 Changing sort method to: ${method}`);
     localStorage.setItem('studentSortMethod', method);
@@ -205,12 +205,33 @@ window.changeStudentSort = function(method) {
     if (window.dataManager) {
         window.dataManager.syncUI(method);
     } else {
-        // Fallback to direct call
-        syncUI(method);
+        // Fallback to direct function if it exists
+        if (typeof syncUI === 'function') {
+            syncUI(method);
+        }
     }
 };
 
 // Initialize with saved preference
+function initStudentSorting() {
+    const savedMethod = localStorage.getItem('studentSortMethod') || 'id';
+    
+    // Set select value if exists
+    const select = document.getElementById('studentSortSelect');
+    if (select) {
+        select.value = savedMethod;
+    }
+    
+    // Apply sorting
+    if (window.dataManager) {
+        window.dataManager.syncUI(savedMethod);
+    } else {
+        if (typeof syncUI === 'function') {
+            syncUI(savedMethod);
+        }
+    }
+}
+
 function initStudentSorting() {
     const savedMethod = localStorage.getItem('studentSortMethod') || 'id';
     
