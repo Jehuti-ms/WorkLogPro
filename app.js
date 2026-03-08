@@ -161,6 +161,8 @@ function initAppUI() {
     initProfileModal();
     initSyncControls();
     initReportButtons();
+    addSortingControls(); 
+    initStudentSorting(); 
     loadInitialData();
     
     console.log('✅ App UI initialized');
