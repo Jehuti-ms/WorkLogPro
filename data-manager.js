@@ -384,27 +384,217 @@ function initStudentSorting() {
         }
     }
 
-    async deleteStudent(studentId) {
-        try {
-            if (!this.userId) throw new Error('User not authenticated');
-            
-            await this.db.collection('users').doc(this.userId).collection('students').doc(studentId).delete();
-            console.log('✅ Student deleted:', studentId);
-            
-            // Remove from in-memory array
-            this.students = this.students.filter(s => s.id !== studentId);
-            
-            // Refresh localStorage and UI
-            await this.loadFromFirestore();
-            this.saveToLocalStorage();
-            this.syncUI();
-            
-            return true;
-        } catch (error) {
-            console.error('❌ Error deleting student:', error);
+   // In your data-manager.js, update the deleteStudent method:
+
+async deleteStudent(studentId) {
+    try {
+        console.log(`🗑️ Attempting to delete student: ${studentId}`);
+        
+        if (!studentId) {
+            console.error('❌ No student ID provided');
             return false;
         }
+        
+        // Double confirmation for safety
+        if (!confirm('Are you sure you want to permanently delete this student? This cannot be undone.')) {
+            return false;
+        }
+        
+        // Show loading indicator
+        this.showNotification('Deleting student...', 'info');
+        
+        // 1. Delete from Firebase if user is authenticated
+        if (this.userId) {
+            try {
+                console.log('☁️ Deleting from Firebase...');
+                
+                // Delete from main data document
+                const db = firebase.firestore();
+                const userRef = db.collection('users').doc(this.userId);
+                
+                // Remove from consolidated data document
+                const dataDocRef = userRef.collection('data').doc('worklog');
+                await dataDocRef.update({
+                    students: firebase.firestore.FieldValue.arrayRemove(
+                        // Need to remove by reference - better to use array manipulation
+                        // Alternative: Get current data, filter, set back
+                    )
+                }).catch(async (error) => {
+                    // If arrayRemove fails, do a full read/write
+                    const docSnap = await dataDocRef.get();
+                    if (docSnap.exists) {
+                        const data = docSnap.data();
+                        if (data.students) {
+                            data.students = data.students.filter(s => s.id !== studentId);
+                            await dataDocRef.set(data, { merge: true });
+                        }
+                    }
+                });
+                
+                // Also delete from separate students collection if it exists
+                const studentDocRef = userRef.collection('students').doc(studentId);
+                await studentDocRef.delete().catch(e => {
+                    console.log('No separate student document to delete');
+                });
+                
+                console.log('✅ Deleted from Firebase');
+            } catch (firebaseError) {
+                console.error('❌ Firebase delete error:', firebaseError);
+                // Continue with local delete even if Firebase fails
+            }
+        }
+        
+        // 2. Delete from localStorage (ALWAYS do this)
+        console.log('💾 Deleting from localStorage...');
+        
+        // Get current students
+        let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+        const beforeCount = students.length;
+        
+        // Filter out the student
+        students = students.filter(s => s.id !== studentId);
+        const afterCount = students.length;
+        
+        if (beforeCount === afterCount) {
+            console.warn('⚠️ Student not found in localStorage');
+        } else {
+            console.log(`✅ Removed ${beforeCount - afterCount} student(s) from localStorage`);
+        }
+        
+        // Save back to localStorage
+        localStorage.setItem('worklog_students', JSON.stringify(students));
+        
+        // 3. Also delete related data (hours, marks, attendance, payments)
+        await this.deleteRelatedData(studentId);
+        
+        // 4. Force a sync to ensure Firebase reflects the deletion
+        if (this.userId && window.syncService) {
+            console.log('🔄 Syncing deletion to cloud...');
+            
+            // Wait a moment for local changes to settle
+            setTimeout(async () => {
+                await window.syncService.sync(true);
+                console.log('✅ Deletion synced to cloud');
+            }, 500);
+        }
+        
+        // 5. Update UI
+        this.syncUI();
+        
+        // 6. Show success message
+        this.showNotification('Student permanently deleted!', 'success');
+        
+        // 7. Update all stats
+        this.refreshAllStats();
+        
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Error deleting student:', error);
+        this.showNotification('Error deleting student: ' + error.message, 'error');
+        return false;
     }
+}
+
+// Helper method to delete related data
+async deleteRelatedData(studentId) {
+    try {
+        console.log(`🗑️ Deleting related data for student: ${studentId}`);
+        
+        // Data types to clean up
+        const dataTypes = ['hours', 'marks', 'attendance', 'payments'];
+        
+        for (const type of dataTypes) {
+            const key = `worklog_${type}`;
+            let items = JSON.parse(localStorage.getItem(key) || '[]');
+            
+            // Filter based on the correct field name
+            let filtered;
+            if (type === 'hours') {
+                filtered = items.filter(item => item.hoursStudent !== studentId);
+            } else if (type === 'marks') {
+                filtered = items.filter(item => item.marksStudent !== studentId);
+            } else if (type === 'attendance') {
+                filtered = items.filter(item => !item.presentStudents?.includes(studentId));
+            } else if (type === 'payments') {
+                filtered = items.filter(item => item.paymentStudent !== studentId);
+            }
+            
+            if (filtered.length !== items.length) {
+                localStorage.setItem(key, JSON.stringify(filtered));
+                console.log(`✅ Removed ${items.length - filtered.length} ${type} records`);
+            }
+            
+            // Also delete from Firebase if needed
+            if (this.userId && firebase.firestore) {
+                try {
+                    const db = firebase.firestore();
+                    const collectionRef = db.collection('users').doc(this.userId).collection(type);
+                    
+                    // Query for items with this studentId
+                    let fieldName;
+                    if (type === 'hours') fieldName = 'hoursStudent';
+                    else if (type === 'marks') fieldName = 'marksStudent';
+                    else if (type === 'payments') fieldName = 'paymentStudent';
+                    
+                    if (fieldName) {
+                        const snapshot = await collectionRef.where(fieldName, '==', studentId).get();
+                        const batch = db.batch();
+                        snapshot.docs.forEach(doc => {
+                            batch.delete(doc.ref);
+                        });
+                        await batch.commit();
+                        console.log(`✅ Deleted ${snapshot.size} ${type} from Firebase`);
+                    }
+                } catch (e) {
+                    console.log(`Could not delete ${type} from Firebase:`, e);
+                }
+            }
+        }
+        
+        return true;
+    } catch (error) {
+        console.error('Error deleting related data:', error);
+        return false;
+    }
+}
+
+// Add notification method if not present
+showNotification(message, type = 'info') {
+    if (typeof window.showNotification === 'function') {
+        window.showNotification(message, type);
+    } else {
+        console.log(`🔔 [${type}] ${message}`);
+        // Create temporary notification
+        const notification = document.createElement('div');
+        notification.className = `temp-notification ${type}`;
+        notification.textContent = message;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
+            color: white;
+            border-radius: 4px;
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+        `;
+        document.body.appendChild(notification);
+        setTimeout(() => notification.remove(), 3000);
+    }
+}
+
+// Refresh all stats
+refreshAllStats() {
+    if (typeof refreshAllStats === 'function') {
+        refreshAllStats();
+    } else {
+        // Manual refresh
+        if (typeof updateProfileStats === 'function') updateProfileStats();
+        if (typeof updateGlobalStats === 'function') updateGlobalStats();
+    }
+}
 
     // Load from Firestore to localStorage
     async loadFromFirestore() {
