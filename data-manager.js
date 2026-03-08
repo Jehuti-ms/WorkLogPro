@@ -171,7 +171,7 @@ class DataManager {
     ).join(' → '));
     
     return students;
-}
+};
 
 // ==================== STUDENT SORTING CONTROLS ====================
 function addSortingControls() {
