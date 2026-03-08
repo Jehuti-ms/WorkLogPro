@@ -3910,4 +3910,45 @@ button:focus:not(:focus-visible) {
     margin-top: 10px;
 }
 
+.sort-controls {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+}
+
+.sort-select {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.9rem;
+    cursor: pointer;
+    min-height: 44px;
+}
+
+.sort-select:hover {
+    border-color: var(--primary);
+}
+
+.sort-select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+@media (max-width: 768px) {
+    .section-header {
+        flex-wrap: wrap;
+    }
+    
+    .sort-controls {
+        margin-left: 0;
+        width: 100%;
+    }
+    
+    .sort-select {
+        width: 100%;
+    }
+}
 
