@@ -1132,4 +1132,773 @@ class FormHandler {
             }
             
             // Complete data object
-            const
+            const completePaymentData = {
+                ...paymentData,
+                id: 'payment_' + Date.now(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+            
+            // Show loading
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = 'Processing...';
+            submitBtn.disabled = true;
+            
+            let success = false;
+            
+            // Try Firebase first
+            if (this.useFirebase && this.dataManager && this.dataManager.savePayment) {
+                try {
+                    console.log('☁️ Saving payment to Firebase...');
+                    success = await this.dataManager.savePayment(completePaymentData);
+                } catch (error) {
+                    console.log('⚠️ Firebase failed:', error.message);
+                }
+            }
+            
+            // Fallback to localStorage
+            if (!success) {
+                console.log('💾 Saving payment to localStorage...');
+                success = await this.savePaymentToLocalStorage(completePaymentData);
+            }
+            
+            // Reset button
+            submitBtn.textContent = originalText;
+            submitBtn.disabled = false;
+            
+            if (success) {
+                this.showNotification(`Payment of $${paymentData.paymentAmount} recorded!`, 'success');
+                form.reset();
+                
+                // Reset date to today
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('paymentDate').value = today;
+                
+                // Refresh payments display
+                this.loadPayments();
+                
+                // Update balances
+                this.updatePaymentBalances();
+                
+            } else {
+                this.showNotification('Failed to record payment', 'error');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error submitting payment form:', error);
+            this.showNotification('Error: ' + error.message, 'error');
+        }
+    }
+
+    async savePaymentToLocalStorage(paymentData) {
+        try {
+            console.log('💾 Saving payment to localStorage...');
+            
+            // Get existing payments
+            const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
+            
+            // Add payment
+            payments.push(paymentData);
+            
+            // Sort by date (newest first)
+            payments.sort((a, b) => new Date(b.paymentDate) - new Date(a.paymentDate));
+            
+            // Save back to localStorage
+            localStorage.setItem('worklog_payments', JSON.stringify(payments));
+            
+            console.log(`✅ Saved ${payments.length} payments to localStorage`);
+            return true;
+            
+        } catch (error) {
+            console.error('❌ Error saving payment to localStorage:', error);
+            return false;
+        }
+    }
+
+    async loadPayments() {
+        console.log('📊 Loading payments list...');
+        try {
+            const payments = await this.getAllPayments();
+            console.log(`✅ Loaded ${payments.length} payments`);
+            
+            // Update payments display
+            this.updatePaymentsDisplay(payments);
+            
+            // Update balances
+            this.updatePaymentBalances();
+            
+        } catch (error) {
+            console.error('❌ Error loading payments:', error);
+        }
+    }
+
+    async getAllPayments() {
+        console.log('💰 Getting all payments...');
+        
+        // Try DataManager first
+        if (this.dataManager && this.dataManager.getAllPayments) {
+            try {
+                const payments = await this.dataManager.getAllPayments();
+                if (payments && payments.length > 0) {
+                    console.log(`✅ Got ${payments.length} payments from DataManager`);
+                    return payments;
+                }
+            } catch (error) {
+                console.log('⚠️ DataManager failed, trying localStorage:', error);
+            }
+        }
+        
+        // Fallback to localStorage
+        try {
+            const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
+            console.log(`✅ Got ${payments.length} payments from localStorage`);
+            return payments;
+        } catch (error) {
+            console.error('❌ Error getting payments:', error);
+            return [];
+        }
+    }
+
+    updatePaymentsDisplay(payments) {
+        // Look for payments container
+        const container = document.getElementById('paymentActivityLog');
+        
+        if (!container) {
+            console.log('No payments container found to update');
+            return;
+        }
+        
+        if (payments.length === 0) {
+            container.innerHTML = '<p class="empty-message">No recent payment activity</p>';
+            return;
+        }
+        
+        // Show recent payments (last 10)
+        const recentPayments = payments.slice(0, 10);
+        
+        container.innerHTML = recentPayments.map(payment => `
+            <div class="payment-item" data-id="${payment.id}">
+                <div class="payment-header">
+                    <div>
+                        <strong>Payment Received</strong>
+                        <div>${this.getStudentName(payment.paymentStudent) || 'Unknown Student'}</div>
+                    </div>
+                    <div class="payment-amount success">$${parseFloat(payment.paymentAmount || 0).toFixed(2)}</div>
+                </div>
+                <div class="payment-meta">
+                    <span>📅 ${new Date(payment.paymentDate).toLocaleDateString()}</span>
+                    <span>💳 ${payment.paymentMethod || 'Cash'}</span>
+                </div>
+                ${payment.paymentNotes ? `<div class="payment-notes">${payment.paymentNotes}</div>` : ''}
+            </div>
+        `).join('');
+    }
+
+    async updatePaymentBalances() {
+        try {
+            const students = await this.getAllStudents();
+            const hours = await this.getAllHours();
+            const payments = await this.getAllPayments();
+            
+            if (students.length === 0) {
+                const balancesContainer = document.getElementById('studentBalancesContainer');
+                if (balancesContainer) {
+                    balancesContainer.innerHTML = '<p class="empty-message">No student data yet</p>';
+                }
+                return;
+            }
+            
+            // Calculate balances for each student
+            const studentBalances = students.map(student => {
+                // Get hours for this student
+                const studentHours = hours.filter(h => h.hoursStudent === student.id);
+                const studentPayments = payments.filter(p => p.paymentStudent === student.id);
+                
+                // Calculate total earnings from hours
+                const hoursEarnings = studentHours.reduce((sum, hour) => {
+                    const hoursWorked = parseFloat(hour.hoursWorked) || 0;
+                    const rate = parseFloat(hour.baseRate) || parseFloat(student.rate) || 0;
+                    return sum + (hoursWorked * rate);
+                }, 0);
+                
+                // Calculate total payments
+                const totalPayments = studentPayments.reduce((sum, payment) => {
+                    return sum + (parseFloat(payment.paymentAmount) || 0);
+                }, 0);
+                
+                const balance = hoursEarnings - totalPayments;
+                
+                return {
+                    id: student.id,
+                    name: student.name,
+                    owed: balance,
+                    hoursEarnings: hoursEarnings,
+                    payments: totalPayments,
+                    status: balance > 0 ? 'Owes' : balance < 0 ? 'Credit' : 'Paid up'
+                };
+            });
+            
+            // Update balances container
+            const balancesContainer = document.getElementById('studentBalancesContainer');
+            if (balancesContainer) {
+                balancesContainer.innerHTML = studentBalances.map(balance => `
+                    <div class="payment-item">
+                        <div class="payment-header">
+                            <strong>${balance.name}</strong>
+                            <span class="payment-amount ${balance.owed > 0 ? 'warning' : balance.owed < 0 ? 'info' : 'success'}">
+                                ${balance.owed > 0 ? `Owes: $${balance.owed.toFixed(2)}` : 
+                                  balance.owed < 0 ? `Credit: $${Math.abs(balance.owed).toFixed(2)}` : 'Paid up'}
+                            </span>
+                        </div>
+                        <div class="payment-meta">
+                            <span>Earned: $${balance.hoursEarnings.toFixed(2)}</span>
+                            <span>Paid: $${balance.payments.toFixed(2)}</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            // Update total owed
+            const totalOwed = studentBalances.reduce((sum, balance) => sum + Math.max(0, balance.owed), 0);
+            const totalOwedElem = document.getElementById('totalOwed');
+            if (totalOwedElem) {
+                totalOwedElem.textContent = `$${totalOwed.toFixed(2)}`;
+            }
+            
+            // Update monthly payments
+            const currentMonth = new Date().getMonth();
+            const currentYear = new Date().getFullYear();
+            const monthlyPayments = payments.reduce((sum, payment) => {
+                const paymentDate = new Date(payment.paymentDate);
+                if (paymentDate.getMonth() === currentMonth && paymentDate.getFullYear() === currentYear) {
+                    return sum + (parseFloat(payment.paymentAmount) || 0);
+                }
+                return sum;
+            }, 0);
+            
+            const monthlyPaymentsElem = document.getElementById('monthlyPayments');
+            if (monthlyPaymentsElem) {
+                monthlyPaymentsElem.textContent = `$${monthlyPayments.toFixed(2)}`;
+            }
+            
+        } catch (error) {
+            console.error('❌ Error updating payment balances:', error);
+        }
+    }
+
+    // Helper function to get student name by ID
+    async getStudentName(studentId) {
+        try {
+            const students = await this.getAllStudents();
+            const student = students.find(s => s.id === studentId);
+            return student ? student.name : 'Unknown Student';
+        } catch (error) {
+            return 'Unknown Student';
+        }
+    }
+
+    // Add these methods to get hours data
+    async getAllHours() {
+        console.log('⏱️ Getting all hours...');
+        
+        // Try DataManager first
+        if (this.dataManager && this.dataManager.getAllHours) {
+            try {
+                const hours = await this.dataManager.getAllHours();
+                if (hours && hours.length > 0) {
+                    console.log(`✅ Got ${hours.length} hours from DataManager`);
+                    return hours;
+                }
+            } catch (error) {
+                console.log('⚠️ DataManager failed, trying localStorage:', error);
+            }
+        }
+        
+        // Fallback to localStorage
+        try {
+            const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
+            console.log(`✅ Got ${hours.length} hours from localStorage`);
+            return hours;
+        } catch (error) {
+            console.error('❌ Error getting hours:', error);
+            return [];
+        }
+    }
+
+    showNotification(message, type = 'info') {
+        // Remove existing notifications
+        const existing = document.querySelector('.form-notification');
+        if (existing) existing.remove();
+        
+        // Create notification
+        const notification = document.createElement('div');
+        notification.className = `form-notification ${type}`;
+        notification.textContent = message;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 5px;
+            color: white;
+            z-index: 1000;
+            font-weight: 500;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            animation: slideIn 0.3s ease;
+            ${type === 'success' ? 'background: #28a745;' : ''}
+            ${type === 'error' ? 'background: #dc3545;' : ''}
+            ${type === 'info' ? 'background: #17a2b8;' : ''}
+            ${type === 'warning' ? 'background: #ffc107; color: #000;' : ''}
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            notification.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
+    }
+
+    // Utility function to save any data type
+    async saveData(dataType, data) {
+        try {
+            // Try Firebase first if available
+            if (this.dataManager && this.dataManager[`save${dataType}`]) {
+                const result = await this.dataManager[`save${dataType}`](data);
+                if (result && result.success) return true;
+            }
+            
+            // Fallback to localStorage
+            const key = `worklog_${dataType.toLowerCase()}s`;
+            const existing = JSON.parse(localStorage.getItem(key) || '[]');
+            
+            // Add ID if not present
+            if (!data.id) {
+                data.id = `${dataType.toLowerCase()}_${Date.now()}`;
+            }
+            
+            data.createdAt = data.createdAt || new Date().toISOString();
+            data.updatedAt = new Date().toISOString();
+            
+            existing.push(data);
+            localStorage.setItem(key, JSON.stringify(existing));
+            
+            return true;
+        } catch (error) {
+            console.error(`❌ Error saving ${dataType}:`, error);
+            return false;
+        }
+    }
+}
+
+// Add CSS for notifications (only if not already added)
+if (!document.getElementById('form-handler-styles')) {
+    const style = document.createElement('style');
+    style.id = 'form-handler-styles';
+    style.textContent = `
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+        
+        .student-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: white;
+        }
+        
+        .student-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .student-id {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .student-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .btn-icon {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+            font-size: 16px;
+        }
+        
+        .student-rate {
+            font-weight: bold;
+            color: #28a745;
+            margin-bottom: 5px;
+        }
+        
+        .student-meta {
+            font-size: 0.8em;
+            color: #888;
+            margin-top: 5px;
+        }
+        
+        .empty-message {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+            font-style: italic;
+        }
+        
+        .form-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 5px;
+            color: white;
+            z-index: 1000;
+            font-weight: 500;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            animation: slideIn 0.3s ease;
+        }
+        
+        .form-notification.success { background: #28a745; }
+        .form-notification.error { background: #dc3545; }
+        .form-notification.info { background: #17a2b8; }
+        .form-notification.warning { background: #ffc107; color: #000; }
+    `;
+    document.head.appendChild(style);
+}
+
+// Make sure it's globally accessible
+window.FormHandler = FormHandler;
+
+// Initialize when DOM is ready
+console.log('📄 Initializing FormHandler...');
+
+// Create global instance
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        window.formHandler = new FormHandler();
+    });
+} else {
+    window.formHandler = new FormHandler();
+}
+
+// Global functions for student operations
+window.editStudent = async function(studentId) {
+    console.log('✏️ Editing student:', studentId);
+    
+    try {
+        if (!window.formHandler) {
+            console.error('FormHandler not available');
+            return;
+        }
+        
+        const students = await window.formHandler.getAllStudents();
+        const student = students.find(s => s.id === studentId);
+        
+        if (!student) {
+            if (window.formHandler.showNotification) {
+                window.formHandler.showNotification('Student not found', 'error');
+            }
+            return;
+        }
+        
+        // Fill form with student data
+        document.getElementById('studentName').value = student.name || '';
+        document.getElementById('studentId').value = student.studentId || '';
+        document.getElementById('studentGender').value = student.gender || '';
+        document.getElementById('studentEmail').value = student.email || '';
+        document.getElementById('studentPhone').value = student.phone || '';
+        document.getElementById('studentRate').value = student.rate || '';
+        
+        // Set edit mode
+        window.editingStudentId = studentId;
+        
+        const submitBtn = document.getElementById('studentSubmitBtn');
+        const cancelBtn = document.getElementById('studentCancelBtn');
+        
+        if (submitBtn) submitBtn.textContent = '💾 Update Student';
+        if (cancelBtn) cancelBtn.style.display = 'inline-block';
+        
+        if (window.formHandler.showNotification) {
+            window.formHandler.showNotification('Editing student: ' + student.name, 'info');
+        }
+        
+        // Scroll to form
+        document.getElementById('studentName').focus();
+        
+    } catch (error) {
+        console.error('Error editing student:', error);
+        if (window.formHandler && window.formHandler.showNotification) {
+            window.formHandler.showNotification('Error editing student', 'error');
+        }
+    }
+};
+
+// Updated window.deleteStudent function
+window.deleteStudent = async function(studentId) {
+    console.log('🗑️ Delete student called for ID:', studentId);
+    
+    if (!studentId) {
+        console.error('❌ No student ID provided');
+        return;
+    }
+    
+    // Double confirmation for safety
+    if (!confirm('⚠️ Are you sure you want to permanently delete this student?\n\nThis will also delete all related:\n• Hours worked\n• Marks/assessments\n• Attendance records\n• Payment history\n\nThis action CANNOT be undone!')) {
+        return;
+    }
+    
+    // Show loading state
+    const deleteBtn = document.querySelector(`button[onclick*="deleteStudent('${studentId}')"]`);
+    if (deleteBtn) {
+        const originalText = deleteBtn.textContent;
+        deleteBtn.textContent = '⏳ Deleting...';
+        deleteBtn.disabled = true;
+    }
+    
+    try {
+        // 1. DELETE FROM FIREBASE if user is logged in
+        if (typeof firebase !== 'undefined' && firebase.auth().currentUser) {
+            try {
+                console.log('☁️ Deleting from Firebase...');
+                const user = firebase.auth().currentUser;
+                const db = firebase.firestore();
+                const userRef = db.collection('users').doc(user.uid);
+                
+                // Delete from consolidated data document
+                const dataDocRef = userRef.collection('data').doc('worklog');
+                const dataDoc = await dataDocRef.get();
+                
+                if (dataDoc.exists) {
+                    const data = dataDoc.data();
+                    if (data.students) {
+                        data.students = data.students.filter(s => s.id !== studentId);
+                        await dataDocRef.set(data, { merge: true });
+                        console.log('✅ Removed from consolidated data');
+                    }
+                }
+                
+                // Delete from separate students collection
+                try {
+                    await userRef.collection('students').doc(studentId).delete();
+                    console.log('✅ Deleted from students collection');
+                } catch (e) {
+                    console.log('No separate student document to delete');
+                }
+                
+                // Delete related data from Firebase
+                const collections = ['hours', 'marks', 'attendance', 'payments'];
+                for (const col of collections) {
+                    try {
+                        const snapshot = await userRef.collection(col)
+                            .where('studentId', '==', studentId)
+                            .get();
+                        
+                        const batch = db.batch();
+                        snapshot.docs.forEach(doc => batch.delete(doc.ref));
+                        await batch.commit();
+                        console.log(`✅ Deleted ${snapshot.size} from ${col}`);
+                    } catch (e) {
+                        console.log(`Could not delete from ${col}:`, e);
+                    }
+                }
+                
+            } catch (firebaseError) {
+                console.error('⚠️ Firebase delete error:', firebaseError);
+                // Continue with local delete anyway
+            }
+        }
+        
+        // 2. DELETE FROM LOCALSTORAGE (ALWAYS DO THIS)
+        console.log('💾 Deleting from localStorage...');
+        
+        // Get all data types
+        const dataTypes = [
+            { key: 'worklog_students', field: 'id', value: studentId },
+            { key: 'worklog_hours', field: 'hoursStudent', value: studentId },
+            { key: 'worklog_marks', field: 'marksStudent', value: studentId },
+            { key: 'worklog_payments', field: 'paymentStudent', value: studentId },
+            { key: 'worklog_attendance', field: 'presentStudents', value: studentId, isArray: true }
+        ];
+        
+        let totalDeleted = 0;
+        
+        dataTypes.forEach(({ key, field, value, isArray }) => {
+            const items = JSON.parse(localStorage.getItem(key) || '[]');
+            const beforeCount = items.length;
+            
+            let filtered;
+            if (isArray) {
+                // For attendance arrays, remove student from presentStudents array
+                filtered = items.map(item => {
+                    if (item[field] && Array.isArray(item[field])) {
+                        item[field] = item[field].filter(id => id !== value);
+                    }
+                    return item;
+                }).filter(item => !item[field] || item[field].length > 0);
+            } else {
+                // For simple field matches
+                filtered = items.filter(item => item[field] !== value);
+            }
+            
+            const afterCount = filtered.length;
+            if (beforeCount !== afterCount) {
+                localStorage.setItem(key, JSON.stringify(filtered));
+                totalDeleted += (beforeCount - afterCount);
+                console.log(`✅ Removed ${beforeCount - afterCount} from ${key}`);
+            }
+        });
+        
+        console.log(`✅ Total records deleted: ${totalDeleted}`);
+        
+        // 3. FORCE A SYNC to ensure Firebase reflects deletion
+        if (window.syncService) {
+            console.log('🔄 Syncing deletion to cloud...');
+            setTimeout(async () => {
+                await window.syncService.sync(true);
+                console.log('✅ Deletion synced');
+            }, 500);
+        }
+        
+        // 4. Show success message
+        if (window.formHandler && window.formHandler.showNotification) {
+            window.formHandler.showNotification(
+                'Student and all related data permanently deleted!', 
+                'success'
+            );
+        } else {
+            alert('✅ Student permanently deleted!');
+        }
+        
+        // 5. Refresh UI
+        if (window.formHandler && window.formHandler.loadStudents) {
+            await window.formHandler.loadStudents();
+        }
+        
+        // 6. Update all stats
+        if (typeof refreshStudentDropdowns === 'function') {
+            refreshStudentDropdowns();
+        }
+        
+        if (typeof updateGlobalStats === 'function') {
+            updateGlobalStats();
+        }
+        
+        if (typeof updateProfileStats === 'function') {
+            updateProfileStats();
+        }
+        
+        // Also refresh dataManager if it exists
+        if (window.dataManager) {
+            window.dataManager.syncUI();
+        }
+        
+    } catch (error) {
+        console.error('❌ Error deleting student:', error);
+        if (window.formHandler && window.formHandler.showNotification) {
+            window.formHandler.showNotification(
+                'Error deleting student: ' + error.message, 
+                'error'
+            );
+        }
+    } finally {
+        // Reset button if it exists
+        if (deleteBtn) {
+            deleteBtn.textContent = '🗑️';
+            deleteBtn.disabled = false;
+        }
+    }
+};
+
+// Add necessary styles for form displays
+document.addEventListener('DOMContentLoaded', function() {
+    if (!document.getElementById('worklog-form-styles')) {
+        const style = document.createElement('style');
+        style.id = 'worklog-form-styles';
+        style.textContent = `
+            /* Basic styling for form elements */
+            .attendance-student-item {
+                display: flex;
+                align-items: center;
+                margin: 5px 0;
+                padding: 5px;
+            }
+            
+            .attendance-student-item input {
+                margin-right: 10px;
+            }
+            
+            .student-card, .attendance-entry, .payment-item, .mark-entry, .hours-entry {
+                background: white;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                padding: 10px;
+                margin: 10px 0;
+            }
+            
+            .student-card-header, .attendance-header, .payment-header {
+                display: flex;
+                justify-content: space-between;
+            }
+            
+            .student-actions {
+                display: flex;
+                gap: 5px;
+            }
+            
+            .btn-icon {
+                background: none;
+                border: none;
+                cursor: pointer;
+            }
+            
+            .payment-amount {
+                font-weight: bold;
+            }
+            
+            .payment-amount.success {
+                color: green;
+            }
+            
+            .payment-amount.warning {
+                color: orange;
+            }
+            
+            .empty-message {
+                text-align: center;
+                color: #666;
+                font-style: italic;
+                padding: 20px;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+});
+
+console.log('✅ FormHandler script loaded');
