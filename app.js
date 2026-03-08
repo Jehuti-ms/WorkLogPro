@@ -770,18 +770,32 @@ function handleLogout() {
   window.location.href = 'auth.html';
 }
 
-// ==================== SYNC CONTROLS FUNCTIONS ====================
+// ==================== UPDATED SYNC CONTROLS INITIALIZATION ====================
 function initSyncControls() {
   console.log('☁️ Initializing sync controls...');
   
+  // Check if syncService is available
+  const hasSyncService = !!window.syncService;
+  if (hasSyncService) {
+    console.log('✅ syncService detected - using enhanced sync features');
+  } else {
+    console.log('⚠️ syncService not detected - using legacy sync');
+  }
+  
+  // Sync Now Button
   const syncBtn = document.getElementById('syncBtn');
   if (syncBtn) {
-    syncBtn.addEventListener('click', async function() {
-      console.log('Sync button clicked');
+    // Remove any existing listeners to prevent duplicates
+    const newSyncBtn = syncBtn.cloneNode(true);
+    syncBtn.parentNode.replaceChild(newSyncBtn, syncBtn);
+    
+    newSyncBtn.addEventListener('click', async function() {
+      console.log('🔄 Sync button clicked');
       await handleSync();
     });
   }
   
+  // Auto-sync Checkbox
   const autoSyncCheckbox = document.getElementById('autoSyncCheckbox');
   const autoSyncText = document.getElementById('autoSyncText');
   
@@ -793,9 +807,13 @@ function initSyncControls() {
       autoSyncText.textContent = autoSyncEnabled ? 'Auto' : 'Manual';
     }
     
-    autoSyncCheckbox.addEventListener('change', function() {
+    // Remove existing listeners
+    const newCheckbox = autoSyncCheckbox.cloneNode(true);
+    autoSyncCheckbox.parentNode.replaceChild(newCheckbox, autoSyncCheckbox);
+    
+    newCheckbox.addEventListener('change', function() {
       const isChecked = this.checked;
-      console.log('Auto-sync:', isChecked ? 'enabled' : 'disabled');
+      console.log('🔄 Auto-sync:', isChecked ? 'enabled' : 'disabled');
       
       if (autoSyncText) {
         autoSyncText.textContent = isChecked ? 'Auto' : 'Manual';
@@ -803,12 +821,24 @@ function initSyncControls() {
       
       localStorage.setItem('autoSyncEnabled', isChecked);
       
-      if (isChecked) {
-        startAutoSync();
-        showNotification('Auto-sync enabled (every 30 seconds)', 'success');
+      // Use syncService if available
+      if (hasSyncService) {
+        if (isChecked) {
+          window.syncService.startAutoSync();
+          showNotification('Auto-sync enabled (every 30 seconds)', 'success');
+        } else {
+          window.syncService.stopAutoSync();
+          showNotification('Auto-sync disabled', 'warning');
+        }
       } else {
-        stopAutoSync();
-        showNotification('Auto-sync disabled', 'warning');
+        // Legacy auto-sync
+        if (isChecked) {
+          startAutoSync();
+          showNotification('Auto-sync enabled (every 30 seconds)', 'success');
+        } else {
+          stopAutoSync();
+          showNotification('Auto-sync disabled', 'warning');
+        }
       }
     });
   }
@@ -816,45 +846,88 @@ function initSyncControls() {
   // Export Cloud Button
   const exportCloudBtn = document.getElementById('exportCloudBtn');
   if (exportCloudBtn) {
-    exportCloudBtn.addEventListener('click', async function() {
-      console.log('Export Cloud button clicked');
-      await exportToCloud();
+    const newExportBtn = exportCloudBtn.cloneNode(true);
+    exportCloudBtn.parentNode.replaceChild(newExportBtn, exportCloudBtn);
+    
+    newExportBtn.addEventListener('click', async function() {
+      console.log('☁️ Export Cloud button clicked');
+      
+      // Show loading state
+      const originalText = this.textContent;
+      this.textContent = '⏳ Exporting...';
+      this.disabled = true;
+      
+      try {
+        await exportToCloud();
+      } finally {
+        this.textContent = originalText;
+        this.disabled = false;
+      }
     });
   }
   
   // Import Cloud Button
   const importCloudBtn = document.getElementById('importCloudBtn');
   if (importCloudBtn) {
-    importCloudBtn.addEventListener('click', async function() {
-      console.log('Import Cloud button clicked');
-      await importFromCloud();
+    const newImportBtn = importCloudBtn.cloneNode(true);
+    importCloudBtn.parentNode.replaceChild(newImportBtn, importCloudBtn);
+    
+    newImportBtn.addEventListener('click', async function() {
+      console.log('☁️ Import Cloud button clicked');
+      
+      // Confirm first (handled in importFromCloud)
+      const originalText = this.textContent;
+      this.textContent = '⏳ Importing...';
+      this.disabled = true;
+      
+      try {
+        await importFromCloud();
+      } finally {
+        this.textContent = originalText;
+        this.disabled = false;
+      }
     });
   }
   
   // Fix Stats Button
   const syncStatsBtn = document.getElementById('syncStatsBtn');
   if (syncStatsBtn) {
-    syncStatsBtn.addEventListener('click', function() {
-      console.log('Fix Stats button clicked');
-      fixAllStats();
+    const newStatsBtn = syncStatsBtn.cloneNode(true);
+    syncStatsBtn.parentNode.replaceChild(newStatsBtn, syncStatsBtn);
+    
+    newStatsBtn.addEventListener('click', function() {
+      console.log('🔧 Fix Stats button clicked');
+      
+      // Use syncService if available for better stats fixing
+      if (hasSyncService && window.syncService.fixStats) {
+        window.syncService.fixStats();
+      } else {
+        fixAllStats();
+      }
     });
   }
   
-  // Export Data Button
+  // Export Data Button (Local File)
   const exportDataBtn = document.getElementById('exportDataBtn');
   if (exportDataBtn) {
-    exportDataBtn.addEventListener('click', function() {
-      console.log('Export Data button clicked');
+    const newExportDataBtn = exportDataBtn.cloneNode(true);
+    exportDataBtn.parentNode.replaceChild(newExportDataBtn, exportDataBtn);
+    
+    newExportDataBtn.addEventListener('click', function() {
+      console.log('📤 Export Data button clicked');
       exportAllData();
     });
   }
   
-  // Import Data Button
+  // Import Data Button (Local File)
   const importDataBtn = document.getElementById('importDataBtn');
   if (importDataBtn) {
-    importDataBtn.addEventListener('click', function() {
-      console.log('Import Data button clicked');
-      createFileInput(); // This was missing!
+    const newImportDataBtn = importDataBtn.cloneNode(true);
+    importDataBtn.parentNode.replaceChild(newImportDataBtn, importDataBtn);
+    
+    newImportDataBtn.addEventListener('click', function() {
+      console.log('📥 Import Data button clicked');
+      createFileInput();
       document.getElementById('importFileInput').click();
     });
   }
@@ -862,24 +935,131 @@ function initSyncControls() {
   // Clear All Button
   const clearDataBtn = document.getElementById('clearDataBtn');
   if (clearDataBtn) {
-    clearDataBtn.addEventListener('click', function() {
-      console.log('Clear All button clicked');
+    const newClearBtn = clearDataBtn.cloneNode(true);
+    clearDataBtn.parentNode.replaceChild(newClearBtn, clearDataBtn);
+    
+    newClearBtn.addEventListener('click', function() {
+      console.log('🗑️ Clear All button clicked');
       clearAllData();
     });
   }
   
-  // Create the file input
-  createFileInput();
+  // Create the file input if it doesn't exist
+  if (!document.getElementById('importFileInput')) {
+    createFileInput();
+  }
   
-  updateSyncIndicator('Online', 'online');
+  // Initial sync indicator
+  updateSyncIndicator(
+    navigator.onLine ? 'Online' : 'Offline',
+    navigator.onLine ? 'online' : 'offline'
+  );
+  
+  // Set up online/offline listeners
+  window.addEventListener('online', () => {
+    console.log('📶 App is online');
+    updateSyncIndicator('Online', 'online');
+    
+    // If auto-sync is enabled, trigger a sync
+    if (localStorage.getItem('autoSyncEnabled') === 'true') {
+      setTimeout(() => handleSync(), 2000);
+    }
+  });
+  
+  window.addEventListener('offline', () => {
+    console.log('📶 App is offline');
+    updateSyncIndicator('Offline', 'offline');
+    showNotification('You are offline. Changes will sync when connection returns.', 'warning');
+  });
+  
+  // If syncService is available, add debug info
+  if (hasSyncService) {
+    console.log('🔄 SyncService status:', {
+      lastSync: window.syncService.lastSyncTime || 'Never',
+      autoSyncEnabled: localStorage.getItem('autoSyncEnabled') === 'true',
+      online: navigator.onLine
+    });
+  }
+  
+  console.log('✅ Sync controls initialized');
 }
 
-// ==================== SYNC FUNCTIONS ====================
+// ==================== ENHANCED SYNC INDICATOR ====================
+function updateSyncIndicator(text, status) {
+  const syncIndicator = document.getElementById('syncIndicator');
+  if (!syncIndicator) return;
+  
+  // Clear previous classes
+  syncIndicator.className = '';
+  
+  // Set text and status class
+  syncIndicator.textContent = text;
+  syncIndicator.classList.add(status);
+  
+  // Add pulse animation for syncing
+  if (status === 'syncing') {
+    syncIndicator.style.animation = 'pulse 1.5s infinite';
+  } else {
+    syncIndicator.style.animation = 'none';
+  }
+  
+  // Also update any status displays
+  const syncStatus = document.getElementById('syncStatus');
+  if (syncStatus) {
+    syncStatus.textContent = text;
+    syncStatus.className = `status-${status}`;
+  }
+  
+  console.log(`✅ Sync indicator: "${text}" (${status})`);
+}
+
+// ==================== HELPER: CHECK SYNC SERVICE HEALTH ====================
+function checkSyncHealth() {
+  if (!window.syncService) {
+    console.warn('⚠️ SyncService not available');
+    return { available: false, message: 'SyncService not loaded' };
+  }
+  
+  const status = {
+    available: true,
+    lastSync: window.syncService.lastSyncTime || 'Never',
+    autoSyncEnabled: localStorage.getItem('autoSyncEnabled') === 'true',
+    online: navigator.onLine,
+    syncInProgress: window.syncService.syncInProgress || false
+  };
+  
+  console.log('📊 Sync health:', status);
+  return status;
+}
+
+// Make it globally available
+window.checkSyncHealth = checkSyncHealth;
+
+// ==================== UPDATED SYNC FUNCTIONS ====================
 async function handleSync() {
   try {
     console.log('🔄 Starting sync process...');
     updateSyncIndicator('Syncing...', 'syncing');
     showNotification('Syncing data...', 'info');
+    
+    // Use the new sync service if available
+    if (window.syncService) {
+      const result = await window.syncService.sync();
+      
+      // Update UI based on result
+      if (result.success) {
+        // Success already handled by sync service
+        console.log('✅ Sync completed via syncService');
+      } else {
+        // Error already handled, but we'll update indicator
+        updateSyncIndicator('Sync Failed', 'error');
+      }
+      
+      return result;
+    }
+    
+    // Fallback to old sync method if syncService not available
+    console.log('⚠️ syncService not available, using fallback sync');
     
     if (!navigator.onLine) {
       updateSyncIndicator('Offline', 'offline');
@@ -1075,6 +1255,7 @@ function createFileInput() {
 }
 
 // ==================== CLOUD FUNCTIONS ====================
+// ==================== UPDATED EXPORT TO CLOUD FUNCTION ====================
 async function exportToCloud() {
   try {
     showNotification('Exporting to cloud...', 'info');
@@ -1083,6 +1264,32 @@ async function exportToCloud() {
       showNotification('Cannot export while offline', 'error');
       return;
     }
+    
+    // Use syncService if available (RECOMMENDED)
+    if (window.syncService) {
+      console.log('☁️ Using syncService for cloud export');
+      
+      // Check authentication
+      const user = await window.syncService.getCurrentUser();
+      if (!user) {
+        showNotification('Please login to export to cloud', 'error');
+        return;
+      }
+      
+      // Force a sync to push data to cloud
+      const result = await window.syncService.sync(true);
+      
+      if (result.success) {
+        showNotification('Data exported to cloud successfully!', 'success');
+      } else {
+        showNotification('Export failed: ' + (result.error || 'Unknown error'), 'error');
+      }
+      
+      return result;
+    }
+    
+    // Fallback to firebaseManager method
+    console.log('⚠️ syncService not available, using firebaseManager fallback');
     
     if (!firebase.auth().currentUser) {
       showNotification('Please login to export to cloud', 'error');
@@ -1109,6 +1316,7 @@ async function exportToCloud() {
   }
 }
 
+// ==================== UPDATED IMPORT FROM CLOUD FUNCTION ====================
 async function importFromCloud() {
   try {
     if (!confirm('Import data from cloud? This will replace your local data.')) {
@@ -1121,6 +1329,31 @@ async function importFromCloud() {
       showNotification('Cannot import while offline', 'error');
       return;
     }
+    
+    // Use syncService if available (RECOMMENDED)
+    if (window.syncService) {
+      console.log('☁️ Using syncService for cloud import');
+      
+      // Check authentication
+      const user = await window.syncService.getCurrentUser();
+      if (!user) {
+        showNotification('Please login to import from cloud', 'error');
+        return;
+      }
+      
+      // Use the syncService's import method
+      const result = await window.syncService.importFromCloud();
+      
+      if (result) {
+        showNotification('Data imported from cloud successfully!', 'success');
+        setTimeout(() => location.reload(), 1500);
+      }
+      
+      return result;
+    }
+    
+    // Fallback to firebaseManager method
+    console.log('⚠️ syncService not available, using firebaseManager fallback');
     
     if (!firebase.auth().currentUser) {
       showNotification('Please login to import from cloud', 'error');
@@ -1154,6 +1387,40 @@ async function importFromCloud() {
     showNotification('Import failed: ' + error.message, 'error');
   }
 }
+
+// ==================== HELPER FUNCTION FOR SYNC SERVICE ====================
+// Add this helper to check if syncService is working properly
+function checkSyncService() {
+  if (window.syncService) {
+    console.log('✅ syncService is available');
+    return true;
+  } else {
+    console.log('❌ syncService is NOT available');
+    return false;
+  }
+}
+
+// ==================== TEST FUNCTION ====================
+// Add this to test your sync setup
+async function testSyncSetup() {
+  console.log('🔍 Testing sync setup...');
+  
+  console.log('1. Checking syncService:', window.syncService ? '✅' : '❌');
+  console.log('2. Checking firebaseManager:', window.firebaseManager ? '✅' : '❌');
+  console.log('3. Firebase auth user:', firebase.auth().currentUser?.email || 'Not logged in');
+  console.log('4. Online status:', navigator.onLine ? '✅ Online' : '❌ Offline');
+  
+  if (window.syncService) {
+    console.log('5. Testing syncService.getCurrentUser...');
+    const user = await window.syncService.getCurrentUser();
+    console.log('   Result:', user ? `✅ ${user.email}` : '❌ No user');
+  }
+  
+  console.log('✅ Test complete');
+}
+
+// Make test function available globally
+window.testSyncSetup = testSyncSetup;
 
 // ==================== DATA EXPORT/IMPORT FUNCTIONS ====================
 function exportAllData() {
