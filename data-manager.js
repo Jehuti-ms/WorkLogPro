@@ -34,222 +34,146 @@ class DataManager {
 
     // SYNC UI METHOD - WITH PROPER SORTING AND TEST DATA HANDLING
     syncUI(sortMethod = 'id') {
-    console.log('🔄 Syncing UI with student data...');
-    
-    // Get students from localStorage
-    let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-    
-    // Split into real students (with valid studentId) and test data
-    const realStudents = students.filter(s => s.studentId && s.studentId.toString().trim() !== '');
-    const testStudents = students.filter(s => !s.studentId || s.studentId.toString().trim() === '');
-    
-    // Sort based on method
-    if (sortMethod === 'id') {
-        // Sort by student ID numerically (YOUR EXISTING CODE)
-        realStudents.sort((a, b) => {
-            const getNum = (id) => {
-                const match = id.toString().match(/\d+/);
-                return match ? parseInt(match[0], 10) : 999999;
-            };
-            
-            const numA = getNum(a.studentId);
-            const numB = getNum(b.studentId);
-            
-            if (numA !== numB) {
-                return numA - numB; // Sort by numeric part
-            }
-            
-            // If same number, sort alphabetically by full ID
-            return (a.studentId || '').localeCompare(b.studentId || '');
-        });
-    } else if (sortMethod === 'name') {
-        // Sort by name alphabetically
-        realStudents.sort((a, b) => {
-            const nameA = (a.name || '').toLowerCase();
-            const nameB = (b.name || '').toLowerCase();
-            return nameA.localeCompare(nameB);
-        });
-    } else if (sortMethod === 'date') {
-        // Sort by creation date (newest first)
-        realStudents.sort((a, b) => {
-            const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
-            const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
-            return dateB - dateA; // Newest first
-        });
-    } else if (sortMethod === 'rate') {
-        // Sort by rate (highest first)
-        realStudents.sort((a, b) => {
-            const rateA = parseFloat(a.rate || a.hourlyRate || 0);
-            const rateB = parseFloat(b.rate || b.hourlyRate || 0);
-            return rateB - rateA; // Highest first
-        });
-    }
-    
-    // Combine real students first, then test data at the end
-    students = [...realStudents, ...testStudents];
-    
-    // Update formHandler
-    if (window.formHandler) {
-        window.formHandler.students = students;
-    }
-    
-    // DIRECT UI UPDATE
-    const container = document.getElementById('studentsContainer');
-    if (container) {
-        if (students.length === 0) {
-            container.innerHTML = '<p class="empty-message">No students registered yet.</p>';
-        } else {
-            container.innerHTML = students.map(student => {
-                // Format the date properly
-                let dateStr = 'Unknown';
-                if (student.createdAt) {
-                    try {
-                        const date = student.createdAt.toDate ? 
-                            student.createdAt.toDate() : 
-                            new Date(student.createdAt);
-                        dateStr = date.toLocaleDateString();
-                    } catch (e) {
-                        dateStr = 'Unknown';
-                    }
+        console.log('🔄 Syncing UI with student data...');
+        
+        // Get students from localStorage
+        let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+        
+        // Split into real students (with valid studentId) and test data
+        const realStudents = students.filter(s => s.studentId && s.studentId.toString().trim() !== '');
+        const testStudents = students.filter(s => !s.studentId || s.studentId.toString().trim() === '');
+        
+        // Sort based on method
+        if (sortMethod === 'id') {
+            // Sort by student ID numerically
+            realStudents.sort((a, b) => {
+                const getNum = (id) => {
+                    const match = id.toString().match(/\d+/);
+                    return match ? parseInt(match[0], 10) : 999999;
+                };
+                
+                const numA = getNum(a.studentId);
+                const numB = getNum(b.studentId);
+                
+                if (numA !== numB) {
+                    return numA - numB; // Sort by numeric part
                 }
                 
-                // Add a visual indicator for test students
-                const isTestStudent = !student.studentId || student.studentId.toString().trim() === '';
-                
-                // Calculate rate display
-                const rate = student.hourlyRate || student.rate || 0;
-                
-                return `
-                    <div class="student-card" data-id="${student.id}" style="${isTestStudent ? 'opacity: 0.7; border-left: 3px solid orange;' : ''}">
-                        <div class="student-card-header">
-                            <strong>${student.name || ''}</strong>
-                            <span class="student-id">${student.studentId || '⚠️ No ID'}</span>
-                            <div class="student-actions">
-                                <button class="btn-icon edit-student" onclick="window.editStudent('${student.id}')" title="Edit">✏️</button>
-                                <button class="btn-icon delete-student" onclick="window.deleteStudent('${student.id}')" title="Delete">🗑️</button>
+                // If same number, sort alphabetically by full ID
+                return (a.studentId || '').localeCompare(b.studentId || '');
+            });
+        } else if (sortMethod === 'name') {
+            // Sort by name alphabetically
+            realStudents.sort((a, b) => {
+                const nameA = (a.name || '').toLowerCase();
+                const nameB = (b.name || '').toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
+        } else if (sortMethod === 'date') {
+            // Sort by creation date (newest first)
+            realStudents.sort((a, b) => {
+                const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+                const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+                return dateB - dateA; // Newest first
+            });
+        } else if (sortMethod === 'rate') {
+            // Sort by rate (highest first)
+            realStudents.sort((a, b) => {
+                const rateA = parseFloat(a.rate || a.hourlyRate || 0);
+                const rateB = parseFloat(b.rate || b.hourlyRate || 0);
+                return rateB - rateA; // Highest first
+            });
+        }
+        
+        // Combine real students first, then test data at the end
+        students = [...realStudents, ...testStudents];
+        
+        // Update formHandler
+        if (window.formHandler) {
+            window.formHandler.students = students;
+        }
+        
+        // DIRECT UI UPDATE
+        const container = document.getElementById('studentsContainer');
+        if (container) {
+            if (students.length === 0) {
+                container.innerHTML = '<p class="empty-message">No students registered yet.</p>';
+            } else {
+                container.innerHTML = students.map(student => {
+                    // Format the date properly
+                    let dateStr = 'Unknown';
+                    if (student.createdAt) {
+                        try {
+                            const date = student.createdAt.toDate ? 
+                                student.createdAt.toDate() : 
+                                new Date(student.createdAt);
+                            dateStr = date.toLocaleDateString();
+                        } catch (e) {
+                            dateStr = 'Unknown';
+                        }
+                    }
+                    
+                    // Add a visual indicator for test students
+                    const isTestStudent = !student.studentId || student.studentId.toString().trim() === '';
+                    
+                    // Calculate rate display
+                    const rate = student.hourlyRate || student.rate || 0;
+                    
+                    return `
+                        <div class="student-card" data-id="${student.id}" style="${isTestStudent ? 'opacity: 0.7; border-left: 3px solid orange;' : ''}">
+                            <div class="student-card-header">
+                                <strong>${student.name || ''}</strong>
+                                <span class="student-id">${student.studentId || '⚠️ No ID'}</span>
+                                <div class="student-actions">
+                                    <button class="btn-icon edit-student" onclick="window.editStudent('${student.id}')" title="Edit">✏️</button>
+                                    <button class="btn-icon delete-student" onclick="window.deleteStudent('${student.id}')" title="Delete">🗑️</button>
+                                </div>
+                            </div>
+                            <div class="student-details">
+                                <div class="student-rate">$${rate.toFixed(2)}/hour</div>
+                                <div>${student.gender || ''} • ${student.email || 'No email'}</div>
+                                <div>${student.phone || 'No phone'}</div>
+                                <div class="student-meta">
+                                    Added: ${dateStr}
+                                    ${isTestStudent ? '<span style="color: orange; margin-left: 10px;">⚠️ Test Data</span>' : ''}
+                                </div>
                             </div>
                         </div>
-                        <div class="student-details">
-                            <div class="student-rate">$${rate.toFixed(2)}/hour</div>
-                            <div>${student.gender || ''} • ${student.email || 'No email'}</div>
-                            <div>${student.phone || 'No phone'}</div>
-                            <div class="student-meta">
-                                Added: ${dateStr}
-                                ${isTestStudent ? '<span style="color: orange; margin-left: 10px;">⚠️ Test Data</span>' : ''}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
+                    `;
+                }).join('');
+            }
+            
+            // Update student count
+            const countElem = document.getElementById('studentCount');
+            if (countElem) countElem.textContent = realStudents.length;
+            
+            // Also update stats
+            const statStudents = document.getElementById('statStudents');
+            if (statStudents) statStudents.textContent = realStudents.length;
+            
+            // Update average rate
+            const avgRateElem = document.getElementById('averageRate');
+            if (avgRateElem && realStudents.length > 0) {
+                const totalRate = realStudents.reduce((sum, student) => 
+                    sum + parseFloat(student.rate || student.hourlyRate || 0), 0);
+                const avgRate = totalRate / realStudents.length;
+                avgRateElem.textContent = avgRate.toFixed(2);
+            }
         }
         
-        // Update student count
-        const countElem = document.getElementById('studentCount');
-        if (countElem) countElem.textContent = realStudents.length;
+        console.log(`✅ UI synced with ${realStudents.length} real students + ${testStudents.length} test entries`);
+        console.log(`📋 Student order (${sortMethod}):`, realStudents.map(s => 
+            sortMethod === 'id' ? `${s.studentId}: ${s.name}` : 
+            sortMethod === 'name' ? s.name : 
+            sortMethod === 'date' ? `${new Date(s.createdAt).toLocaleDateString()}: ${s.name}` :
+            sortMethod === 'rate' ? `$${parseFloat(s.rate || 0).toFixed(2)}: ${s.name}` : 
+            `${s.studentId}: ${s.name}`
+        ).join(' → '));
         
-        // Also update stats
-        const statStudents = document.getElementById('statStudents');
-        if (statStudents) statStudents.textContent = realStudents.length;
-        
-        // Update average rate
-        const avgRateElem = document.getElementById('averageRate');
-        if (avgRateElem && realStudents.length > 0) {
-            const totalRate = realStudents.reduce((sum, student) => 
-                sum + parseFloat(student.rate || student.hourlyRate || 0), 0);
-            const avgRate = totalRate / realStudents.length;
-            avgRateElem.textContent = avgRate.toFixed(2);
-        }
+        return students;
     }
-    
-    console.log(`✅ UI synced with ${realStudents.length} real students + ${testStudents.length} test entries`);
-    console.log(`📋 Student order (${sortMethod}):`, realStudents.map(s => 
-        sortMethod === 'id' ? `${s.studentId}: ${s.name}` : 
-        sortMethod === 'name' ? s.name : 
-        sortMethod === 'date' ? `${new Date(s.createdAt).toLocaleDateString()}: ${s.name}` :
-        sortMethod === 'rate' ? `$${parseFloat(s.rate || 0).toFixed(2)}: ${s.name}` : 
-        `${s.studentId}: ${s.name}`
-    ).join(' → '));
-    
-    return students;
-};
 
-// ==================== STUDENT SORTING CONTROLS ====================
-function addSortingControls() {
-    const container = document.querySelector('.section-header');
-    if (!container) return;
-    
-    // Check if controls already exist
-    if (document.getElementById('sortControls')) return;
-    
-    const sortControls = document.createElement('div');
-    sortControls.id = 'sortControls';
-    sortControls.className = 'sort-controls';
-    sortControls.innerHTML = `
-        <select id="studentSortSelect" class="sort-select" onchange="changeStudentSort(this.value)">
-            <option value="id">Sort by ID 🔢</option>
-            <option value="name">Sort by Name 📝</option>
-            <option value="date">Sort by Date 📅</option>
-            <option value="rate">Sort by Rate 💰</option>
-        </select>
-    `;
-    
-    container.appendChild(sortControls);
-}
-
-// Make changeStudentSort globally available
-window.changeStudentSort = function(method) {
-    console.log(`🔄 Changing sort method to: ${method}`);
-    localStorage.setItem('studentSortMethod', method);
-    
-    // Use dataManager if available
-    if (window.dataManager) {
-        window.dataManager.syncUI(method);
-    } else {
-        // Fallback to direct function if it exists
-        if (typeof syncUI === 'function') {
-            syncUI(method);
-        }
-    }
-};
-
-// Initialize with saved preference
-function initStudentSorting() {
-    const savedMethod = localStorage.getItem('studentSortMethod') || 'id';
-    
-    // Set select value if exists
-    const select = document.getElementById('studentSortSelect');
-    if (select) {
-        select.value = savedMethod;
-    }
-    
-    // Apply sorting
-    if (window.dataManager) {
-        window.dataManager.syncUI(savedMethod);
-    } else {
-        if (typeof syncUI === 'function') {
-            syncUI(savedMethod);
-        }
-    }
-}
-
-function initStudentSorting() {
-    const savedMethod = localStorage.getItem('studentSortMethod') || 'id';
-    
-    // Set select value if exists
-    const select = document.getElementById('studentSortSelect');
-    if (select) {
-        select.value = savedMethod;
-    }
-    
-    // Apply sorting
-    if (window.dataManager) {
-        window.dataManager.syncUI(savedMethod);
-    } else {
-        syncUI(savedMethod);
-    }
-}
-    
-    // STUDENT METHODS - FIXED VERSION
+    // STUDENT METHODS
     async addStudent(studentData) {
         try {
             if (!this.userId) {
@@ -405,43 +329,36 @@ function initStudentSorting() {
         }
     }
 
-   // In your data-manager.js, update the deleteStudent method:
-
-async deleteStudent(studentId) {
-    try {
-        console.log(`🗑️ Attempting to delete student: ${studentId}`);
-        
-        if (!studentId) {
-            console.error('❌ No student ID provided');
-            return false;
-        }
-        
-        // Double confirmation for safety
-        if (!confirm('Are you sure you want to permanently delete this student? This cannot be undone.')) {
-            return false;
-        }
-        
-        // Show loading indicator
-        this.showNotification('Deleting student...', 'info');
-        
-        // 1. Delete from Firebase if user is authenticated
-        if (this.userId) {
-            try {
-                console.log('☁️ Deleting from Firebase...');
-                
-                // Delete from main data document
-                const db = firebase.firestore();
-                const userRef = db.collection('users').doc(this.userId);
-                
-                // Remove from consolidated data document
-                const dataDocRef = userRef.collection('data').doc('worklog');
-                await dataDocRef.update({
-                    students: firebase.firestore.FieldValue.arrayRemove(
-                        // Need to remove by reference - better to use array manipulation
-                        // Alternative: Get current data, filter, set back
-                    )
-                }).catch(async (error) => {
-                    // If arrayRemove fails, do a full read/write
+    async deleteStudent(studentId) {
+        try {
+            console.log(`🗑️ Attempting to delete student: ${studentId}`);
+            
+            if (!studentId) {
+                console.error('❌ No student ID provided');
+                return false;
+            }
+            
+            // Double confirmation for safety
+            if (!confirm('Are you sure you want to permanently delete this student? This cannot be undone.')) {
+                return false;
+            }
+            
+            // Show loading indicator
+            this.showNotification('Deleting student...', 'info');
+            
+            // 1. Delete from Firebase if user is authenticated
+            if (this.userId) {
+                try {
+                    console.log('☁️ Deleting from Firebase...');
+                    
+                    // Delete from main data document
+                    const db = firebase.firestore();
+                    const userRef = db.collection('users').doc(this.userId);
+                    
+                    // Remove from consolidated data document
+                    const dataDocRef = userRef.collection('data').doc('worklog');
+                    
+                    // Get current data, filter, set back
                     const docSnap = await dataDocRef.get();
                     if (docSnap.exists) {
                         const data = docSnap.data();
@@ -450,172 +367,171 @@ async deleteStudent(studentId) {
                             await dataDocRef.set(data, { merge: true });
                         }
                     }
-                });
-                
-                // Also delete from separate students collection if it exists
-                const studentDocRef = userRef.collection('students').doc(studentId);
-                await studentDocRef.delete().catch(e => {
-                    console.log('No separate student document to delete');
-                });
-                
-                console.log('✅ Deleted from Firebase');
-            } catch (firebaseError) {
-                console.error('❌ Firebase delete error:', firebaseError);
-                // Continue with local delete even if Firebase fails
-            }
-        }
-        
-        // 2. Delete from localStorage (ALWAYS do this)
-        console.log('💾 Deleting from localStorage...');
-        
-        // Get current students
-        let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-        const beforeCount = students.length;
-        
-        // Filter out the student
-        students = students.filter(s => s.id !== studentId);
-        const afterCount = students.length;
-        
-        if (beforeCount === afterCount) {
-            console.warn('⚠️ Student not found in localStorage');
-        } else {
-            console.log(`✅ Removed ${beforeCount - afterCount} student(s) from localStorage`);
-        }
-        
-        // Save back to localStorage
-        localStorage.setItem('worklog_students', JSON.stringify(students));
-        
-        // 3. Also delete related data (hours, marks, attendance, payments)
-        await this.deleteRelatedData(studentId);
-        
-        // 4. Force a sync to ensure Firebase reflects the deletion
-        if (this.userId && window.syncService) {
-            console.log('🔄 Syncing deletion to cloud...');
-            
-            // Wait a moment for local changes to settle
-            setTimeout(async () => {
-                await window.syncService.sync(true);
-                console.log('✅ Deletion synced to cloud');
-            }, 500);
-        }
-        
-        // 5. Update UI
-        this.syncUI();
-        
-        // 6. Show success message
-        this.showNotification('Student permanently deleted!', 'success');
-        
-        // 7. Update all stats
-        this.refreshAllStats();
-        
-        return true;
-        
-    } catch (error) {
-        console.error('❌ Error deleting student:', error);
-        this.showNotification('Error deleting student: ' + error.message, 'error');
-        return false;
-    }
-}
-
-// Helper method to delete related data
-async deleteRelatedData(studentId) {
-    try {
-        console.log(`🗑️ Deleting related data for student: ${studentId}`);
-        
-        // Data types to clean up
-        const dataTypes = ['hours', 'marks', 'attendance', 'payments'];
-        
-        for (const type of dataTypes) {
-            const key = `worklog_${type}`;
-            let items = JSON.parse(localStorage.getItem(key) || '[]');
-            
-            // Filter based on the correct field name
-            let filtered;
-            if (type === 'hours') {
-                filtered = items.filter(item => item.hoursStudent !== studentId);
-            } else if (type === 'marks') {
-                filtered = items.filter(item => item.marksStudent !== studentId);
-            } else if (type === 'attendance') {
-                filtered = items.filter(item => !item.presentStudents?.includes(studentId));
-            } else if (type === 'payments') {
-                filtered = items.filter(item => item.paymentStudent !== studentId);
-            }
-            
-            if (filtered.length !== items.length) {
-                localStorage.setItem(key, JSON.stringify(filtered));
-                console.log(`✅ Removed ${items.length - filtered.length} ${type} records`);
-            }
-            
-            // Also delete from Firebase if needed
-            if (this.userId && firebase.firestore) {
-                try {
-                    const db = firebase.firestore();
-                    const collectionRef = db.collection('users').doc(this.userId).collection(type);
                     
-                    // Query for items with this studentId
-                    let fieldName;
-                    if (type === 'hours') fieldName = 'hoursStudent';
-                    else if (type === 'marks') fieldName = 'marksStudent';
-                    else if (type === 'payments') fieldName = 'paymentStudent';
+                    // Also delete from separate students collection if it exists
+                    const studentDocRef = userRef.collection('students').doc(studentId);
+                    await studentDocRef.delete().catch(e => {
+                        console.log('No separate student document to delete');
+                    });
                     
-                    if (fieldName) {
-                        const snapshot = await collectionRef.where(fieldName, '==', studentId).get();
-                        const batch = db.batch();
-                        snapshot.docs.forEach(doc => {
-                            batch.delete(doc.ref);
-                        });
-                        await batch.commit();
-                        console.log(`✅ Deleted ${snapshot.size} ${type} from Firebase`);
-                    }
-                } catch (e) {
-                    console.log(`Could not delete ${type} from Firebase:`, e);
+                    console.log('✅ Deleted from Firebase');
+                } catch (firebaseError) {
+                    console.error('❌ Firebase delete error:', firebaseError);
+                    // Continue with local delete even if Firebase fails
                 }
             }
+            
+            // 2. Delete from localStorage (ALWAYS do this)
+            console.log('💾 Deleting from localStorage...');
+            
+            // Get current students
+            let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+            const beforeCount = students.length;
+            
+            // Filter out the student
+            students = students.filter(s => s.id !== studentId);
+            const afterCount = students.length;
+            
+            if (beforeCount === afterCount) {
+                console.warn('⚠️ Student not found in localStorage');
+            } else {
+                console.log(`✅ Removed ${beforeCount - afterCount} student(s) from localStorage`);
+            }
+            
+            // Save back to localStorage
+            localStorage.setItem('worklog_students', JSON.stringify(students));
+            
+            // 3. Also delete related data (hours, marks, attendance, payments)
+            await this.deleteRelatedData(studentId);
+            
+            // 4. Force a sync to ensure Firebase reflects the deletion
+            if (this.userId && window.syncService) {
+                console.log('🔄 Syncing deletion to cloud...');
+                
+                // Wait a moment for local changes to settle
+                setTimeout(async () => {
+                    await window.syncService.sync(true);
+                    console.log('✅ Deletion synced to cloud');
+                }, 500);
+            }
+            
+            // 5. Update UI
+            this.syncUI();
+            
+            // 6. Show success message
+            this.showNotification('Student permanently deleted!', 'success');
+            
+            // 7. Update all stats
+            this.refreshAllStats();
+            
+            return true;
+            
+        } catch (error) {
+            console.error('❌ Error deleting student:', error);
+            this.showNotification('Error deleting student: ' + error.message, 'error');
+            return false;
         }
-        
-        return true;
-    } catch (error) {
-        console.error('Error deleting related data:', error);
-        return false;
     }
-}
 
-// Add notification method if not present
-showNotification(message, type = 'info') {
-    if (typeof window.showNotification === 'function') {
-        window.showNotification(message, type);
-    } else {
-        console.log(`🔔 [${type}] ${message}`);
-        // Create temporary notification
-        const notification = document.createElement('div');
-        notification.className = `temp-notification ${type}`;
-        notification.textContent = message;
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 12px 20px;
-            background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
-            color: white;
-            border-radius: 4px;
-            z-index: 10000;
-            animation: slideIn 0.3s ease;
-        `;
-        document.body.appendChild(notification);
-        setTimeout(() => notification.remove(), 3000);
+    // Helper method to delete related data
+    async deleteRelatedData(studentId) {
+        try {
+            console.log(`🗑️ Deleting related data for student: ${studentId}`);
+            
+            // Data types to clean up
+            const dataTypes = ['hours', 'marks', 'attendance', 'payments'];
+            
+            for (const type of dataTypes) {
+                const key = `worklog_${type}`;
+                let items = JSON.parse(localStorage.getItem(key) || '[]');
+                
+                // Filter based on the correct field name
+                let filtered;
+                if (type === 'hours') {
+                    filtered = items.filter(item => item.hoursStudent !== studentId);
+                } else if (type === 'marks') {
+                    filtered = items.filter(item => item.marksStudent !== studentId);
+                } else if (type === 'attendance') {
+                    filtered = items.filter(item => !item.presentStudents?.includes(studentId));
+                } else if (type === 'payments') {
+                    filtered = items.filter(item => item.paymentStudent !== studentId);
+                }
+                
+                if (filtered.length !== items.length) {
+                    localStorage.setItem(key, JSON.stringify(filtered));
+                    console.log(`✅ Removed ${items.length - filtered.length} ${type} records`);
+                }
+                
+                // Also delete from Firebase if needed
+                if (this.userId && firebase.firestore) {
+                    try {
+                        const db = firebase.firestore();
+                        const collectionRef = db.collection('users').doc(this.userId).collection(type);
+                        
+                        // Query for items with this studentId
+                        let fieldName;
+                        if (type === 'hours') fieldName = 'hoursStudent';
+                        else if (type === 'marks') fieldName = 'marksStudent';
+                        else if (type === 'payments') fieldName = 'paymentStudent';
+                        
+                        if (fieldName) {
+                            const snapshot = await collectionRef.where(fieldName, '==', studentId).get();
+                            const batch = db.batch();
+                            snapshot.docs.forEach(doc => {
+                                batch.delete(doc.ref);
+                            });
+                            await batch.commit();
+                            console.log(`✅ Deleted ${snapshot.size} ${type} from Firebase`);
+                        }
+                    } catch (e) {
+                        console.log(`Could not delete ${type} from Firebase:`, e);
+                    }
+                }
+            }
+            
+            return true;
+        } catch (error) {
+            console.error('Error deleting related data:', error);
+            return false;
+        }
     }
-}
 
-// Refresh all stats
-refreshAllStats() {
-    if (typeof refreshAllStats === 'function') {
-        refreshAllStats();
-    } else {
-        // Manual refresh
-        if (typeof updateProfileStats === 'function') updateProfileStats();
-        if (typeof updateGlobalStats === 'function') updateGlobalStats();
+    // Add notification method if not present
+    showNotification(message, type = 'info') {
+        if (typeof window.showNotification === 'function') {
+            window.showNotification(message, type);
+        } else {
+            console.log(`🔔 [${type}] ${message}`);
+            // Create temporary notification
+            const notification = document.createElement('div');
+            notification.className = `temp-notification ${type}`;
+            notification.textContent = message;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 12px 20px;
+                background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
+                color: white;
+                border-radius: 4px;
+                z-index: 10000;
+                animation: slideIn 0.3s ease;
+            `;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
     }
-}
+
+    // Refresh all stats
+    refreshAllStats() {
+        if (typeof refreshAllStats === 'function') {
+            refreshAllStats();
+        } else {
+            // Manual refresh
+            if (typeof updateProfileStats === 'function') updateProfileStats();
+            if (typeof updateGlobalStats === 'function') updateGlobalStats();
+        }
+    }
 
     // Load from Firestore to localStorage
     async loadFromFirestore() {
@@ -1096,84 +1012,4 @@ refreshAllStats() {
             invoice += 'PERIOD:\n';
             invoice += `  ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}\n\n`;
             
-            invoice += 'SERVICES:\n';
-            invoice += '-'.repeat(50) + '\n';
-            invoice += 'Date         Hours  Activity\n';
-            invoice += '-'.repeat(50) + '\n';
-            
-            studentLogs.forEach(log => {
-                invoice += `${log.date.padEnd(12)} ${log.duration.toString().padStart(5)}  ${log.activity}\n`;
-            });
-            
-            invoice += '\n' + '='.repeat(50) + '\n';
-            invoice += `Total Hours: ${totalHours.toFixed(2)}\n`;
-            invoice += `Rate: $${rate.toFixed(2)} per hour\n`;
-            invoice += `Subtotal: $${subtotal.toFixed(2)}\n`;
-            invoice += `Tax (10%): $${tax.toFixed(2)}\n`;
-            invoice += `TOTAL DUE: $${total.toFixed(2)}\n\n`;
-            
-            invoice += 'Payment due upon receipt. Thank you for your business!\n';
-            
-            return invoice;
-            
-        } catch (error) {
-            console.error(`Error generating invoice for ${studentName}:`, error);
-            return `Error generating invoice: ${error.message}`;
-        }
-    }
-}
-
-// Create global instance when script loads
-console.log('📊 DataManager script loaded, creating global instance...');
-
-// Wait for Firebase to be ready
-const initDataManager = () => {
-    if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
-        if (!window.dataManager) {
-            window.dataManager = new DataManager();
-            console.log('✅ Global dataManager instance created');
-            
-            // Test the instance
-            setTimeout(() => {
-                console.log('🧪 Testing DataManager instance...');
-                if (window.dataManager) {
-                    console.log('✅ dataManager is ready:', window.dataManager);
-                }
-            }, 1000);
-        }
-    } else {
-        console.log('⏳ Waiting for Firebase...');
-        setTimeout(initDataManager, 100);
-    }
-};
-
-// Start initialization
-initDataManager();
-
-// Add global helper functions
-window.editStudent = function(studentId) {
-    console.log('✏️ Edit student:', studentId);
-    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-    const student = students.find(s => s.id === studentId);
-    if (student) {
-        // Populate your edit form here
-        console.log('Student data to edit:', student);
-        alert(`Edit student: ${student.name}\nThis feature is coming soon!`);
-    }
-};
-
-window.deleteStudent = function(studentId) {
-    console.log('🗑️ Delete student:', studentId);
-    if (confirm('Are you sure you want to delete this student?')) {
-        if (window.dataManager) {
-            window.dataManager.deleteStudent(studentId);
-        }
-    }
-};
-
-// Force render helper
-window.forceRender = function() {
-    if (window.dataManager) {
-        window.dataManager.syncUI();
-    }
-};
+           
