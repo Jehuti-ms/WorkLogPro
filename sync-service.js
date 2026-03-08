@@ -160,24 +160,103 @@ class SyncService {
     };
   }
 
-  async getRemoteData(userId) {
-    try {
-      const db = firebase.firestore();
-      const docRef = db.collection('users').doc(userId).collection('data').doc('worklog');
-      const docSnap = await docRef.get();
-      
-      if (docSnap.exists) {
-        return docSnap.data();
-      } else {
-        // No remote data yet
-        return null;
-      }
-    } catch (error) {
-      console.error('Error getting remote data:', error);
-      return null;
-    }
-  }
+  // Update the getRemoteData method in sync-service.js (around line 190)
 
+async getRemoteData(userId) {
+  try {
+    const db = firebase.firestore();
+    
+    // Try to get the consolidated data document first
+    const docRef = db.collection('users').doc(userId).collection('data').doc('worklog');
+    const docSnap = await docRef.get();
+    
+    if (docSnap.exists) {
+      const data = docSnap.data();
+      // If it has students, great!
+      if (data.students && data.students.length > 0) {
+        return data;
+      }
+    }
+    
+    // If no consolidated data, check for separate collections
+    console.log('No consolidated data, checking separate collections...');
+    
+    // Get students from separate collection
+    const studentsSnapshot = await db.collection('users').doc(userId)
+      .collection('students').get();
+    
+    const students = studentsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    // Get hours from separate collection (if exists)
+    const hoursSnapshot = await db.collection('users').doc(userId)
+      .collection('hours').get();
+    
+    const hours = hoursSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    // Get marks from separate collection (if exists)
+    const marksSnapshot = await db.collection('users').doc(userId)
+      .collection('marks').get();
+    
+    const marks = marksSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    // Get attendance from separate collection (if exists)
+    const attendanceSnapshot = await db.collection('users').doc(userId)
+      .collection('attendance').get();
+    
+    const attendance = attendanceSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    // Get payments from separate collection (if exists)
+    const paymentsSnapshot = await db.collection('users').doc(userId)
+      .collection('payments').get();
+    
+    const payments = paymentsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    // Combine into the expected format
+    const combinedData = {
+      students,
+      hours,
+      marks,
+      attendance,
+      payments,
+      settings: {
+        defaultHourlyRate: localStorage.getItem('defaultHourlyRate') || '25.00',
+        autoSyncEnabled: localStorage.getItem('autoSyncEnabled') === 'true',
+        theme: localStorage.getItem('worklog-theme') || 'dark'
+      },
+      lastSync: new Date().toISOString()
+    };
+    
+    console.log(`📊 Combined data: ${students.length} students, ${hours.length} hours`);
+    
+    // Save this combined format back to Firestore for future use
+    if (students.length > 0) {
+      await docRef.set(combinedData, { merge: true });
+      console.log('✅ Saved combined data format to Firestore');
+    }
+    
+    return combinedData;
+    
+  } catch (error) {
+    console.error('Error getting remote data:', error);
+    return null;
+  }
+}
+  
   mergeData(local, remote) {
     // If no remote data, just use local
     if (!remote) {
