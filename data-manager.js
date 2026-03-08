@@ -33,94 +33,200 @@ class DataManager {
     }
 
     // SYNC UI METHOD - WITH PROPER SORTING AND TEST DATA HANDLING
-    syncUI() {
-        console.log('🔄 Syncing UI with student data...');
-        
-        // Get students from localStorage
-        let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-        
-        // Split into real students (with valid studentId) and test data
-        const realStudents = students.filter(s => s.studentId && s.studentId.toString().trim() !== '');
-        const testStudents = students.filter(s => !s.studentId || s.studentId.toString().trim() === '');
-        
-        // Sort real students by studentId numerically
+    syncUI(sortMethod = 'id') {
+    console.log('🔄 Syncing UI with student data...');
+    
+    // Get students from localStorage
+    let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    
+    // Split into real students (with valid studentId) and test data
+    const realStudents = students.filter(s => s.studentId && s.studentId.toString().trim() !== '');
+    const testStudents = students.filter(s => !s.studentId || s.studentId.toString().trim() === '');
+    
+    // Sort based on method
+    if (sortMethod === 'id') {
+        // Sort by student ID numerically (YOUR EXISTING CODE)
         realStudents.sort((a, b) => {
             const getNum = (id) => {
                 const match = id.toString().match(/\d+/);
                 return match ? parseInt(match[0], 10) : 999999;
             };
-            return getNum(a.studentId) - getNum(b.studentId);
-        });
-        
-        // Combine real students first, then test data at the end
-        students = [...realStudents, ...testStudents];
-        
-        // Update formHandler
-        if (window.formHandler) {
-            window.formHandler.students = students;
-        }
-        
-        // DIRECT UI UPDATE
-        const container = document.getElementById('studentsContainer');
-        if (container) {
-            if (students.length === 0) {
-                container.innerHTML = '<p class="empty-message">No students registered yet.</p>';
-            } else {
-                container.innerHTML = students.map(student => {
-                    // Format the date properly
-                    let dateStr = 'Unknown';
-                    if (student.createdAt) {
-                        try {
-                            const date = student.createdAt.toDate ? 
-                                student.createdAt.toDate() : 
-                                new Date(student.createdAt);
-                            dateStr = date.toLocaleDateString();
-                        } catch (e) {
-                            dateStr = 'Unknown';
-                        }
-                    }
-                    
-                    // Add a visual indicator for test students
-                    const isTestStudent = !student.studentId || student.studentId.toString().trim() === '';
-                    
-                    return `
-                        <div class="student-card" data-id="${student.id}" style="${isTestStudent ? 'opacity: 0.7; border-left: 3px solid orange;' : ''}">
-                            <div class="student-card-header">
-                                <strong>${student.name || ''}</strong>
-                                <span class="student-id">${student.studentId || '⚠️ No ID'}</span>
-                                <div class="student-actions">
-                                    <button class="btn-icon edit-student" onclick="window.editStudent('${student.id}')" title="Edit">✏️</button>
-                                    <button class="btn-icon delete-student" onclick="window.deleteStudent('${student.id}')" title="Delete">🗑️</button>
-                                </div>
-                            </div>
-                            <div class="student-details">
-                                <div class="student-rate">$${(student.hourlyRate || student.rate || 0).toFixed(2)}/hour</div>
-                                <div>${student.gender || ''} • ${student.email || 'No email'}</div>
-                                <div>${student.phone || 'No phone'}</div>
-                                <div class="student-meta">
-                                    Added: ${dateStr}
-                                    ${isTestStudent ? '<span style="color: orange; margin-left: 10px;">⚠️ Test Data</span>' : ''}
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
+            
+            const numA = getNum(a.studentId);
+            const numB = getNum(b.studentId);
+            
+            if (numA !== numB) {
+                return numA - numB; // Sort by numeric part
             }
             
-            // Update student count
-            const countElem = document.getElementById('studentCount');
-            if (countElem) countElem.textContent = realStudents.length;
-            
-            // Also update stats
-            const statStudents = document.getElementById('statStudents');
-            if (statStudents) statStudents.textContent = realStudents.length;
+            // If same number, sort alphabetically by full ID
+            return (a.studentId || '').localeCompare(b.studentId || '');
+        });
+    } else if (sortMethod === 'name') {
+        // Sort by name alphabetically
+        realStudents.sort((a, b) => {
+            const nameA = (a.name || '').toLowerCase();
+            const nameB = (b.name || '').toLowerCase();
+            return nameA.localeCompare(nameB);
+        });
+    } else if (sortMethod === 'date') {
+        // Sort by creation date (newest first)
+        realStudents.sort((a, b) => {
+            const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+            const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+            return dateB - dateA; // Newest first
+        });
+    } else if (sortMethod === 'rate') {
+        // Sort by rate (highest first)
+        realStudents.sort((a, b) => {
+            const rateA = parseFloat(a.rate || a.hourlyRate || 0);
+            const rateB = parseFloat(b.rate || b.hourlyRate || 0);
+            return rateB - rateA; // Highest first
+        });
+    }
+    
+    // Combine real students first, then test data at the end
+    students = [...realStudents, ...testStudents];
+    
+    // Update formHandler
+    if (window.formHandler) {
+        window.formHandler.students = students;
+    }
+    
+    // DIRECT UI UPDATE
+    const container = document.getElementById('studentsContainer');
+    if (container) {
+        if (students.length === 0) {
+            container.innerHTML = '<p class="empty-message">No students registered yet.</p>';
+        } else {
+            container.innerHTML = students.map(student => {
+                // Format the date properly
+                let dateStr = 'Unknown';
+                if (student.createdAt) {
+                    try {
+                        const date = student.createdAt.toDate ? 
+                            student.createdAt.toDate() : 
+                            new Date(student.createdAt);
+                        dateStr = date.toLocaleDateString();
+                    } catch (e) {
+                        dateStr = 'Unknown';
+                    }
+                }
+                
+                // Add a visual indicator for test students
+                const isTestStudent = !student.studentId || student.studentId.toString().trim() === '';
+                
+                // Calculate rate display
+                const rate = student.hourlyRate || student.rate || 0;
+                
+                return `
+                    <div class="student-card" data-id="${student.id}" style="${isTestStudent ? 'opacity: 0.7; border-left: 3px solid orange;' : ''}">
+                        <div class="student-card-header">
+                            <strong>${student.name || ''}</strong>
+                            <span class="student-id">${student.studentId || '⚠️ No ID'}</span>
+                            <div class="student-actions">
+                                <button class="btn-icon edit-student" onclick="window.editStudent('${student.id}')" title="Edit">✏️</button>
+                                <button class="btn-icon delete-student" onclick="window.deleteStudent('${student.id}')" title="Delete">🗑️</button>
+                            </div>
+                        </div>
+                        <div class="student-details">
+                            <div class="student-rate">$${rate.toFixed(2)}/hour</div>
+                            <div>${student.gender || ''} • ${student.email || 'No email'}</div>
+                            <div>${student.phone || 'No phone'}</div>
+                            <div class="student-meta">
+                                Added: ${dateStr}
+                                ${isTestStudent ? '<span style="color: orange; margin-left: 10px;">⚠️ Test Data</span>' : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
         
-        console.log(`✅ UI synced with ${realStudents.length} real students + ${testStudents.length} test entries`);
-        console.log('📋 Real student order:', realStudents.map(s => `${s.studentId}: ${s.name}`).join(' → '));
+        // Update student count
+        const countElem = document.getElementById('studentCount');
+        if (countElem) countElem.textContent = realStudents.length;
         
-        return students;
+        // Also update stats
+        const statStudents = document.getElementById('statStudents');
+        if (statStudents) statStudents.textContent = realStudents.length;
+        
+        // Update average rate
+        const avgRateElem = document.getElementById('averageRate');
+        if (avgRateElem && realStudents.length > 0) {
+            const totalRate = realStudents.reduce((sum, student) => 
+                sum + parseFloat(student.rate || student.hourlyRate || 0), 0);
+            const avgRate = totalRate / realStudents.length;
+            avgRateElem.textContent = avgRate.toFixed(2);
+        }
     }
+    
+    console.log(`✅ UI synced with ${realStudents.length} real students + ${testStudents.length} test entries`);
+    console.log(`📋 Student order (${sortMethod}):`, realStudents.map(s => 
+        sortMethod === 'id' ? `${s.studentId}: ${s.name}` : 
+        sortMethod === 'name' ? s.name : 
+        sortMethod === 'date' ? `${new Date(s.createdAt).toLocaleDateString()}: ${s.name}` :
+        sortMethod === 'rate' ? `$${parseFloat(s.rate || 0).toFixed(2)}: ${s.name}` : 
+        `${s.studentId}: ${s.name}`
+    ).join(' → '));
+    
+    return students;
+}
+
+// Add sorting controls to your UI
+function addSortingControls() {
+    const container = document.querySelector('.section-header');
+    if (!container) return;
+    
+    // Check if controls already exist
+    if (document.getElementById('sortControls')) return;
+    
+    const sortControls = document.createElement('div');
+    sortControls.id = 'sortControls';
+    sortControls.className = 'sort-controls';
+    sortControls.innerHTML = `
+        <select id="studentSortSelect" class="sort-select" onchange="changeStudentSort(this.value)">
+            <option value="id">Sort by ID 🔢</option>
+            <option value="name">Sort by Name 📝</option>
+            <option value="date">Sort by Date 📅</option>
+            <option value="rate">Sort by Rate 💰</option>
+        </select>
+    `;
+    
+    container.appendChild(sortControls);
+}
+
+// Global function to change sort method
+window.changeStudentSort = function(method) {
+    console.log(`🔄 Changing sort method to: ${method}`);
+    localStorage.setItem('studentSortMethod', method);
+    
+    // Use dataManager if available
+    if (window.dataManager) {
+        window.dataManager.syncUI(method);
+    } else {
+        // Fallback to direct call
+        syncUI(method);
+    }
+};
+
+// Initialize with saved preference
+function initStudentSorting() {
+    const savedMethod = localStorage.getItem('studentSortMethod') || 'id';
+    
+    // Set select value if exists
+    const select = document.getElementById('studentSortSelect');
+    if (select) {
+        select.value = savedMethod;
+    }
+    
+    // Apply sorting
+    if (window.dataManager) {
+        window.dataManager.syncUI(savedMethod);
+    } else {
+        syncUI(savedMethod);
+    }
+}
     
     // STUDENT METHODS - FIXED VERSION
     async addStudent(studentData) {
