@@ -392,20 +392,32 @@ class WorklogManager {
     }
 
     // FIXED: Date display with proper formatting
-    formatDate(dateString) {
-        if (!dateString) return 'Unknown';
-        try {
-            const [year, month, day] = dateString.split('-');
-            const date = new Date(year, month - 1, day);
-            return date.toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-            });
-        } catch (e) {
-            return 'Invalid Date';
+  formatDate(dateStr) {
+    if (!dateStr) return 'Unknown';
+    
+    // FIXED: Use split method to avoid timezone issues
+    try {
+        const [year, month, day] = dateStr.split('-');
+        // Create date using local components (month is 0-indexed in JS)
+        const date = new Date(year, month - 1, day);
+        
+        // Check if date is valid
+        if (isNaN(date.getTime())) {
+            console.warn('Invalid date:', dateStr);
+            return dateStr; // Return original if invalid
         }
+        
+        return date.toLocaleDateString('en-US', { 
+            weekday: 'short', 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+        });
+    } catch (error) {
+        console.error('Error formatting date:', error);
+        return dateStr;
     }
+}
 
   updateUI() {
     const container = document.getElementById('worklogContainer');
