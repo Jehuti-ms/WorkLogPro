@@ -67,10 +67,15 @@ class WorklogManager {
         }
     }
 
-   saveEntries() {
+ saveEntries() {
     try {
         localStorage.setItem('worklog_entries', JSON.stringify(this.entries));
         console.log(`✅ Saved ${this.entries.length} entries to localStorage`);
+        
+        // Log the first entry to verify date is saved
+        if (this.entries.length > 0) {
+            console.log('Sample entry date:', this.entries[0].date);
+        }
         
         // Trigger refresh for profile stats
         if (typeof refreshAllStats === 'function') {
@@ -91,7 +96,7 @@ class WorklogManager {
         return false;
     }
 }
-
+    
     addEntry(entryData) {
         try {
             const totalEarnings = entryData.duration * entryData.rate;
@@ -161,40 +166,46 @@ class WorklogManager {
         }
     }
 
-    editEntry(entryId) {
-        const entry = this.entries.find(e => e.id === entryId);
-        if (!entry) return;
+   editEntry(entryId) {
+    const entry = this.entries.find(e => e.id === entryId);
+    if (!entry) return;
 
-        // Set work type
-        if (entry.workType === 'student') {
-            document.querySelector('input[name="workType"][value="student"]').checked = true;
-            this.toggleType('student');
-            document.getElementById('worklogStudent').value = entry.studentId || '';
-        } else {
-            document.querySelector('input[name="workType"][value="institution"]').checked = true;
-            this.toggleType('institution');
-            document.getElementById('worklogInstitution').value = entry.institutionName || '';
-            document.getElementById('worklogContactPerson').value = entry.contactPerson || '';
-        }
-
-        // Fill common fields
-        document.getElementById('worklogDate').value = entry.date;
-        document.getElementById('worklogSubject').value = entry.subject;
-        document.getElementById('worklogTopic').value = entry.topic;
-        document.getElementById('worklogDuration').value = entry.duration;
-        document.getElementById('worklogRate').value = entry.rate;
-        document.getElementById('worklogDescription').value = entry.description;
-        document.getElementById('worklogOutcomes').value = entry.outcomes || '';
-        document.getElementById('worklogNextSteps').value = entry.nextSteps || '';
-        document.getElementById('worklogNotes').value = entry.notes || '';
-
-        // Change submit button
-        document.getElementById('worklogSubmitBtn').textContent = '💾 Update Entry';
-        this.editingId = entryId;
-
-        // Scroll to form
-        document.getElementById('worklogForm').scrollIntoView({ behavior: 'smooth' });
+    // Set work type
+    if (entry.workType === 'student') {
+        document.querySelector('input[name="workType"][value="student"]').checked = true;
+        this.toggleType('student');
+        document.getElementById('worklogStudent').value = entry.studentId || '';
+    } else {
+        document.querySelector('input[name="workType"][value="institution"]').checked = true;
+        this.toggleType('institution');
+        document.getElementById('worklogInstitution').value = entry.institutionName || '';
+        document.getElementById('worklogContactPerson').value = entry.contactPerson || '';
     }
+
+    // Fill common fields - MAKE SURE DATE IS SET CORRECTLY
+    document.getElementById('worklogDate').value = entry.date; // This sets the date
+    document.getElementById('worklogSubject').value = entry.subject || '';
+    document.getElementById('worklogTopic').value = entry.topic || '';
+    document.getElementById('worklogDuration').value = entry.duration || '';
+    document.getElementById('worklogRate').value = entry.rate || '';
+    document.getElementById('worklogDescription').value = entry.description || '';
+    document.getElementById('worklogOutcomes').value = entry.outcomes || '';
+    document.getElementById('worklogNextSteps').value = entry.nextSteps || '';
+    document.getElementById('worklogNotes').value = entry.notes || '';
+
+    // Set payment type if it exists
+    const paymentTypeSelect = document.getElementById('worklogPaymentType');
+    if (paymentTypeSelect && entry.paymentType) {
+        paymentTypeSelect.value = entry.paymentType;
+    }
+
+    // Change submit button
+    document.getElementById('worklogSubmitBtn').textContent = '💾 Update Entry';
+    this.editingId = entryId;
+
+    // Scroll to form
+    document.getElementById('worklogForm').scrollIntoView({ behavior: 'smooth' });
+}
 
     toggleType(type) {
         const studentSection = document.getElementById('studentSection');
@@ -270,13 +281,13 @@ class WorklogManager {
         this.updateUI();
     }
 
-    handleSubmit() {
+   handleSubmit() {
     const workType = document.querySelector('input[name="workType"]:checked')?.value;
     
     let entryData = {
         workType: workType,
-        paymentType: document.getElementById('worklogPaymentType').value, // ADD THIS
-        date: document.getElementById('worklogDate').value,
+        paymentType: document.getElementById('worklogPaymentType')?.value || 'hourly',
+        date: document.getElementById('worklogDate').value, // THIS IS CRITICAL
         subject: document.getElementById('worklogSubject').value.trim(),
         topic: document.getElementById('worklogTopic').value.trim(),
         duration: parseFloat(document.getElementById('worklogDuration').value),
@@ -286,71 +297,75 @@ class WorklogManager {
         nextSteps: document.getElementById('worklogNextSteps').value.trim(),
         notes: document.getElementById('worklogNotes').value.trim()
     };
-    
-        // Validate based on work type
-        if (workType === 'student') {
-            const studentId = document.getElementById('worklogStudent').value;
-            const student = this.students.find(s => s.id === studentId);
-            
-            if (!studentId) {
-                alert('Please select a student');
-                return;
-            }
-            
-            entryData.studentId = studentId;
-            entryData.studentName = student ? student.name : 'Unknown Student';
-            entryData.entityName = student ? student.name : 'Unknown Student';
-            
-        } else {
-            const institutionName = document.getElementById('worklogInstitution').value.trim();
-            const contactPerson = document.getElementById('worklogContactPerson').value.trim();
-            
-            if (!institutionName) {
-                alert('Please enter institution name');
-                return;
-            }
-            
-            entryData.institutionName = institutionName;
-            entryData.contactPerson = contactPerson;
-            entryData.entityName = institutionName;
-        }
 
-        // Validate common fields
-        if (!entryData.subject) {
-            alert('Subject is required');
+    // Validate based on work type
+    if (workType === 'student') {
+        const studentId = document.getElementById('worklogStudent').value;
+        const student = this.students.find(s => s.id === studentId);
+        
+        if (!studentId) {
+            alert('Please select a student');
             return;
         }
-
-        if (!entryData.topic) {
-            alert('Topic is required');
+        
+        entryData.studentId = studentId;
+        entryData.studentName = student ? student.name : 'Unknown Student';
+        entryData.entityName = student ? student.name : 'Unknown Student';
+        
+    } else {
+        const institutionName = document.getElementById('worklogInstitution').value.trim();
+        const contactPerson = document.getElementById('worklogContactPerson').value.trim();
+        
+        if (!institutionName) {
+            alert('Please enter institution name');
             return;
         }
-
-        if (!entryData.description) {
-            alert('Description is required');
-            return;
-        }
-
-        // Check if editing
-        if (this.editingId) {
-            const index = this.entries.findIndex(e => e.id === this.editingId);
-            if (index !== -1) {
-                this.entries[index] = {
-                    ...this.entries[index],
-                    ...entryData,
-                    totalEarnings: entryData.duration * entryData.rate,
-                    updatedAt: new Date().toISOString()
-                };
-                this.saveEntries();
-                alert('Entry updated!');
-            }
-        } else {
-            this.addEntry(entryData);
-        }
-
-        this.clearForm();
+        
+        entryData.institutionName = institutionName;
+        entryData.contactPerson = contactPerson;
+        entryData.entityName = institutionName;
     }
 
+    // Validate common fields
+    if (!entryData.subject) {
+        alert('Subject is required');
+        return;
+    }
+
+    if (!entryData.topic) {
+        alert('Topic is required');
+        return;
+    }
+
+    if (!entryData.description) {
+        alert('Description is required');
+        return;
+    }
+
+    // Check if editing
+    if (this.editingId) {
+        const index = this.entries.findIndex(e => e.id === this.editingId);
+        if (index !== -1) {
+            // Preserve the original createdAt
+            const originalCreatedAt = this.entries[index].createdAt;
+            
+            this.entries[index] = {
+                ...this.entries[index],
+                ...entryData,
+                totalEarnings: entryData.duration * entryData.rate,
+                createdAt: originalCreatedAt, // Keep original creation date
+                updatedAt: new Date().toISOString() // Update this to now
+            };
+            this.saveEntries();
+            alert('Entry updated!');
+        }
+    } else {
+        this.addEntry(entryData);
+    }
+
+    this.clearForm();
+}
+    
     clearForm() {
         document.getElementById('worklogForm').reset();
         this.setTodayDate();
