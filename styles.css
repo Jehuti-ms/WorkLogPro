@@ -4130,3 +4130,424 @@ button:focus:not(:focus-visible) {
     color: #6fda7a;
 }
 
+/* ==================== MODERN WORKLOG CARDS ==================== */
+.worklog-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 10px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+/* Modern Worklog Card */
+.worklog-card {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+}
+
+.worklog-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Card Header with Type Indicator */
+.worklog-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--primary);
+}
+
+.worklog-card.student-card::before {
+    background: #4CAF50; /* Green for students */
+}
+
+.worklog-card.institution-card::before {
+    background: #FF9800; /* Orange for institutions */
+}
+
+/* Header Section */
+.worklog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid var(--border-light);
+}
+
+.worklog-entity {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.worklog-entity-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+}
+
+.student-card .worklog-entity-icon {
+    background: rgba(76, 175, 80, 0.15);
+    color: #4CAF50;
+}
+
+.institution-card .worklog-entity-icon {
+    background: rgba(255, 152, 0, 0.15);
+    color: #FF9800;
+}
+
+.worklog-entity-name {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.worklog-entity-detail {
+    font-size: 0.9rem;
+    color: var(--text-light);
+    margin-top: 2px;
+}
+
+/* Date and Duration Badge */
+.worklog-date-badge {
+    background: var(--primary-light);
+    padding: 8px 12px;
+    border-radius: 30px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    color: var(--primary);
+    font-weight: 500;
+}
+
+.worklog-duration-badge {
+    background: var(--info);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-left: 10px;
+}
+
+/* Subject and Topic Chips */
+.worklog-chips {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+}
+
+.worklog-chip {
+    padding: 6px 14px;
+    border-radius: 30px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.worklog-chip.subject {
+    background: rgba(33, 150, 243, 0.1);
+    color: #2196F3;
+    border: 1px solid rgba(33, 150, 243, 0.3);
+}
+
+.worklog-chip.topic {
+    background: rgba(156, 39, 176, 0.1);
+    color: #9C27B0;
+    border: 1px solid rgba(156, 39, 176, 0.3);
+}
+
+/* Content Sections */
+.worklog-section {
+    margin: 15px 0;
+    padding: 15px;
+    border-radius: 12px;
+    background: var(--background);
+}
+
+.worklog-section.description {
+    border-left: 3px solid var(--primary);
+}
+
+.worklog-section.outcomes {
+    border-left: 3px solid #4CAF50;
+    background: rgba(76, 175, 80, 0.05);
+}
+
+.worklog-section.next-steps {
+    border-left: 3px solid #FF9800;
+    background: rgba(255, 152, 0, 0.05);
+}
+
+.worklog-section.notes {
+    border-left: 3px solid #9C27B0;
+    background: rgba(156, 39, 176, 0.05);
+}
+
+.worklog-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: var(--text);
+    font-size: 1rem;
+}
+
+.worklog-section-content {
+    color: var(--text-light);
+    line-height: 1.6;
+    white-space: pre-wrap;
+    font-size: 0.95rem;
+}
+
+/* Earnings Card */
+.worklog-earnings {
+    display: inline-flex;
+    align-items: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 30px;
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin: 10px 0;
+    box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
+}
+
+.worklog-earnings i {
+    margin-right: 8px;
+    font-size: 1.2rem;
+}
+
+/* Footer Section */
+.worklog-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border-light);
+}
+
+.worklog-timestamp {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-light);
+    font-size: 0.8rem;
+}
+
+.worklog-timestamp i {
+    font-size: 0.9rem;
+}
+
+/* Action Buttons */
+.worklog-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.worklog-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.worklog-btn.edit {
+    background: var(--primary);
+    color: white;
+}
+
+.worklog-btn.edit:hover {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+}
+
+.worklog-btn.delete {
+    background: #f44336;
+    color: white;
+}
+
+.worklog-btn.delete:hover {
+    background: #d32f2f;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(244, 67, 54, 0.3);
+}
+
+/* Filter Bar */
+.worklog-filters {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    border: 1px solid var(--border);
+}
+
+.worklog-filter-select,
+.worklog-filter-input {
+    flex: 1;
+    min-width: 150px;
+    padding: 10px 15px;
+    border: 1px solid var(--border);
+    border-radius: 30px;
+    background: var(--background);
+    color: var(--text);
+    font-size: 0.9rem;
+}
+
+.worklog-filter-select:focus,
+.worklog-filter-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Empty State */
+.worklog-empty {
+    text-align: center;
+    padding: 60px 20px;
+    background: var(--surface);
+    border-radius: 16px;
+    border: 2px dashed var(--border);
+}
+
+.worklog-empty-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+.worklog-empty-text {
+    color: var(--text-light);
+    font-size: 1.1rem;
+    margin-bottom: 10px;
+}
+
+.worklog-empty-subtext {
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+/* Dark Mode Enhancements */
+[data-theme="dark"] .worklog-card {
+    background: #2d2d2d;
+    border-color: #404040;
+}
+
+[data-theme="dark"] .worklog-section {
+    background: #363636;
+}
+
+[data-theme="dark"] .worklog-chip.subject {
+    background: rgba(33, 150, 243, 0.2);
+}
+
+[data-theme="dark"] .worklog-chip.topic {
+    background: rgba(156, 39, 176, 0.2);
+}
+
+[data-theme="dark"] .worklog-date-badge {
+    background: #3d3d3d;
+    color: #aaa;
+}
+
+[data-theme="dark"] .worklog-filters {
+    background: #2d2d2d;
+    border-color: #404040;
+}
+
+/* Animations */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.worklog-card {
+    animation: slideIn 0.3s ease-out;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .worklog-header {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .worklog-entity {
+        width: 100%;
+    }
+    
+    .worklog-date-badge {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .worklog-footer {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .worklog-actions {
+        width: 100%;
+        justify-content: stretch;
+    }
+    
+    .worklog-btn {
+        flex: 1;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .worklog-card {
+        padding: 15px;
+    }
+    
+    .worklog-chips {
+        flex-direction: column;
+    }
+    
+    .worklog-chip {
+        width: 100%;
+    }
+}
+
