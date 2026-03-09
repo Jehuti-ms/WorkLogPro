@@ -141,6 +141,7 @@
         <button class="tab" data-tab="attendance">✅ Attendance</button>
         <button class="tab" data-tab="payments">💰 Payments</button>
         <button class="tab" data-tab="reports">📈 Reports</button>
+        <button class="tab" data-tab="worklog">📝 Worklog</button>
       </div>
     </div>
 
@@ -598,6 +599,132 @@
   </div>
 </div>
 
+    <!-- Worklog Tab -->
+<div id="worklog" class="tabcontent">
+  <div class="section-header">
+    <h2>📝 Worklog</h2>
+    <div class="student-stats">
+      <span class="stat-badge" id="worklogCount">0</span>
+      <span class="stat-divider">|</span>
+      <span class="stat-text">Last Entry: <span id="lastWorklogDate">Never</span></span>
+    </div>
+  </div>
+
+  <div class="form-grid">
+    <!-- Add Worklog Form -->
+    <div class="section-card">
+      <h3>➕ Log Work</h3>
+      <form id="worklogForm">
+        <!-- Work Type Toggle -->
+        <div class="form-group">
+          <label>Work Type *</label>
+          <div style="display: flex; gap: 20px; margin-top: 5px;">
+            <label style="display: flex; align-items: center; gap: 5px;">
+              <input type="radio" name="workType" value="student" checked onchange="toggleWorkType('student')"> 👤 Student
+            </label>
+            <label style="display: flex; align-items: center; gap: 5px;">
+              <input type="radio" name="workType" value="institution" onchange="toggleWorkType('institution')"> 🏢 Institution
+            </label>
+          </div>
+        </div>
+
+        <!-- Student Selection (shown by default) -->
+        <div id="studentSection" class="work-section">
+          <div class="form-group">
+            <label for="worklogStudent">Select Student *</label>
+            <select id="worklogStudent" required>
+              <option value="">Select Student</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Institution Section (hidden by default) -->
+        <div id="institutionSection" class="work-section" style="display: none;">
+          <div class="form-group">
+            <label for="worklogInstitution">Institution Name *</label>
+            <input type="text" id="worklogInstitution" placeholder="e.g., ABC Tutoring Center, XYZ School">
+          </div>
+          <div class="form-group">
+            <label for="worklogContactPerson">Contact Person</label>
+            <input type="text" id="worklogContactPerson" placeholder="e.g., Mr. Smith">
+          </div>
+        </div>
+
+        <!-- Common Fields -->
+        <div class="form-group">
+          <label for="worklogDate">Date *</label>
+          <input type="date" id="worklogDate" required>
+        </div>
+
+        <div class="form-group">
+          <label for="worklogSubject">Subject/Area *</label>
+          <input type="text" id="worklogSubject" placeholder="e.g., Mathematics, Curriculum Development" required>
+        </div>
+
+        <div class="form-group">
+          <label for="worklogTopic">Topic/Project *</label>
+          <input type="text" id="worklogTopic" placeholder="e.g., Algebra, Lesson Planning" required>
+        </div>
+
+        <div class="form-group">
+          <label for="worklogDuration">Duration (hours) *</label>
+          <input type="number" id="worklogDuration" step="0.5" min="0.5" required>
+        </div>
+
+        <div class="form-group">
+          <label for="worklogRate">Hourly Rate ($) *</label>
+          <input type="number" id="worklogRate" step="0.01" min="0" value="25.00" required>
+          <small>Default rate: <span id="worklogDefaultRate">25.00</span></small>
+        </div>
+
+        <div class="form-group">
+          <label for="worklogDescription">Work Description *</label>
+          <textarea id="worklogDescription" rows="4" placeholder="Detailed description of work done..." required></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="worklogOutcomes">Outcomes/Achievements</label>
+          <textarea id="worklogOutcomes" rows="2" placeholder="What was achieved, progress made..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="worklogNextSteps">Next Steps/Follow-up</label>
+          <textarea id="worklogNextSteps" rows="2" placeholder="What needs to be done next..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="worklogNotes">Additional Notes</label>
+          <textarea id="worklogNotes" rows="2" placeholder="Any other observations..."></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="button primary" id="worklogSubmitBtn">💾 Save Worklog</button>
+          <button type="button" class="button secondary" onclick="clearWorklogForm()">🗑️ Clear Form</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Worklog History -->
+    <div class="section-card">
+      <h3>📋 Worklog History</h3>
+      <div class="worklog-filters" style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+        <select id="worklogFilterType" style="flex: 1; min-width: 120px;">
+          <option value="">All Types</option>
+          <option value="student">👤 Students</option>
+          <option value="institution">🏢 Institutions</option>
+        </select>
+        <select id="worklogFilterEntity" style="flex: 2;">
+          <option value="">All</option>
+        </select>
+        <input type="text" id="worklogSearch" placeholder="🔍 Search..." style="flex: 2;">
+      </div>
+      <div id="worklogContainer" class="worklog-container">
+        <p class="empty-message">No worklog entries yet.</p>
+      </div>
+    </div>
+  </div>
+</div>
+    
     <!-- Sync Stats Modal -->
     <div id="syncStatsModal" class="modal">
       <div class="modal-content">
