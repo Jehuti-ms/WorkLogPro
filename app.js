@@ -358,51 +358,60 @@ function initDefaultRate() {
 
 // ==================== SAVE DEFAULT RATE ====================
 window.saveDefaultRate = function() {
-    console.log('💰 Saving default rate...');
-    
-    const rateInput = document.getElementById('defaultBaseRate');
-    if (!rateInput) return;
-    
-    const rate = parseFloat(rateInput.value);
-    if (isNaN(rate) || rate <= 0) {
-        showNotification('Please enter a valid rate', 'error');
-        return;
+  console.log('💰 Saving default rate...');
+  
+  const rateInput = document.getElementById('defaultBaseRate');
+  if (!rateInput) return;
+  
+  const rate = parseFloat(rateInput.value);
+  if (isNaN(rate) || rate <= 0) {
+    showNotification('Please enter a valid rate', 'error');
+    return;
+  }
+  
+  // Format to 2 decimal places
+  const formattedRate = rate.toFixed(2);
+  
+  // Save to localStorage
+  localStorage.setItem('defaultHourlyRate', formattedRate);
+  
+  // Update all displays
+  const displays = [
+    'currentDefaultRateDisplay',
+    'currentDefaultRate',
+    'defaultRateDisplay'
+  ];
+  
+  displays.forEach(id => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.textContent = formattedRate;
     }
-    
-    // Format to 2 decimal places
-    const formattedRate = rate.toFixed(2);
-    
-    // Save to localStorage
-    localStorage.setItem('defaultHourlyRate', formattedRate);
-    
-    // Update displays
-    const displays = [
-        'currentDefaultRateDisplay',
-        'currentDefaultRate',
-        'defaultRateDisplay'
-    ];
-    
-    displays.forEach(id => {
-        const element = document.getElementById(id);
-        if (element) {
-            element.textContent = formattedRate;
-        }
-    });
-    
-    // Update student form placeholder
-    const studentRateField = document.getElementById('studentRate');
-    if (studentRateField) {
-        studentRateField.placeholder = `Default: $${formattedRate}`;
-    }
-    
-    showNotification(`Default rate set to $${formattedRate}`, 'success');
-    
-    // If user is logged in, sync to cloud
-    if (window.syncService && firebase.auth().currentUser) {
-        setTimeout(() => {
-            window.syncService.sync(false, false);
-        }, 500);
-    }
+  });
+  
+  // Update profile default rate
+  const profileDefaultRate = document.getElementById('profileDefaultRate');
+  if (profileDefaultRate) {
+    profileDefaultRate.textContent = `$${formattedRate}/hour`;
+  }
+  
+  // Update student form placeholder
+  const studentRateField = document.getElementById('studentRate');
+  if (studentRateField) {
+    studentRateField.placeholder = `Default: $${formattedRate}`;
+  }
+  
+  showNotification(`Default rate set to $${formattedRate}`, 'success');
+  
+  // Update profile stats to reflect new rate
+  updateProfileStats();
+  
+  // If user is logged in, sync to cloud
+  if (window.syncService && firebase.auth().currentUser) {
+    setTimeout(() => {
+      window.syncService.sync(false, false);
+    }, 500);
+  }
 };
 
 // ==================== APPLY DEFAULT RATE TO FORM ====================
@@ -487,10 +496,15 @@ function updateProfileInfo() {
   
   try {
     let userEmail = 'Not logged in';
+    let userName = 'User';
+    let memberSince = 'Unknown';
+    let defaultRate = localStorage.getItem('defaultHourlyRate') || '25.00';
     
+    // Get user email from various sources
     const storedEmail = localStorage.getItem('userEmail');
     if (storedEmail) {
       userEmail = storedEmail;
+      userName = userEmail.split('@')[0];
     } else {
       const worklogUser = localStorage.getItem('worklog_user');
       if (worklogUser) {
@@ -498,6 +512,12 @@ function updateProfileInfo() {
           const parsed = JSON.parse(worklogUser);
           if (parsed && parsed.email) {
             userEmail = parsed.email;
+            userName = parsed.displayName || parsed.email.split('@')[0];
+            
+            // Get member since from Firebase user metadata if available
+            if (parsed.metadata && parsed.metadata.createdAt) {
+              memberSince = new Date(parseInt(parsed.metadata.createdAt)).toLocaleDateString();
+            }
           }
         } catch (e) {
           console.log('Could not parse worklog_user');
@@ -505,26 +525,42 @@ function updateProfileInfo() {
       }
     }
     
-    console.log('User email found:', userEmail);
+    // Try to get member since from Firebase directly
+    if (typeof firebase !== 'undefined' && firebase.auth().currentUser) {
+      const user = firebase.auth().currentUser;
+      if (user.metadata && user.metadata.creationTime) {
+        memberSince = new Date(user.metadata.creationTime).toLocaleDateString();
+      }
+    }
     
+    console.log('User email found:', userEmail);
+    console.log('Member since:', memberSince);
+    
+    // Update profile modal elements
     const profileEmail = document.getElementById('profileUserEmail');
-    const userName = document.getElementById('userName');
+    const userNameElem = document.getElementById('userName');
+    const memberSinceElem = document.getElementById('profileUserSince');
+    const defaultRateElem = document.getElementById('profileDefaultRate');
     
     if (profileEmail) profileEmail.textContent = userEmail;
+    if (userNameElem) userNameElem.textContent = userName;
+    if (memberSinceElem) memberSinceElem.textContent = memberSince;
+    if (defaultRateElem) defaultRateElem.textContent = `$${parseFloat(defaultRate).toFixed(2)}/hour`;
     
-    const displayName = userEmail.split('@')[0] || 'User';
-    if (userName) userName.textContent = displayName;
-    
+    // Update profile stats
     updateProfileStats();
     
   } catch (error) {
     console.error('Error updating profile:', error);
     
+    // Set fallback values
     const profileEmail = document.getElementById('profileUserEmail');
     const userName = document.getElementById('userName');
+    const memberSinceElem = document.getElementById('profileUserSince');
     
     if (profileEmail) profileEmail.textContent = 'Not logged in';
     if (userName) userName.textContent = 'User';
+    if (memberSinceElem) memberSinceElem.textContent = 'Unknown';
   }
 }
 
@@ -536,7 +572,6 @@ function updateProfileStats() {
     const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
     const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
     const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
-    const attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
     const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
     
     // Calculate totals
@@ -546,17 +581,26 @@ function updateProfileStats() {
       return sum + (parseFloat(hour.hoursWorked) || 0);
     }, 0);
     
+    // Calculate total earnings correctly (hours * rate)
     const totalEarnings = hours.reduce((sum, hour) => {
       const hoursWorked = parseFloat(hour.hoursWorked) || 0;
       const rate = parseFloat(hour.baseRate) || 0;
       return sum + (hoursWorked * rate);
     }, 0);
     
-    // Calculate average rate
+    // Calculate total payments received
+    const totalPayments = payments.reduce((sum, payment) => {
+      return sum + (parseFloat(payment.paymentAmount) || 0);
+    }, 0);
+    
+    // Calculate outstanding balance
+    const outstandingBalance = totalEarnings - totalPayments;
+    
+    // Calculate average rate from students
     let avgRate = 0;
     if (students.length > 0) {
       const totalRate = students.reduce((sum, student) => {
-        return sum + (parseFloat(student.rate) || 0);
+        return sum + (parseFloat(student.rate || student.hourlyRate || 0));
       }, 0);
       avgRate = totalRate / students.length;
     }
@@ -570,13 +614,19 @@ function updateProfileStats() {
       avgMark = totalPercentage / marks.length;
     }
     
-    // Calculate total payments
-    const totalPayments = payments.reduce((sum, payment) => {
-      return sum + (parseFloat(payment.paymentAmount) || 0);
-    }, 0);
+    // Get default rate
+    const defaultRate = localStorage.getItem('defaultHourlyRate') || '25.00';
     
-    // Calculate outstanding balance
-    const outstandingBalance = totalEarnings - totalPayments;
+    console.log(`📊 Stats calculated:`, {
+      students: totalStudents,
+      hours: totalHours.toFixed(1),
+      earnings: totalEarnings.toFixed(2),
+      payments: totalPayments.toFixed(2),
+      outstanding: outstandingBalance.toFixed(2),
+      avgRate: avgRate.toFixed(2),
+      avgMark: avgMark.toFixed(1),
+      defaultRate: defaultRate
+    });
     
     // Update PROFILE MODAL stats
     const updateElement = (id, value) => {
@@ -595,19 +645,25 @@ function updateProfileStats() {
     // Update hours
     updateElement('modalStatHours', totalHours.toFixed(1));
     
-    // Update earnings
+    // Update earnings (FIXED: no extra $)
     updateElement('modalStatEarnings', `$${totalEarnings.toFixed(2)}`);
     
-    // Update average rate (if element exists)
+    // Update average rate
     updateElement('modalStatRate', `$${avgRate.toFixed(2)}`);
     
-    // Update average mark (if element exists)
+    // Update average mark
     updateElement('modalStatMarks', `${avgMark.toFixed(1)}%`);
+    
+    // Update default rate in profile
+    const defaultRateElem = document.getElementById('profileDefaultRate');
+    if (defaultRateElem) {
+      defaultRateElem.textContent = `$${parseFloat(defaultRate).toFixed(2)}/hour`;
+    }
     
     // Update last updated time
     updateElement('modalStatUpdated', new Date().toLocaleTimeString());
     
-    // Also update header stats (top of page)
+    // Also update header stats
     const headerStudents = document.getElementById('statStudents');
     const headerHours = document.getElementById('statHours');
     const headerAvgRate = document.getElementById('averageRate');
@@ -616,23 +672,23 @@ function updateProfileStats() {
     if (headerHours) headerHours.textContent = totalHours.toFixed(1);
     if (headerAvgRate) headerAvgRate.textContent = avgRate.toFixed(2);
     
-    console.log(`📊 Stats updated: ${totalStudents} students, ${totalHours.toFixed(1)} hours, $${totalEarnings.toFixed(2)} earned`);
-    
   } catch (error) {
     console.error('❌ Error updating profile stats:', error);
     
     // Set fallback values
-    const updateElement = (id, value) => {
-      const element = document.getElementById(id);
-      if (element) element.textContent = value;
+    const fallbacks = {
+      'modalStatStudents': '0',
+      'modalStatHours': '0.0',
+      'modalStatEarnings': '$0.00',
+      'modalStatRate': '$0.00',
+      'modalStatMarks': '0.0%',
+      'modalStatUpdated': 'Error'
     };
     
-    updateElement('modalStatStudents', '0');
-    updateElement('modalStatHours', '0.0');
-    updateElement('modalStatEarnings', '$0.00');
-    updateElement('modalStatRate', '$0.00');
-    updateElement('modalStatMarks', '0.0%');
-    updateElement('modalStatUpdated', 'Error');
+    Object.entries(fallbacks).forEach(([id, value]) => {
+      const element = document.getElementById(id);
+      if (element) element.textContent = value;
+    });
   }
 }
 
