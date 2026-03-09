@@ -397,47 +397,50 @@ async updateStudentInLocalStorage(studentId, studentData) {
         }
     }
 
-    async addStudentToLocalStorage(studentData) {
-        try {
-            console.log('💾 Saving student to localStorage...');
-            
-            // Get existing students
-            const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-            
-            // Generate ID if not provided
-            const studentId = studentData.id || 'student_' + Date.now();
-            
-            // Create complete student object
-            const student = {
-                ...studentData,
-                id: studentId,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
-            
-            // Check if student ID already exists
-            const existingIndex = students.findIndex(s => s.studentId === student.studentId);
-            if (existingIndex >= 0) {
-                // Update existing
-                students[existingIndex] = { ...students[existingIndex], ...student };
-                console.log('📝 Updated existing student:', student.studentId);
-            } else {
-                // Add new
-                students.push(student);
-                console.log('➕ Added new student:', student.studentId);
-            }
-            
-            // Save to localStorage
-            localStorage.setItem('worklog_students', JSON.stringify(students));
-            
-            console.log(`✅ Saved ${students.length} students to localStorage`);
-            return true;
-            
-        } catch (error) {
-            console.error('❌ Error saving to localStorage:', error);
-            return false;
+   async addStudentToLocalStorage(studentData) {
+    try {
+        console.log('💾 Saving student to localStorage...');
+        
+        // Get existing students
+        const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+        
+        // Generate ID if not provided
+        const studentId = studentData.id || 'student_' + Date.now();
+        
+        // Create complete student object
+        const student = {
+            ...studentData,
+            id: studentId,
+            // FIX: Ensure both rate fields are set
+            rate: studentData.rate,
+            hourlyRate: studentData.rate, // Add this line to fix rate inconsistency
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        
+        // Check if student ID already exists
+        const existingIndex = students.findIndex(s => s.studentId === student.studentId);
+        if (existingIndex >= 0) {
+            // Update existing
+            students[existingIndex] = { ...students[existingIndex], ...student };
+            console.log('📝 Updated existing student:', student.studentId);
+        } else {
+            // Add new
+            students.push(student);
+            console.log('➕ Added new student:', student.studentId);
         }
+        
+        // Save to localStorage
+        localStorage.setItem('worklog_students', JSON.stringify(students));
+        
+        console.log(`✅ Saved ${students.length} students to localStorage`);
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Error saving to localStorage:', error);
+        return false;
     }
+}
 
     async getAllStudents() {
         console.log('👥 Getting all students...');
