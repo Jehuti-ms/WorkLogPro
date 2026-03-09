@@ -1708,25 +1708,32 @@ function fixAllStats() {
 }
 
 // ==================== STUDENT SORTING FUNCTION ====================
+// Make sure this function exists globally
 window.changeStudentSort = function(method) {
-    console.log(`🔄 Changing sort method to: ${method}`);
-    localStorage.setItem('studentSortMethod', method);
-    
-    if (window.dataManager) {
-        window.dataManager.syncUI(method);
-    } else {
-        console.warn('dataManager not available');
-        // Fallback to direct localStorage update
-        const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-        // Simple sort for demo
-        if (method === 'name') {
-            students.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-        } else if (method === 'id') {
-            students.sort((a, b) => (a.studentId || '').localeCompare(b.studentId || ''));
-        }
-        localStorage.setItem('worklog_students', JSON.stringify(students));
-        if (typeof loadStudents === 'function') loadStudents();
-    }
+  console.log(`🔄 Changing sort method to: ${method}`);
+  localStorage.setItem('studentSortMethod', method);
+  
+  // Reload students with new sort
+  if (typeof loadStudents === 'function') {
+    loadStudents();
+  }
+  
+  // Also update dataManager if it exists
+  if (window.dataManager) {
+    window.dataManager.syncUI(method);
+  }
+  
+  // Show brief notification
+  const methodNames = {
+    'id': 'ID',
+    'name': 'name', 
+    'date': 'date added',
+    'rate': 'hourly rate'
+  };
+  
+  if (typeof showNotification === 'function') {
+    showNotification(`Sorting by ${methodNames[method] || method}`, 'info');
+  }
 };
 
 // Initialize sorting on page load
@@ -1746,6 +1753,16 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     }, 1000); // Wait for DOM to be ready
+});
+
+// Add this to your DOMContentLoaded or existing script
+document.addEventListener('DOMContentLoaded', function() {
+    const sortSelect = document.getElementById('studentSortSelect');
+    if (sortSelect) {
+        sortSelect.addEventListener('change', function() {
+            window.changeStudentSort(this.value);
+        });
+    }
 });
 
 function clearAllData() {
@@ -1850,45 +1867,8 @@ function saveStudentToLocalStorage(studentData) {
   }
 }
 
-// ============= NAME SORTING ===============
 
-// Global function to change student sort method
-window.changeStudentSort = function(method) {
-    console.log(`🔄 Changing sort method to: ${method}`);
-    localStorage.setItem('studentSortMethod', method);
-    
-    // Use dataManager if available
-    if (window.dataManager) {
-        window.dataManager.syncUI(method);
-    } else {
-        console.warn('dataManager not available');
-    }
-};
 
-// Initialize sorting when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    // Set the select value from saved preference
-    const savedMethod = localStorage.getItem('studentSortMethod') || 'id';
-    const select = document.getElementById('studentSortSelect');
-    if (select) {
-        select.value = savedMethod;
-    }
-    
-    // Apply initial sort
-    if (window.dataManager) {
-        window.dataManager.syncUI(savedMethod);
-    }
-});
-
-// Add this to your DOMContentLoaded or existing script
-document.addEventListener('DOMContentLoaded', function() {
-    const sortSelect = document.getElementById('studentSortSelect');
-    if (sortSelect) {
-        sortSelect.addEventListener('change', function() {
-            window.changeStudentSort(this.value);
-        });
-    }
-});
 
 // ==================== REPORT FUNCTIONS ====================
 function initReportButtons() {
@@ -2246,6 +2226,7 @@ function loadStudents() {
   const container = document.getElementById('studentsContainer');
   if (!container) return;
   
+  // Get students
   let students = [];
   if (window.formHandler && window.formHandler.getStudents) {
     students = window.formHandler.getStudents();
@@ -2253,34 +2234,92 @@ function loadStudents() {
     students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
   }
   
+  // Get saved sort method
+  const sortMethod = localStorage.getItem('studentSortMethod') || 'id';
+  
+  // Apply sorting based on method
+  if (sortMethod === 'id') {
+    students.sort((a, b) => {
+      const getNum = (id) => {
+        const match = (id || '').toString().match(/\d+/);
+        return match ? parseInt(match[0], 10) : 999999;
+      };
+      return getNum(a.studentId) - getNum(b.studentId);
+    });
+  } else if (sortMethod === 'name') {
+    students.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  } else if (sortMethod === 'date') {
+    students.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  } else if (sortMethod === 'rate') {
+    students.sort((a, b) => {
+      const rateA = parseFloat(a.rate || a.hourlyRate || 0);
+      const rateB = parseFloat(b.rate || b.hourlyRate || 0);
+      return rateB - rateA; // Highest first
+    });
+  }
+  
+  // Update student count
   const countElem = document.getElementById('studentCount');
   if (countElem) countElem.textContent = students.length;
   
+  // Update average rate in header
+  const avgRateElem = document.getElementById('averageRate');
+  if (avgRateElem && students.length > 0) {
+    const totalRate = students.reduce((sum, student) => 
+      sum + parseFloat(student.rate || student.hourlyRate || 0), 0);
+    const avgRate = totalRate / students.length;
+    avgRateElem.textContent = avgRate.toFixed(2);
+  }
+  
+  // Update sort dropdown to match current sort
+  const sortSelect = document.getElementById('studentSortSelect');
+  if (sortSelect) {
+    sortSelect.value = sortMethod;
+  }
+  
+  // Display students
   if (students.length === 0) {
     container.innerHTML = '<p class="empty-message">No students registered yet.</p>';
     return;
   }
   
-  container.innerHTML = students.map(student => `
-    <div class="student-card" data-id="${student.id}">
-      <div class="student-card-header">
-        <strong>${student.name}</strong>
-        <span class="student-id">${student.studentId}</span>
-        <div class="student-actions">
-          <button class="btn-icon edit-student" onclick="editStudent('${student.id}')" title="Edit">✏️</button>
-          <button class="btn-icon delete-student" onclick="deleteStudent('${student.id}')" title="Delete">🗑️</button>
+  container.innerHTML = students.map(student => {
+    // Get the correct rate field (handle both rate and hourlyRate)
+    const rate = parseFloat(student.rate || student.hourlyRate || 0).toFixed(2);
+    
+    // Format date safely
+    let dateStr = 'Unknown';
+    if (student.createdAt) {
+      try {
+        dateStr = new Date(student.createdAt).toLocaleDateString();
+      } catch (e) {
+        dateStr = 'Unknown';
+      }
+    }
+    
+    return `
+      <div class="student-card" data-id="${student.id}">
+        <div class="student-card-header">
+          <strong>${student.name || ''}</strong>
+          <span class="student-id">${student.studentId || 'No ID'}</span>
+          <div class="student-actions">
+            <button class="btn-icon edit-student" onclick="editStudent('${student.id}')" title="Edit">✏️</button>
+            <button class="btn-icon delete-student" onclick="deleteStudent('${student.id}')" title="Delete">🗑️</button>
+          </div>
+        </div>
+        <div class="student-details">
+          <div class="student-rate">$${rate}/hour</div>
+          <div>${student.gender || ''} • ${student.email || 'No email'}</div>
+          <div>${student.phone || 'No phone'}</div>
+          <div class="student-meta">
+            Added: ${dateStr}
+          </div>
         </div>
       </div>
-      <div class="student-details">
-        <div class="student-rate">$${student.rate || '0.00'}/session</div>
-        <div>${student.gender} • ${student.email || 'No email'}</div>
-        <div>${student.phone || 'No phone'}</div>
-        <div class="student-meta">
-          Added: ${new Date(student.createdAt).toLocaleDateString()}
-        </div>
-      </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
+  
+  console.log(`✅ Loaded ${students.length} students (sorted by: ${sortMethod})`);
 }
 
 function loadHours() {
