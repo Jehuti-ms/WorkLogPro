@@ -67,7 +67,7 @@ class WorklogManager {
         }
     }
 
-    saveEntries() {
+   saveEntries() {
     try {
         localStorage.setItem('worklog_entries', JSON.stringify(this.entries));
         console.log(`✅ Saved ${this.entries.length} entries to localStorage`);
