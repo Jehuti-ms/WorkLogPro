@@ -11,6 +11,7 @@ class DataManager {
         this.students = []; // Add students array to store in memory
         
         this.init();
+        this.loadSettings();
     }
 
     async init() {
@@ -32,6 +33,39 @@ class DataManager {
         }
     }
 
+     // ==================== SETTINGS METHODS ====================
+    saveSettings() {
+        const settings = {
+            defaultHourlyRate: localStorage.getItem('defaultHourlyRate') || '25.00',
+            autoSyncEnabled: localStorage.getItem('autoSyncEnabled') === 'true',
+            theme: localStorage.getItem('worklog-theme') || 'dark',
+            studentSortMethod: localStorage.getItem('studentSortMethod') || 'id'
+        };
+        
+        localStorage.setItem('worklog_settings', JSON.stringify(settings));
+        return settings;
+    }
+
+    loadSettings() {
+        const settings = JSON.parse(localStorage.getItem('worklog_settings') || '{}');
+        
+        // Apply settings
+        if (settings.defaultHourlyRate) {
+            localStorage.setItem('defaultHourlyRate', settings.defaultHourlyRate);
+        }
+        if (settings.autoSyncEnabled !== undefined) {
+            localStorage.setItem('autoSyncEnabled', settings.autoSyncEnabled);
+        }
+        if (settings.theme) {
+            localStorage.setItem('worklog-theme', settings.theme);
+        }
+        if (settings.studentSortMethod) {
+            localStorage.setItem('studentSortMethod', settings.studentSortMethod);
+        }
+        
+        return settings;
+    }
+    
     // SYNC UI METHOD - WITH PROPER SORTING AND TEST DATA HANDLING
     syncUI(sortMethod = 'id') {
         console.log('🔄 Syncing UI with student data...');
