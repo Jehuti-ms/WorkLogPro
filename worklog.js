@@ -491,12 +491,15 @@ updateUI() {
         const entityDetail = worklog.workType === 'institution' && worklog.contactPerson ? 
             `<div class="worklog-entity-detail">Contact: ${worklog.contactPerson}</div>` : '';
 
-        const date = new Date(worklog.date).toLocaleDateString('en-US', { 
-            weekday: 'short', 
-            year: 'numeric', 
-            month: 'short', 
-            day: 'numeric' 
-        });
+        const date = (() => {
+            const d = new Date(worklog.date + 'T12:00:00'); // Add noon to avoid timezone issues
+            return d.toLocaleDateString('en-US', { 
+                weekday: 'short', 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric' 
+            });
+        })();
 
         const createdDate = new Date(worklog.createdAt).toLocaleString();
 
