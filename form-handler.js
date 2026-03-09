@@ -94,67 +94,78 @@ class FormHandler {
         }
     }
 
-    async handleStudentSubmit(form) {
-        console.log('📤 Handling student form submission...');
+async handleStudentSubmit(form) {
+    console.log('📤 Handling student form submission...');
+    
+    try {
+        // Get values from ID-based fields
+        const studentData = {
+            name: document.getElementById('studentName').value.trim(),
+            studentId: document.getElementById('studentId').value.trim(),
+            gender: document.getElementById('studentGender').value,
+            email: document.getElementById('studentEmail').value.trim(),
+            phone: document.getElementById('studentPhone').value.trim(),
+            rate: parseFloat(document.getElementById('studentRate').value) || 0
+        };
         
-        try {
-            // Get values from ID-based fields
-            const studentData = {
-                name: document.getElementById('studentName').value.trim(),
-                studentId: document.getElementById('studentId').value.trim(),
-                gender: document.getElementById('studentGender').value,
-                email: document.getElementById('studentEmail').value.trim(),
-                phone: document.getElementById('studentPhone').value.trim(),
-                rate: parseFloat(document.getElementById('studentRate').value) || 0
-            };
-            
-            console.log('📄 Student data from form:', studentData);
-            
-            // Validate required fields
-            if (!studentData.name) {
-                this.showNotification('Student name is required!', 'error');
-                document.getElementById('studentName').focus();
-                return;
-            }
-            
-            if (!studentData.studentId) {
-                this.showNotification('Student ID is required!', 'error');
-                document.getElementById('studentId').focus();
-                return;
-            }
-            
-            if (!studentData.gender) {
-                this.showNotification('Gender is required!', 'error');
-                document.getElementById('studentGender').focus();
-                return;
-            }
-            
-            // Show loading state IMMEDIATELY
-            this.showLoadingState(true);
-            
-            // Prepare data for saving
-            const saveData = {
-                name: studentData.name,
-                studentId: studentData.studentId,
-                gender: studentData.gender,
-                email: studentData.email || '',
-                phone: studentData.phone || '',
-                rate: studentData.rate,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
-            
-            console.log('📊 Data for saving:', saveData);
-            
-            let success = false;
-            let usedFirebase = false;
-            
-            // TRY 1: Use DataManager/Firebase with timeout (if enabled)
-            if (this.useFirebase && this.dataManager && this.dataManager.addStudent) {
-                try {
-                    console.log('☁️ Trying to add student via DataManager...');
-                    usedFirebase = true;
-                    
+        console.log('📄 Student data from form:', studentData);
+        
+        // Validate required fields
+        if (!studentData.name) {
+            this.showNotification('Student name is required!', 'error');
+            document.getElementById('studentName').focus();
+            return;
+        }
+        
+        if (!studentData.studentId) {
+            this.showNotification('Student ID is required!', 'error');
+            document.getElementById('studentId').focus();
+            return;
+        }
+        
+        if (!studentData.gender) {
+            this.showNotification('Gender is required!', 'error');
+            document.getElementById('studentGender').focus();
+            return;
+        }
+        
+        // Show loading state IMMEDIATELY
+        this.showLoadingState(true);
+        
+        // Prepare data for saving - IMPORTANT: Set BOTH rate fields
+        const saveData = {
+            name: studentData.name,
+            studentId: studentData.studentId,
+            gender: studentData.gender,
+            email: studentData.email || '',
+            phone: studentData.phone || '',
+            // Set both rate fields to ensure consistency
+            rate: studentData.rate,
+            hourlyRate: studentData.rate, // Add this line!
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        
+        console.log('📊 Data for saving:', saveData);
+        
+        // Check if we're in edit mode (updating existing student)
+        const isEditMode = window.editingStudentId ? true : false;
+        
+        let success = false;
+        let usedFirebase = false;
+        
+        // TRY 1: Use DataManager/Firebase with timeout (if enabled)
+        if (this.useFirebase && this.dataManager) {
+            try {
+                console.log('☁️ Trying to save student via DataManager...');
+                usedFirebase = true;
+                
+                if (isEditMode && this.dataManager.updateStudent) {
+                    // Update existing student
+                    success = await this.dataManager.updateStudent(window.editingStudentId, saveData);
+                    console.log('Firebase update result:', success);
+                } else if (this.dataManager.addStudent) {
+                    // Add new student
                     // Set a timeout
                     const timeoutPromise = new Promise((_, reject) => {
                         setTimeout(() => reject(new Error('Firebase timeout')), 3000);
@@ -166,137 +177,188 @@ class FormHandler {
                         timeoutPromise
                     ]);
                     
-                    console.log('Firebase result:', success);
-                } catch (firebaseError) {
-                    console.log('⚠️ Firebase failed:', firebaseError.message);
-                    success = false;
+                    console.log('Firebase add result:', success);
                 }
+            } catch (firebaseError) {
+                console.log('⚠️ Firebase failed:', firebaseError.message);
+                success = false;
             }
+        }
+        
+        // TRY 2: Fallback to localStorage if Firebase fails or is disabled
+        if (!success) {
+            console.log(usedFirebase ? '💾 Falling back to localStorage...' : '💾 Using localStorage...');
             
-            // TRY 2: Fallback to localStorage if Firebase fails or is disabled
-            if (!success) {
-                console.log(usedFirebase ? '💾 Falling back to localStorage...' : '💾 Using localStorage...');
+            if (isEditMode) {
+                // Update existing student in localStorage
+                success = await this.updateStudentInLocalStorage(window.editingStudentId, saveData);
+            } else {
+                // Add new student to localStorage
                 success = await this.addStudentToLocalStorage(saveData);
             }
+        }
+        
+        // Hide loading state
+        this.showLoadingState(false);
+        
+        if (success) {
+            console.log('✅ Student saved successfully!');
             
-            // Hide loading state
-            this.showLoadingState(false);
+            // Show success message
+            const action = isEditMode ? 'updated' : 'added';
+            const source = usedFirebase ? 'cloud' : 'local';
+            this.showNotification(`Student "${studentData.name}" ${action} to ${source}!`, 'success');
             
-            if (success) {
-                console.log('✅ Student added successfully!');
-                
-                // Show success message
-                const source = usedFirebase ? 'cloud' : 'local';
-                this.showNotification(`Student "${studentData.name}" saved to ${source}!`, 'success');
-                
-                // Clear form
-                this.clearStudentForm();
-                
-                // Refresh student list
-                await this.loadStudents();
-                
-                // Update reports
-                if (window.reportManager) {
-                    window.reportManager.loadDataInBackground();
-                }
-                
-                // Update UI stats
-                this.updateStudentStats();
-                
-                // Update profile stats in modal
-                if (typeof updateProfileStats === 'function') {
-                    updateProfileStats();
-                    console.log('✅ Profile stats updated');
-                }
-                
-                // Update global stats (header)
-                if (typeof updateGlobalStats === 'function') {
-                    updateGlobalStats();
-                    console.log('✅ Global stats updated');
-                }
-                
-                // Try to refresh all stats if function exists
-                if (typeof refreshAllStats === 'function') {
-                    refreshAllStats();
-                    console.log('✅ All stats refreshed');
-                }
-                
-                // Update global student dropdowns if function exists
-                if (typeof refreshStudentDropdowns === 'function') {
-                    refreshStudentDropdowns();
-                }
-                
-                // Trigger app.js loadStudents if exists
-                if (typeof loadStudents === 'function') {
-                    loadStudents();
-                }
-                
-                // Direct DOM updates as fallback
-                setTimeout(() => {
-                    try {
-                        // Get current student count
-                        const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-                        const studentCount = students.length;
-                        
-                        // Calculate average rate
-                        let avgRate = 0;
-                        if (students.length > 0) {
-                            const totalRate = students.reduce((sum, student) => sum + (parseFloat(student.rate) || 0), 0);
-                            avgRate = totalRate / students.length;
-                        }
-                        
-                        console.log(`📊 Direct update: ${studentCount} students, avg rate: $${avgRate.toFixed(2)}`);
-                        
-                        // Update ALL possible student count elements
-                        const studentCountIds = [
-                            'modalStatStudents', 'statStudents', 
-                            'profileStatStudents', 'totalStudentsCount'
-                        ];
-                        
-                        studentCountIds.forEach(id => {
-                            const elem = document.getElementById(id);
-                            if (elem) {
-                                elem.textContent = studentCount;
-                                console.log(`✅ Set ${id} = ${studentCount}`);
-                            }
-                        });
-                        
-                        // Update ALL possible rate elements
-                        const rateIds = ['modalStatRate', 'averageRate', 'profileStatRate'];
-                        rateIds.forEach(id => {
-                            const elem = document.getElementById(id);
-                            if (elem) {
-                                elem.textContent = `$${avgRate.toFixed(2)}`;
-                                console.log(`✅ Set ${id} = $${avgRate.toFixed(2)}`);
-                            }
-                        });
-                        
-                        // Update timestamp
-                        const timeElem = document.getElementById('modalStatUpdated');
-                        if (timeElem) {
-                            timeElem.textContent = new Date().toLocaleTimeString();
-                        }
-                        
-                    } catch (error) {
-                        console.error('❌ Error in direct DOM update:', error);
-                    }
-                }, 100);
-                
-            } else {
-                console.error('❌ Failed to add student');
-                this.showNotification('Failed to add student. Please try again.', 'error');
+            // Clear edit mode
+            if (isEditMode) {
+                delete window.editingStudentId;
+                const cancelBtn = document.getElementById('studentCancelBtn');
+                if (cancelBtn) cancelBtn.style.display = 'none';
             }
             
-        } catch (error) {
-            console.error('❌ Error submitting student form:', error);
+            // Clear form
+            this.clearStudentForm();
             
-            // Hide loading state
-            this.showLoadingState(false);
+            // Refresh student list
+            await this.loadStudents();
             
-            this.showNotification('Error: ' + error.message, 'error');
+            // Update reports
+            if (window.reportManager) {
+                window.reportManager.loadDataInBackground();
+            }
+            
+            // Update UI stats
+            this.updateStudentStats();
+            
+            // Update profile stats in modal
+            if (typeof updateProfileStats === 'function') {
+                updateProfileStats();
+                console.log('✅ Profile stats updated');
+            }
+            
+            // Update global stats (header)
+            if (typeof updateGlobalStats === 'function') {
+                updateGlobalStats();
+                console.log('✅ Global stats updated');
+            }
+            
+            // Try to refresh all stats if function exists
+            if (typeof refreshAllStats === 'function') {
+                refreshAllStats();
+                console.log('✅ All stats refreshed');
+            }
+            
+            // Update global student dropdowns if function exists
+            if (typeof refreshStudentDropdowns === 'function') {
+                refreshStudentDropdowns();
+            }
+            
+            // Trigger app.js loadStudents if exists
+            if (typeof loadStudents === 'function') {
+                loadStudents();
+            }
+            
+            // Direct DOM updates as fallback
+            setTimeout(() => {
+                try {
+                    // Get current student count
+                    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+                    const studentCount = students.length;
+                    
+                    // Calculate average rate
+                    let avgRate = 0;
+                    if (students.length > 0) {
+                        const totalRate = students.reduce((sum, student) => 
+                            sum + (parseFloat(student.rate || student.hourlyRate || 0)), 0);
+                        avgRate = totalRate / students.length;
+                    }
+                    
+                    console.log(`📊 Direct update: ${studentCount} students, avg rate: $${avgRate.toFixed(2)}`);
+                    
+                    // Update ALL possible student count elements
+                    const studentCountIds = [
+                        'modalStatStudents', 'statStudents', 
+                        'profileStatStudents', 'totalStudentsCount'
+                    ];
+                    
+                    studentCountIds.forEach(id => {
+                        const elem = document.getElementById(id);
+                        if (elem) {
+                            elem.textContent = studentCount;
+                        }
+                    });
+                    
+                    // Update ALL possible rate elements
+                    const rateIds = ['modalStatRate', 'averageRate', 'profileStatRate'];
+                    rateIds.forEach(id => {
+                        const elem = document.getElementById(id);
+                        if (elem) {
+                            elem.textContent = `$${avgRate.toFixed(2)}`;
+                        }
+                    });
+                    
+                    // Update timestamp
+                    const timeElem = document.getElementById('modalStatUpdated');
+                    if (timeElem) {
+                        timeElem.textContent = new Date().toLocaleTimeString();
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Error in direct DOM update:', error);
+                }
+            }, 100);
+            
+        } else {
+            console.error('❌ Failed to save student');
+            this.showNotification('Failed to save student. Please try again.', 'error');
         }
+        
+    } catch (error) {
+        console.error('❌ Error submitting student form:', error);
+        
+        // Hide loading state
+        this.showLoadingState(false);
+        
+        this.showNotification('Error: ' + error.message, 'error');
     }
+}
 
+// Add this helper method to update student in localStorage
+async updateStudentInLocalStorage(studentId, studentData) {
+    try {
+        console.log(`💾 Updating student ${studentId} in localStorage...`);
+        
+        // Get existing students
+        const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+        
+        // Find the student index
+        const index = students.findIndex(s => s.id === studentId);
+        
+        if (index === -1) {
+            console.error('❌ Student not found in localStorage');
+            return false;
+        }
+        
+        // Update the student
+        students[index] = {
+            ...students[index],
+            ...studentData,
+            id: studentId, // Preserve the ID
+            updatedAt: new Date().toISOString()
+        };
+        
+        // Save back to localStorage
+        localStorage.setItem('worklog_students', JSON.stringify(students));
+        
+        console.log(`✅ Updated student in localStorage:`, students[index]);
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Error updating student in localStorage:', error);
+        return false;
+    }
+}
+    
     showLoadingState(show = true) {
         const submitBtn = document.getElementById('studentSubmitBtn');
         if (!submitBtn) return;
@@ -1610,54 +1672,55 @@ if (document.readyState === 'loading') {
 
 // Global functions for student operations
 window.editStudent = async function(studentId) {
-    console.log('✏️ Editing student:', studentId);
-    
-    try {
-        if (!window.formHandler) {
-            console.error('FormHandler not available');
-            return;
-        }
-        
-        const students = await window.formHandler.getAllStudents();
-        const student = students.find(s => s.id === studentId);
-        
-        if (!student) {
-            if (window.formHandler.showNotification) {
-                window.formHandler.showNotification('Student not found', 'error');
-            }
-            return;
-        }
-        
-        // Fill form with student data
-        document.getElementById('studentName').value = student.name || '';
-        document.getElementById('studentId').value = student.studentId || '';
-        document.getElementById('studentGender').value = student.gender || '';
-        document.getElementById('studentEmail').value = student.email || '';
-        document.getElementById('studentPhone').value = student.phone || '';
-        document.getElementById('studentRate').value = student.rate || '';
-        
-        // Set edit mode
-        window.editingStudentId = studentId;
-        
-        const submitBtn = document.getElementById('studentSubmitBtn');
-        const cancelBtn = document.getElementById('studentCancelBtn');
-        
-        if (submitBtn) submitBtn.textContent = '💾 Update Student';
-        if (cancelBtn) cancelBtn.style.display = 'inline-block';
-        
-        if (window.formHandler.showNotification) {
-            window.formHandler.showNotification('Editing student: ' + student.name, 'info');
-        }
-        
-        // Scroll to form
-        document.getElementById('studentName').focus();
-        
-    } catch (error) {
-        console.error('Error editing student:', error);
-        if (window.formHandler && window.formHandler.showNotification) {
-            window.formHandler.showNotification('Error editing student', 'error');
-        }
+  console.log('✏️ Editing student:', studentId);
+  
+  try {
+    if (!window.formHandler) {
+      console.error('FormHandler not available');
+      return;
     }
+    
+    const students = await window.formHandler.getAllStudents();
+    const student = students.find(s => s.id === studentId);
+    
+    if (!student) {
+      if (window.formHandler.showNotification) {
+        window.formHandler.showNotification('Student not found', 'error');
+      }
+      return;
+    }
+    
+    // Fill form with student data
+    document.getElementById('studentName').value = student.name || '';
+    document.getElementById('studentId').value = student.studentId || '';
+    document.getElementById('studentGender').value = student.gender || '';
+    document.getElementById('studentEmail').value = student.email || '';
+    document.getElementById('studentPhone').value = student.phone || '';
+    
+    // CRITICAL FIX: Use either rate field, prefer rate over hourlyRate
+    const studentRate = student.rate || student.hourlyRate || '';
+    document.getElementById('studentRate').value = studentRate;
+    
+    console.log(`✏️ Editing ${student.name} - current rate: $${studentRate}`);
+    
+    // Set edit mode
+    window.editingStudentId = studentId;
+    
+    const submitBtn = document.getElementById('studentSubmitBtn');
+    const cancelBtn = document.getElementById('studentCancelBtn');
+    
+    if (submitBtn) submitBtn.textContent = '💾 Update Student';
+    if (cancelBtn) cancelBtn.style.display = 'inline-block';
+    
+    if (window.formHandler.showNotification) {
+      window.formHandler.showNotification('Editing student: ' + student.name, 'info');
+    }
+    
+    document.getElementById('studentName').focus();
+    
+  } catch (error) {
+    console.error('Error editing student:', error);
+  }
 };
 
 // Updated window.deleteStudent function
