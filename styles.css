@@ -3996,3 +3996,51 @@ button:focus:not(:focus-visible) {
     }
 }
 
+/* Worklog specific styles */
+.worklog-entity-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.worklog-entity {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--primary);
+    background: var(--primary-light);
+    padding: 4px 10px;
+    border-radius: 20px;
+}
+
+.worklog-outcomes {
+    background: rgba(40, 167, 69, 0.1);
+    padding: 12px;
+    border-radius: var(--radius);
+    margin: 10px 0;
+    border-left: 3px solid var(--success);
+}
+
+.worklog-next-steps {
+    background: rgba(0, 123, 255, 0.1);
+    padding: 12px;
+    border-radius: var(--radius);
+    margin: 10px 0;
+    border-left: 3px solid var(--info);
+}
+
+.work-section {
+    transition: all 0.3s ease;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 15px;
+}
+
+.work-section label {
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 5px;
+    display: block;
+}
+
