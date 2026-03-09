@@ -710,14 +710,13 @@ function initFAB() {
     }
   });
   
-  const fabActions = {
-    'fabAddStudent': 'students',
-    'fabAddHours': 'hours',
-    'fabAddMark': 'marks',
-    'fabAddAttendance': 'attendance',
-    'fabAddPayment': 'payments',
-    'fabAddWorklog': 'worklog'
-  };
+      const fabActions = {
+      'fabAddStudent': 'students',
+      'fabAddWorklog': 'worklog',  
+      'fabAddMark': 'marks',
+      'fabAddAttendance': 'attendance',
+      'fabAddPayment': 'payments'
+    };
   
   Object.entries(fabActions).forEach(([id, tab]) => {
     const btn = document.getElementById(id);
