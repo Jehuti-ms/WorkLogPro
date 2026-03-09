@@ -539,7 +539,9 @@ function updateProfileInfo() {
     let userEmail = 'Not logged in';
     let userName = 'User';
     let memberSince = 'Unknown';
-    let defaultRate = localStorage.getItem('defaultHourlyRate') || '25.00';
+    
+    // Get current default rate
+    const defaultRate = localStorage.getItem('defaultHourlyRate') || '25.00';
     
     // Get user email from various sources
     const storedEmail = localStorage.getItem('userEmail');
@@ -554,11 +556,6 @@ function updateProfileInfo() {
           if (parsed && parsed.email) {
             userEmail = parsed.email;
             userName = parsed.displayName || parsed.email.split('@')[0];
-            
-            // Get member since from Firebase user metadata if available
-            if (parsed.metadata && parsed.metadata.createdAt) {
-              memberSince = new Date(parseInt(parsed.metadata.createdAt)).toLocaleDateString();
-            }
           }
         } catch (e) {
           console.log('Could not parse worklog_user');
@@ -566,7 +563,7 @@ function updateProfileInfo() {
       }
     }
     
-    // Try to get member since from Firebase directly
+    // Try to get member since from Firebase
     if (typeof firebase !== 'undefined' && firebase.auth().currentUser) {
       const user = firebase.auth().currentUser;
       if (user.metadata && user.metadata.creationTime) {
@@ -576,6 +573,7 @@ function updateProfileInfo() {
     
     console.log('User email found:', userEmail);
     console.log('Member since:', memberSince);
+    console.log('Default rate:', defaultRate);
     
     // Update profile modal elements
     const profileEmail = document.getElementById('profileUserEmail');
@@ -598,10 +596,12 @@ function updateProfileInfo() {
     const profileEmail = document.getElementById('profileUserEmail');
     const userName = document.getElementById('userName');
     const memberSinceElem = document.getElementById('profileUserSince');
+    const defaultRateElem = document.getElementById('profileDefaultRate');
     
     if (profileEmail) profileEmail.textContent = 'Not logged in';
     if (userName) userName.textContent = 'User';
     if (memberSinceElem) memberSinceElem.textContent = 'Unknown';
+    if (defaultRateElem) defaultRateElem.textContent = '$25.00/hour';
   }
 }
 
