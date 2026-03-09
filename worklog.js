@@ -16,6 +16,7 @@ class WorklogManager {
         this.loadWorklogs();
         this.setupEventListeners();
         this.updateUI();
+        this.updateStats();
     }
 
     // Load students and institutions
@@ -91,51 +92,57 @@ class WorklogManager {
 
     // Save worklogs to localStorage
     saveWorklogs() {
-        try {
-            localStorage.setItem('worklog_entries', JSON.stringify(this.worklogs));
-            console.log(`✅ Saved ${this.worklogs.length} worklog entries`);
-            this.updateUI();
-            this.updateStats();
-            return true;
-        } catch (error) {
-            console.error('Error saving worklogs:', error);
-            return false;
-        }
+    try {
+        localStorage.setItem('worklog_entries', JSON.stringify(this.worklogs));
+        console.log(`✅ Saved ${this.worklogs.length} worklog entries to localStorage`);
+        return true;
+    } catch (error) {
+        console.error('❌ Error saving worklogs:', error);
+        return false;
     }
+}
 
     // Add new worklog entry
     addWorklog(worklogData) {
-        try {
-            // Calculate total earnings
-            const totalEarnings = worklogData.duration * worklogData.rate;
-            
-            const newWorklog = {
-                id: 'worklog_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-                ...worklogData,
-                totalEarnings: totalEarnings,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
+    try {
+        // Calculate total earnings
+        const totalEarnings = worklogData.duration * worklogData.rate;
+        
+        const newWorklog = {
+            id: 'worklog_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+            ...worklogData,
+            totalEarnings: totalEarnings,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
 
-            // If it's an institution, save/update the institution
-            if (worklogData.workType === 'institution' && worklogData.institutionName) {
-                this.addInstitution(worklogData.institutionName);
-            }
-
-            this.worklogs.unshift(newWorklog); // Add to beginning (newest first)
-            this.saveWorklogs();
-            
-            // Update earnings stats
-            this.updateEarningsStats();
-            
-            console.log('✅ Worklog added:', newWorklog);
-            return newWorklog;
-        } catch (error) {
-            console.error('Error adding worklog:', error);
-            return null;
+        // If it's an institution, save/update the institution
+        if (worklogData.workType === 'institution' && worklogData.institutionName) {
+            this.addInstitution(worklogData.institutionName);
         }
-    }
 
+        this.worklogs.unshift(newWorklog); // Add to beginning (newest first)
+        
+        // CRITICAL: Save to localStorage IMMEDIATELY
+        this.saveWorklogs();
+        
+        // Update UI
+        this.updateUI();
+        this.updateStats();
+        
+        // Also trigger cloud sync in background
+        if (window.syncService && firebase.auth().currentUser) {
+            setTimeout(() => window.syncService.sync(false, false), 1000);
+        }
+        
+        console.log('✅ Worklog added and saved to localStorage:', newWorklog);
+        return newWorklog;
+    } catch (error) {
+        console.error('❌ Error adding worklog:', error);
+        return null;
+    }
+}
+    
     // Update existing worklog
     updateWorklog(worklogId, worklogData) {
         try {
