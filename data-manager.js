@@ -1011,5 +1011,125 @@ class DataManager {
             
             invoice += 'PERIOD:\n';
             invoice += `  ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}\n\n`;
+                // ... all your existing code ...
+
+    async generateInvoice(studentName, startDate, endDate) {
+        try {
+            const logs = await this.getAllLogs();
+            const students = await this.getAllStudents();
             
+            const student = students.find(s => s.name === studentName);
+            if (!student) {
+                return `Student "${studentName}" not found.`;
+            }
+            
+            const studentLogs = logs.filter(log => 
+                log.studentName === studentName &&
+                new Date(log.date) >= new Date(startDate) &&
+                new Date(log.date) <= new Date(endDate)
+            );
+            
+            if (studentLogs.length === 0) {
+                return `No data found for ${studentName} from ${startDate} to ${endDate}`;
+            }
+            
+            const rate = student.hourlyRate || 0;
+            const totalHours = studentLogs.reduce((sum, log) => sum + parseFloat(log.duration || 0), 0);
+            const subtotal = totalHours * rate;
+            const tax = subtotal * 0.10; // 10% tax
+            const total = subtotal + tax;
+            
+            let invoice = `INVOICE\n`;
+            invoice += '='.repeat(50) + '\n\n';
+            invoice += `Invoice Date: ${new Date().toLocaleDateString()}\n`;
+            invoice += `Invoice #: INV-${Date.now().toString().slice(-6)}\n\n`;
+            
+            invoice += 'BILL TO:\n';
+            invoice += `  ${studentName}\n`;
+            invoice += `  ${student.grade ? 'Grade: ' + student.grade : ''}\n\n`;
+            
+            invoice += 'PERIOD:\n';
+            invoice += `  ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}\n\n`;
+            
+            invoice += 'SERVICES:\n';
+            invoice += '-'.repeat(50) + '\n';
+            invoice += 'Date         Hours  Activity\n';
+            invoice += '-'.repeat(50) + '\n';
+            
+            studentLogs.forEach(log => {
+                invoice += `${log.date.padEnd(12)} ${log.duration.toString().padStart(5)}  ${log.activity}\n`;
+            });
+            
+            invoice += '\n' + '='.repeat(50) + '\n';
+            invoice += `Total Hours: ${totalHours.toFixed(2)}\n`;
+            invoice += `Rate: $${rate.toFixed(2)} per hour\n`;
+            invoice += `Subtotal: $${subtotal.toFixed(2)}\n`;
+            invoice += `Tax (10%): $${tax.toFixed(2)}\n`;
+            invoice += `TOTAL DUE: $${total.toFixed(2)}\n\n`;
+            
+            invoice += 'Payment due upon receipt. Thank you for your business!\n';
+            
+            return invoice;
+            
+        } catch (error) {
+            console.error(`Error generating invoice for ${studentName}:`, error);
+            return `Error generating invoice: ${error.message}`;
+        }
+    }
+}
+
+// Create global instance when script loads
+console.log('📊 DataManager script loaded, creating global instance...');
+
+// Wait for Firebase to be ready
+const initDataManager = () => {
+    if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
+        if (!window.dataManager) {
+            window.dataManager = new DataManager();
+            console.log('✅ Global dataManager instance created');
+            
+            // Test the instance
+            setTimeout(() => {
+                console.log('🧪 Testing DataManager instance...');
+                if (window.dataManager) {
+                    console.log('✅ dataManager is ready:', window.dataManager);
+                }
+            }, 1000);
+        }
+    } else {
+        console.log('⏳ Waiting for Firebase...');
+        setTimeout(initDataManager, 100);
+    }
+};
+
+// Start initialization
+initDataManager();
+
+// Add global helper functions
+window.editStudent = function(studentId) {
+    console.log('✏️ Edit student:', studentId);
+    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    const student = students.find(s => s.id === studentId);
+    if (student) {
+        // Populate your edit form here
+        console.log('Student data to edit:', student);
+        alert(`Edit student: ${student.name}\nThis feature is coming soon!`);
+    }
+};
+
+window.deleteStudent = function(studentId) {
+    console.log('🗑️ Delete student:', studentId);
+    if (confirm('Are you sure you want to delete this student?')) {
+        if (window.dataManager) {
+            window.dataManager.deleteStudent(studentId);
+        }
+    }
+};
+
+// Force render helper
+window.forceRender = function() {
+    if (window.dataManager) {
+        window.dataManager.syncUI();
+    }
+};
            
