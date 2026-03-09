@@ -469,6 +469,7 @@ function updateProfileInfo() {
   }
 }
 
+// ==================== UPDATED PROFILE STATS WITH WORKLOG ====================
 function updateProfileStats() {
   console.log('📊 Updating profile stats...');
   
@@ -478,25 +479,43 @@ function updateProfileStats() {
     const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
     const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
     const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
+    const worklogs = JSON.parse(localStorage.getItem('worklog_entries') || '[]'); // ADD THIS
     
-    // Calculate totals
-    const totalStudents = students.length;
-    
-    const totalHours = hours.reduce((sum, hour) => {
+    // Calculate totals from traditional hours
+    const totalHoursFromHours = hours.reduce((sum, hour) => {
       return sum + (parseFloat(hour.hoursWorked) || 0);
     }, 0);
     
-    // Calculate total earnings correctly (hours * rate)
-    const totalEarnings = hours.reduce((sum, hour) => {
+    // Calculate totals from worklog
+    const totalHoursFromWorklog = worklogs.reduce((sum, entry) => {
+      return sum + (parseFloat(entry.duration) || 0);
+    }, 0);
+    
+    // Combined total hours
+    const totalHours = totalHoursFromHours + totalHoursFromWorklog;
+    
+    // Calculate earnings from traditional hours
+    const earningsFromHours = hours.reduce((sum, hour) => {
       const hoursWorked = parseFloat(hour.hoursWorked) || 0;
       const rate = parseFloat(hour.baseRate) || 0;
       return sum + (hoursWorked * rate);
     }, 0);
     
+    // Calculate earnings from worklog
+    const earningsFromWorklog = worklogs.reduce((sum, entry) => {
+      return sum + (parseFloat(entry.totalEarnings) || 0);
+    }, 0);
+    
+    // Combined total earnings
+    const totalEarnings = earningsFromHours + earningsFromWorklog;
+    
     // Calculate total payments received
     const totalPayments = payments.reduce((sum, payment) => {
       return sum + (parseFloat(payment.paymentAmount) || 0);
     }, 0);
+    
+    // Calculate outstanding balance
+    const outstandingBalance = totalEarnings - totalPayments;
     
     // Calculate average rate from students
     let avgRate = 0;
@@ -520,13 +539,15 @@ function updateProfileStats() {
     const defaultRate = SimpleRateManager.get();
     
     console.log(`📊 Stats calculated:`, {
-      students: totalStudents,
+      students: students.length,
       hours: totalHours.toFixed(1),
       earnings: totalEarnings.toFixed(2),
       payments: totalPayments.toFixed(2),
+      outstanding: outstandingBalance.toFixed(2),
       avgRate: avgRate.toFixed(2),
       avgMark: avgMark.toFixed(1),
-      defaultRate: defaultRate
+      defaultRate: defaultRate,
+      worklogEntries: worklogs.length
     });
     
     // Update PROFILE MODAL stats
@@ -538,7 +559,7 @@ function updateProfileStats() {
       }
     };
     
-    updateElement('modalStatStudents', totalStudents);
+    updateElement('modalStatStudents', students.length);
     updateElement('modalStatHours', totalHours.toFixed(1));
     updateElement('modalStatEarnings', `$${totalEarnings.toFixed(2)}`);
     updateElement('modalStatRate', `$${avgRate.toFixed(2)}`);
@@ -550,12 +571,37 @@ function updateProfileStats() {
     const headerHours = document.getElementById('statHours');
     const headerAvgRate = document.getElementById('averageRate');
     
-    if (headerStudents) headerStudents.textContent = totalStudents;
+    if (headerStudents) headerStudents.textContent = students.length;
     if (headerHours) headerHours.textContent = totalHours.toFixed(1);
     if (headerAvgRate) headerAvgRate.textContent = avgRate.toFixed(2);
     
+    // Update worklog-specific stats if they exist
+    const worklogCount = document.getElementById('worklogStatsCount');
+    const worklogAvgDuration = document.getElementById('worklogAvgDuration');
+    
+    if (worklogCount) worklogCount.textContent = worklogs.length;
+    if (worklogAvgDuration && worklogs.length > 0) {
+      const avgDuration = totalHoursFromWorklog / worklogs.length;
+      worklogAvgDuration.textContent = avgDuration.toFixed(1) + 'h';
+    }
+    
   } catch (error) {
     console.error('❌ Error updating profile stats:', error);
+    
+    // Set fallback values
+    const fallbacks = {
+      'modalStatStudents': '0',
+      'modalStatHours': '0.0',
+      'modalStatEarnings': '$0.00',
+      'modalStatRate': '$0.00',
+      'modalStatMarks': '0.0%',
+      'modalStatUpdated': 'Error'
+    };
+    
+    Object.entries(fallbacks).forEach(([id, value]) => {
+      const element = document.getElementById(id);
+      if (element) element.textContent = value;
+    });
   }
 }
 
@@ -563,12 +609,30 @@ function updateProfileStats() {
 function refreshAllStats() {
   console.log('🔄 Refreshing all statistics...');
   
+  // Update profile modal stats
   updateProfileStats();
+  
+  // Update global header stats
   updateGlobalStats();
+  
+  // Update report stats if on reports tab
+  if (document.getElementById('reports')?.classList.contains('active')) {
+    if (typeof updateReportStats === 'function') {
+      updateReportStats();
+    }
+  }
+  
+  // Update payments tab stats if on payments tab
+  if (document.getElementById('payments')?.classList.contains('active')) {
+    if (typeof loadPayments === 'function') {
+      loadPayments();
+    }
+  }
   
   console.log('✅ All stats refreshed');
 }
 
+// Make it globally available
 window.refreshAllStats = refreshAllStats;
 
 // ==================== STUDENT SORTING FUNCTION ====================
