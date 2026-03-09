@@ -217,6 +217,7 @@ class ReportManager {
                 this.showEmailForm();
                 break;
         }
+    }
 
     // ==================== OPTIONAL: SAVE REPORTS TO FIREBASE ====================
     async saveReportToFirebase(reportType, reportData) {
