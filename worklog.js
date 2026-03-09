@@ -408,6 +408,35 @@ class WorklogManager {
         this.populateDropdowns();
     }
 
+    // Add these helper methods to your WorklogManager class
+
+// Fix date display (use this when showing dates)
+formatDisplayDate(dateString) {
+    if (!dateString) return 'Unknown';
+    // Add noon to avoid timezone shifting
+    const d = new Date(dateString + 'T12:00:00');
+    return d.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+    });
+}
+
+// Fix date for storage (use this when saving)
+formatStorageDate(dateString) {
+    // Just return the YYYY-MM-DD as-is
+    return dateString;
+}
+
+// Get today's date in YYYY-MM-DD format (for setting default)
+getTodayString() {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+    
     // Clear form
     clearForm() {
         const form = document.getElementById('worklogForm');
@@ -491,16 +520,15 @@ updateUI() {
         const entityDetail = worklog.workType === 'institution' && worklog.contactPerson ? 
             `<div class="worklog-entity-detail">Contact: ${worklog.contactPerson}</div>` : '';
 
-        const date = (() => {
-            const d = new Date(worklog.date + 'T12:00:00'); // Add noon to avoid timezone issues
-            return d.toLocaleDateString('en-US', { 
-                weekday: 'short', 
-                year: 'numeric', 
-                month: 'short', 
-                day: 'numeric' 
-            });
-        })();
-
+        // Manual formatting to avoid timezone issues
+        const [year, month, day] = worklog.date.split('-');
+        const date = new Date(year, month-1, day).toLocaleDateString('en-US', {
+            weekday: 'short',
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+        
         const createdDate = new Date(worklog.createdAt).toLocaleString();
 
         return `
