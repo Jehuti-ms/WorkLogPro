@@ -1,10 +1,10 @@
-// worklog.js - Session Worklog Management (with Student/Institution support)
+// worklog.js - Complete Worklog System
 console.log('📝 Loading worklog.js...');
 
 class WorklogManager {
     constructor() {
         console.log('📝 WorklogManager constructor called');
-        this.worklogs = [];
+        this.entries = [];
         this.students = [];
         this.institutions = [];
         this.init();
@@ -13,60 +13,118 @@ class WorklogManager {
     init() {
         console.log('📝 Initializing WorklogManager...');
         this.loadData();
-        this.loadWorklogs();
+        this.loadEntries();
         this.setupEventListeners();
         this.updateUI();
         this.updateStats();
+        
+        // Set today's date in the form
+        this.setTodayDate();
     }
 
-    // Load students and institutions
+    setTodayDate() {
+        const today = new Date().toISOString().split('T')[0];
+        const dateField = document.getElementById('worklogDate');
+        if (dateField) dateField.value = today;
+    }
+
     loadData() {
         // Load students
         this.students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
         
-        // Load institutions (from a separate storage or extract from worklogs)
+        // Load institutions
         this.loadInstitutions();
     }
 
-    // Load institutions from worklogs or separate storage
     loadInstitutions() {
-        // First, try to load from dedicated storage
-        const savedInstitutions = localStorage.getItem('worklog_institutions');
-        if (savedInstitutions) {
-            this.institutions = JSON.parse(savedInstitutions);
+        const saved = localStorage.getItem('worklog_institutions');
+        if (saved) {
+            this.institutions = JSON.parse(saved);
         } else {
-            // Extract unique institutions from worklogs
-            const worklogs = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
-            const uniqueInstitutions = [...new Set(
-                worklogs
-                    .filter(w => w.workType === 'institution')
-                    .map(w => w.institutionName)
+            // Extract from entries
+            const unique = [...new Set(
+                this.entries
+                    .filter(e => e.workType === 'institution')
+                    .map(e => e.institutionName)
             )];
             
-            this.institutions = uniqueInstitutions.map(name => ({
+            this.institutions = unique.map(name => ({
                 id: 'inst_' + name.toLowerCase().replace(/\s+/g, '_'),
                 name: name
             }));
             
-            // Save for future use
             localStorage.setItem('worklog_institutions', JSON.stringify(this.institutions));
         }
     }
 
-    // Add a new institution
+    loadEntries() {
+        try {
+            this.entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+            console.log(`✅ Loaded ${this.entries.length} worklog entries`);
+        } catch (error) {
+            console.error('Error loading entries:', error);
+            this.entries = [];
+        }
+    }
+
+    saveEntries() {
+        try {
+            localStorage.setItem('worklog_entries', JSON.stringify(this.entries));
+            console.log(`✅ Saved ${this.entries.length} entries to localStorage`);
+            
+            // Trigger cloud sync
+            if (window.syncService && firebase.auth().currentUser) {
+                setTimeout(() => window.syncService.sync(false, false), 500);
+            }
+            
+            this.updateStats();
+            return true;
+        } catch (error) {
+            console.error('❌ Error saving entries:', error);
+            return false;
+        }
+    }
+
+    addEntry(entryData) {
+        try {
+            const totalEarnings = entryData.duration * entryData.rate;
+            
+            const newEntry = {
+                id: 'worklog_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                ...entryData,
+                totalEarnings: totalEarnings,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+
+            // Save institution if needed
+            if (entryData.workType === 'institution' && entryData.institutionName) {
+                this.addInstitution(entryData.institutionName);
+            }
+
+            this.entries.unshift(newEntry);
+            this.saveEntries();
+            this.updateUI();
+            this.updateStats();
+            
+            console.log('✅ Worklog entry added:', newEntry);
+            return newEntry;
+        } catch (error) {
+            console.error('❌ Error adding entry:', error);
+            return null;
+        }
+    }
+
     addInstitution(name) {
         if (!name || name.trim() === '') return null;
         
         name = name.trim();
-        
-        // Check if already exists
         let existing = this.institutions.find(i => 
             i.name.toLowerCase() === name.toLowerCase()
         );
         
         if (existing) return existing;
         
-        // Create new institution
         const newInst = {
             id: 'inst_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
             name: name,
@@ -79,195 +137,64 @@ class WorklogManager {
         return newInst;
     }
 
-    // Load worklogs from localStorage
-    loadWorklogs() {
-        try {
-            this.worklogs = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
-            console.log(`✅ Loaded ${this.worklogs.length} worklog entries`);
-        } catch (error) {
-            console.error('Error loading worklogs:', error);
-            this.worklogs = [];
-        }
-    }
-
-    // Save worklogs to localStorage
-    saveWorklogs() {
-    try {
-        localStorage.setItem('worklog_entries', JSON.stringify(this.worklogs));
-        console.log(`✅ Saved ${this.worklogs.length} worklog entries to localStorage`);
-        return true;
-    } catch (error) {
-        console.error('❌ Error saving worklogs:', error);
-        return false;
-    }
-}
-
-    // Add new worklog entry
-    addWorklog(worklogData) {
-    try {
-        // Calculate total earnings
-        const totalEarnings = worklogData.duration * worklogData.rate;
-        
-        const newWorklog = {
-            id: 'worklog_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-            ...worklogData,
-            totalEarnings: totalEarnings,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        };
-
-        // If it's an institution, save/update the institution
-        if (worklogData.workType === 'institution' && worklogData.institutionName) {
-            this.addInstitution(worklogData.institutionName);
-        }
-
-        this.worklogs.unshift(newWorklog); // Add to beginning (newest first)
-        
-        // CRITICAL: Save to localStorage IMMEDIATELY
-        this.saveWorklogs();
-        
-        // Update UI
-        this.updateUI();
-        this.updateStats();
-        
-        // Also trigger cloud sync in background
-        if (window.syncService && firebase.auth().currentUser) {
-            setTimeout(() => window.syncService.sync(false, false), 1000);
-        }
-        
-        console.log('✅ Worklog added and saved to localStorage:', newWorklog);
-        return newWorklog;
-    } catch (error) {
-        console.error('❌ Error adding worklog:', error);
-        return null;
-    }
-}
-    
-    // Update existing worklog
-    updateWorklog(worklogId, worklogData) {
-        try {
-            const index = this.worklogs.findIndex(w => w.id === worklogId);
-            if (index === -1) return false;
-
-            const totalEarnings = worklogData.duration * worklogData.rate;
-
-            this.worklogs[index] = {
-                ...this.worklogs[index],
-                ...worklogData,
-                totalEarnings: totalEarnings,
-                updatedAt: new Date().toISOString()
-            };
-
-            // Update institution if needed
-            if (worklogData.workType === 'institution' && worklogData.institutionName) {
-                this.addInstitution(worklogData.institutionName);
-            }
-
-            this.saveWorklogs();
-            this.updateEarningsStats();
-            
-            console.log('✅ Worklog updated:', worklogId);
-            return true;
-        } catch (error) {
-            console.error('Error updating worklog:', error);
-            return false;
-        }
-    }
-
-    // Delete worklog
-    deleteWorklog(worklogId) {
+    deleteEntry(entryId) {
         try {
             if (!confirm('Delete this worklog entry?')) return false;
-
-            this.worklogs = this.worklogs.filter(w => w.id !== worklogId);
-            this.saveWorklogs();
-            this.updateEarningsStats();
             
-            console.log('✅ Worklog deleted:', worklogId);
+            this.entries = this.entries.filter(e => e.id !== entryId);
+            this.saveEntries();
+            this.updateUI();
+            this.updateStats();
+            
+            console.log('✅ Entry deleted:', entryId);
             return true;
         } catch (error) {
-            console.error('Error deleting worklog:', error);
+            console.error('❌ Error deleting entry:', error);
             return false;
         }
     }
 
-    // Get earnings summary
-    getEarningsSummary() {
-        const summary = {
-            total: 0,
-            byStudent: {},
-            byInstitution: {},
-            byMonth: {}
-        };
-        
-        this.worklogs.forEach(log => {
-            const earnings = log.totalEarnings || 0;
-            summary.total += earnings;
-            
-            // Group by entity
-            if (log.workType === 'student' && log.studentName) {
-                summary.byStudent[log.studentName] = (summary.byStudent[log.studentName] || 0) + earnings;
-            } else if (log.workType === 'institution' && log.institutionName) {
-                summary.byInstitution[log.institutionName] = (summary.byInstitution[log.institutionName] || 0) + earnings;
-            }
-            
-            // Group by month
-            const month = log.date.substring(0, 7); // YYYY-MM
-            summary.byMonth[month] = (summary.byMonth[month] || 0) + earnings;
-        });
-        
-        return summary;
-    }
+    editEntry(entryId) {
+        const entry = this.entries.find(e => e.id === entryId);
+        if (!entry) return;
 
-    // Update earnings stats in UI
-    updateEarningsStats() {
-        const summary = this.getEarningsSummary();
-        
-        // You can display this somewhere in your UI
-        console.log('💰 Earnings summary:', summary);
-        
-        // Update any earnings displays if they exist
-        const totalEarningsElem = document.getElementById('totalWorkEarnings');
-        if (totalEarningsElem) {
-            totalEarningsElem.textContent = `$${summary.total.toFixed(2)}`;
+        // Set work type
+        if (entry.workType === 'student') {
+            document.querySelector('input[name="workType"][value="student"]').checked = true;
+            this.toggleType('student');
+            document.getElementById('worklogStudent').value = entry.studentId || '';
+        } else {
+            document.querySelector('input[name="workType"][value="institution"]').checked = true;
+            this.toggleType('institution');
+            document.getElementById('worklogInstitution').value = entry.institutionName || '';
+            document.getElementById('worklogContactPerson').value = entry.contactPerson || '';
         }
+
+        // Fill common fields
+        document.getElementById('worklogDate').value = entry.date;
+        document.getElementById('worklogSubject').value = entry.subject;
+        document.getElementById('worklogTopic').value = entry.topic;
+        document.getElementById('worklogDuration').value = entry.duration;
+        document.getElementById('worklogRate').value = entry.rate;
+        document.getElementById('worklogDescription').value = entry.description;
+        document.getElementById('worklogOutcomes').value = entry.outcomes || '';
+        document.getElementById('worklogNextSteps').value = entry.nextSteps || '';
+        document.getElementById('worklogNotes').value = entry.notes || '';
+
+        // Change submit button
+        document.getElementById('worklogSubmitBtn').textContent = '💾 Update Entry';
+        this.editingId = entryId;
+
+        // Scroll to form
+        document.getElementById('worklogForm').scrollIntoView({ behavior: 'smooth' });
     }
 
-    // Get worklogs by type (student/institution)
-    getWorklogsByType(type) {
-        return this.worklogs.filter(w => w.workType === type);
-    }
-
-    // Get worklogs for a specific entity (student or institution)
-    getWorklogsByEntity(entityId, type) {
-        if (type === 'student') {
-            return this.worklogs.filter(w => w.workType === 'student' && w.studentId === entityId);
-        } else if (type === 'institution') {
-            return this.worklogs.filter(w => w.workType === 'institution' && w.institutionName === entityId);
-        }
-        return [];
-    }
-
-    // Search worklogs
-    searchWorklogs(query) {
-        query = query.toLowerCase();
-        return this.worklogs.filter(w => 
-            (w.studentName?.toLowerCase().includes(query)) ||
-            (w.institutionName?.toLowerCase().includes(query)) ||
-            w.subject?.toLowerCase().includes(query) ||
-            w.topic?.toLowerCase().includes(query) ||
-            w.description?.toLowerCase().includes(query) ||
-            w.outcomes?.toLowerCase().includes(query)
-        );
-    }
-
-    // Toggle between student and institution sections
-    toggleWorkType(type) {
+    toggleType(type) {
         const studentSection = document.getElementById('studentSection');
         const institutionSection = document.getElementById('institutionSection');
         const studentSelect = document.getElementById('worklogStudent');
         const institutionInput = document.getElementById('worklogInstitution');
-        
+
         if (type === 'student') {
             studentSection.style.display = 'block';
             institutionSection.style.display = 'none';
@@ -281,13 +208,12 @@ class WorklogManager {
         }
     }
 
-    // Setup event listeners
     setupEventListeners() {
         const form = document.getElementById('worklogForm');
         if (form) {
             form.addEventListener('submit', (e) => {
                 e.preventDefault();
-                this.handleWorklogSubmit();
+                this.handleSubmit();
             });
         }
 
@@ -307,7 +233,6 @@ class WorklogManager {
         }
     }
 
-    // Update filter dropdown based on selected type
     updateFilterDropdown() {
         const type = document.getElementById('worklogFilterType')?.value;
         const entitySelect = document.getElementById('worklogFilterEntity');
@@ -318,11 +243,11 @@ class WorklogManager {
         
         if (type === 'student') {
             this.students.forEach(s => {
-                options += `<option value="${s.id}">👤 ${s.name}</option>`;
+                options += `<option value="student_${s.id}">👤 ${s.name}</option>`;
             });
         } else if (type === 'institution') {
             this.institutions.forEach(i => {
-                options += `<option value="${i.name}">🏢 ${i.name}</option>`;
+                options += `<option value="inst_${i.name}">🏢 ${i.name}</option>`;
             });
         } else {
             // Both types
@@ -338,12 +263,10 @@ class WorklogManager {
         this.updateUI();
     }
 
-    // Handle form submission
-    handleWorklogSubmit() {
-        // Get work type
+    handleSubmit() {
         const workType = document.querySelector('input[name="workType"]:checked')?.value;
         
-        let worklogData = {
+        let entryData = {
             workType: workType,
             date: document.getElementById('worklogDate').value,
             subject: document.getElementById('worklogSubject').value.trim(),
@@ -362,107 +285,77 @@ class WorklogManager {
             const student = this.students.find(s => s.id === studentId);
             
             if (!studentId) {
-                showNotification('Please select a student', 'error');
+                alert('Please select a student');
                 return;
             }
             
-            worklogData.studentId = studentId;
-            worklogData.studentName = student ? student.name : 'Unknown Student';
-            worklogData.entityName = student ? student.name : 'Unknown Student';
-            worklogData.entityType = 'student';
+            entryData.studentId = studentId;
+            entryData.studentName = student ? student.name : 'Unknown Student';
+            entryData.entityName = student ? student.name : 'Unknown Student';
             
         } else {
             const institutionName = document.getElementById('worklogInstitution').value.trim();
             const contactPerson = document.getElementById('worklogContactPerson').value.trim();
             
             if (!institutionName) {
-                showNotification('Please enter institution name', 'error');
+                alert('Please enter institution name');
                 return;
             }
             
-            worklogData.institutionName = institutionName;
-            worklogData.contactPerson = contactPerson;
-            worklogData.entityName = institutionName;
-            worklogData.entityType = 'institution';
+            entryData.institutionName = institutionName;
+            entryData.contactPerson = contactPerson;
+            entryData.entityName = institutionName;
         }
 
         // Validate common fields
-        if (!worklogData.subject) {
-            showNotification('Subject is required', 'error');
+        if (!entryData.subject) {
+            alert('Subject is required');
             return;
         }
 
-        if (!worklogData.topic) {
-            showNotification('Topic is required', 'error');
+        if (!entryData.topic) {
+            alert('Topic is required');
             return;
         }
 
-        if (!worklogData.description) {
-            showNotification('Description is required', 'error');
+        if (!entryData.description) {
+            alert('Description is required');
             return;
         }
 
-        // Check if we're editing
+        // Check if editing
         if (this.editingId) {
-            const result = this.updateWorklog(this.editingId, worklogData);
-            if (result) showNotification('Worklog updated!', 'success');
+            const index = this.entries.findIndex(e => e.id === this.editingId);
+            if (index !== -1) {
+                this.entries[index] = {
+                    ...this.entries[index],
+                    ...entryData,
+                    totalEarnings: entryData.duration * entryData.rate,
+                    updatedAt: new Date().toISOString()
+                };
+                this.saveEntries();
+                alert('Entry updated!');
+            }
         } else {
-            const result = this.addWorklog(worklogData);
-            if (result) showNotification('Worklog saved!', 'success');
+            this.addEntry(entryData);
         }
 
         this.clearForm();
-        this.populateDropdowns();
     }
 
-    // Add these helper methods to your WorklogManager class
-
-// Fix date display (use this when showing dates)
-formatDisplayDate(dateString) {
-    if (!dateString) return 'Unknown';
-    // Add noon to avoid timezone shifting
-    const d = new Date(dateString + 'T12:00:00');
-    return d.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
-    });
-}
-
-// Fix date for storage (use this when saving)
-formatStorageDate(dateString) {
-    // Just return the YYYY-MM-DD as-is
-    return dateString;
-}
-
-// Get today's date in YYYY-MM-DD format (for setting default)
-getTodayString() {
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-    
-    // Clear form
     clearForm() {
-        const form = document.getElementById('worklogForm');
-        if (form) form.reset();
-        
-        // Reset date to today
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('worklogDate').value = today;
+        document.getElementById('worklogForm').reset();
+        this.setTodayDate();
         
         // Reset to student view
         document.querySelector('input[name="workType"][value="student"]').checked = true;
-        this.toggleWorkType('student');
+        this.toggleType('student');
         
         // Reset submit button
         document.getElementById('worklogSubmitBtn').textContent = '💾 Save Worklog';
         this.editingId = null;
     }
 
-    // Populate dropdowns
     populateDropdowns() {
         // Student dropdown
         const studentSelect = document.getElementById('worklogStudent');
@@ -475,209 +368,182 @@ getTodayString() {
         this.updateFilterDropdown();
     }
 
-   // Update UI with worklog entries - USING NEW CARD STYLES
-updateUI() {
-    const container = document.getElementById('worklogContainer');
-    if (!container) return;
-
-    const filterType = document.getElementById('worklogFilterType')?.value;
-    const filterEntity = document.getElementById('worklogFilterEntity')?.value;
-    const searchQuery = document.getElementById('worklogSearch')?.value;
-
-    let displayWorklogs = [...this.worklogs];
-
-    // Apply filters
-    if (filterType) {
-        displayWorklogs = displayWorklogs.filter(w => w.workType === filterType);
-    }
-
-    if (filterEntity) {
-        if (filterEntity.startsWith('student_')) {
-            const studentId = filterEntity.replace('student_', '');
-            displayWorklogs = displayWorklogs.filter(w => 
-                w.workType === 'student' && w.studentId === studentId
-            );
-        } else if (filterEntity.startsWith('inst_')) {
-            const instName = filterEntity.replace('inst_', '');
-            displayWorklogs = displayWorklogs.filter(w => 
-                w.workType === 'institution' && w.institutionName === instName
-            );
+    // FIXED: Date display with proper formatting
+    formatDate(dateString) {
+        if (!dateString) return 'Unknown';
+        try {
+            const [year, month, day] = dateString.split('-');
+            const date = new Date(year, month - 1, day);
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        } catch (e) {
+            return 'Invalid Date';
         }
     }
 
-    if (searchQuery) {
-        displayWorklogs = this.searchWorklogs(searchQuery);
-    }
+    updateUI() {
+        const container = document.getElementById('worklogContainer');
+        if (!container) return;
 
-    if (displayWorklogs.length === 0) {
-        container.innerHTML = `
-            <div class="worklog-empty">
-                <div class="worklog-empty-icon">📝</div>
-                <div class="worklog-empty-text">No worklog entries found</div>
-                <div class="worklog-empty-subtext">Add your first worklog entry using the form above</div>
-            </div>
-        `;
-        return;
-    }
+        const filterType = document.getElementById('worklogFilterType')?.value;
+        const filterEntity = document.getElementById('worklogFilterEntity')?.value;
+        const searchQuery = document.getElementById('worklogSearch')?.value;
 
-    container.innerHTML = displayWorklogs.map(worklog => {
-        const cardClass = worklog.workType === 'student' ? 'student-card' : 'institution-card';
-        const entityIcon = worklog.workType === 'student' ? '👤' : '🏢';
-        const entityName = worklog.workType === 'student' ? worklog.studentName : worklog.institutionName;
-        const entityDetail = worklog.workType === 'institution' && worklog.contactPerson ? 
-            `<div class="worklog-entity-detail">Contact: ${worklog.contactPerson}</div>` : '';
+        let displayEntries = [...this.entries];
 
-        // Manual formatting to avoid timezone issues
-        const [year, month, day] = worklog.date.split('-');
-        const date = new Date(year, month-1, day).toLocaleDateString('en-US', {
-            weekday: 'short',
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
-        
-        const createdDate = new Date(worklog.createdAt).toLocaleString();
-
-        return `
-            <div class="worklog-card ${cardClass}" data-id="${worklog.id}">
-                <div class="worklog-header">
-                    <div class="worklog-entity">
-                        <div class="worklog-entity-icon">${entityIcon}</div>
-                        <div>
-                            <div class="worklog-entity-name">${entityName}</div>
-                            ${entityDetail}
-                        </div>
-                    </div>
-                    <div class="worklog-date-badge">
-                        📅 ${date}
-                        <span class="worklog-duration-badge">${worklog.duration}h</span>
-                    </div>
-                </div>
-
-                <div class="worklog-chips">
-                    <span class="worklog-chip subject">
-                        <span>📚</span> ${worklog.subject}
-                    </span>
-                    <span class="worklog-chip topic">
-                        <span>📌</span> ${worklog.topic}
-                    </span>
-                </div>
-
-                <div class="worklog-earnings">
-                    <span>💰</span> $${(worklog.duration * worklog.rate).toFixed(2)}
-                </div>
-
-                <div class="worklog-section description">
-                    <div class="worklog-section-title">
-                        <span>📖</span> Description
-                    </div>
-                    <div class="worklog-section-content">${worklog.description.replace(/\n/g, '<br>')}</div>
-                </div>
-
-                ${worklog.outcomes ? `
-                    <div class="worklog-section outcomes">
-                        <div class="worklog-section-title">
-                            <span>🎯</span> Outcomes
-                        </div>
-                        <div class="worklog-section-content">${worklog.outcomes.replace(/\n/g, '<br>')}</div>
-                    </div>
-                ` : ''}
-
-                ${worklog.nextSteps ? `
-                    <div class="worklog-section next-steps">
-                        <div class="worklog-section-title">
-                            <span>⏭️</span> Next Steps
-                        </div>
-                        <div class="worklog-section-content">${worklog.nextSteps.replace(/\n/g, '<br>')}</div>
-                    </div>
-                ` : ''}
-
-                ${worklog.notes ? `
-                    <div class="worklog-section notes">
-                        <div class="worklog-section-title">
-                            <span>📝</span> Notes
-                        </div>
-                        <div class="worklog-section-content">${worklog.notes}</div>
-                    </div>
-                ` : ''}
-
-                <div class="worklog-footer">
-                    <div class="worklog-timestamp">
-                        <span>🕒</span> ${createdDate}
-                        ${worklog.updatedAt !== worklog.createdAt ? ' (edited)' : ''}
-                    </div>
-                    <div class="worklog-actions">
-                        <button class="worklog-btn edit" onclick="window.worklogManager.editWorklog('${worklog.id}')">
-                            ✏️ Edit
-                        </button>
-                        <button class="worklog-btn delete" onclick="window.worklogManager.deleteWorklog('${worklog.id}')">
-                            🗑️ Delete
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-    // Edit worklog
-    editWorklog(worklogId) {
-        const worklog = this.worklogs.find(w => w.id === worklogId);
-        if (!worklog) return;
-
-        // Set work type
-        if (worklog.workType === 'student') {
-            document.querySelector('input[name="workType"][value="student"]').checked = true;
-            this.toggleWorkType('student');
-            document.getElementById('worklogStudent').value = worklog.studentId || '';
-        } else {
-            document.querySelector('input[name="workType"][value="institution"]').checked = true;
-            this.toggleWorkType('institution');
-            document.getElementById('worklogInstitution').value = worklog.institutionName || '';
-            document.getElementById('worklogContactPerson').value = worklog.contactPerson || '';
+        // Apply filters
+        if (filterType) {
+            displayEntries = displayEntries.filter(e => e.workType === filterType);
         }
 
-        // Fill common fields
-        document.getElementById('worklogDate').value = worklog.date;
-        document.getElementById('worklogSubject').value = worklog.subject;
-        document.getElementById('worklogTopic').value = worklog.topic;
-        document.getElementById('worklogDuration').value = worklog.duration;
-        document.getElementById('worklogRate').value = worklog.rate;
-        document.getElementById('worklogDescription').value = worklog.description;
-        document.getElementById('worklogOutcomes').value = worklog.outcomes || '';
-        document.getElementById('worklogNextSteps').value = worklog.nextSteps || '';
-        document.getElementById('worklogNotes').value = worklog.notes || '';
+        if (filterEntity) {
+            if (filterEntity.startsWith('student_')) {
+                const studentId = filterEntity.replace('student_', '');
+                displayEntries = displayEntries.filter(e => 
+                    e.workType === 'student' && e.studentId === studentId
+                );
+            } else if (filterEntity.startsWith('inst_')) {
+                const instName = filterEntity.replace('inst_', '');
+                displayEntries = displayEntries.filter(e => 
+                    e.workType === 'institution' && e.institutionName === instName
+                );
+            }
+        }
 
-        // Change submit button
-        document.getElementById('worklogSubmitBtn').textContent = '💾 Update Worklog';
-        this.editingId = worklogId;
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            displayEntries = displayEntries.filter(e => 
+                e.entityName?.toLowerCase().includes(query) ||
+                e.subject?.toLowerCase().includes(query) ||
+                e.topic?.toLowerCase().includes(query) ||
+                e.description?.toLowerCase().includes(query)
+            );
+        }
 
-        // Scroll to form
-        document.getElementById('worklogForm').scrollIntoView({ behavior: 'smooth' });
+        if (displayEntries.length === 0) {
+            container.innerHTML = `
+                <div class="worklog-empty">
+                    <div class="worklog-empty-icon">📝</div>
+                    <div class="worklog-empty-text">No worklog entries yet</div>
+                    <div class="worklog-empty-subtext">Add your first entry using the form above</div>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = displayEntries.map(entry => {
+            const cardClass = entry.workType === 'student' ? 'worklog-card student-card' : 'worklog-card institution-card';
+            const entityIcon = entry.workType === 'student' ? '👤' : '🏢';
+            const entityName = entry.workType === 'student' ? entry.studentName : entry.institutionName;
+
+            return `
+                <div class="${cardClass}" data-id="${entry.id}">
+                    <div class="worklog-header">
+                        <div class="worklog-entity">
+                            <div class="worklog-entity-icon">${entityIcon}</div>
+                            <div>
+                                <div class="worklog-entity-name">${entityName}</div>
+                                ${entry.contactPerson ? `<div class="worklog-entity-detail">Contact: ${entry.contactPerson}</div>` : ''}
+                            </div>
+                        </div>
+                        <div class="worklog-date-badge">
+                            📅 ${this.formatDate(entry.date)}
+                            <span class="worklog-duration-badge">${entry.duration}h</span>
+                        </div>
+                    </div>
+
+                    <div class="worklog-chips">
+                        <span class="worklog-chip subject">
+                            <span>📚</span> ${entry.subject}
+                        </span>
+                        <span class="worklog-chip topic">
+                            <span>📌</span> ${entry.topic}
+                        </span>
+                    </div>
+
+                    <div class="worklog-earnings">
+                        <span>💰</span> $${entry.totalEarnings?.toFixed(2) || '0.00'}
+                    </div>
+
+                    <div class="worklog-section description">
+                        <div class="worklog-section-title">
+                            <span>📖</span> Description
+                        </div>
+                        <div class="worklog-section-content">${entry.description.replace(/\n/g, '<br>')}</div>
+                    </div>
+
+                    ${entry.outcomes ? `
+                        <div class="worklog-section outcomes">
+                            <div class="worklog-section-title">
+                                <span>🎯</span> Outcomes
+                            </div>
+                            <div class="worklog-section-content">${entry.outcomes.replace(/\n/g, '<br>')}</div>
+                        </div>
+                    ` : ''}
+
+                    ${entry.nextSteps ? `
+                        <div class="worklog-section next-steps">
+                            <div class="worklog-section-title">
+                                <span>⏭️</span> Next Steps
+                            </div>
+                            <div class="worklog-section-content">${entry.nextSteps.replace(/\n/g, '<br>')}</div>
+                        </div>
+                    ` : ''}
+
+                    ${entry.notes ? `
+                        <div class="worklog-section notes">
+                            <div class="worklog-section-title">
+                                <span>📝</span> Notes
+                            </div>
+                            <div class="worklog-section-content">${entry.notes}</div>
+                        </div>
+                    ` : ''}
+
+                    <div class="worklog-footer">
+                        <div class="worklog-timestamp">
+                            <span>🕒</span> ${new Date(entry.createdAt).toLocaleString()}
+                        </div>
+                        <div class="worklog-actions">
+                            <button class="worklog-btn edit" onclick="window.worklogManager.editEntry('${entry.id}')">
+                                ✏️ Edit
+                            </button>
+                            <button class="worklog-btn delete" onclick="window.worklogManager.deleteEntry('${entry.id}')">
+                                🗑️ Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
     }
 
-    // Update stats
     updateStats() {
         const countElem = document.getElementById('worklogCount');
-        if (countElem) countElem.textContent = this.worklogs.length;
-
         const lastDateElem = document.getElementById('lastWorklogDate');
-        if (lastDateElem && this.worklogs.length > 0) {
-            const lastDate = new Date(this.worklogs[0].date).toLocaleDateString();
-            lastDateElem.textContent = lastDate;
+        
+        if (countElem) countElem.textContent = this.entries.length;
+        
+        if (lastDateElem) {
+            if (this.entries.length > 0) {
+                const lastEntry = this.entries[0];
+                lastDateElem.textContent = this.formatDate(lastEntry.date);
+            } else {
+                lastDateElem.textContent = 'Never';
+            }
         }
-
-        this.updateEarningsStats();
     }
 }
 
-// Initialize WorklogManager
+// Initialize
 window.worklogManager = new WorklogManager();
 
-// Global helper functions
+// Global helpers
 window.toggleWorkType = function(type) {
     if (window.worklogManager) {
-        window.worklogManager.toggleWorkType(type);
+        window.worklogManager.toggleType(type);
     }
 };
 
