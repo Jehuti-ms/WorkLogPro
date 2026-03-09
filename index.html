@@ -450,60 +450,244 @@
    <!-- Reports Tab -->
 <div id="reports" class="tabcontent">
   <div class="section-header">
-    <h2>📈 Reports</h2>
-    <p>Summaries of students, hours, marks, and payments.</p>
+    <h2>📈 Reports & Documents</h2>
+    <p>Summaries of students, hours, marks, payments, and generate official BVTB forms.</p>
   </div>
 
-  <div class="form-grid">
-    <div class="section-card">
-      <h3>📊 Overview</h3>
-      <ul>
-        <li>Total Students: <span id="totalStudentsReport">0</span></li>
-        <li>Total Hours: <span id="totalHoursReport">0</span></li>
-        <li>Total Earnings: <span id="totalEarningsReport">$0</span></li>
-        <li>Average Mark: <span id="avgMarkReport">0%</span></li>
-        <li>Total Payments: <span id="totalPaymentsReport">$0</span></li>
-        <li>Outstanding Balance: <span id="outstandingBalance">$0</span></li>
-      </ul>
-      <div class="form-actions">
-        <button id="weeklyReportBtn" class="button small">Weekly</button>
-        <button id="biWeeklyReportBtn" class="button small">Bi-Weekly</button>
-        <button id="monthlyReportBtn" class="button small">Monthly</button>
-        <button id="subjectReportBtn" class="button small">By Subject</button>
-        <button id="claimFormBtn" class="button small warning">💰 Claim</button>
-        <button id="invoiceBtn" class="button small warning">🧾 Invoice</button>
-        <button id="pdfReportBtn" class="button small success">📄 PDF</button>
-        <button id="emailReportBtn" class="button small info">📧 Email</button>
+  <!-- Summary Cards -->
+  <div class="summary-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 25px;">
+    <div class="summary-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px;">
+      <div style="font-size: 0.9rem; opacity: 0.9;">Total Hours</div>
+      <div style="font-size: 1.8rem; font-weight: bold;" id="reportTotalHours">0</div>
+    </div>
+    <div class="summary-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 20px; border-radius: 10px;">
+      <div style="font-size: 0.9rem; opacity: 0.9;">Total Earnings</div>
+      <div style="font-size: 1.8rem; font-weight: bold;" id="reportTotalEarnings">$0</div>
+    </div>
+    <div class="summary-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 20px; border-radius: 10px;">
+      <div style="font-size: 0.9rem; opacity: 0.9;">This Month</div>
+      <div style="font-size: 1.8rem; font-weight: bold;" id="reportMonthEarnings">$0</div>
+    </div>
+    <div class="summary-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white; padding: 20px; border-radius: 10px;">
+      <div style="font-size: 0.9rem; opacity: 0.9;">Outstanding</div>
+      <div style="font-size: 1.8rem; font-weight: bold;" id="outstandingBalance">$0</div>
+    </div>
+  </div>
+
+  <!-- Main Content Grid -->
+  <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+    <!-- Left Column - Overview & BVTB Forms -->
+    <div>
+      <!-- Overview Card -->
+      <div class="section-card" style="margin-bottom: 20px;">
+        <h3>📊 Overview</h3>
+        <ul style="list-style: none; padding: 0;">
+          <li style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-light);">
+            <span>Total Students:</span>
+            <span style="font-weight: bold;" id="totalStudentsReport">0</span>
+          </li>
+          <li style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-light);">
+            <span>Total Hours:</span>
+            <span style="font-weight: bold;" id="totalHoursReport">0</span>
+          </li>
+          <li style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-light);">
+            <span>Total Earnings:</span>
+            <span style="font-weight: bold;" id="totalEarningsReport">$0</span>
+          </li>
+          <li style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-light);">
+            <span>Average Mark:</span>
+            <span style="font-weight: bold;" id="avgMarkReport">0%</span>
+          </li>
+          <li style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-light);">
+            <span>Total Payments:</span>
+            <span style="font-weight: bold;" id="totalPaymentsReport">$0</span>
+          </li>
+        </ul>
+        
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px;">
+          <button id="weeklyReportBtn" class="button small">📅 Weekly</button>
+          <button id="biWeeklyReportBtn" class="button small">📅 Bi-Weekly</button>
+          <button id="monthlyReportBtn" class="button small">📅 Monthly</button>
+          <button id="subjectReportBtn" class="button small">📚 By Subject</button>
+          <button id="pdfReportBtn" class="button small success">📄 PDF</button>
+          <button id="emailReportBtn" class="button small info">📧 Email</button>
+        </div>
+      </div>
+
+      <!-- BVTB Claim Form Card -->
+      <div class="section-card">
+        <h3>📋 BVTB Claim Form</h3>
+        <p style="color: var(--text-light); font-size: 0.9rem; margin-bottom: 15px;">Generate official claim forms from worklog data</p>
+        
+        <div class="form-group">
+          <label for="claimName">Your Name</label>
+          <input type="text" id="claimName" value="David Moseley" placeholder="Enter your full name">
+        </div>
+        
+        <div class="form-group">
+          <label for="claimAddress">Address</label>
+          <input type="text" id="claimAddress" value="142 Coles Terrace, St.Philip" placeholder="Your address">
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="form-group">
+            <label for="claimHomePhone">Home Telephone</label>
+            <input type="text" id="claimHomePhone" value="572-8040" placeholder="Home phone">
+          </div>
+          <div class="form-group">
+            <label for="claimWorkPhone">Work Telephone</label>
+            <input type="text" id="claimWorkPhone" value="1367-8221" placeholder="Work phone">
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="claimProgramme">Programme</label>
+          <input type="text" id="claimProgramme" value="Cosmetology" placeholder="e.g., Cosmetology">
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="form-group">
+            <label for="claimStartDate">Start Date</label>
+            <input type="date" id="claimStartDate">
+          </div>
+          <div class="form-group">
+            <label for="claimEndDate">End Date</label>
+            <input type="date" id="claimEndDate">
+          </div>
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button id="generateClaimBtn" class="button primary" style="flex: 2;">📄 Generate Claim Form</button>
+          <button id="printClaimBtn" class="button secondary" style="flex: 1;">🖨️ Print</button>
+        </div>
       </div>
     </div>
 
-    <div class="section-card">
-      <h3>📅 Breakdown</h3>
-      
-      <!-- THIS IS THE CORRECT CONTAINER FOR REPORTS -->
-      <div id="report-content" style="min-height: 400px; padding: 20px;">
-        <p class="empty-message">Select a report type to generate.</p>
+    <!-- Right Column - Invoice & Preview -->
+    <div>
+      <!-- BVTB Invoice Card -->
+      <div class="section-card" style="margin-bottom: 20px;">
+        <h3>🧾 BVTB Invoice</h3>
+        <p style="color: var(--text-light); font-size: 0.9rem; margin-bottom: 15px;">Generate official invoices from worklog data</p>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="form-group">
+            <label for="invoiceNumber">Invoice Number</label>
+            <input type="text" id="invoiceNumber" value="003" placeholder="Invoice #">
+          </div>
+          <div class="form-group">
+            <label for="invoiceDate">Invoice Date</label>
+            <input type="date" id="invoiceDate">
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="invoiceTo">Issued To</label>
+          <textarea id="invoiceTo" rows="3">Barbados Vocational Board
+Lawrence Green House
+Culloden Road, St. Michael</textarea>
+        </div>
+        
+        <div class="form-group">
+          <label for="invoiceItem">Item Description</label>
+          <input type="text" id="invoiceItem" value="Cosmetology" placeholder="e.g., Cosmetology">
+        </div>
+        
+        <div class="form-group">
+          <label for="invoiceRate">Hourly Rate ($)</label>
+          <input type="number" id="invoiceRate" step="0.01" value="82.97">
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="form-group">
+            <label for="invoiceStartDate">Start Date</label>
+            <input type="date" id="invoiceStartDate">
+          </div>
+          <div class="form-group">
+            <label for="invoiceEndDate">End Date</label>
+            <input type="date" id="invoiceEndDate">
+          </div>
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button id="generateInvoiceBtn" class="button primary" style="flex: 2;">💰 Generate Invoice</button>
+          <button id="printInvoiceBtn" class="button secondary" style="flex: 1;">🖨️ Print</button>
+        </div>
       </div>
-      
-      <!-- You can keep your tables BELOW the report content if you want -->
-      <div style="margin-top: 30px;">
-        <table class="table">
-          <thead>
-            <tr><th>Period</th><th>Hours</th><th>Earnings</th><th>Subjects</th><th>Net (80%)</th></tr>
-          </thead>
-          <tbody id="weeklyBody">
-            <tr><td colspan="5" class="empty-message">No data available</td></tr>
-          </tbody>
-        </table>
-        <table class="table">
-          <thead>
-            <tr><th>Subject</th><th>Avg Mark</th><th>Hours</th><th>Earnings</th><th>Sessions</th></tr>
-          </thead>
-          <tbody id="subjectBody">
-            <tr><td colspan="5" class="empty-message">No data available</td></tr>
-          </tbody>
-        </table>
+
+      <!-- Quick Stats Card -->
+      <div class="section-card">
+        <h3>📊 Quick Stats</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+          <div style="text-align: center; padding: 15px; background: var(--background); border-radius: 8px;">
+            <div style="font-size: 0.8rem; color: var(--text-light);">Worklog Entries</div>
+            <div style="font-size: 1.8rem; font-weight: bold;" id="worklogStatsCount">0</div>
+          </div>
+          <div style="text-align: center; padding: 15px; background: var(--background); border-radius: 8px;">
+            <div style="font-size: 0.8rem; color: var(--text-light);">Avg Session</div>
+            <div style="font-size: 1.8rem; font-weight: bold;" id="worklogAvgDuration">0h</div>
+          </div>
+        </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Document Preview Section -->
+  <div class="section-card" id="documentPreview" style="display: none; margin-top: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <h3>📄 Document Preview</h3>
+      <button onclick="document.getElementById('documentPreview').style.display='none'" class="button small">✕ Close</button>
+    </div>
+    <div id="previewContent" style="background: white; color: black; padding: 30px; border-radius: 8px; font-family: 'Courier New', monospace; max-height: 500px; overflow-y: auto; border: 1px solid #ccc; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+      <!-- Preview will be injected here -->
+    </div>
+  </div>
+
+  <!-- Breakdown Section -->
+  <div class="section-card" style="margin-top: 20px;">
+    <h3>📅 Detailed Breakdown</h3>
+    
+    <!-- Report Content Container -->
+    <div id="report-content" style="min-height: 200px; padding: 20px; background: var(--background); border-radius: 8px; margin-bottom: 20px;">
+      <p class="empty-message">Select a report type to generate.</p>
+    </div>
+    
+    <!-- Weekly Breakdown Table -->
+    <h4>Weekly Breakdown</h4>
+    <div style="overflow-x: auto; margin-bottom: 30px;">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Period</th>
+            <th>Hours</th>
+            <th>Earnings</th>
+            <th>Subjects</th>
+            <th>Net (80%)</th>
+          </tr>
+        </thead>
+        <tbody id="weeklyBody">
+          <tr><td colspan="5" class="empty-message">No data available</td></tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- Subject Breakdown Table -->
+    <h4>Subject Breakdown</h4>
+    <div style="overflow-x: auto;">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Subject</th>
+            <th>Avg Mark</th>
+            <th>Hours</th>
+            <th>Earnings</th>
+            <th>Sessions</th>
+          </tr>
+        </thead>
+        <tbody id="subjectBody">
+          <tr><td colspan="5" class="empty-message">No data available</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
