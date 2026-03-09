@@ -318,38 +318,85 @@ function showErrorMessage(message) {
   document.body.appendChild(errorDiv);
 }
 
-// ==================== RATE MANAGEMENT SYSTEM ====================
-const RateManager = {
+// ==================== SIMPLE RATE MANAGER ====================
+const SimpleRateManager = {
     // Get the current default rate
-    getCurrentRate: function() {
-        // Try multiple storage locations
-        const rate = localStorage.getItem('defaultHourlyRate') || 
-                    localStorage.getItem('defaultRate') || 
-                    '25.00';
-        return parseFloat(rate).toFixed(2);
+    get: function() {
+        return localStorage.getItem('defaultHourlyRate') || '25.00';
     },
     
-    // Save the default rate
-    saveRate: function(rate) {
-        // Format to 2 decimal places
+    // Set the default rate
+    set: function(rate) {
         const formattedRate = parseFloat(rate).toFixed(2);
-        
-        // Save to multiple keys for redundancy
         localStorage.setItem('defaultHourlyRate', formattedRate);
-        localStorage.setItem('defaultRate', formattedRate);
-        
-        // Also save to user settings if logged in
-        if (firebase.auth().currentUser) {
-            const userId = firebase.auth().currentUser.uid;
-            const db = firebase.firestore();
-            db.collection('users').doc(userId).collection('settings').doc('preferences').set({
-                defaultRate: formattedRate,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true }).catch(e => console.log('Could not save rate to cloud', e));
-        }
-        
+        this.updateUI(formattedRate);
         return formattedRate;
     },
+    
+    // Update all UI elements
+    updateUI: function(rate) {
+        rate = rate || this.get();
+        
+        // Update all rate displays
+        const displays = {
+            'currentDefaultRate': rate,
+            'currentDefaultRateDisplay': rate,
+            'defaultRateDisplay': rate,
+            'profileDefaultRate': `$${rate}/hour`
+        };
+        
+        Object.entries(displays).forEach(([id, value]) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        });
+        
+        // Update form placeholders
+        const studentRate = document.getElementById('studentRate');
+        if (studentRate) studentRate.placeholder = `Default: $${rate}`;
+        
+        const baseRate = document.getElementById('baseRate');
+        if (baseRate) baseRate.placeholder = `Default: $${rate}`;
+    },
+    
+    // Apply to current form
+    applyToForm: function() {
+        const rate = this.get();
+        const studentRate = document.getElementById('studentRate');
+        const baseRate = document.getElementById('baseRate');
+        
+        if (studentRate) studentRate.value = rate;
+        if (baseRate) baseRate.value = rate;
+        
+        showNotification(`Default rate $${rate} applied to form`, 'info');
+    },
+    
+    // Apply to all students
+    applyToAllStudents: function() {
+        const rate = this.get();
+        const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+        
+        if (students.length === 0) {
+            showNotification('No students to update', 'warning');
+            return;
+        }
+        
+        const updated = students.map(s => ({
+            ...s,
+            rate: parseFloat(rate),
+            hourlyRate: parseFloat(rate)
+        }));
+        
+        localStorage.setItem('worklog_students', JSON.stringify(updated));
+        
+        // Refresh display
+        if (window.dataManager) window.dataManager.syncUI();
+        if (typeof loadStudents === 'function') loadStudents();
+        
+        showNotification(`Updated ${students.length} students to $${rate}/hour`, 'success');
+    }
+};
+
+window.SimpleRateManager = SimpleRateManager;
     
     // Update all UI elements with current rate
     updateUI: function() {
@@ -439,44 +486,25 @@ function initDefaultRate() {
     }
 }
 
-// ==================== SAVE DEFAULT RATE - FIXED ====================
+// ==================== SAVE DEFAULT RATE - SIMPLIFIED ====================
 window.saveDefaultRate = function() {
-    console.log('💰 Saving default rate...');
+    const input = document.getElementById('defaultBaseRate');
+    if (!input) return;
     
-    const rateInput = document.getElementById('defaultBaseRate');
-    if (!rateInput) {
-        console.error('Rate input not found');
-        return;
-    }
-    
-    const rate = parseFloat(rateInput.value);
+    const rate = parseFloat(input.value);
     if (isNaN(rate) || rate <= 0) {
         showNotification('Please enter a valid rate', 'error');
         return;
     }
     
-    // Use RateManager to save
-    const savedRate = RateManager.saveRate(rate);
+    // Save and update UI
+    const saved = SimpleRateManager.set(rate);
+    showNotification(`Default rate set to $${saved}`, 'success');
     
-    // Update all UI elements
-    RateManager.updateUI();
-    
-    // Show success message
-    showNotification(`Default rate set to $${savedRate}`, 'success');
-    
-    // Update profile stats
-    if (typeof updateProfileStats === 'function') {
-        updateProfileStats();
-    }
-    
-    // Sync to cloud
+    // Simple cloud sync if available
     if (window.syncService && firebase.auth().currentUser) {
-        setTimeout(() => {
-            window.syncService.sync(false, false);
-        }, 500);
+        setTimeout(() => window.syncService.sync(false, false), 500);
     }
-    
-    return savedRate;
 };
 
 // ==================== APPLY DEFAULT RATE TO FORM ====================
@@ -1988,9 +2016,6 @@ function saveStudentToLocalStorage(studentData) {
   }
 }
 
-
-
-
 // ==================== REPORT FUNCTIONS ====================
 function initReportButtons() {
   console.log('📊 Initializing report buttons...');
@@ -2390,6 +2415,8 @@ function loadStudents() {
       sum + parseFloat(student.rate || student.hourlyRate || 0), 0);
     const avgRate = totalRate / students.length;
     avgRateElem.textContent = avgRate.toFixed(2);
+  } else if (avgRateElem) {
+    avgRateElem.textContent = '0.00';
   }
   
   // Update sort dropdown to match current sort
@@ -2397,6 +2424,11 @@ function loadStudents() {
   if (sortSelect) {
     sortSelect.value = sortMethod;
   }
+  
+  // Get default rate for reference (if student has no rate)
+  const defaultRate = window.SimpleRateManager ? 
+    window.SimpleRateManager.get() : 
+    localStorage.getItem('defaultHourlyRate') || '25.00';
   
   // Display students
   if (students.length === 0) {
@@ -2406,7 +2438,12 @@ function loadStudents() {
   
   container.innerHTML = students.map(student => {
     // Get the correct rate field (handle both rate and hourlyRate)
-    const rate = parseFloat(student.rate || student.hourlyRate || 0).toFixed(2);
+    // If student has no rate, use default rate
+    const studentRate = student.rate || student.hourlyRate;
+    const rate = studentRate ? parseFloat(studentRate).toFixed(2) : defaultRate;
+    
+    // Determine if using default rate (for visual indicator)
+    const isUsingDefault = !student.rate && !student.hourlyRate;
     
     // Format date safely
     let dateStr = 'Unknown';
@@ -2419,7 +2456,7 @@ function loadStudents() {
     }
     
     return `
-      <div class="student-card" data-id="${student.id}">
+      <div class="student-card" data-id="${student.id}" ${isUsingDefault ? 'style="border-left: 3px solid #ffc107;"' : ''}>
         <div class="student-card-header">
           <strong>${student.name || ''}</strong>
           <span class="student-id">${student.studentId || 'No ID'}</span>
@@ -2429,7 +2466,10 @@ function loadStudents() {
           </div>
         </div>
         <div class="student-details">
-          <div class="student-rate">$${rate}/hour</div>
+          <div class="student-rate">
+            $${rate}/hour
+            ${isUsingDefault ? '<span style="color: #ffc107; font-size: 0.8em; margin-left: 8px;">(default)</span>' : ''}
+          </div>
           <div>${student.gender || ''} • ${student.email || 'No email'}</div>
           <div>${student.phone || 'No phone'}</div>
           <div class="student-meta">
@@ -2441,6 +2481,7 @@ function loadStudents() {
   }).join('');
   
   console.log(`✅ Loaded ${students.length} students (sorted by: ${sortMethod})`);
+  console.log(`💰 Default rate: $${defaultRate}`);
 }
 
 function loadHours() {
