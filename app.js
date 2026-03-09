@@ -319,22 +319,167 @@ function showErrorMessage(message) {
 }
 
 // ==================== DEFAULT RATE ====================
+// ==================== DEFAULT RATE - PERSISTENCE FIX ====================
 function initDefaultRate() {
-  const defaultRate = localStorage.getItem('defaultHourlyRate') || '25.00';
-  
-  const elements = {
-    'currentDefaultRateDisplay': defaultRate,
-    'currentDefaultRate': defaultRate
-  };
-  
-  Object.keys(elements).forEach(id => {
-    const element = document.getElementById(id);
-    if (element) element.textContent = elements[id];
-  });
-  
-  const rateInput = document.getElementById('defaultBaseRate');
-  if (rateInput) rateInput.value = defaultRate;
+    console.log('💰 Initializing default rate...');
+    
+    // Get saved rate from localStorage or use default
+    const savedRate = localStorage.getItem('defaultHourlyRate');
+    const defaultRate = savedRate ? parseFloat(savedRate).toFixed(2) : '25.00';
+    
+    console.log(`Default rate: $${defaultRate}`);
+    
+    // Update all rate displays
+    const displays = [
+        'currentDefaultRateDisplay',
+        'currentDefaultRate',
+        'defaultRateDisplay'
+    ];
+    
+    displays.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.textContent = defaultRate;
+        }
+    });
+    
+    // Set input field value
+    const rateInput = document.getElementById('defaultBaseRate');
+    if (rateInput) {
+        rateInput.value = defaultRate;
+    }
+    
+    // Also update any student form rate placeholder
+    const studentRateField = document.getElementById('studentRate');
+    if (studentRateField && !studentRateField.value) {
+        studentRateField.placeholder = `Default: $${defaultRate}`;
+    }
 }
+
+// ==================== SAVE DEFAULT RATE ====================
+window.saveDefaultRate = function() {
+    console.log('💰 Saving default rate...');
+    
+    const rateInput = document.getElementById('defaultBaseRate');
+    if (!rateInput) return;
+    
+    const rate = parseFloat(rateInput.value);
+    if (isNaN(rate) || rate <= 0) {
+        showNotification('Please enter a valid rate', 'error');
+        return;
+    }
+    
+    // Format to 2 decimal places
+    const formattedRate = rate.toFixed(2);
+    
+    // Save to localStorage
+    localStorage.setItem('defaultHourlyRate', formattedRate);
+    
+    // Update displays
+    const displays = [
+        'currentDefaultRateDisplay',
+        'currentDefaultRate',
+        'defaultRateDisplay'
+    ];
+    
+    displays.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.textContent = formattedRate;
+        }
+    });
+    
+    // Update student form placeholder
+    const studentRateField = document.getElementById('studentRate');
+    if (studentRateField) {
+        studentRateField.placeholder = `Default: $${formattedRate}`;
+    }
+    
+    showNotification(`Default rate set to $${formattedRate}`, 'success');
+    
+    // If user is logged in, sync to cloud
+    if (window.syncService && firebase.auth().currentUser) {
+        setTimeout(() => {
+            window.syncService.sync(false, false);
+        }, 500);
+    }
+};
+
+// ==================== APPLY DEFAULT RATE TO FORM ====================
+window.useDefaultRate = function() {
+    console.log('💰 Applying default rate to form...');
+    
+    const defaultRate = localStorage.getItem('defaultHourlyRate') || '25.00';
+    
+    // Apply to student form
+    const studentRateField = document.getElementById('studentRate');
+    if (studentRateField) {
+        studentRateField.value = defaultRate;
+    }
+    
+    // Apply to hours form
+    const baseRateField = document.getElementById('baseRate');
+    if (baseRateField) {
+        baseRateField.value = defaultRate;
+    }
+    
+    showNotification(`Default rate $${defaultRate} applied`, 'info');
+};
+
+// ==================== APPLY DEFAULT RATE TO ALL STUDENTS ====================
+window.applyDefaultRateToAll = async function() {
+    console.log('💰 Applying default rate to all students...');
+    
+    if (!confirm('This will update the rate for ALL students. Continue?')) {
+        return;
+    }
+    
+    const defaultRate = parseFloat(localStorage.getItem('defaultHourlyRate') || '25.00');
+    
+    try {
+        // Get all students
+        let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+        
+        // Update each student's rate
+        students = students.map(student => ({
+            ...student,
+            rate: defaultRate,
+            hourlyRate: defaultRate,
+            updatedAt: new Date().toISOString()
+        }));
+        
+        // Save to localStorage
+        localStorage.setItem('worklog_students', JSON.stringify(students));
+        
+        // Update in dataManager if available
+        if (window.dataManager) {
+            window.dataManager.students = students;
+            window.dataManager.saveToLocalStorage();
+        }
+        
+        // Refresh UI
+        if (window.dataManager) {
+            window.dataManager.syncUI();
+        }
+        if (typeof loadStudents === 'function') {
+            loadStudents();
+        }
+        if (typeof updateProfileStats === 'function') {
+            updateProfileStats();
+        }
+        
+        // Sync to cloud
+        if (window.syncService && firebase.auth().currentUser) {
+            await window.syncService.sync(true, false);
+        }
+        
+        showNotification(`All students updated to $${defaultRate.toFixed(2)}/hour`, 'success');
+        
+    } catch (error) {
+        console.error('Error applying default rate:', error);
+        showNotification('Error updating students', 'error');
+    }
+};
 
 // ==================== PROFILE INFO FUNCTION ====================
 function updateProfileInfo() {
