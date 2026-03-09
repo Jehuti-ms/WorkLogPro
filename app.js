@@ -654,10 +654,12 @@ function loadTabData(tabName) {
       case 'reports':
         loadReports();
         break;
-      case 'worklog': // Add this case
+      case 'worklog':
         if (window.worklogManager) {
-          window.worklogManager.populateStudentDropdowns();
+          window.worklogManager.loadData();
+          window.worklogManager.populateDropdowns(); // FIXED: changed from populateStudentDropdowns
           window.worklogManager.updateUI();
+          window.worklogManager.updateStats();
         }
         break;
     }
