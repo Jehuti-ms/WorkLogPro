@@ -183,6 +183,17 @@ startAutoSync(interval = 30000) {
   }
 
  getAllLocalData() {
+    // Get the current rate using RateManager if available, otherwise fallback to localStorage
+    let defaultRate = '25.00';
+    
+    if (window.RateManager) {
+        defaultRate = window.RateManager.getCurrentRate();
+    } else {
+        defaultRate = localStorage.getItem('defaultHourlyRate') || 
+                     localStorage.getItem('defaultRate') || 
+                     '25.00';
+    }
+    
     return {
         students: JSON.parse(localStorage.getItem('worklog_students') || '[]'),
         hours: JSON.parse(localStorage.getItem('worklog_hours') || '[]'),
@@ -190,16 +201,16 @@ startAutoSync(interval = 30000) {
         attendance: JSON.parse(localStorage.getItem('worklog_attendance') || '[]'),
         payments: JSON.parse(localStorage.getItem('worklog_payments') || '[]'),
         settings: {
-            defaultHourlyRate: localStorage.getItem('defaultHourlyRate') || '25.00',
+            defaultHourlyRate: defaultRate,
+            defaultRate: defaultRate, // Add both for redundancy
             autoSyncEnabled: localStorage.getItem('autoSyncEnabled') === 'true',
             theme: localStorage.getItem('worklog-theme') || 'dark',
             studentSortMethod: localStorage.getItem('studentSortMethod') || 'id'
         },
-        lastLocalUpdate: new Date().toISOString()
+        lastLocalUpdate: new Date().toISOString(),
+        appVersion: '1.0.0'
     };
 }
-
-  // Update the getRemoteData method in sync-service.js (around line 190)
 
 async getRemoteData(userId) {
   try {
@@ -386,8 +397,12 @@ async getRemoteData(userId) {
   }
 
  saveToLocalStorage(data) {
+    console.log('💾 Saving data to localStorage with settings...');
+    
+    // Save main data collections
     if (data.students) {
         localStorage.setItem('worklog_students', JSON.stringify(data.students));
+        console.log(`✅ Saved ${data.students.length} students`);
     }
     if (data.hours) {
         localStorage.setItem('worklog_hours', JSON.stringify(data.hours));
@@ -401,10 +416,23 @@ async getRemoteData(userId) {
     if (data.payments) {
         localStorage.setItem('worklog_payments', JSON.stringify(data.payments));
     }
+    
+    // Save settings with special attention to rate
     if (data.settings) {
+        // Save default rate to multiple keys for redundancy
         if (data.settings.defaultHourlyRate) {
-            localStorage.setItem('defaultHourlyRate', data.settings.defaultHourlyRate);
+            const rate = data.settings.defaultHourlyRate;
+            localStorage.setItem('defaultHourlyRate', rate);
+            localStorage.setItem('defaultRate', rate);
+            console.log(`✅ Saved default rate: $${rate}`);
+            
+            // Update UI if RateManager exists
+            if (window.RateManager) {
+                window.RateManager.updateUI();
+            }
         }
+        
+        // Save other settings
         if (data.settings.autoSyncEnabled !== undefined) {
             localStorage.setItem('autoSyncEnabled', data.settings.autoSyncEnabled);
         }
@@ -416,8 +444,61 @@ async getRemoteData(userId) {
         }
     }
     
-    console.log('✅ Data saved to localStorage with settings');
+    // Also save a consolidated settings object
+    const settings = {
+        defaultHourlyRate: localStorage.getItem('defaultHourlyRate') || '25.00',
+        defaultRate: localStorage.getItem('defaultRate') || '25.00',
+        autoSyncEnabled: localStorage.getItem('autoSyncEnabled') === 'true',
+        theme: localStorage.getItem('worklog-theme') || 'dark',
+        studentSortMethod: localStorage.getItem('studentSortMethod') || 'id',
+        lastSync: data.lastSync || new Date().toISOString()
+    };
+    localStorage.setItem('worklog_settings', JSON.stringify(settings));
+    
+    console.log('✅ Data and settings saved to localStorage');
+    
+    // Trigger UI update for rate if needed
+    if (typeof initDefaultRate === 'function') {
+        initDefaultRate();
+    }
+    
+    return true;
 }
+
+  // Add this method to your sync-service.js to ensure settings are properly synced
+
+async syncSettings() {
+    try {
+        const user = await this.getCurrentUser();
+        if (!user) return false;
+        
+        // Get current settings
+        const localSettings = {
+            defaultHourlyRate: localStorage.getItem('defaultHourlyRate') || '25.00',
+            autoSyncEnabled: localStorage.getItem('autoSyncEnabled') === 'true',
+            theme: localStorage.getItem('worklog-theme') || 'dark',
+            studentSortMethod: localStorage.getItem('studentSortMethod') || 'id'
+        };
+        
+        // Save to Firestore
+        const db = firebase.firestore();
+        const settingsRef = db.collection('users').doc(user.uid)
+                             .collection('settings').doc('preferences');
+        
+        await settingsRef.set({
+            ...localSettings,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        
+        console.log('✅ Settings synced to cloud');
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Error syncing settings:', error);
+        return false;
+    }
+}
+
   
   updateSyncIndicator(text, status) {
     const indicator = document.getElementById('syncIndicator');
