@@ -1213,7 +1213,7 @@ function loadInitialData() {
   }
 }
 
-// ==================== LOAD STUDENTS (FIXED WITH RATE CONSISTENCY) ====================
+// ==================== LOAD STUDENTS (FIXED WITH DATE HANDLING) ====================
 function loadStudents() {
   console.log('👥 Loading students...');
   
@@ -1224,33 +1224,51 @@ function loadStudents() {
   let students = window.formHandler?.getStudents?.() || 
                  JSON.parse(localStorage.getItem('worklog_students') || '[]');
   
-  // ===== FIX: Ensure rate consistency across all students =====
+  // ===== FIX 1: Ensure rate consistency across all students =====
   let studentsFixed = false;
   students = students.map(student => {
     // Check if rate fields are inconsistent
     const rateValue = student.rate || student.hourlyRate;
-    const needsFix = (student.rate !== student.hourlyRate) || 
-                     (rateValue && (!student.rate || !student.hourlyRate));
+    const needsRateFix = (student.rate !== student.hourlyRate) || 
+                         (rateValue && (!student.rate || !student.hourlyRate));
     
-    if (needsFix) {
+    if (needsRateFix) {
       studentsFixed = true;
-      console.log(`🔄 Fixing rates for ${student.name}:`, {
-        before: { rate: student.rate, hourlyRate: student.hourlyRate }
-      });
-      
-      // Set both fields to the same value
       const correctRate = rateValue || SimpleRateManager.get();
       student.rate = correctRate;
       student.hourlyRate = correctRate;
-      
-      console.log(`   after: { rate: ${student.rate}, hourlyRate: ${student.hourlyRate} }`);
     }
+    
+    // ===== FIX 2: Fix invalid dates =====
+    if (student.createdAt) {
+      try {
+        // Test if it's a valid date
+        const date = new Date(student.createdAt);
+        if (isNaN(date.getTime())) {
+          // Invalid date - replace with current date
+          console.log(`🔄 Fixing invalid date for ${student.name}`);
+          student.createdAt = new Date().toISOString();
+          studentsFixed = true;
+        }
+      } catch (e) {
+        // Date parsing error - replace with current date
+        console.log(`🔄 Fixing date error for ${student.name}`);
+        student.createdAt = new Date().toISOString();
+        studentsFixed = true;
+      }
+    } else {
+      // Missing createdAt - add it
+      console.log(`🔄 Adding missing createdAt for ${student.name}`);
+      student.createdAt = new Date().toISOString();
+      studentsFixed = true;
+    }
+    
     return student;
   });
   
   // If we fixed any students, save back to localStorage
   if (studentsFixed) {
-    console.log('✅ Fixed inconsistent rates, saving to localStorage');
+    console.log('✅ Fixed student data, saving to localStorage');
     localStorage.setItem('worklog_students', JSON.stringify(students));
     
     // Also update formHandler if it exists
@@ -1258,7 +1276,7 @@ function loadStudents() {
       window.formHandler.students = students;
     }
   }
-  // ===== END FIX =====
+  // ===== END FIXES =====
   
   // Get saved sort method
   const sortMethod = localStorage.getItem('studentSortMethod') || 'id';
@@ -1272,7 +1290,11 @@ function loadStudents() {
   } else if (sortMethod === 'name') {
     students.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   } else if (sortMethod === 'date') {
-    students.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    students.sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0);
+      const dateB = new Date(b.createdAt || 0);
+      return dateB - dateA; // Newest first
+    });
   } else if (sortMethod === 'rate') {
     students.sort((a, b) => (parseFloat(b.rate || b.hourlyRate || 0)) - (parseFloat(a.rate || a.hourlyRate || 0)));
   }
@@ -1299,18 +1321,34 @@ function loadStudents() {
   // Get default rate
   const defaultRate = SimpleRateManager.get();
   
-  // Display students
+  // Display students with SAFE date formatting
   if (!students.length) {
     container.innerHTML = '<p class="empty-message">No students registered yet.</p>';
     return;
   }
   
   container.innerHTML = students.map(student => {
-    // Now both rate fields should be consistent, but we'll still use this logic
     const studentRate = student.rate || student.hourlyRate;
     const rate = studentRate ? parseFloat(studentRate).toFixed(2) : defaultRate;
     const isUsingDefault = !student.rate && !student.hourlyRate;
-    const dateStr = student.createdAt ? new Date(student.createdAt).toLocaleDateString() : 'Unknown';
+    
+    // SAFE DATE FORMATTING - FIXES INVALID DATE ISSUE
+    let dateStr = 'Unknown';
+    if (student.createdAt) {
+      try {
+        const date = new Date(student.createdAt);
+        // Check if it's a valid date
+        if (!isNaN(date.getTime())) {
+          dateStr = date.toLocaleDateString();
+        } else {
+          dateStr = 'Recent';
+        }
+      } catch (e) {
+        dateStr = 'Recent';
+      }
+    } else {
+      dateStr = 'Recent';
+    }
     
     return `
       <div class="student-card" data-id="${student.id}" ${isUsingDefault ? 'style="border-left: 3px solid #ffc107;"' : ''}>
@@ -1337,7 +1375,7 @@ function loadStudents() {
   
   console.log(`✅ Loaded ${students.length} students (sorted by: ${sortMethod})`);
   if (studentsFixed) {
-    console.log('🔧 Fixed inconsistent rates for some students');
+    console.log('🔧 Fixed data issues for some students');
   }
 }
 
