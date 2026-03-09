@@ -657,7 +657,7 @@ function loadTabData(tabName) {
       case 'worklog':
         if (window.worklogManager) {
           window.worklogManager.loadData();
-          window.worklogManager.populateDropdowns(); // FIXED: changed from populateStudentDropdowns
+          window.worklogManager.populateDropdowns();
           window.worklogManager.updateUI();
           window.worklogManager.updateStats();
         }
@@ -693,7 +693,7 @@ function initFAB() {
     fabMenu.classList.toggle('active', isFabOpen);
     fabOverlay.classList.toggle('active', isFabOpen);
     fab.textContent = isFabOpen ? '×' : '+';
-    fab.style.transform = isFabOpen ? 'rotate(45deg)' : 'rotate(0deg)');
+    fab.style.transform = isFabOpen ? 'rotate(45deg)' : 'rotate(0deg)';
   });
   
   fabOverlay.addEventListener('click', () => {
