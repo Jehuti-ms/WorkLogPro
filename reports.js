@@ -217,7 +217,42 @@ class ReportManager {
                 this.showEmailForm();
                 break;
         }
+
+    // ==================== OPTIONAL: SAVE REPORTS TO FIREBASE ====================
+    async saveReportToFirebase(reportType, reportData) {
+        try {
+            const user = firebase.auth().currentUser;
+            if (!user) {
+                console.log('Not logged in, cannot save report');
+                return false;
+            }
+            
+            const report = {
+                type: reportType,
+                generatedAt: new Date().toISOString(),
+                dateRange: {
+                    start: reportData.startDate || null,
+                    end: reportData.endDate || null
+                },
+                totals: reportData.totals || {},
+                summary: reportData.summary || '',
+                entryCount: reportData.entryCount || 0
+                // Don't save full HTML to keep Firebase clean
+            };
+            
+            const db = firebase.firestore();
+            await db.collection('users').doc(user.uid)
+                .collection('reports').add(report);
+                
+            console.log(`✅ Report saved to Firebase: ${reportType}`);
+            return true;
+            
+        } catch (error) {
+            console.error('Error saving report to Firebase:', error);
+            return false;
+        }
     }
+  
 
     // ==================== BVTB CLAIM FORM GENERATION ====================
     generateClaimForm() {
@@ -321,6 +356,18 @@ class ReportManager {
                 </div>
             </div>
         `;
+
+       // Save report metadata to Firebase
+        this.saveReportToFirebase('claim', {
+            startDate: startDate,
+            endDate: endDate,
+            totals: {
+                sessions: totalSessions,
+                hours: totalHours
+            },
+            entryCount: entries.length,
+            summary: `${programme}: ${totalSessions} sessions, ${totalHours} hours`
+        });
         
         // Show preview
         this.showPreview(claimHTML, 'Claim Form');
@@ -423,6 +470,19 @@ class ReportManager {
                 </div>
             </div>
         `;
+
+
+     // Save report metadata to Firebase
+        this.saveReportToFirebase('invoice', {
+            startDate: startDate,
+            endDate: endDate,
+            totals: {
+                amount: totalAmount,
+                entries: entries.length
+            },
+            entryCount: entries.length,
+            summary: `${itemDesc}: ${entries.length} entries, total $${totalAmount.toFixed(2)}`
+        });
         
         // Show preview
         this.showPreview(invoiceHTML, `Invoice #${invoiceNumber}`);
