@@ -68,22 +68,29 @@ class WorklogManager {
     }
 
     saveEntries() {
-        try {
-            localStorage.setItem('worklog_entries', JSON.stringify(this.entries));
-            console.log(`✅ Saved ${this.entries.length} entries to localStorage`);
-            
-            // Trigger cloud sync
-            if (window.syncService && firebase.auth().currentUser) {
-                setTimeout(() => window.syncService.sync(false, false), 500);
-            }
-            
-            this.updateStats();
-            return true;
-        } catch (error) {
-            console.error('❌ Error saving entries:', error);
-            return false;
+    try {
+        localStorage.setItem('worklog_entries', JSON.stringify(this.entries));
+        console.log(`✅ Saved ${this.entries.length} entries to localStorage`);
+        
+        // Trigger refresh for profile stats
+        if (typeof refreshAllStats === 'function') {
+            refreshAllStats();
         }
+        
+        // Trigger update for reports
+        document.dispatchEvent(new Event('worklogUpdated'));
+        
+        if (window.syncService && firebase.auth().currentUser) {
+            setTimeout(() => window.syncService.sync(false, false), 500);
+        }
+        
+        this.updateStats();
+        return true;
+    } catch (error) {
+        console.error('❌ Error saving entries:', error);
+        return false;
     }
+}
 
     addEntry(entryData) {
         try {
