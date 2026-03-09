@@ -145,17 +145,27 @@
     </div>
 
     <!-- Tab Contents -->
-    <!-- Students Tab -->
+   <!-- Students Tab -->
     <div id="students" class="tabcontent active">
       <div class="section-header">
-        <h2>📚 Student Management</h2>
+        <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+          <h2>📚 Student Management</h2>
+          <div class="sort-controls" id="sortControlsContainer">
+            <select id="studentSortSelect" class="sort-select" onchange="changeStudentSort(this.value)">
+              <option value="id">Sort by ID 🔢</option>
+              <option value="name">Sort by Name 📝</option>
+              <option value="date">Sort by Date 📅</option>
+              <option value="rate">Sort by Rate 💰</option>
+            </select>
+          </div>
+        </div>
         <div class="student-stats">
           <span class="stat-badge" id="studentCount">0</span>
           <span class="stat-divider">|</span>
           <span class="stat-text">Avg Rate: $<span id="averageRate">0.00</span>/session</span>
         </div>
       </div>
-
+  
       <!-- Default Rate Settings -->
       <div class="default-rate-panel">
         <h4>💰 Default Rate Settings</h4>
