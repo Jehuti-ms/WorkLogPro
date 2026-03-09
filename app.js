@@ -674,6 +674,17 @@ function initFAB() {
   
   if (!fab || !fabMenu || !fabOverlay) return;
   
+  // ===== ENSURE WORKLOG BUTTON EXISTS =====
+  if (!document.getElementById('fabAddWorklog')) {
+    const fabAddWorklog = document.createElement('button');
+    fabAddWorklog.id = 'fabAddWorklog';
+    fabAddWorklog.className = 'fab-item';
+    fabAddWorklog.innerHTML = '<span class="icon">📝</span>Log Work';
+    fabMenu.appendChild(fabAddWorklog);
+    console.log('✅ Added Worklog FAB button');
+  }
+  // ==========================================
+  
   let isFabOpen = false;
   
   fab.addEventListener('click', function(e) {
@@ -682,7 +693,7 @@ function initFAB() {
     fabMenu.classList.toggle('active', isFabOpen);
     fabOverlay.classList.toggle('active', isFabOpen);
     fab.textContent = isFabOpen ? '×' : '+';
-    fab.style.transform = isFabOpen ? 'rotate(45deg)' : 'rotate(0deg)';
+    fab.style.transform = isFabOpen ? 'rotate(45deg)' : 'rotate(0deg)');
   });
   
   fabOverlay.addEventListener('click', () => {
@@ -711,7 +722,11 @@ function initFAB() {
   Object.entries(fabActions).forEach(([id, tab]) => {
     const btn = document.getElementById(id);
     if (btn) {
-      btn.addEventListener('click', () => {
+      // Remove any existing listeners to prevent duplicates
+      const newBtn = btn.cloneNode(true);
+      btn.parentNode.replaceChild(newBtn, btn);
+      
+      newBtn.addEventListener('click', () => {
         fabOverlay.click();
         if (window.switchTab) window.switchTab(tab);
       });
