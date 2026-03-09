@@ -632,14 +632,34 @@ function initTabs() {
 }
 
 function loadTabData(tabName) {
+  console.log(`📊 Loading data for ${tabName} tab...`);
+  
   setTimeout(() => {
     switch(tabName) {
-      case 'students': loadStudents(); break;
-      case 'hours': loadHours(); break;
-      case 'marks': loadMarks(); break;
-      case 'attendance': loadAttendance(); break;
-      case 'payments': loadPayments(); break;
-      case 'reports': loadReports(); break;
+      case 'students':
+        loadStudents();
+        break;
+      case 'hours':
+        loadHours();
+        break;
+      case 'marks':
+        loadMarks();
+        break;
+      case 'attendance':
+        loadAttendance();
+        break;
+      case 'payments':
+        loadPayments();
+        break;
+      case 'reports':
+        loadReports();
+        break;
+      case 'worklog': // Add this case
+        if (window.worklogManager) {
+          window.worklogManager.populateStudentDropdowns();
+          window.worklogManager.updateUI();
+        }
+        break;
     }
   }, 100);
 }
@@ -683,6 +703,7 @@ function initFAB() {
     'fabAddMark': 'marks',
     'fabAddAttendance': 'attendance',
     'fabAddPayment': 'payments'
+    'fabAddWorklog': 'worklog'
   };
   
   Object.entries(fabActions).forEach(([id, tab]) => {
