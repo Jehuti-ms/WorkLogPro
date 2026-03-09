@@ -161,8 +161,8 @@ function initAppUI() {
     initProfileModal();
     initSyncControls();
     initReportButtons();
-    addSortingControls(); 
-    initStudentSorting(); 
+   // addSortingControls(); 
+   // initStudentSorting(); 
     loadInitialData();
     
     console.log('✅ App UI initialized');
@@ -1561,6 +1561,47 @@ function fixAllStats() {
     showNotification('Failed to fix statistics', 'error');
   }
 }
+
+// ==================== STUDENT SORTING FUNCTION ====================
+window.changeStudentSort = function(method) {
+    console.log(`🔄 Changing sort method to: ${method}`);
+    localStorage.setItem('studentSortMethod', method);
+    
+    if (window.dataManager) {
+        window.dataManager.syncUI(method);
+    } else {
+        console.warn('dataManager not available');
+        // Fallback to direct localStorage update
+        const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+        // Simple sort for demo
+        if (method === 'name') {
+            students.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        } else if (method === 'id') {
+            students.sort((a, b) => (a.studentId || '').localeCompare(b.studentId || ''));
+        }
+        localStorage.setItem('worklog_students', JSON.stringify(students));
+        if (typeof loadStudents === 'function') loadStudents();
+    }
+};
+
+// Initialize sorting on page load
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => {
+        const sortSelect = document.getElementById('studentSortSelect');
+        if (sortSelect) {
+            const savedMethod = localStorage.getItem('studentSortMethod') || 'id';
+            sortSelect.value = savedMethod;
+            
+            // Remove any existing onchange attribute
+            sortSelect.removeAttribute('onchange');
+            
+            // Add event listener
+            sortSelect.addEventListener('change', function(e) {
+                window.changeStudentSort(this.value);
+            });
+        }
+    }, 1000); // Wait for DOM to be ready
+});
 
 function clearAllData() {
   if (!confirm('⚠️ WARNING: This will delete ALL your data!\n\nThis includes:\n• All students\n• All hours worked\n• All marks\n• All attendance\n• All payments\n\nThis action cannot be undone!\n\nAre you absolutely sure?')) {
