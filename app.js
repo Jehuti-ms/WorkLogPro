@@ -1256,8 +1256,7 @@ function createFileInput() {
   }
 }
 
-// ==================== CLOUD FUNCTIONS ====================
-// ==================== UPDATED EXPORT TO CLOUD FUNCTION ====================
+// ==================== UPDATED EXPORT TO CLOUD FUNCTIONS ====================
 async function exportToCloud() {
   try {
     showNotification('Exporting to cloud...', 'info');
@@ -1664,6 +1663,46 @@ function saveStudentToLocalStorage(studentData) {
     showNotification('Error saving student: ' + error.message, 'error');
   }
 }
+
+// ============= NAME SORTING ===============
+
+// Global function to change student sort method
+window.changeStudentSort = function(method) {
+    console.log(`🔄 Changing sort method to: ${method}`);
+    localStorage.setItem('studentSortMethod', method);
+    
+    // Use dataManager if available
+    if (window.dataManager) {
+        window.dataManager.syncUI(method);
+    } else {
+        console.warn('dataManager not available');
+    }
+};
+
+// Initialize sorting when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Set the select value from saved preference
+    const savedMethod = localStorage.getItem('studentSortMethod') || 'id';
+    const select = document.getElementById('studentSortSelect');
+    if (select) {
+        select.value = savedMethod;
+    }
+    
+    // Apply initial sort
+    if (window.dataManager) {
+        window.dataManager.syncUI(savedMethod);
+    }
+});
+
+// Add this to your DOMContentLoaded or existing script
+document.addEventListener('DOMContentLoaded', function() {
+    const sortSelect = document.getElementById('studentSortSelect');
+    if (sortSelect) {
+        sortSelect.addEventListener('change', function() {
+            window.changeStudentSort(this.value);
+        });
+    }
+});
 
 // ==================== REPORT FUNCTIONS ====================
 function initReportButtons() {
