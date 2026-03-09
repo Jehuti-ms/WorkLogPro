@@ -439,108 +439,148 @@ class WorklogManager {
         this.updateFilterDropdown();
     }
 
-    // Update UI with worklog entries
-    updateUI() {
-        const container = document.getElementById('worklogContainer');
-        if (!container) return;
+   // Update UI with worklog entries - USING NEW CARD STYLES
+updateUI() {
+    const container = document.getElementById('worklogContainer');
+    if (!container) return;
 
-        const filterType = document.getElementById('worklogFilterType')?.value;
-        const filterEntity = document.getElementById('worklogFilterEntity')?.value;
-        const searchQuery = document.getElementById('worklogSearch')?.value;
+    const filterType = document.getElementById('worklogFilterType')?.value;
+    const filterEntity = document.getElementById('worklogFilterEntity')?.value;
+    const searchQuery = document.getElementById('worklogSearch')?.value;
 
-        let displayWorklogs = [...this.worklogs];
+    let displayWorklogs = [...this.worklogs];
 
-        // Apply type filter
-        if (filterType) {
-            displayWorklogs = displayWorklogs.filter(w => w.workType === filterType);
+    // Apply filters
+    if (filterType) {
+        displayWorklogs = displayWorklogs.filter(w => w.workType === filterType);
+    }
+
+    if (filterEntity) {
+        if (filterEntity.startsWith('student_')) {
+            const studentId = filterEntity.replace('student_', '');
+            displayWorklogs = displayWorklogs.filter(w => 
+                w.workType === 'student' && w.studentId === studentId
+            );
+        } else if (filterEntity.startsWith('inst_')) {
+            const instName = filterEntity.replace('inst_', '');
+            displayWorklogs = displayWorklogs.filter(w => 
+                w.workType === 'institution' && w.institutionName === instName
+            );
         }
+    }
 
-        // Apply entity filter
-        if (filterEntity) {
-            if (filterEntity.startsWith('student_')) {
-                const studentId = filterEntity.replace('student_', '');
-                displayWorklogs = displayWorklogs.filter(w => 
-                    w.workType === 'student' && w.studentId === studentId
-                );
-            } else if (filterEntity.startsWith('inst_')) {
-                const instName = filterEntity.replace('inst_', '');
-                displayWorklogs = displayWorklogs.filter(w => 
-                    w.workType === 'institution' && w.institutionName === instName
-                );
-            }
-        }
+    if (searchQuery) {
+        displayWorklogs = this.searchWorklogs(searchQuery);
+    }
 
-        // Apply search
-        if (searchQuery) {
-            displayWorklogs = this.searchWorklogs(searchQuery);
-        }
+    if (displayWorklogs.length === 0) {
+        container.innerHTML = `
+            <div class="worklog-empty">
+                <div class="worklog-empty-icon">📝</div>
+                <div class="worklog-empty-text">No worklog entries found</div>
+                <div class="worklog-empty-subtext">Add your first worklog entry using the form above</div>
+            </div>
+        `;
+        return;
+    }
 
-        if (displayWorklogs.length === 0) {
-            container.innerHTML = '<p class="empty-message">No worklog entries found.</p>';
-            return;
-        }
+    container.innerHTML = displayWorklogs.map(worklog => {
+        const cardClass = worklog.workType === 'student' ? 'student-card' : 'institution-card';
+        const entityIcon = worklog.workType === 'student' ? '👤' : '🏢';
+        const entityName = worklog.workType === 'student' ? worklog.studentName : worklog.institutionName;
+        const entityDetail = worklog.workType === 'institution' && worklog.contactPerson ? 
+            `<div class="worklog-entity-detail">Contact: ${worklog.contactPerson}</div>` : '';
 
-        container.innerHTML = displayWorklogs.map(worklog => {
-            const entityDisplay = worklog.workType === 'student' 
-                ? `👤 ${worklog.studentName}`
-                : `🏢 ${worklog.institutionName}${worklog.contactPerson ? ` (${worklog.contactPerson})` : ''}`;
+        const date = new Date(worklog.date).toLocaleDateString('en-US', { 
+            weekday: 'short', 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+        });
 
-            return `
-                <div class="worklog-entry" data-id="${worklog.id}">
-                    <div class="worklog-header">
-                        <div class="worklog-entity-info">
-                            <span class="worklog-entity">${entityDisplay}</span>
-                            <span class="worklog-subject">${worklog.subject}</span>
-                            <span class="worklog-topic">${worklog.topic}</span>
-                        </div>
-                        <div class="worklog-date">
-                            📅 ${new Date(worklog.date).toLocaleDateString()}
-                            <span class="worklog-duration">${worklog.duration}h</span>
+        const createdDate = new Date(worklog.createdAt).toLocaleString();
+
+        return `
+            <div class="worklog-card ${cardClass}" data-id="${worklog.id}">
+                <div class="worklog-header">
+                    <div class="worklog-entity">
+                        <div class="worklog-entity-icon">${entityIcon}</div>
+                        <div>
+                            <div class="worklog-entity-name">${entityName}</div>
+                            ${entityDetail}
                         </div>
                     </div>
-
-                    <div class="worklog-content">
-                        <div class="worklog-description">
-                            <strong>📖 Description:</strong><br>
-                            ${worklog.description.replace(/\n/g, '<br>')}
-                        </div>
-
-                        ${worklog.outcomes ? `
-                            <div class="worklog-outcomes" style="background: rgba(40, 167, 69, 0.1); padding: 12px; border-radius: var(--radius); margin: 10px 0;">
-                                <strong>🎯 Outcomes:</strong><br>
-                                ${worklog.outcomes.replace(/\n/g, '<br>')}
-                            </div>
-                        ` : ''}
-
-                        ${worklog.nextSteps ? `
-                            <div class="worklog-next-steps" style="background: rgba(0, 123, 255, 0.1); padding: 12px; border-radius: var(--radius); margin: 10px 0;">
-                                <strong>⏭️ Next Steps:</strong><br>
-                                ${worklog.nextSteps.replace(/\n/g, '<br>')}
-                            </div>
-                        ` : ''}
-
-                        ${worklog.notes ? `
-                            <div class="worklog-notes" style="color: var(--text-light); font-style: italic; padding: 10px; border-top: 1px dashed var(--border); margin-top: 10px;">
-                                <strong>📝 Notes:</strong> ${worklog.notes}
-                            </div>
-                        ` : ''}
-                    </div>
-
-                    <div class="worklog-meta">
-                        <span>💰 $${worklog.totalEarnings?.toFixed(2) || '0.00'}</span>
-                        <span>🕒 ${new Date(worklog.createdAt).toLocaleString()}</span>
-                        ${worklog.updatedAt !== worklog.createdAt ? 
-                            `<span>✏️ Updated</span>` : ''}
-                    </div>
-
-                    <div class="worklog-actions">
-                        <button class="worklog-btn" onclick="window.worklogManager.editWorklog('${worklog.id}')">✏️ Edit</button>
-                        <button class="worklog-btn delete" onclick="window.worklogManager.deleteWorklog('${worklog.id}')">🗑️ Delete</button>
+                    <div class="worklog-date-badge">
+                        📅 ${date}
+                        <span class="worklog-duration-badge">${worklog.duration}h</span>
                     </div>
                 </div>
-            `;
-        }).join('');
-    }
+
+                <div class="worklog-chips">
+                    <span class="worklog-chip subject">
+                        <span>📚</span> ${worklog.subject}
+                    </span>
+                    <span class="worklog-chip topic">
+                        <span>📌</span> ${worklog.topic}
+                    </span>
+                </div>
+
+                <div class="worklog-earnings">
+                    <span>💰</span> $${(worklog.duration * worklog.rate).toFixed(2)}
+                </div>
+
+                <div class="worklog-section description">
+                    <div class="worklog-section-title">
+                        <span>📖</span> Description
+                    </div>
+                    <div class="worklog-section-content">${worklog.description.replace(/\n/g, '<br>')}</div>
+                </div>
+
+                ${worklog.outcomes ? `
+                    <div class="worklog-section outcomes">
+                        <div class="worklog-section-title">
+                            <span>🎯</span> Outcomes
+                        </div>
+                        <div class="worklog-section-content">${worklog.outcomes.replace(/\n/g, '<br>')}</div>
+                    </div>
+                ` : ''}
+
+                ${worklog.nextSteps ? `
+                    <div class="worklog-section next-steps">
+                        <div class="worklog-section-title">
+                            <span>⏭️</span> Next Steps
+                        </div>
+                        <div class="worklog-section-content">${worklog.nextSteps.replace(/\n/g, '<br>')}</div>
+                    </div>
+                ` : ''}
+
+                ${worklog.notes ? `
+                    <div class="worklog-section notes">
+                        <div class="worklog-section-title">
+                            <span>📝</span> Notes
+                        </div>
+                        <div class="worklog-section-content">${worklog.notes}</div>
+                    </div>
+                ` : ''}
+
+                <div class="worklog-footer">
+                    <div class="worklog-timestamp">
+                        <span>🕒</span> ${createdDate}
+                        ${worklog.updatedAt !== worklog.createdAt ? ' (edited)' : ''}
+                    </div>
+                    <div class="worklog-actions">
+                        <button class="worklog-btn edit" onclick="window.worklogManager.editWorklog('${worklog.id}')">
+                            ✏️ Edit
+                        </button>
+                        <button class="worklog-btn delete" onclick="window.worklogManager.deleteWorklog('${worklog.id}')">
+                            🗑️ Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
 
     // Edit worklog
     editWorklog(worklogId) {
