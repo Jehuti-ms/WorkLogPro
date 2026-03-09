@@ -174,6 +174,7 @@ startAutoSync(interval = 30000) {
         marks: JSON.parse(localStorage.getItem('worklog_marks') || '[]'),
         attendance: JSON.parse(localStorage.getItem('worklog_attendance') || '[]'),
         payments: JSON.parse(localStorage.getItem('worklog_payments') || '[]'),
+        worklogs: JSON.parse(localStorage.getItem('worklog_entries') || '[]'), 
         settings: {
             defaultHourlyRate: localStorage.getItem('defaultHourlyRate') || '25.00',
             autoSyncEnabled: localStorage.getItem('autoSyncEnabled') === 'true',
@@ -311,6 +312,10 @@ async getRemoteData(userId) {
     }
     if (data.payments) {
         localStorage.setItem('worklog_payments', JSON.stringify(data.payments));
+    }
+     if (data.worklogs) {  // ADD THIS SECTION
+        localStorage.setItem('worklog_entries', JSON.stringify(data.worklogs));
+        console.log(`✅ Saved ${data.worklogs.length} worklogs`);
     }
     
     // Save settings with special attention to rate
