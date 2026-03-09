@@ -4068,3 +4068,65 @@ button:focus:not(:focus-visible) {
     padding: 12px 15px;
   }
 }
+
+/* ==================== DARK MODE STUDENT CARD FIXES ==================== */
+[data-theme="dark"] .student-card {
+    background: #2d2d2d;
+    border: 1px solid #404040;
+    color: #e0e0e0;
+}
+
+[data-theme="dark"] .student-card-header strong {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .student-id {
+    background: #404040;
+    color: #b0b0b0;
+}
+
+[data-theme="dark"] .student-details {
+    color: #cccccc;
+}
+
+[data-theme="dark"] .student-rate {
+    color: #4caf50; /* Keep green rate visible */
+}
+
+[data-theme="dark"] .student-meta {
+    color: #888888;
+}
+
+[data-theme="dark"] .btn-icon {
+    color: #cccccc;
+}
+
+[data-theme="dark"] .btn-icon:hover {
+    background: #404040;
+    color: #ffffff;
+}
+
+[data-theme="dark"] .empty-message {
+    color: #888888;
+}
+
+/* Fix for student cards that have the default rate indicator */
+[data-theme="dark"] .student-card[style*="border-left: 3px solid #ffc107"] {
+    border-left-color: #ffaa00 !important;
+}
+
+[data-theme="dark"] .student-card[style*="border-left: 3px solid #ffc107"] .student-rate span {
+    color: #ffaa00;
+}
+
+/* Enhanced dark mode hover effects */
+[data-theme="dark"] .student-card:hover {
+    background: #333333;
+    border-color: #4caf50;
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+}
+
+[data-theme="dark"] .student-card:hover .student-rate {
+    color: #6fda7a;
+}
+
