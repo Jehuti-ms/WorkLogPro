@@ -702,7 +702,7 @@ function initFAB() {
     'fabAddHours': 'hours',
     'fabAddMark': 'marks',
     'fabAddAttendance': 'attendance',
-    'fabAddPayment': 'payments'
+    'fabAddPayment': 'payments',
     'fabAddWorklog': 'worklog'
   };
   
