@@ -318,45 +318,60 @@ function showErrorMessage(message) {
   document.body.appendChild(errorDiv);
 }
 
-// ==================== DEFAULT RATE ====================
-// ==================== DEFAULT RATE - PERSISTENCE FIX ====================
+// ==================== INIT DEFAULT RATE - FIXED VERSION ====================
 function initDefaultRate() {
-    console.log('💰 Initializing default rate...');
-    
-    // Get saved rate from localStorage or use default
-    const savedRate = localStorage.getItem('defaultHourlyRate');
-    const defaultRate = savedRate ? parseFloat(savedRate).toFixed(2) : '25.00';
-    
-    console.log(`Default rate: $${defaultRate}`);
-    
-    // Update all rate displays
-    const displays = [
-        'currentDefaultRateDisplay',
-        'currentDefaultRate',
-        'defaultRateDisplay'
-    ];
-    
-    displays.forEach(id => {
-        const element = document.getElementById(id);
-        if (element) {
-            element.textContent = defaultRate;
-        }
-    });
-    
-    // Set input field value
-    const rateInput = document.getElementById('defaultBaseRate');
-    if (rateInput) {
-        rateInput.value = defaultRate;
+  console.log('💰 Initializing default rate...');
+  
+  // Get saved rate from localStorage or use default
+  const savedRate = localStorage.getItem('defaultHourlyRate');
+  const defaultRate = savedRate ? parseFloat(savedRate).toFixed(2) : '25.00';
+  
+  console.log(`Default rate: $${defaultRate}`);
+  
+  // Update ALL rate displays
+  // 1. Current default rate displays
+  const currentRateSpans = [
+    'currentDefaultRateDisplay',
+    'currentDefaultRate'
+  ];
+  
+  currentRateSpans.forEach(id => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.textContent = defaultRate;
+      console.log(`✅ Set ${id} to $${defaultRate}`);
     }
-    
-    // Also update any student form rate placeholder
-    const studentRateField = document.getElementById('studentRate');
-    if (studentRateField && !studentRateField.value) {
-        studentRateField.placeholder = `Default: $${defaultRate}`;
-    }
+  });
+  
+  // 2. Default rate display in header/settings
+  const defaultRateDisplay = document.getElementById('defaultRateDisplay');
+  if (defaultRateDisplay) {
+    defaultRateDisplay.textContent = defaultRate;
+  }
+  
+  // 3. Profile modal default rate
+  const profileDefaultRate = document.getElementById('profileDefaultRate');
+  if (profileDefaultRate) {
+    profileDefaultRate.textContent = `$${defaultRate}/hour`;
+  }
+  
+  // 4. Set input field value
+  const rateInput = document.getElementById('defaultBaseRate');
+  if (rateInput) {
+    rateInput.value = defaultRate;
+    rateInput.placeholder = defaultRate;
+  }
+  
+  // 5. Update student form placeholder
+  const studentRateField = document.getElementById('studentRate');
+  if (studentRateField) {
+    studentRateField.placeholder = `Default: $${defaultRate}`;
+  }
+  
+  console.log(`✅ Default rate initialized to $${defaultRate}`);
 }
 
-// ==================== SAVE DEFAULT RATE ====================
+// ==================== SAVE DEFAULT RATE - FIXED VERSION ====================
 window.saveDefaultRate = function() {
   console.log('💰 Saving default rate...');
   
@@ -375,36 +390,60 @@ window.saveDefaultRate = function() {
   // Save to localStorage
   localStorage.setItem('defaultHourlyRate', formattedRate);
   
-  // Update all displays
-  const displays = [
+  // Update ALL rate displays
+  // 1. Current default rate displays
+  const currentRateSpans = [
     'currentDefaultRateDisplay',
-    'currentDefaultRate',
-    'defaultRateDisplay'
+    'currentDefaultRate'
   ];
   
-  displays.forEach(id => {
+  currentRateSpans.forEach(id => {
     const element = document.getElementById(id);
     if (element) {
       element.textContent = formattedRate;
+      console.log(`✅ Updated ${id} to $${formattedRate}`);
+    } else {
+      console.log(`⚠️ Element ${id} not found`);
     }
   });
   
-  // Update profile default rate
+  // 2. Default rate display in header/settings
+  const defaultRateDisplay = document.getElementById('defaultRateDisplay');
+  if (defaultRateDisplay) {
+    defaultRateDisplay.textContent = formattedRate;
+  }
+  
+  // 3. Profile modal default rate
   const profileDefaultRate = document.getElementById('profileDefaultRate');
   if (profileDefaultRate) {
     profileDefaultRate.textContent = `$${formattedRate}/hour`;
   }
   
-  // Update student form placeholder
+  // 4. Update the rate input's placeholder and value
+  if (rateInput) {
+    rateInput.value = formattedRate;
+    rateInput.placeholder = formattedRate;
+  }
+  
+  // 5. Update student form placeholder
   const studentRateField = document.getElementById('studentRate');
   if (studentRateField) {
     studentRateField.placeholder = `Default: $${formattedRate}`;
   }
   
+  // 6. Update hours form "Use Default" button display
+  const defaultRateDisplaySpan = document.getElementById('currentDefaultRateDisplay');
+  if (defaultRateDisplaySpan) {
+    defaultRateDisplaySpan.textContent = formattedRate;
+  }
+  
+  // Show success notification
   showNotification(`Default rate set to $${formattedRate}`, 'success');
   
   // Update profile stats to reflect new rate
-  updateProfileStats();
+  if (typeof updateProfileStats === 'function') {
+    updateProfileStats();
+  }
   
   // If user is logged in, sync to cloud
   if (window.syncService && firebase.auth().currentUser) {
@@ -412,6 +451,8 @@ window.saveDefaultRate = function() {
       window.syncService.sync(false, false);
     }, 500);
   }
+  
+  return formattedRate;
 };
 
 // ==================== APPLY DEFAULT RATE TO FORM ====================
