@@ -178,46 +178,56 @@ class ReportManager {
         });
     }
 
-    handleButtonClick(event, buttonId) {
-        console.log(`Button clicked: ${buttonId}`);
-        event.preventDefault();
-        event.stopPropagation();
+   handleButtonClick(event, buttonId) {
+    console.log(`Button clicked: ${buttonId}`);
+    event.preventDefault();
+    event.stopPropagation();
+    
+    switch(buttonId) {
+        // Report buttons
+        case 'weeklyReportBtn':
+            this.displayReport('weekly');
+            break;
+        case 'biWeeklyReportBtn':
+            this.displayReport('biweekly');
+            break;
+        case 'monthlyReportBtn':
+            this.displayReport('monthly');
+            break;
+        case 'subjectReportBtn':
+            this.showSubjectSelector();
+            break;
         
-        switch(buttonId) {
-            case 'weeklyReportBtn':
-                this.displayReport('weekly');
-                break;
-            case 'biWeeklyReportBtn':
-                this.displayReport('biweekly');
-                break;
-            case 'monthlyReportBtn':
-                this.displayReport('monthly');
-                break;
-            case 'subjectReportBtn':
-                this.showSubjectSelector();
-                break;
-            case 'claimFormBtn':
-            case 'generateClaimBtn':
-                this.generateClaimForm();
-                break;
-            case 'printClaimBtn':
-                this.printDocument('claim');
-                break;
-            case 'invoiceBtn':
-            case 'generateInvoiceBtn':
-                this.generateInvoice();
-                break;
-            case 'printInvoiceBtn':
-                this.printDocument('invoice');
-                break;
-            case 'pdfReportBtn':
-                this.showPDFOptions();
-                break;
-            case 'emailReportBtn':
-                this.showEmailForm();
-                break;
-        }
+        // Claim form buttons
+        case 'claimFormBtn':
+        case 'generateClaimBtn':
+            this.generateClaimForm();
+            break;
+        case 'printClaimBtn':
+            this.printDocument('claim');
+            break;
+        
+        // Invoice buttons
+        case 'invoiceBtn':
+        case 'generateInvoiceBtn':
+            this.generateInvoice();
+            break;
+        case 'printInvoiceBtn':
+            this.printDocument('invoice');
+            break;
+        
+        // PDF and Email
+        case 'pdfReportBtn':
+            this.showPDFOptions();
+            break;
+        case 'emailReportBtn':
+            this.showEmailForm();
+            break;
+            
+        default:
+            console.log('Unhandled button:', buttonId);
     }
+}
 
     // ==================== OPTIONAL: SAVE REPORTS TO FIREBASE ====================
     async saveReportToFirebase(reportType, reportData) {
@@ -507,47 +517,56 @@ class ReportManager {
         }
     }
 
-    printDocument(type) {
-        let htmlToPrint = '';
-        
-        if (type === 'claim') {
-            const claimHTML = this.generateClaimFormHTML(true);
-            htmlToPrint = claimHTML;
-        } else if (type === 'invoice') {
-            const invoiceHTML = this.generateInvoiceHTML(true);
-            htmlToPrint = invoiceHTML;
+printDocument(type) {
+    let htmlToPrint = '';
+    
+    if (type === 'claim') {
+        // Get the current claim form HTML from preview or generate fresh
+        const previewContent = document.getElementById('previewContent');
+        if (previewContent) {
+            htmlToPrint = previewContent.innerHTML;
         } else {
-            return;
+            htmlToPrint = this.generateClaimFormHTML(true);
         }
-        
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`
-            <html>
-                <head>
-                    <title>WorkLog Pro - ${type === 'claim' ? 'Claim Form' : 'Invoice'}</title>
-                    <style>
-                        body { 
-                            font-family: 'Courier New', monospace; 
-                            padding: 40px; 
-                            background: white;
-                            color: black;
-                        }
-                        @media print {
-                            body { padding: 20px; }
-                        }
-                        table { border-collapse: collapse; width: 100%; }
-                        th, td { border: 1px solid #000; padding: 8px; text-align: left; }
-                        th { background: #f0f0f0; }
-                    </style>
-                </head>
-                <body>
-                    ${htmlToPrint}
-                </body>
-            </html>
-        `);
-        printWindow.document.close();
-        printWindow.print();
+    } else if (type === 'invoice') {
+        const previewContent = document.getElementById('previewContent');
+        if (previewContent) {
+            htmlToPrint = previewContent.innerHTML;
+        } else {
+            htmlToPrint = this.generateInvoiceHTML(true);
+        }
+    } else {
+        return;
     }
+    
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+            <head>
+                <title>WorkLog Pro - ${type === 'claim' ? 'Claim Form' : 'Invoice'}</title>
+                <style>
+                    body { 
+                        font-family: 'Courier New', monospace; 
+                        padding: 40px; 
+                        background: white;
+                        color: black;
+                    }
+                    @media print {
+                        body { padding: 20px; }
+                    }
+                    table { border-collapse: collapse; width: 100%; }
+                    th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+                    th { background: #f0f0f0; }
+                </style>
+            </head>
+            <body>
+                ${htmlToPrint}
+            </body>
+        </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+}
 
     generateClaimFormHTML(returnOnly = false) {
         // This is a helper to get just the HTML without showing preview
