@@ -385,7 +385,7 @@ class WorklogManager {
         }
     }
 
-   updateUI() {
+  updateUI() {
     const container = document.getElementById('worklogContainer');
     if (!container) return;
 
@@ -456,24 +456,26 @@ class WorklogManager {
                     </div>
                 </div>
 
-                <div class="worklog-chips">
-                    <span class="worklog-chip subject">
-                        <span>📚</span> ${entry.subject}
-                    </span>
-                    <span class="worklog-chip topic">
-                        <span>📌</span> ${entry.topic}
-                    </span>
-                    <!-- PAYMENT TYPE CHIP ADDED HERE -->
-                    <span class="worklog-chip" style="background: rgba(255, 152, 0, 0.1); color: #FF9800; border: 1px solid rgba(255, 152, 0, 0.3);">
-                        <span>💰</span> ${this.formatPaymentType(entry.paymentType)}
-                    </span>
+                <div class="worklog-metadata">
+                    <div class="worklog-metadata-item">
+                        <span class="worklog-metadata-icon">📚</span>
+                        <span><strong>Subject:</strong> ${entry.subject}</span>
+                    </div>
+                    <div class="worklog-metadata-item">
+                        <span class="worklog-metadata-icon">📌</span>
+                        <span><strong>Topic:</strong> ${entry.topic}</span>
+                    </div>
+                    <div class="worklog-metadata-item">
+                        <span class="worklog-metadata-icon">💰</span>
+                        <span><strong>Type:</strong> <span class="worklog-payment-tag">${this.formatPaymentType(entry.paymentType)}</span></span>
+                    </div>
                 </div>
 
                 <div class="worklog-earnings">
-                    <span>💰</span> $${entry.totalEarnings?.toFixed(2) || '0.00'}
+                    <span>Total earned:</span> $${entry.totalEarnings?.toFixed(2) || '0.00'}
                 </div>
 
-                <div class="worklog-section description">
+                <div class="worklog-section">
                     <div class="worklog-section-title">
                         <span>📖</span> Description
                     </div>
@@ -510,6 +512,7 @@ class WorklogManager {
                 <div class="worklog-footer">
                     <div class="worklog-timestamp">
                         <span>🕒</span> ${new Date(entry.createdAt).toLocaleString()}
+                        ${entry.updatedAt !== entry.createdAt ? ' (edited)' : ''}
                     </div>
                     <div class="worklog-actions">
                         <button class="worklog-btn edit" onclick="window.worklogManager.editEntry('${entry.id}')">
