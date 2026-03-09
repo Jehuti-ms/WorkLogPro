@@ -972,7 +972,7 @@ class DataManager {
             console.error(`Error generating ${type} claim form:`, error);
             return `Error generating claim form: ${error.message}`;
         }
-    },
+    }
 
     async generateInvoice(studentName, startDate, endDate) {
         try {
