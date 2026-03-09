@@ -66,11 +66,6 @@ async sync(force = false, showNotifications = false) {
         this.syncInProgress = true;
         console.log('🔄 Starting sync...');
         this.updateSyncIndicator('Syncing...', 'syncing');
-        
-        // Only show notification on manual sync (showNotifications = true)
-        if (showNotifications) {
-            this.showNotification('Syncing data...', 'info');
-        }
 
         // Check authentication
         const user = await this.getCurrentUser();
@@ -78,29 +73,31 @@ async sync(force = false, showNotifications = false) {
             console.log('⚠️ No authenticated user');
             this.updateSyncIndicator('Login Required', 'warning');
             this.syncInProgress = false;
-            
-            if (showNotifications) {
-                this.showNotification('Please login to sync', 'warning');
-            }
             return { success: false, message: 'Not authenticated' };
         }
 
         console.log(`👤 Syncing as: ${user.email}`);
 
-        // Get local data
+        // STEP 1: Get local data (THIS IS YOUR CURRENT DATA)
         const localData = this.getAllLocalData();
+        console.log(`📊 Local data: ${localData.students.length} students`);
+        console.log(`💰 Local rate: $${localData.settings.defaultHourlyRate}`);
         
-        // Get remote data
+        // STEP 2: ALWAYS SAVE LOCAL TO FIREBASE FIRST (PUSH)
+        console.log('☁️ Pushing local data to Firebase...');
+        await this.saveToFirestore(user.uid, localData);
+        console.log('✅ Local data pushed to Firebase');
+        
+        // STEP 3: THEN GET REMOTE DATA (PULL)
+        console.log('☁️ Pulling data from Firebase...');
         const remoteData = await this.getRemoteData(user.uid);
         
-        // Merge data
-        const mergedData = this.mergeData(localData, remoteData);
-        
-        // Save merged data to Firestore
-        await this.saveToFirestore(user.uid, mergedData);
-        
-        // Save merged data to localStorage
-        this.saveToLocalStorage(mergedData);
+        // STEP 4: Update local storage with remote data
+        if (remoteData) {
+            console.log('📊 Remote data received');
+            this.saveToLocalStorage(remoteData);
+            console.log('✅ Local storage updated from Firebase');
+        }
         
         // Update sync timestamp
         const timestamp = new Date().toISOString();
@@ -110,17 +107,11 @@ async sync(force = false, showNotifications = false) {
         console.log('✅ Sync completed successfully');
         this.updateSyncIndicator('Synced', 'success');
         
-        // Only show success notification on manual sync
-        if (showNotifications) {
-            this.showNotification('Data synced successfully!', 'success');
-        }
-        
         // Refresh UI
         this.refreshUI();
         
         this.syncInProgress = false;
         
-        // Reset indicator after 3 seconds
         setTimeout(() => {
             this.updateSyncIndicator('Online', 'online');
         }, 3000);
@@ -130,12 +121,6 @@ async sync(force = false, showNotifications = false) {
     } catch (error) {
         console.error('❌ Sync failed:', error);
         this.updateSyncIndicator('Sync Failed', 'error');
-        
-        // Only show error notification on manual sync
-        if (showNotifications) {
-            this.showNotification(`Sync failed: ${error.message}`, 'error');
-        }
-        
         this.syncInProgress = false;
         
         setTimeout(() => {
@@ -183,17 +168,6 @@ startAutoSync(interval = 30000) {
   }
 
  getAllLocalData() {
-    // Get the current rate using RateManager if available, otherwise fallback to localStorage
-    let defaultRate = '25.00';
-    
-    if (window.RateManager) {
-        defaultRate = window.RateManager.getCurrentRate();
-    } else {
-        defaultRate = localStorage.getItem('defaultHourlyRate') || 
-                     localStorage.getItem('defaultRate') || 
-                     '25.00';
-    }
-    
     return {
         students: JSON.parse(localStorage.getItem('worklog_students') || '[]'),
         hours: JSON.parse(localStorage.getItem('worklog_hours') || '[]'),
@@ -201,110 +175,32 @@ startAutoSync(interval = 30000) {
         attendance: JSON.parse(localStorage.getItem('worklog_attendance') || '[]'),
         payments: JSON.parse(localStorage.getItem('worklog_payments') || '[]'),
         settings: {
-            defaultHourlyRate: defaultRate,
-            defaultRate: defaultRate, // Add both for redundancy
+            defaultHourlyRate: localStorage.getItem('defaultHourlyRate') || '25.00',
             autoSyncEnabled: localStorage.getItem('autoSyncEnabled') === 'true',
             theme: localStorage.getItem('worklog-theme') || 'dark',
             studentSortMethod: localStorage.getItem('studentSortMethod') || 'id'
         },
-        lastLocalUpdate: new Date().toISOString(),
-        appVersion: '1.0.0'
+        lastLocalUpdate: new Date().toISOString()
     };
 }
 
 async getRemoteData(userId) {
-  try {
-    const db = firebase.firestore();
-    
-    // Try to get the consolidated data document first
-    const docRef = db.collection('users').doc(userId).collection('data').doc('worklog');
-    const docSnap = await docRef.get();
-    
-    if (docSnap.exists) {
-      const data = docSnap.data();
-      // If it has students, great!
-      if (data.students && data.students.length > 0) {
-        return data;
-      }
+    try {
+        const db = firebase.firestore();
+        const docRef = db.collection('users').doc(userId).collection('data').doc('worklog');
+        const docSnap = await docRef.get();
+        
+        if (docSnap.exists) {
+            console.log('✅ Got data from Firebase');
+            return docSnap.data();
+        } else {
+            console.log('ℹ️ No data in Firebase yet');
+            return null;
+        }
+    } catch (error) {
+        console.error('Error getting remote data:', error);
+        return null;
     }
-    
-    // If no consolidated data, check for separate collections
-    console.log('No consolidated data, checking separate collections...');
-    
-    // Get students from separate collection
-    const studentsSnapshot = await db.collection('users').doc(userId)
-      .collection('students').get();
-    
-    const students = studentsSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-    
-    // Get hours from separate collection (if exists)
-    const hoursSnapshot = await db.collection('users').doc(userId)
-      .collection('hours').get();
-    
-    const hours = hoursSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-    
-    // Get marks from separate collection (if exists)
-    const marksSnapshot = await db.collection('users').doc(userId)
-      .collection('marks').get();
-    
-    const marks = marksSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-    
-    // Get attendance from separate collection (if exists)
-    const attendanceSnapshot = await db.collection('users').doc(userId)
-      .collection('attendance').get();
-    
-    const attendance = attendanceSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-    
-    // Get payments from separate collection (if exists)
-    const paymentsSnapshot = await db.collection('users').doc(userId)
-      .collection('payments').get();
-    
-    const payments = paymentsSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
-    
-    // Combine into the expected format
-    const combinedData = {
-      students,
-      hours,
-      marks,
-      attendance,
-      payments,
-      settings: {
-        defaultHourlyRate: localStorage.getItem('defaultHourlyRate') || '25.00',
-        autoSyncEnabled: localStorage.getItem('autoSyncEnabled') === 'true',
-        theme: localStorage.getItem('worklog-theme') || 'dark'
-      },
-      lastSync: new Date().toISOString()
-    };
-    
-    console.log(`📊 Combined data: ${students.length} students, ${hours.length} hours`);
-    
-    // Save this combined format back to Firestore for future use
-    if (students.length > 0) {
-      await docRef.set(combinedData, { merge: true });
-      console.log('✅ Saved combined data format to Firestore');
-    }
-    
-    return combinedData;
-    
-  } catch (error) {
-    console.error('Error getting remote data:', error);
-    return null;
-  }
 }
   
   mergeData(local, remote) {
@@ -386,16 +282,16 @@ async getRemoteData(userId) {
     const db = firebase.firestore();
     const docRef = db.collection('users').doc(userId).collection('data').doc('worklog');
     
+    // Just save exactly what's in local storage
     await docRef.set({
-      ...data,
-      lastSync: firebase.firestore.FieldValue.serverTimestamp(),
-      syncedFrom: navigator.userAgent,
-      syncVersion: '1.0.0'
+        ...data,
+        lastSync: firebase.firestore.FieldValue.serverTimestamp(),
+        lastSyncClient: new Date().toISOString()
     }, { merge: true });
     
-    console.log('✅ Data saved to Firestore');
-  }
-
+    console.log('✅ Data pushed to Firebase');
+}
+  
  saveToLocalStorage(data) {
     console.log('💾 Saving data to localStorage with settings...');
     
