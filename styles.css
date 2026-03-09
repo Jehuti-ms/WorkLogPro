@@ -4742,3 +4742,28 @@ button:focus:not(:focus-visible) {
 }
 */
 
+/* Fix contact person text color */
+.worklog-entity-detail {
+    color: var(--text-light);  /* This will be light gray in dark mode */
+    font-size: 0.9rem;
+    margin-top: 2px;
+}
+
+/* For dark mode specifically */
+[data-theme="dark"] .worklog-entity-detail {
+    color: #b0b0b0;  /* Light gray for dark mode */
+}
+
+/* If you want the contact to stand out a bit more on the card */
+.worklog-entity-detail {
+    background: rgba(255, 255, 255, 0.1);  /* Subtle background */
+    padding: 2px 8px;
+    border-radius: 12px;
+    display: inline-block;
+    margin-top: 4px;
+}
+
+/* Hover effect to make it more visible */
+.worklog-entity-detail:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
