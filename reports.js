@@ -850,4 +850,259 @@ class ReportManager {
             printWindow.document.write(`
                 <html>
                 <head><title>${title}</title></head>
-                <body><pre
+                <body><pre>${pre.textContent}</pre></body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
+        }
+    }
+
+    saveAsText() {
+        const pre = document.querySelector('#report-content pre');
+        const title = document.querySelector('#report-content h4')?.textContent || 'Report';
+        
+        if (pre) {
+            const blob = new Blob([pre.textContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title.replace(/[^\w\s]/gi, '').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            alert('Report saved as text file!');
+        }
+    }
+
+    async updateOverviewStats() {
+        try {
+            // Update from dataManager
+            const logs = await this.dataManager.getAllLogs();
+            const students = await this.dataManager.getAllStudents();
+            const marks = await this.dataManager.getAllMarks();
+            const payments = await this.dataManager.getAllPayments();
+            
+            const totalHours = logs.reduce((sum, log) => sum + parseFloat(log.duration || 0), 0);
+            const totalEarnings = logs.reduce((sum, log) => {
+                const student = students.find(s => s.name === log.studentName);
+                const rate = student?.hourlyRate || 0;
+                return sum + (parseFloat(log.duration || 0) * rate);
+            }, 0);
+            
+            const avgMark = marks.length > 0 
+                ? marks.reduce((sum, m) => sum + parseFloat(m.percentage || 0), 0) / marks.length 
+                : 0;
+                
+            const totalPayments = payments.reduce((sum, p) => sum + parseFloat(p.paymentAmount || 0), 0);
+            const outstandingBalance = totalEarnings - totalPayments;
+            
+            // Update from worklog for summary cards
+            const worklogEntries = this.worklogEntries;
+            const worklogHours = worklogEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
+            const worklogEarnings = worklogEntries.reduce((sum, e) => sum + (e.totalEarnings || 0), 0);
+            
+            // Get current month's earnings from worklog
+            const now = new Date();
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            const monthEarnings = worklogEntries
+                .filter(e => new Date(e.date + 'T12:00:00') >= startOfMonth)
+                .reduce((sum, e) => sum + (e.totalEarnings || 0), 0);
+            
+            const updateElement = (id, value) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = value;
+            };
+            
+            // Update all stats displays
+            updateElement('totalStudentsReport', students.length);
+            updateElement('totalHoursReport', totalHours.toFixed(2));
+            updateElement('totalEarningsReport', `$${totalEarnings.toFixed(2)}`);
+            updateElement('avgMarkReport', `${avgMark.toFixed(1)}%`);
+            updateElement('totalPaymentsReport', `$${totalPayments.toFixed(2)}`);
+            updateElement('outstandingBalance', `$${outstandingBalance.toFixed(2)}`);
+            
+            // Update summary cards
+            updateElement('reportTotalHours', worklogHours.toFixed(1));
+            updateElement('reportTotalEarnings', `$${worklogEarnings.toFixed(2)}`);
+            updateElement('reportMonthEarnings', `$${monthEarnings.toFixed(2)}`);
+            
+            // Update quick stats
+            updateElement('worklogStatsCount', worklogEntries.length);
+            if (worklogEntries.length > 0) {
+                const avgDuration = worklogHours / worklogEntries.length;
+                updateElement('worklogAvgDuration', avgDuration.toFixed(1) + 'h');
+            } else {
+                updateElement('worklogAvgDuration', '0h');
+            }
+            
+        } catch (error) {
+            console.error('Error updating overview stats:', error);
+        }
+    }
+}
+
+// GLOBAL HELPER FUNCTIONS
+window.generateSubjectReport = async function() {
+    const select = document.getElementById('subjectSelect');
+    const custom = document.getElementById('customSubject');
+    
+    const subject = select?.value || custom?.value.trim();
+    
+    if (!subject) {
+        alert('Please select or enter a subject');
+        return;
+    }
+    
+    if (window.reportManager) {
+        window.reportManager.showLoading();
+        
+        try {
+            const report = await window.reportManager.dataManager.generateSubjectReport(subject);
+            const content = `<pre style="white-space: pre-wrap; font-family: monospace; font-size: 12px; margin: 0;">${report}</pre>`;
+            const html = window.reportManager.createReportTemplate(`📚 ${subject} Report`, content, true);
+            window.reportManager.updateReportContent(html);
+        } catch (error) {
+            window.reportManager.showError(`Error generating subject report: ${error.message}`);
+        }
+    }
+};
+
+window.generatePDF = async function() {
+    const selected = document.querySelector('input[name="pdfType"]:checked');
+    if (!selected || !window.reportManager) return;
+    
+    window.reportManager.showLoading();
+    
+    try {
+        let report;
+        let filename;
+        
+        switch(selected.value) {
+            case 'weekly':
+                report = await window.reportManager.dataManager.generateWeeklyReport();
+                filename = `Weekly_Report_${new Date().toISOString().slice(0,10)}`;
+                break;
+            case 'biweekly':
+                report = await window.reportManager.dataManager.generateBiWeeklyReport();
+                filename = `BiWeekly_Report_${new Date().toISOString().slice(0,10)}`;
+                break;
+            case 'monthly':
+                report = await window.reportManager.dataManager.generateMonthlyReport();
+                filename = `Monthly_Report_${new Date().toISOString().slice(0,10)}`;
+                break;
+        }
+        
+        if (typeof jspdf !== 'undefined') {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.text(report, 10, 10);
+            doc.save(`${filename}.pdf`);
+            
+            const content = `
+                <div style="padding: 15px; background: #d1e7dd; border-radius: 5px;">
+                    <h4 style="margin-top: 0;">✅ PDF Generated</h4>
+                    <p>File <strong>${filename}.pdf</strong> has been downloaded.</p>
+                </div>
+            `;
+            const html = window.reportManager.createReportTemplate('PDF Export', content, false);
+            window.reportManager.updateReportContent(html);
+        } else {
+            const blob = new Blob([report], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${filename}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            const content = `
+                <div style="padding: 15px; background: #fff3cd; border-radius: 5px;">
+                    <h4 style="margin-top: 0;">⚠️ Text File Downloaded</h4>
+                    <p>File <strong>${filename}.txt</strong> has been downloaded instead.</p>
+                </div>
+            `;
+            const html = window.reportManager.createReportTemplate('PDF Export', content, false);
+            window.reportManager.updateReportContent(html);
+        }
+        
+    } catch (error) {
+        window.reportManager.showError(`Error generating PDF: ${error.message}`);
+    }
+};
+
+window.sendEmail = async function() {
+    const to = document.getElementById('emailTo')?.value;
+    const type = document.getElementById('emailType')?.value;
+    
+    if (!to || !type || !window.reportManager) {
+        alert('Please fill all fields');
+        return;
+    }
+    
+    window.reportManager.showLoading();
+    
+    try {
+        let report;
+        let subject;
+        
+        switch(type) {
+            case 'weekly':
+                report = await window.reportManager.dataManager.generateWeeklyReport();
+                subject = 'Weekly Report';
+                break;
+            case 'biweekly':
+                report = await window.reportManager.dataManager.generateBiWeeklyReport();
+                subject = 'Bi-Weekly Report';
+                break;
+            case 'monthly':
+                report = await window.reportManager.dataManager.generateMonthlyReport();
+                subject = 'Monthly Report';
+                break;
+        }
+        
+        const body = `Hello,\n\nPlease find the attached report:\n\n${report}\n\nBest regards,\nWorkLogPro Team`;
+        
+        window.open(`mailto:${to}?subject=${encodeURIComponent(`WorkLogPro ${subject}`)}&body=${encodeURIComponent(body)}`, '_blank');
+        
+        const content = `
+            <div style="padding: 15px; background: #d1e7dd; border-radius: 5px;">
+                <h4 style="margin-top: 0;">✅ Email Ready</h4>
+                <p>Your email client has been opened with the report.</p>
+            </div>
+        `;
+        const html = window.reportManager.createReportTemplate('Email Report', content, false);
+        window.reportManager.updateReportContent(html);
+        
+    } catch (error) {
+        window.reportManager.showError(`Error sending email: ${error.message}`);
+    }
+};
+
+// Keep existing global functions but redirect to new methods
+window.generateClaimForm = function() {
+    if (window.reportManager) {
+        window.reportManager.generateClaimForm();
+    }
+};
+
+window.emailClaimForm = function() {
+    if (window.reportManager) {
+        window.reportManager.emailClaimForm();
+    }
+};
+
+window.generateInvoice = function() {
+    if (window.reportManager) {
+        window.reportManager.generateInvoice();
+    }
+};
+
+window.emailInvoice = function() {
+    if (window.reportManager) {
+        window.reportManager.emailInvoice();
+    }
+};
+
+// Initialize ReportManager
+console.log('Creating ReportManager...');
+new ReportManager();
