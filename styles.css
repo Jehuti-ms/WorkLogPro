@@ -4755,15 +4755,15 @@ button:focus:not(:focus-visible) {
 }
 
 /* If you want the contact to stand out a bit more on the card */
-.worklog-entity-detail {
+/*.worklog-entity-detail {
     background: rgba(255, 255, 255, 0.1);  /* Subtle background */
-    padding: 2px 8px;
+ /*   padding: 2px 8px;
     border-radius: 12px;
     display: inline-block;
     margin-top: 4px;
 }
 
 /* Hover effect to make it more visible */
-.worklog-entity-detail:hover {
+/*.worklog-entity-detail:hover {
     background: rgba(255, 255, 255, 0.2);
-}
+}*/
