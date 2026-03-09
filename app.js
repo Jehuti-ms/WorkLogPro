@@ -1213,7 +1213,7 @@ function loadInitialData() {
   }
 }
 
-// ==================== LOAD STUDENTS (FIXED) ====================
+// ==================== LOAD STUDENTS (FIXED WITH RATE CONSISTENCY) ====================
 function loadStudents() {
   console.log('👥 Loading students...');
   
@@ -1223,6 +1223,42 @@ function loadStudents() {
   // Get students
   let students = window.formHandler?.getStudents?.() || 
                  JSON.parse(localStorage.getItem('worklog_students') || '[]');
+  
+  // ===== FIX: Ensure rate consistency across all students =====
+  let studentsFixed = false;
+  students = students.map(student => {
+    // Check if rate fields are inconsistent
+    const rateValue = student.rate || student.hourlyRate;
+    const needsFix = (student.rate !== student.hourlyRate) || 
+                     (rateValue && (!student.rate || !student.hourlyRate));
+    
+    if (needsFix) {
+      studentsFixed = true;
+      console.log(`🔄 Fixing rates for ${student.name}:`, {
+        before: { rate: student.rate, hourlyRate: student.hourlyRate }
+      });
+      
+      // Set both fields to the same value
+      const correctRate = rateValue || SimpleRateManager.get();
+      student.rate = correctRate;
+      student.hourlyRate = correctRate;
+      
+      console.log(`   after: { rate: ${student.rate}, hourlyRate: ${student.hourlyRate} }`);
+    }
+    return student;
+  });
+  
+  // If we fixed any students, save back to localStorage
+  if (studentsFixed) {
+    console.log('✅ Fixed inconsistent rates, saving to localStorage');
+    localStorage.setItem('worklog_students', JSON.stringify(students));
+    
+    // Also update formHandler if it exists
+    if (window.formHandler) {
+      window.formHandler.students = students;
+    }
+  }
+  // ===== END FIX =====
   
   // Get saved sort method
   const sortMethod = localStorage.getItem('studentSortMethod') || 'id';
@@ -1270,6 +1306,7 @@ function loadStudents() {
   }
   
   container.innerHTML = students.map(student => {
+    // Now both rate fields should be consistent, but we'll still use this logic
     const studentRate = student.rate || student.hourlyRate;
     const rate = studentRate ? parseFloat(studentRate).toFixed(2) : defaultRate;
     const isUsingDefault = !student.rate && !student.hourlyRate;
@@ -1299,6 +1336,9 @@ function loadStudents() {
   }).join('');
   
   console.log(`✅ Loaded ${students.length} students (sorted by: ${sortMethod})`);
+  if (studentsFixed) {
+    console.log('🔧 Fixed inconsistent rates for some students');
+  }
 }
 
 // ==================== OTHER LOAD FUNCTIONS (simplified) ====================
