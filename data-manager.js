@@ -972,46 +972,7 @@ class DataManager {
             console.error(`Error generating ${type} claim form:`, error);
             return `Error generating claim form: ${error.message}`;
         }
-    }
-
-    async generateInvoice(studentName, startDate, endDate) {
-        try {
-            const logs = await this.getAllLogs();
-            const students = await this.getAllStudents();
-            
-            const student = students.find(s => s.name === studentName);
-            if (!student) {
-                return `Student "${studentName}" not found.`;
-            }
-            
-            const studentLogs = logs.filter(log => 
-                log.studentName === studentName &&
-                new Date(log.date) >= new Date(startDate) &&
-                new Date(log.date) <= new Date(endDate)
-            );
-            
-            if (studentLogs.length === 0) {
-                return `No data found for ${studentName} from ${startDate} to ${endDate}`;
-            }
-            
-            const rate = student.hourlyRate || 0;
-            const totalHours = studentLogs.reduce((sum, log) => sum + parseFloat(log.duration || 0), 0);
-            const subtotal = totalHours * rate;
-            const tax = subtotal * 0.10; // 10% tax
-            const total = subtotal + tax;
-            
-            let invoice = `INVOICE\n`;
-            invoice += '='.repeat(50) + '\n\n';
-            invoice += `Invoice Date: ${new Date().toLocaleDateString()}\n`;
-            invoice += `Invoice #: INV-${Date.now().toString().slice(-6)}\n\n`;
-            
-            invoice += 'BILL TO:\n';
-            invoice += `  ${studentName}\n`;
-            invoice += `  ${student.grade ? 'Grade: ' + student.grade : ''}\n\n`;
-            
-            invoice += 'PERIOD:\n';
-            invoice += `  ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}\n\n`;
-                // ... all your existing code ...
+    },
 
     async generateInvoice(studentName, startDate, endDate) {
         try {
