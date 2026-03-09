@@ -559,6 +559,24 @@
           </div>
         </div>
 
+        <!-- ===== PAYMENT TYPE DROPDOWN (from Hours tab) ===== -->
+        <div class="form-group">
+          <label for="worklogPaymentType">Payment Type</label>
+          <select id="worklogPaymentType" class="form-control">
+            <option value="hourly">Hourly</option>
+            <option value="session">Per-Session</option>
+            <option value="contract">Contract Work</option>
+            <option value="project">Project Based</option>
+            <option value="consultation">Consultation</option>
+            <option value="other">One-off Job</option>
+          </select>
+          <div class="help-text">
+            • Hourly: Charged per hour worked<br>
+            • Session/Consultation: Flat fee per meeting<br>
+            • Contract/Project/One-off: Fixed amount for the job
+          </div>
+        </div>
+
         <!-- Common Fields -->
         <div class="form-group">
           <label for="worklogDate">Date *</label>
@@ -612,6 +630,7 @@
         </div>
       </form>
     </div>
+    
 
     <!-- Worklog History -->
     <div class="section-card">
