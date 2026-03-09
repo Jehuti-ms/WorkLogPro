@@ -1,4 +1,4 @@
-// reports.js - COMPLETE VERSION WITH ALL FIXES
+// reports.js - COMPLETE VERSION WITH BVTB CLAIM FORMS & INVOICES
 console.log('reports.js loading...');
 
 class ReportManager {
@@ -14,6 +14,7 @@ class ReportManager {
         
         this.subjects = [];
         this.students = [];
+        this.worklogEntries = [];
         
         // Store instance globally
         window.reportManager = this;
@@ -35,11 +36,37 @@ class ReportManager {
             // Update stats
             await this.updateOverviewStats();
             
+            // Set default dates for forms
+            this.setDefaultDates();
+            
             console.log('ReportManager initialized successfully');
             
         } catch (error) {
             console.error('Error initializing ReportManager:', error);
         }
+    }
+
+    setDefaultDates() {
+        // Set default date range to last 30 days
+        const today = new Date();
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setDate(today.getDate() - 30);
+        
+        const formatDate = (date) => date.toISOString().split('T')[0];
+        
+        // These will be used by the new form elements
+        const claimStart = document.getElementById('claimStartDate');
+        const claimEnd = document.getElementById('claimEndDate');
+        if (claimStart) claimStart.value = formatDate(thirtyDaysAgo);
+        if (claimEnd) claimEnd.value = formatDate(today);
+        
+        const invoiceDate = document.getElementById('invoiceDate');
+        const invoiceStart = document.getElementById('invoiceStartDate');
+        const invoiceEnd = document.getElementById('invoiceEndDate');
+        
+        if (invoiceDate) invoiceDate.value = formatDate(today);
+        if (invoiceStart) invoiceStart.value = formatDate(thirtyDaysAgo);
+        if (invoiceEnd) invoiceEnd.value = formatDate(today);
     }
 
     async loadDataInBackground() {
@@ -54,7 +81,10 @@ class ReportManager {
             this.subjects = subjects;
             this.students = students;
             
-            console.log(`✅ Data loaded: ${this.students.length} students, ${this.subjects.length} subjects`);
+            // Load worklog entries
+            this.loadWorklogEntries();
+            
+            console.log(`✅ Data loaded: ${this.students.length} students, ${this.subjects.length} subjects, ${this.worklogEntries.length} worklog entries`);
             
             // Update any open student dropdowns
             this.updateStudentDropdowns();
@@ -64,6 +94,26 @@ class ReportManager {
             // Retry after 3 seconds
             setTimeout(() => this.loadDataInBackground(), 3000);
         }
+    }
+
+    loadWorklogEntries() {
+        try {
+            this.worklogEntries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+        } catch (error) {
+            console.error('Error loading worklog entries:', error);
+            this.worklogEntries = [];
+        }
+    }
+
+    getEntriesInDateRange(startDate, endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999); // Include the entire end day
+        
+        return this.worklogEntries.filter(entry => {
+            const entryDate = new Date(entry.date + 'T12:00:00');
+            return entryDate >= start && entryDate <= end;
+        });
     }
 
     updateStudentDropdowns() {
@@ -107,7 +157,11 @@ class ReportManager {
             'claimFormBtn',
             'invoiceBtn',
             'pdfReportBtn',
-            'emailReportBtn'
+            'emailReportBtn',
+            'generateClaimBtn',
+            'printClaimBtn',
+            'generateInvoiceBtn',
+            'printInvoiceBtn'
         ];
         
         buttons.forEach(btnId => {
@@ -120,8 +174,6 @@ class ReportManager {
                 // Add our click handler
                 newBtn.addEventListener('click', (e) => this.handleButtonClick(e, btnId));
                 console.log(`Listener added to ${btnId}`);
-            } else {
-                console.warn(`Button ${btnId} not found`);
             }
         });
     }
@@ -145,10 +197,18 @@ class ReportManager {
                 this.showSubjectSelector();
                 break;
             case 'claimFormBtn':
-                this.showClaimFormOptions();
+            case 'generateClaimBtn':
+                this.generateClaimForm();
+                break;
+            case 'printClaimBtn':
+                this.printDocument('claim');
                 break;
             case 'invoiceBtn':
-                this.showInvoiceGenerator();
+            case 'generateInvoiceBtn':
+                this.generateInvoice();
+                break;
+            case 'printInvoiceBtn':
+                this.printDocument('invoice');
                 break;
             case 'pdfReportBtn':
                 this.showPDFOptions();
@@ -159,7 +219,452 @@ class ReportManager {
         }
     }
 
-    // REPORT DISPLAY METHODS
+    // ==================== BVTB CLAIM FORM GENERATION ====================
+    generateClaimForm() {
+        // Get form values
+        const name = document.getElementById('claimName')?.value || 'David Moseley';
+        const address = document.getElementById('claimAddress')?.value || '142 Coles Terrace, St.Philip';
+        const homePhone = document.getElementById('claimHomePhone')?.value || '572-8040';
+        const workPhone = document.getElementById('claimWorkPhone')?.value || '1367-8221';
+        const programme = document.getElementById('claimProgramme')?.value || 'Cosmetology';
+        const startDate = document.getElementById('claimStartDate')?.value;
+        const endDate = document.getElementById('claimEndDate')?.value;
+        
+        if (!startDate || !endDate) {
+            alert('Please select start and end dates');
+            return;
+        }
+        
+        // Get entries in date range
+        const entries = this.getEntriesInDateRange(startDate, endDate);
+        
+        if (entries.length === 0) {
+            alert('No worklog entries found in this date range');
+            return;
+        }
+        
+        // Group entries by date
+        const groupedEntries = {};
+        entries.forEach(entry => {
+            const date = entry.date;
+            if (!groupedEntries[date]) {
+                groupedEntries[date] = {
+                    date: date,
+                    sessions: 0,
+                    hours: 0
+                };
+            }
+            groupedEntries[date].sessions += 1;
+            groupedEntries[date].hours += entry.duration || 0;
+        });
+        
+        // Sort by date
+        const sortedEntries = Object.values(groupedEntries).sort((a, b) => 
+            new Date(a.date) - new Date(b.date)
+        );
+        
+        // Calculate totals
+        const totalSessions = sortedEntries.reduce((sum, e) => sum + e.sessions, 0);
+        const totalHours = sortedEntries.reduce((sum, e) => sum + e.hours, 0);
+        
+        // Format dates for display
+        const formatDisplayDate = (dateStr) => {
+            const [year, month, day] = dateStr.split('-');
+            return `${day}/${month}/${year}`;
+        };
+        
+        // Create claim form HTML
+        const claimHTML = `
+            <div style="font-family: 'Courier New', monospace; max-width: 800px; margin: 0 auto; padding: 20px; background: white; color: black;">
+                <h2 style="text-align: center; margin-bottom: 30px; color: #000;">Social Skills Programme Claim Form</h2>
+                
+                <div style="margin-bottom: 30px; color: #000;">
+                    <p><strong>Name:</strong> ${name}</p>
+                    <p><strong>Address:</strong> ${address}</p>
+                    <p><strong>Tel Nos:</strong> Home: ${homePhone} (Work: ${workPhone})</p>
+                </div>
+                
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; color: #000;">
+                    <thead>
+                        <tr style="background: #f0f0f0;">
+                            <th style="border: 1px solid #000; padding: 10px; text-align: left;">Date</th>
+                            <th style="border: 1px solid #000; padding: 10px; text-align: left;">Programme</th>
+                            <th style="border: 1px solid #000; padding: 10px; text-align: center;">Sessions</th>
+                            <th style="border: 1px solid #000; padding: 10px; text-align: center;">Hours</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${sortedEntries.map(entry => `
+                            <tr>
+                                <td style="border: 1px solid #000; padding: 10px;">${formatDisplayDate(entry.date)}</td>
+                                <td style="border: 1px solid #000; padding: 10px;">${programme}</td>
+                                <td style="border: 1px solid #000; padding: 10px; text-align: center;">${entry.sessions}</td>
+                                <td style="border: 1px solid #000; padding: 10px; text-align: center;">${entry.hours.toFixed(1)}</td>
+                            </tr>
+                        `).join('')}
+                        <tr style="background: #f9f9f9; font-weight: bold;">
+                            <td style="border: 1px solid #000; padding: 10px;" colspan="2">Totals</td>
+                            <td style="border: 1px solid #000; padding: 10px; text-align: center;">${totalSessions}</td>
+                            <td style="border: 1px solid #000; padding: 10px; text-align: center;">${totalHours.toFixed(1)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div style="display: flex; justify-content: space-between; margin-top: 50px; color: #000;">
+                    <div>
+                        <p>Signature _________________________</p>
+                        <p>Date _________________________</p>
+                    </div>
+                    <div>
+                        <p>Verified _________________________</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Show preview
+        this.showPreview(claimHTML, 'Claim Form');
+    }
+
+    // ==================== BVTB INVOICE GENERATION ====================
+    generateInvoice() {
+        // Get form values
+        const invoiceNumber = document.getElementById('invoiceNumber')?.value || '003';
+        const invoiceDate = document.getElementById('invoiceDate')?.value;
+        const invoiceTo = document.getElementById('invoiceTo')?.value || 'Barbados Vocational Board\nLawrence Green House\nCulloden Road, St. Michael';
+        const itemDesc = document.getElementById('invoiceItem')?.value || 'Cosmetology';
+        const rate = parseFloat(document.getElementById('invoiceRate')?.value) || 82.97;
+        const startDate = document.getElementById('invoiceStartDate')?.value;
+        const endDate = document.getElementById('invoiceEndDate')?.value;
+        
+        if (!invoiceDate || !startDate || !endDate) {
+            alert('Please select all dates');
+            return;
+        }
+        
+        // Get entries in date range
+        const entries = this.getEntriesInDateRange(startDate, endDate);
+        
+        if (entries.length === 0) {
+            alert('No worklog entries found in this date range');
+            return;
+        }
+        
+        // Group entries by date
+        const groupedEntries = {};
+        entries.forEach(entry => {
+            const date = entry.date;
+            if (!groupedEntries[date]) {
+                groupedEntries[date] = {
+                    date: date,
+                    hours: 0,
+                    amount: 0
+                };
+            }
+            groupedEntries[date].hours += entry.duration || 0;
+            groupedEntries[date].amount += entry.totalEarnings || 0;
+        });
+        
+        // Sort by date
+        const sortedEntries = Object.values(groupedEntries).sort((a, b) => 
+            new Date(a.date) - new Date(b.date)
+        );
+        
+        // Calculate total
+        const totalAmount = sortedEntries.reduce((sum, e) => sum + e.amount, 0);
+        
+        // Format dates for display
+        const formatDisplayDate = (dateStr) => {
+            const [year, month, day] = dateStr.split('-');
+            return `${day}/${month}/${year}`;
+        };
+        
+        // Format address lines
+        const addressLines = invoiceTo.split('\n').map(line => line.trim()).filter(line => line);
+        
+        // Create invoice HTML
+        const invoiceHTML = `
+            <div style="font-family: 'Courier New', monospace; max-width: 800px; margin: 0 auto; padding: 20px; background: white; color: black;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 40px; color: #000;">
+                    <h2 style="color: #000;">INVOICE No. ${invoiceNumber}</h2>
+                    <p style="color: #000;">${formatDisplayDate(invoiceDate)}</p>
+                </div>
+                
+                <div style="margin-bottom: 30px; color: #000;">
+                    <p><strong>Issued to:</strong></p>
+                    ${addressLines.map(line => `<p>${line}</p>`).join('')}
+                </div>
+                
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; color: #000;">
+                    <thead>
+                        <tr style="background: #f0f0f0;">
+                            <th style="border: 1px solid #000; padding: 10px; text-align: left;">Date</th>
+                            <th style="border: 1px solid #000; padding: 10px; text-align: left;">Item</th>
+                            <th style="border: 1px solid #000; padding: 10px; text-align: right;">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${sortedEntries.map(entry => `
+                            <tr>
+                                <td style="border: 1px solid #000; padding: 10px;">${formatDisplayDate(entry.date)}</td>
+                                <td style="border: 1px solid #000; padding: 10px;">${itemDesc} ${entry.hours.toFixed(1)} hours @ $${rate.toFixed(2)}</td>
+                                <td style="border: 1px solid #000; padding: 10px; text-align: right;">$${entry.amount.toFixed(2)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                
+                <div style="text-align: right; font-size: 1.2rem; font-weight: bold; margin-bottom: 50px; color: #000;">
+                    <p>Total $${totalAmount.toFixed(2)}</p>
+                </div>
+                
+                <div style="color: #000;">
+                    <p>Issued by: _________________________</p>
+                </div>
+            </div>
+        `;
+        
+        // Show preview
+        this.showPreview(invoiceHTML, `Invoice #${invoiceNumber}`);
+    }
+
+    // ==================== PREVIEW & PRINT ====================
+    showPreview(html, title) {
+        // First, update the report content area
+        const previewHTML = this.createReportTemplate(`📄 ${title}`, html, false);
+        this.updateReportContent(previewHTML);
+        
+        // Also try to show the preview section if it exists
+        const previewSection = document.getElementById('documentPreview');
+        if (previewSection) {
+            const previewContent = document.getElementById('previewContent');
+            if (previewContent) {
+                previewContent.innerHTML = html;
+                previewSection.style.display = 'block';
+                previewSection.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+    }
+
+    printDocument(type) {
+        let htmlToPrint = '';
+        
+        if (type === 'claim') {
+            const claimHTML = this.generateClaimFormHTML(true);
+            htmlToPrint = claimHTML;
+        } else if (type === 'invoice') {
+            const invoiceHTML = this.generateInvoiceHTML(true);
+            htmlToPrint = invoiceHTML;
+        } else {
+            return;
+        }
+        
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>WorkLog Pro - ${type === 'claim' ? 'Claim Form' : 'Invoice'}</title>
+                    <style>
+                        body { 
+                            font-family: 'Courier New', monospace; 
+                            padding: 40px; 
+                            background: white;
+                            color: black;
+                        }
+                        @media print {
+                            body { padding: 20px; }
+                        }
+                        table { border-collapse: collapse; width: 100%; }
+                        th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+                        th { background: #f0f0f0; }
+                    </style>
+                </head>
+                <body>
+                    ${htmlToPrint}
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+    }
+
+    generateClaimFormHTML(returnOnly = false) {
+        // This is a helper to get just the HTML without showing preview
+        const name = document.getElementById('claimName')?.value || 'David Moseley';
+        const address = document.getElementById('claimAddress')?.value || '142 Coles Terrace, St.Philip';
+        const homePhone = document.getElementById('claimHomePhone')?.value || '572-8040';
+        const workPhone = document.getElementById('claimWorkPhone')?.value || '1367-8221';
+        const programme = document.getElementById('claimProgramme')?.value || 'Cosmetology';
+        const startDate = document.getElementById('claimStartDate')?.value;
+        const endDate = document.getElementById('claimEndDate')?.value;
+        
+        if (!startDate || !endDate) return '';
+        
+        const entries = this.getEntriesInDateRange(startDate, endDate);
+        
+        if (entries.length === 0) return '';
+        
+        const groupedEntries = {};
+        entries.forEach(entry => {
+            const date = entry.date;
+            if (!groupedEntries[date]) {
+                groupedEntries[date] = {
+                    date: date,
+                    sessions: 0,
+                    hours: 0
+                };
+            }
+            groupedEntries[date].sessions += 1;
+            groupedEntries[date].hours += entry.duration || 0;
+        });
+        
+        const sortedEntries = Object.values(groupedEntries).sort((a, b) => 
+            new Date(a.date) - new Date(b.date)
+        );
+        
+        const totalSessions = sortedEntries.reduce((sum, e) => sum + e.sessions, 0);
+        const totalHours = sortedEntries.reduce((sum, e) => sum + e.hours, 0);
+        
+        const formatDisplayDate = (dateStr) => {
+            const [year, month, day] = dateStr.split('-');
+            return `${day}/${month}/${year}`;
+        };
+        
+        return `
+            <div style="font-family: 'Courier New', monospace; max-width: 800px; margin: 0 auto; padding: 20px;">
+                <h2 style="text-align: center; margin-bottom: 30px;">Social Skills Programme Claim Form</h2>
+                
+                <div style="margin-bottom: 30px;">
+                    <p><strong>Name:</strong> ${name}</p>
+                    <p><strong>Address:</strong> ${address}</p>
+                    <p><strong>Tel Nos:</strong> Home: ${homePhone} (Work: ${workPhone})</p>
+                </div>
+                
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+                    <thead>
+                        <tr style="background: #f0f0f0;">
+                            <th style="border: 1px solid #000; padding: 10px; text-align: left;">Date</th>
+                            <th style="border: 1px solid #000; padding: 10px; text-align: left;">Programme</th>
+                            <th style="border: 1px solid #000; padding: 10px; text-align: center;">Sessions</th>
+                            <th style="border: 1px solid #000; padding: 10px; text-align: center;">Hours</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${sortedEntries.map(entry => `
+                            <tr>
+                                <td style="border: 1px solid #000; padding: 10px;">${formatDisplayDate(entry.date)}</td>
+                                <td style="border: 1px solid #000; padding: 10px;">${programme}</td>
+                                <td style="border: 1px solid #000; padding: 10px; text-align: center;">${entry.sessions}</td>
+                                <td style="border: 1px solid #000; padding: 10px; text-align: center;">${entry.hours.toFixed(1)}</td>
+                            </tr>
+                        `).join('')}
+                        <tr style="background: #f9f9f9; font-weight: bold;">
+                            <td style="border: 1px solid #000; padding: 10px;" colspan="2">Totals</td>
+                            <td style="border: 1px solid #000; padding: 10px; text-align: center;">${totalSessions}</td>
+                            <td style="border: 1px solid #000; padding: 10px; text-align: center;">${totalHours.toFixed(1)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div style="display: flex; justify-content: space-between; margin-top: 50px;">
+                    <div>
+                        <p>Signature _________________________</p>
+                        <p>Date _________________________</p>
+                    </div>
+                    <div>
+                        <p>Verified _________________________</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    generateInvoiceHTML(returnOnly = false) {
+        // This is a helper to get just the HTML without showing preview
+        const invoiceNumber = document.getElementById('invoiceNumber')?.value || '003';
+        const invoiceDate = document.getElementById('invoiceDate')?.value;
+        const invoiceTo = document.getElementById('invoiceTo')?.value || 'Barbados Vocational Board\nLawrence Green House\nCulloden Road, St. Michael';
+        const itemDesc = document.getElementById('invoiceItem')?.value || 'Cosmetology';
+        const rate = parseFloat(document.getElementById('invoiceRate')?.value) || 82.97;
+        const startDate = document.getElementById('invoiceStartDate')?.value;
+        const endDate = document.getElementById('invoiceEndDate')?.value;
+        
+        if (!invoiceDate || !startDate || !endDate) return '';
+        
+        const entries = this.getEntriesInDateRange(startDate, endDate);
+        
+        if (entries.length === 0) return '';
+        
+        const groupedEntries = {};
+        entries.forEach(entry => {
+            const date = entry.date;
+            if (!groupedEntries[date]) {
+                groupedEntries[date] = {
+                    date: date,
+                    hours: 0,
+                    amount: 0
+                };
+            }
+            groupedEntries[date].hours += entry.duration || 0;
+            groupedEntries[date].amount += entry.totalEarnings || 0;
+        });
+        
+        const sortedEntries = Object.values(groupedEntries).sort((a, b) => 
+            new Date(a.date) - new Date(b.date)
+        );
+        
+        const totalAmount = sortedEntries.reduce((sum, e) => sum + e.amount, 0);
+        
+        const formatDisplayDate = (dateStr) => {
+            const [year, month, day] = dateStr.split('-');
+            return `${day}/${month}/${year}`;
+        };
+        
+        const addressLines = invoiceTo.split('\n').map(line => line.trim()).filter(line => line);
+        
+        return `
+            <div style="font-family: 'Courier New', monospace; max-width: 800px; margin: 0 auto; padding: 20px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 40px;">
+                    <h2>INVOICE No. ${invoiceNumber}</h2>
+                    <p>${formatDisplayDate(invoiceDate)}</p>
+                </div>
+                
+                <div style="margin-bottom: 30px;">
+                    <p><strong>Issued to:</strong></p>
+                    ${addressLines.map(line => `<p>${line}</p>`).join('')}
+                </div>
+                
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+                    <thead>
+                        <tr style="background: #f0f0f0;">
+                            <th style="border: 1px solid #000; padding: 10px; text-align: left;">Date</th>
+                            <th style="border: 1px solid #000; padding: 10px; text-align: left;">Item</th>
+                            <th style="border: 1px solid #000; padding: 10px; text-align: right;">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${sortedEntries.map(entry => `
+                            <tr>
+                                <td style="border: 1px solid #000; padding: 10px;">${formatDisplayDate(entry.date)}</td>
+                                <td style="border: 1px solid #000; padding: 10px;">${itemDesc} ${entry.hours.toFixed(1)} hours @ $${rate.toFixed(2)}</td>
+                                <td style="border: 1px solid #000; padding: 10px; text-align: right;">$${entry.amount.toFixed(2)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                
+                <div style="text-align: right; font-size: 1.2rem; font-weight: bold; margin-bottom: 50px;">
+                    <p>Total $${totalAmount.toFixed(2)}</p>
+                </div>
+                
+                <div>
+                    <p>Issued by: _________________________</p>
+                </div>
+            </div>
+        `;
+    }
+
+    // ==================== EXISTING REPORT METHODS ====================
     createReportTemplate(title, content, showActions = true) {
         let html = '<div class="report-display">';
         
@@ -289,68 +794,6 @@ class ReportManager {
         this.updateReportContent(html);
     }
 
-    showClaimFormOptions() {
-        this.clearReport();
-        
-        let content = '<div style="margin-bottom: 15px;">';
-        content += '<label style="display: block; margin-bottom: 5px;">Claim Type:</label>';
-        content += '<select id="claimType" class="form-input" style="width: 100%;">';
-        content += '<option value="weekly">Weekly</option>';
-        content += '<option value="biweekly">Bi-Weekly</option>';
-        content += '<option value="monthly">Monthly</option>';
-        content += '</select>';
-        content += '</div>';
-        
-        content += '<div style="margin-bottom: 15px;">';
-        content += '<label style="display: block; margin-bottom: 5px;">Period End Date:</label>';
-        content += '<input type="date" id="claimDate" class="form-input" style="width: 100%;" value="' + new Date().toISOString().split('T')[0] + '">';
-        content += '</div>';
-        
-        content += '<button onclick="generateClaimForm()" class="button warning" style="width: 100%; margin-bottom: 10px;">💰 Generate Claim Form</button>';
-        content += '<button onclick="emailClaimForm()" class="button info" style="width: 100%;">📧 Email Claim Form</button>';
-        
-        const html = this.createReportTemplate('Claim Form', content, false);
-        this.updateReportContent(html);
-    }
-
-    showInvoiceGenerator() {
-        this.clearReport();
-        
-        let content = '<div style="margin-bottom: 15px;">';
-        content += '<label style="display: block; margin-bottom: 5px;">Select Student:</label>';
-        content += '<select id="invoiceStudent" class="form-input" style="width: 100%;">';
-        content += '<option value="">Choose a student...</option>';
-        
-        // Populate with students if available
-        if (this.students && this.students.length > 0) {
-            this.students.forEach(student => {
-                const rate = student.hourlyRate ? ` ($${student.hourlyRate}/hr)` : '';
-                content += `<option value="${student.name}">${student.name}${rate}</option>`;
-            });
-        } else {
-            content += '<option value="" disabled>Loading students...</option>';
-        }
-        
-        content += '</select>';
-        content += '</div>';
-        
-        content += '<div style="margin-bottom: 15px;">';
-        content += '<label style="display: block; margin-bottom: 5px;">Start Date:</label>';
-        content += '<input type="date" id="invoiceStart" class="form-input" style="width: 100%;">';
-        content += '</div>';
-        
-        content += '<div style="margin-bottom: 15px;">';
-        content += '<label style="display: block; margin-bottom: 5px;">End Date:</label>';
-        content += '<input type="date" id="invoiceEnd" class="form-input" style="width: 100%;" value="' + new Date().toISOString().split('T')[0] + '">';
-        content += '</div>';
-        
-        content += '<button onclick="generateInvoice()" class="button warning" style="width: 100%; margin-bottom: 10px;">🧾 Generate Invoice</button>';
-        content += '<button onclick="emailInvoice()" class="button info" style="width: 100%;">📧 Email Invoice</button>';
-        
-        const html = this.createReportTemplate('Invoice Generator', content, false);
-        this.updateReportContent(html);
-    }
-
     // HELPER METHODS
     clearReport() {
         const reportContent = document.getElementById('report-content');
@@ -387,8 +830,6 @@ class ReportManager {
         const reportContent = document.getElementById('report-content');
         if (reportContent) {
             reportContent.innerHTML = html;
-        } else {
-            console.error('Element #report-content not found!');
         }
     }
 
@@ -409,305 +850,4 @@ class ReportManager {
             printWindow.document.write(`
                 <html>
                 <head><title>${title}</title></head>
-                <body><pre>${pre.textContent}</pre></body>
-                </html>
-            `);
-            printWindow.document.close();
-            printWindow.print();
-        }
-    }
-
-    saveAsText() {
-        const pre = document.querySelector('#report-content pre');
-        const title = document.querySelector('#report-content h4')?.textContent || 'Report';
-        
-        if (pre) {
-            const blob = new Blob([pre.textContent], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${title.replace(/[^\w\s]/gi, '').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.txt`;
-            a.click();
-            URL.revokeObjectURL(url);
-            alert('Report saved as text file!');
-        }
-    }
-
-    async updateOverviewStats() {
-        try {
-            const logs = await this.dataManager.getAllLogs();
-            const students = await this.dataManager.getAllStudents();
-            
-            const totalHours = logs.reduce((sum, log) => sum + parseFloat(log.duration || 0), 0);
-            const totalEarnings = logs.reduce((sum, log) => {
-                const student = students.find(s => s.name === log.studentName);
-                const rate = student?.hourlyRate || 0;
-                return sum + (parseFloat(log.duration || 0) * rate);
-            }, 0);
-            
-            const updateElement = (id, value) => {
-                const el = document.getElementById(id);
-                if (el) el.textContent = value;
-            };
-            
-            updateElement('totalStudentsReport', students.length);
-            updateElement('totalHoursReport', totalHours.toFixed(2));
-            updateElement('totalEarningsReport', `$${totalEarnings.toFixed(2)}`);
-            updateElement('outstandingBalance', `$${totalEarnings.toFixed(2)}`);
-            
-        } catch (error) {
-            console.error('Error updating overview stats:', error);
-        }
-    }
-}
-
-// GLOBAL HELPER FUNCTIONS
-window.generateSubjectReport = async function() {
-    const select = document.getElementById('subjectSelect');
-    const custom = document.getElementById('customSubject');
-    
-    const subject = select?.value || custom?.value.trim();
-    
-    if (!subject) {
-        alert('Please select or enter a subject');
-        return;
-    }
-    
-    if (window.reportManager) {
-        window.reportManager.showLoading();
-        
-        try {
-            const report = await window.reportManager.dataManager.generateSubjectReport(subject);
-            const content = `<pre style="white-space: pre-wrap; font-family: monospace; font-size: 12px; margin: 0;">${report}</pre>`;
-            const html = window.reportManager.createReportTemplate(`📚 ${subject} Report`, content, true);
-            window.reportManager.updateReportContent(html);
-        } catch (error) {
-            window.reportManager.showError(`Error generating subject report: ${error.message}`);
-        }
-    }
-};
-
-window.generatePDF = async function() {
-    const selected = document.querySelector('input[name="pdfType"]:checked');
-    if (!selected || !window.reportManager) return;
-    
-    window.reportManager.showLoading();
-    
-    try {
-        let report;
-        let filename;
-        
-        switch(selected.value) {
-            case 'weekly':
-                report = await window.reportManager.dataManager.generateWeeklyReport();
-                filename = `Weekly_Report_${new Date().toISOString().slice(0,10)}`;
-                break;
-            case 'biweekly':
-                report = await window.reportManager.dataManager.generateBiWeeklyReport();
-                filename = `BiWeekly_Report_${new Date().toISOString().slice(0,10)}`;
-                break;
-            case 'monthly':
-                report = await window.reportManager.dataManager.generateMonthlyReport();
-                filename = `Monthly_Report_${new Date().toISOString().slice(0,10)}`;
-                break;
-        }
-        
-        if (typeof jspdf !== 'undefined') {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            doc.text(report, 10, 10);
-            doc.save(`${filename}.pdf`);
-            
-            const content = `
-                <div style="padding: 15px; background: #d1e7dd; border-radius: 5px;">
-                    <h4 style="margin-top: 0;">✅ PDF Generated</h4>
-                    <p>File <strong>${filename}.pdf</strong> has been downloaded.</p>
-                </div>
-            `;
-            const html = window.reportManager.createReportTemplate('PDF Export', content, false);
-            window.reportManager.updateReportContent(html);
-        } else {
-            const blob = new Blob([report], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${filename}.txt`;
-            a.click();
-            URL.revokeObjectURL(url);
-            
-            const content = `
-                <div style="padding: 15px; background: #fff3cd; border-radius: 5px;">
-                    <h4 style="margin-top: 0;">⚠️ Text File Downloaded</h4>
-                    <p>File <strong>${filename}.txt</strong> has been downloaded instead.</p>
-                </div>
-            `;
-            const html = window.reportManager.createReportTemplate('PDF Export', content, false);
-            window.reportManager.updateReportContent(html);
-        }
-        
-    } catch (error) {
-        window.reportManager.showError(`Error generating PDF: ${error.message}`);
-    }
-};
-
-window.sendEmail = async function() {
-    const to = document.getElementById('emailTo')?.value;
-    const type = document.getElementById('emailType')?.value;
-    
-    if (!to || !type || !window.reportManager) {
-        alert('Please fill all fields');
-        return;
-    }
-    
-    window.reportManager.showLoading();
-    
-    try {
-        let report;
-        let subject;
-        
-        switch(type) {
-            case 'weekly':
-                report = await window.reportManager.dataManager.generateWeeklyReport();
-                subject = 'Weekly Report';
-                break;
-            case 'biweekly':
-                report = await window.reportManager.dataManager.generateBiWeeklyReport();
-                subject = 'Bi-Weekly Report';
-                break;
-            case 'monthly':
-                report = await window.reportManager.dataManager.generateMonthlyReport();
-                subject = 'Monthly Report';
-                break;
-        }
-        
-        const body = `Hello,\n\nPlease find the attached report:\n\n${report}\n\nBest regards,\nWorkLogPro Team`;
-        
-        window.open(`mailto:${to}?subject=${encodeURIComponent(`WorkLogPro ${subject}`)}&body=${encodeURIComponent(body)}`, '_blank');
-        
-        const content = `
-            <div style="padding: 15px; background: #d1e7dd; border-radius: 5px;">
-                <h4 style="margin-top: 0;">✅ Email Ready</h4>
-                <p>Your email client has been opened with the report.</p>
-            </div>
-        `;
-        const html = window.reportManager.createReportTemplate('Email Report', content, false);
-        window.reportManager.updateReportContent(html);
-        
-    } catch (error) {
-        window.reportManager.showError(`Error sending email: ${error.message}`);
-    }
-};
-
-window.generateClaimForm = async function() {
-    const type = document.getElementById('claimType')?.value;
-    const date = document.getElementById('claimDate')?.value;
-    if (!type || !window.reportManager) return;
-    
-    window.reportManager.showLoading();
-    
-    try {
-        const report = await window.reportManager.dataManager.generateClaimForm(type, date);
-        const content = `<pre style="white-space: pre-wrap; font-family: monospace; font-size: 12px; margin: 0;">${report}</pre>`;
-        const html = window.reportManager.createReportTemplate(`💰 ${type.toUpperCase()} Claim Form`, content, true);
-        window.reportManager.updateReportContent(html);
-    } catch (error) {
-        window.reportManager.showError(`Error generating claim form: ${error.message}`);
-    }
-};
-
-window.emailClaimForm = async function() {
-    const type = document.getElementById('claimType')?.value;
-    const date = document.getElementById('claimDate')?.value;
-    
-    if (!type || !date || !window.reportManager) {
-        alert('Please select claim type and date');
-        return;
-    }
-    
-    const toEmail = prompt('Enter recipient email address:');
-    if (!toEmail) return;
-    
-    window.reportManager.showLoading();
-    
-    try {
-        const report = await window.reportManager.dataManager.generateClaimForm(type, date);
-        const subject = `WorkLogPro ${type} Claim Form`;
-        const body = `Hello,\n\nPlease find the attached claim form:\n\n${report}\n\nBest regards,\nWorkLogPro Team`;
-        
-        window.open(`mailto:${toEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
-        
-        const content = `
-            <div style="padding: 15px; background: #d1e7dd; border-radius: 5px;">
-                <h4 style="margin-top: 0;">✅ Email Ready</h4>
-                <p>Your claim form has been prepared for email.</p>
-            </div>
-        `;
-        const html = window.reportManager.createReportTemplate('Claim Form', content, false);
-        window.reportManager.updateReportContent(html);
-        
-    } catch (error) {
-        window.reportManager.showError(`Error preparing email: ${error.message}`);
-    }
-};
-
-window.generateInvoice = async function() {
-    const student = document.getElementById('invoiceStudent')?.value;
-    const start = document.getElementById('invoiceStart')?.value;
-    const end = document.getElementById('invoiceEnd')?.value;
-    
-    if (!student || !start || !end || !window.reportManager) {
-        alert('Please select a student and dates');
-        return;
-    }
-    
-    window.reportManager.showLoading();
-    
-    try {
-        const report = await window.reportManager.dataManager.generateInvoice(student, start, end);
-        const content = `<pre style="white-space: pre-wrap; font-family: monospace; font-size: 12px; margin: 0;">${report}</pre>`;
-        const html = window.reportManager.createReportTemplate(`🧾 Invoice for ${student}`, content, true);
-        window.reportManager.updateReportContent(html);
-    } catch (error) {
-        window.reportManager.showError(`Error generating invoice: ${error.message}`);
-    }
-};
-
-window.emailInvoice = async function() {
-    const student = document.getElementById('invoiceStudent')?.value;
-    const start = document.getElementById('invoiceStart')?.value;
-    const end = document.getElementById('invoiceEnd')?.value;
-    
-    if (!student || !start || !end || !window.reportManager) {
-        alert('Please fill all fields');
-        return;
-    }
-    
-    const toEmail = prompt('Enter recipient email address:');
-    if (!toEmail) return;
-    
-    window.reportManager.showLoading();
-    
-    try {
-        const report = await window.reportManager.dataManager.generateInvoice(student, start, end);
-        const subject = `Invoice for ${student}`;
-        const body = `Hello,\n\nPlease find the attached invoice:\n\n${report}\n\nBest regards,\nWorkLogPro Team`;
-        
-        window.open(`mailto:${toEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
-        
-        const content = `
-            <div style="padding: 15px; background: #d1e7dd; border-radius: 5px;">
-                <h4 style="margin-top: 0;">✅ Email Ready</h4>
-                <p>Your invoice has been prepared for email.</p>
-            </div>
-        `;
-        const html = window.reportManager.createReportTemplate('Invoice Generator', content, false);
-        window.reportManager.updateReportContent(html);
-        
-    } catch (error) {
-        window.reportManager.showError(`Error preparing email: ${error.message}`);
-    }
-};
-
-// Initialize ReportManager
-console.log('Creating ReportManager...');
-new ReportManager();
+                <body><pre
