@@ -182,21 +182,22 @@ startAutoSync(interval = 30000) {
     });
   }
 
-  getAllLocalData() {
+ getAllLocalData() {
     return {
-      students: JSON.parse(localStorage.getItem('worklog_students') || '[]'),
-      hours: JSON.parse(localStorage.getItem('worklog_hours') || '[]'),
-      marks: JSON.parse(localStorage.getItem('worklog_marks') || '[]'),
-      attendance: JSON.parse(localStorage.getItem('worklog_attendance') || '[]'),
-      payments: JSON.parse(localStorage.getItem('worklog_payments') || '[]'),
-      settings: {
-        defaultHourlyRate: localStorage.getItem('defaultHourlyRate') || '25.00',
-        autoSyncEnabled: localStorage.getItem('autoSyncEnabled') === 'true',
-        theme: localStorage.getItem('worklog-theme') || 'dark'
-      },
-      lastLocalUpdate: new Date().toISOString()
+        students: JSON.parse(localStorage.getItem('worklog_students') || '[]'),
+        hours: JSON.parse(localStorage.getItem('worklog_hours') || '[]'),
+        marks: JSON.parse(localStorage.getItem('worklog_marks') || '[]'),
+        attendance: JSON.parse(localStorage.getItem('worklog_attendance') || '[]'),
+        payments: JSON.parse(localStorage.getItem('worklog_payments') || '[]'),
+        settings: {
+            defaultHourlyRate: localStorage.getItem('defaultHourlyRate') || '25.00',
+            autoSyncEnabled: localStorage.getItem('autoSyncEnabled') === 'true',
+            theme: localStorage.getItem('worklog-theme') || 'dark',
+            studentSortMethod: localStorage.getItem('studentSortMethod') || 'id'
+        },
+        lastLocalUpdate: new Date().toISOString()
     };
-  }
+}
 
   // Update the getRemoteData method in sync-service.js (around line 190)
 
@@ -384,37 +385,40 @@ async getRemoteData(userId) {
     console.log('✅ Data saved to Firestore');
   }
 
-  saveToLocalStorage(data) {
+ saveToLocalStorage(data) {
     if (data.students) {
-      localStorage.setItem('worklog_students', JSON.stringify(data.students));
+        localStorage.setItem('worklog_students', JSON.stringify(data.students));
     }
     if (data.hours) {
-      localStorage.setItem('worklog_hours', JSON.stringify(data.hours));
+        localStorage.setItem('worklog_hours', JSON.stringify(data.hours));
     }
     if (data.marks) {
-      localStorage.setItem('worklog_marks', JSON.stringify(data.marks));
+        localStorage.setItem('worklog_marks', JSON.stringify(data.marks));
     }
     if (data.attendance) {
-      localStorage.setItem('worklog_attendance', JSON.stringify(data.attendance));
+        localStorage.setItem('worklog_attendance', JSON.stringify(data.attendance));
     }
     if (data.payments) {
-      localStorage.setItem('worklog_payments', JSON.stringify(data.payments));
+        localStorage.setItem('worklog_payments', JSON.stringify(data.payments));
     }
     if (data.settings) {
-      if (data.settings.defaultHourlyRate) {
-        localStorage.setItem('defaultHourlyRate', data.settings.defaultHourlyRate);
-      }
-      if (data.settings.autoSyncEnabled !== undefined) {
-        localStorage.setItem('autoSyncEnabled', data.settings.autoSyncEnabled);
-      }
-      if (data.settings.theme) {
-        localStorage.setItem('worklog-theme', data.settings.theme);
-      }
+        if (data.settings.defaultHourlyRate) {
+            localStorage.setItem('defaultHourlyRate', data.settings.defaultHourlyRate);
+        }
+        if (data.settings.autoSyncEnabled !== undefined) {
+            localStorage.setItem('autoSyncEnabled', data.settings.autoSyncEnabled);
+        }
+        if (data.settings.theme) {
+            localStorage.setItem('worklog-theme', data.settings.theme);
+        }
+        if (data.settings.studentSortMethod) {
+            localStorage.setItem('studentSortMethod', data.settings.studentSortMethod);
+        }
     }
     
-    console.log('✅ Data saved to localStorage');
-  }
-
+    console.log('✅ Data saved to localStorage with settings');
+}
+  
   updateSyncIndicator(text, status) {
     const indicator = document.getElementById('syncIndicator');
     if (!indicator) return;
