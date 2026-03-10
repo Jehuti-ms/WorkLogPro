@@ -6626,3 +6626,27 @@ button:focus:not(:focus-visible) {
     }
 }
 
+/* Ultra simple fix - just make more space */
+@media screen and (max-width: 600px) {
+    .rate-input-wrapper {
+        max-width: 100%;
+    }
+    
+    .rate-input-wrapper input {
+        padding-left: 35px !important;
+        padding-right: 95px !important;
+        font-size: 16px !important;
+    }
+    
+    .currency-symbol {
+        left: 15px !important;
+        font-size: 16px !important;
+    }
+    
+    .rate-suffix {
+        right: 15px !important;
+        font-size: 14px !important;
+      
+    }
+}
+
