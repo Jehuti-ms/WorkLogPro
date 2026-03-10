@@ -113,23 +113,23 @@
       </div>
     </header>
      
-    <!-- Cloud Sync Bar -->
+   <!-- Cloud Sync Bar - ICONS ONLY VERSION -->
       <div class="sync-toolbar">
-        <div id="syncIndicator" class="sync-indicator online">Online</div>
+          <div id="syncIndicator" class="sync-indicator online">Online</div>
+          
+          <label class="auto-sync-label" title="Auto-sync every 30 seconds">
+              <input type="checkbox" id="autoSyncCheckbox">
+              <span class="auto-sync-text"></span>
+          </label>
         
-        <label class="auto-sync-label">
-          <input type="checkbox" id="autoSyncCheckbox">
-          <span class="auto-sync-text" id="autoSyncText">Manual</span>
-        </label>
-      
-        <button id="syncBtn" class="button primary">🔄 Sync Now</button>
-        <button id="exportCloudBtn" class="button success">Export Cloud</button>
-        <button id="importCloudBtn" class="button info">Import Cloud</button>
-        <button id="syncStatsBtn" class="button light">Fix Stats</button>
-      
-        <button id="exportDataBtn" class="button primary">📤 Export Data</button>
-        <button id="importDataBtn" class="button primary">📥 Import Data</button>
-        <button id="clearDataBtn" class="button danger">🗑️ Clear All</button>
+          <button id="syncBtn" class="button primary" title="Sync Now">🔄</button>
+          <button id="exportCloudBtn" class="button success" title="Export to Cloud">☁️⬆️</button>
+          <button id="importCloudBtn" class="button info" title="Import from Cloud">☁️⬇️</button>
+          <button id="syncStatsBtn" class="button warning" title="Fix Statistics">🔧</button>
+        
+          <button id="exportDataBtn" class="button primary" title="Export Data to File">📤</button>
+          <button id="importDataBtn" class="button primary" title="Import Data from File">📥</button>
+          <button id="clearDataBtn" class="button danger" title="Clear All Data">🗑️</button>
       </div>
 
     <!-- Tabs -->
