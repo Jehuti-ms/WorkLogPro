@@ -6319,3 +6319,56 @@ button:focus:not(:focus-visible) {
     #clearDataBtn { grid-column: 1 / span 2; grid-row: 5; }
 }
 
+/* Make worklog container match form height */
+.worklog-history-container {
+    height: fit-content;
+    max-height: 800px;
+    display: flex;
+    flex-direction: column;
+}
+
+.worklog-container {
+    flex: 1;
+    max-height: 600px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+/* For the form grid to have equal height columns */
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+.form-grid > .section-card {
+    height: fit-content;
+    min-height: 500px; /* Minimum height */
+    display: flex;
+    flex-direction: column;
+}
+
+.form-grid > .section-card:last-child {
+    max-height: 800px;
+}
+
+/* Scrollbar styling */
+.worklog-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.worklog-container::-webkit-scrollbar-track {
+    background: var(--background);
+    border-radius: 10px;
+}
+
+.worklog-container::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
+}
+
+.worklog-container::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-dark);
+}
+
