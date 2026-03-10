@@ -6372,3 +6372,48 @@ button:focus:not(:focus-visible) {
     background: var(--primary-dark);
 }
 
+/* Worklog container height matching */
+.worklog-history-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 600px;
+}
+
+.worklog-container {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 500px;
+    padding-right: 5px;
+}
+
+/* Scrollbar styling */
+.worklog-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.worklog-container::-webkit-scrollbar-track {
+    background: var(--background);
+    border-radius: 10px;
+}
+
+.worklog-container::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
+}
+
+.worklog-container::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-dark);
+}
+
+/* Ensure form grid columns are equal height */
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: stretch;
+}
+
+.form-grid > .section-card {
+    height: 100%;
+}
