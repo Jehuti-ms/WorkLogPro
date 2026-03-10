@@ -49,7 +49,6 @@ class SyncService {
   }
 
  // In sync-service.js, modify the sync method:
-
 async sync(force = false, showNotifications = false) {
     if (this.syncInProgress) {
         console.log('⚠️ Sync already in progress');
@@ -67,7 +66,6 @@ async sync(force = false, showNotifications = false) {
         console.log('🔄 Starting sync...');
         this.updateSyncIndicator('Syncing...', 'syncing');
 
-        // Check authentication
         const user = await this.getCurrentUser();
         if (!user) {
             console.log('⚠️ No authenticated user');
@@ -78,23 +76,22 @@ async sync(force = false, showNotifications = false) {
 
         console.log(`👤 Syncing as: ${user.email}`);
 
-        // STEP 1: Get local data (THIS IS YOUR CURRENT DATA)
+        // STEP 1: Get local data
         const localData = this.getAllLocalData();
-        console.log(`📊 Local data: ${localData.students.length} students`);
-        console.log(`💰 Local rate: $${localData.settings.defaultHourlyRate}`);
+        console.log(`📊 Local data: ${localData.students?.length || 0} students, ${localData.worklogs?.length || 0} worklogs`);
         
         // STEP 2: ALWAYS SAVE LOCAL TO FIREBASE FIRST (PUSH)
         console.log('☁️ Pushing local data to Firebase...');
         await this.saveToFirestore(user.uid, localData);
         console.log('✅ Local data pushed to Firebase');
         
-        // STEP 3: THEN GET REMOTE DATA (PULL)
+        // STEP 3: THEN GET REMOTE DATA (PULL) - EVEN IF JUST PUSHED, GET THE SERVER TIMESTAMP VERSION
         console.log('☁️ Pulling data from Firebase...');
         const remoteData = await this.getRemoteData(user.uid);
         
         // STEP 4: Update local storage with remote data
         if (remoteData) {
-            console.log('📊 Remote data received');
+            console.log(`📊 Remote data received: ${remoteData.worklogs?.length || 0} worklogs`);
             this.saveToLocalStorage(remoteData);
             console.log('✅ Local storage updated from Firebase');
         }
