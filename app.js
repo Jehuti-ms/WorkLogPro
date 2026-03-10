@@ -1635,20 +1635,37 @@ function populateStudentDropdowns() {
 }
 
 function updateGlobalStats() {
+  console.log('📈 Updating global stats...');
+  
+  // Get data from all sources
   const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
   const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
+  const worklogs = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
   
-  const totalHours = hours.reduce((sum, h) => sum + (parseFloat(h.hoursWorked) || 0), 0);
-  const avgRate = students.length ? 
-    students.reduce((sum, s) => sum + (parseFloat(s.rate || s.hourlyRate || 0)), 0) / students.length : 0;
+  // Calculate total hours from both sources
+  const hoursFromHoursTab = hours.reduce((sum, hour) => sum + (parseFloat(hour.hoursWorked) || 0), 0);
+  const hoursFromWorklog = worklogs.reduce((sum, entry) => sum + (parseFloat(entry.duration) || 0), 0);
   
-  const studentCount = document.getElementById('statStudents');
+  // Combined total hours
+  const totalHours = hoursFromHoursTab + hoursFromWorklog;
+  
+  // Calculate average rate from students
+  let avgRate = 0;
+  if (students.length > 0) {
+    const totalRate = students.reduce((sum, student) => sum + (parseFloat(student.rate || student.hourlyRate || 0)), 0);
+    avgRate = totalRate / students.length;
+  }
+  
+  // Update UI elements
+  const studentCountElem = document.getElementById('statStudents');
   const hoursElem = document.getElementById('statHours');
   const avgRateElem = document.getElementById('averageRate');
   
-  if (studentCount) studentCount.textContent = students.length;
+  if (studentCountElem) studentCountElem.textContent = students.length;
   if (hoursElem) hoursElem.textContent = totalHours.toFixed(1);
   if (avgRateElem) avgRateElem.textContent = avgRate.toFixed(2);
+  
+  console.log(`📊 Global stats updated - Students: ${students.length}, Hours: ${totalHours.toFixed(1)}`);
 }
 
 function showNotification(message, type = 'info') {
