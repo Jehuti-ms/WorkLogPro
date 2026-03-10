@@ -594,7 +594,7 @@ printDocument(type) {
                     hours: 0
                 };
             }
-            groupedEntries[date].sessions += 1;
+            groupedEntries[date].sessions += entry.sessions || 1; 
             groupedEntries[date].hours += entry.duration || 0;
         });
         
