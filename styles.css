@@ -6510,3 +6510,119 @@ button:focus:not(:focus-visible) {
         min-height: auto;
     }
 }
+
+/* ==================== WORKLOG TAB - FIXED SCROLLING ==================== */
+
+/* Main grid layout */
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: stretch;
+}
+
+/* Both cards - fixed height, not growing with content */
+.form-grid > .section-card {
+    display: flex;
+    flex-direction: column;
+    height: 650px; /* Fixed height instead of min-height */
+    max-height: 650px; /* Prevent growing */
+    margin: 0;
+    overflow: hidden; /* Hide any overflow */
+}
+
+/* Left column - Form - scroll if needed */
+.form-grid > .section-card:first-child {
+    height: 650px;
+    max-height: 650px;
+    overflow-y: auto; /* Make form scroll if content is too tall */
+}
+
+/* Right column - History - fixed height */
+.form-grid > .section-card:last-child {
+    height: 650px;
+    max-height: 650px;
+    overflow: hidden; /* Hide overflow, we'll handle scrolling inside */
+}
+
+/* Worklog history container - takes full height of parent */
+.worklog-history-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    overflow: hidden; /* Important! */
+}
+
+/* Filter bar - fixed at top, never scrolls */
+.worklog-filters {
+    flex-shrink: 0;
+    margin-bottom: 12px;
+    padding: 0 2px;
+}
+
+/* Scrollable container - THIS is what should scroll */
+.worklog-container {
+    flex: 1;
+    overflow-y: auto !important; /* Force scrolling */
+    padding-right: 8px;
+    min-height: 0; /* Critical for flex scrolling */
+    max-height: 100%; /* Don't grow beyond parent */
+}
+
+/* Form scrolling */
+#worklogForm {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto; /* Make form scroll if needed */
+    padding-right: 5px;
+}
+
+/* Form groups spacing */
+.form-group {
+    margin-bottom: 12px;
+    flex-shrink: 0; /* Don't shrink form elements */
+}
+
+/* Form actions at bottom - sticky */
+.form-actions {
+    margin-top: auto;
+    padding-top: 15px;
+    flex-shrink: 0;
+    background: var(--surface); /* Match background */
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+}
+
+/* Ensure cards don't cause growth */
+.worklog-card {
+    margin-bottom: 12px;
+    flex-shrink: 0; /* Don't shrink cards */
+}
+
+/* Last card shouldn't have margin */
+.worklog-card:last-child {
+    margin-bottom: 0;
+}
+
+/* Responsive */
+@media screen and (max-width: 768px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-grid > .section-card {
+        height: auto;
+        max-height: none;
+        min-height: 500px;
+    }
+    
+    .form-grid > .section-card:first-child,
+    .form-grid > .section-card:last-child {
+        height: auto;
+        max-height: none;
+    }
+}
+
