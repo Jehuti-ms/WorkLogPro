@@ -5257,3 +5257,544 @@ button:focus:not(:focus-visible) {
         transition-duration: 0.01ms !important;
     }
 }
+
+/* ==================== 300px - 900px RESPONSIVE BREAKPOINTS ==================== */
+
+/* Large phones to small tablets (600px - 900px) */
+@media screen and (min-width: 600px) and (max-width: 900px) {
+    .container {
+        padding: 0 20px;
+    }
+    
+    /* Header */
+    .header {
+        padding: 15px;
+    }
+    
+    .logo-title {
+        flex-direction: row;
+        justify-content: center;
+    }
+    
+    .header h1 {
+        font-size: 1.6rem;
+    }
+    
+    /* Tabs - 3 columns */
+    .tabs {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 5px;
+    }
+    
+    .tab {
+        padding: 12px 8px;
+        font-size: 0.9rem;
+    }
+    
+    /* Grid layouts */
+    .form-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+    
+    .summary-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    /* Cards */
+    .student-card {
+        padding: 18px;
+    }
+    
+    .worklog-card {
+        padding: 20px;
+    }
+    
+    .worklog-header {
+        flex-direction: row;
+        align-items: center;
+    }
+    
+    /* Sync toolbar */
+    .sync-toolbar {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .sync-toolbar button {
+        flex: 1 1 calc(50% - 10px);
+    }
+}
+
+/* Medium phones (400px - 600px) */
+@media screen and (min-width: 400px) and (max-width: 600px) {
+    .container {
+        padding: 0 15px;
+    }
+    
+    /* Header */
+    .header {
+        padding: 12px;
+    }
+    
+    .header h1 {
+        font-size: 1.4rem;
+    }
+    
+    .subtitle {
+        font-size: 0.85rem;
+    }
+    
+    /* Tabs - 2 columns */
+    .tabs {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 4px;
+    }
+    
+    .tab {
+        padding: 10px 5px;
+        font-size: 0.8rem;
+    }
+    
+    /* Grid layouts - single column */
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .summary-cards {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    /* Section headers */
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .section-header h2 {
+        font-size: 1.3rem;
+    }
+    
+    .student-stats {
+        width: 100%;
+        justify-content: space-between;
+        font-size: 0.85rem;
+    }
+    
+    /* Cards */
+    .student-card {
+        padding: 15px;
+    }
+    
+    .student-card-header {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .student-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+    
+    /* Worklog cards */
+    .worklog-card {
+        padding: 18px;
+    }
+    
+    .worklog-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .worklog-date-badge {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .worklog-metadata {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .worklog-metadata-item {
+        width: 100%;
+    }
+    
+    .worklog-footer {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .worklog-actions {
+        width: 100%;
+        gap: 8px;
+    }
+    
+    .worklog-btn {
+        flex: 1;
+        padding: 10px;
+        font-size: 0.85rem;
+    }
+    
+    /* Forms */
+    .form-row {
+        grid-template-columns: 1fr !important;
+        gap: 10px;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .form-actions button {
+        width: 100%;
+    }
+    
+    /* Sync toolbar */
+    .sync-toolbar {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .sync-toolbar button {
+        width: 100%;
+    }
+    
+    #syncIndicator {
+        width: 100% !important;
+        text-align: center;
+    }
+    
+    .auto-sync-label {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    /* Tables */
+    .table {
+        font-size: 0.8rem;
+    }
+    
+    .table th,
+    .table td {
+        padding: 8px 4px;
+    }
+    
+    /* FAB */
+    .fab {
+        width: 55px;
+        height: 55px;
+        font-size: 24px;
+    }
+    
+    .fab-menu {
+        min-width: 180px;
+    }
+    
+    .fab-item {
+        padding: 12px 15px;
+    }
+}
+
+/* Small phones (300px - 400px) */
+@media screen and (min-width: 300px) and (max-width: 400px) {
+    .container {
+        padding: 0 10px;
+    }
+    
+    /* Header */
+    .header {
+        padding: 10px;
+    }
+    
+    .logo {
+        width: 28px;
+        height: 28px;
+    }
+    
+    .header h1 {
+        font-size: 1.2rem;
+    }
+    
+    .subtitle {
+        font-size: 0.75rem;
+    }
+    
+    .storage-status {
+        font-size: 0.7rem;
+        gap: 8px;
+    }
+    
+    /* Tabs - 2 columns */
+    .tabs {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 3px;
+    }
+    
+    .tab {
+        padding: 8px 3px;
+        font-size: 0.7rem;
+    }
+    
+    /* Section headers */
+    .section-header h2 {
+        font-size: 1.1rem;
+    }
+    
+    .section-header h3 {
+        font-size: 1rem;
+    }
+    
+    .student-stats {
+        font-size: 0.7rem;
+        flex-wrap: wrap;
+    }
+    
+    .stat-badge {
+        padding: 3px 8px;
+        font-size: 0.7rem;
+    }
+    
+    /* Cards */
+    .student-card {
+        padding: 12px;
+    }
+    
+    .student-card-header strong {
+        font-size: 0.95rem;
+    }
+    
+    .student-id {
+        font-size: 0.6rem;
+        padding: 2px 6px;
+    }
+    
+    .student-rate {
+        font-size: 0.85rem;
+    }
+    
+    .student-details {
+        font-size: 0.8rem;
+    }
+    
+    .student-meta {
+        font-size: 0.65rem;
+    }
+    
+    /* Worklog cards */
+    .worklog-card {
+        padding: 15px;
+    }
+    
+    .worklog-entity-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 16px;
+    }
+    
+    .worklog-entity-name {
+        font-size: 1rem;
+    }
+    
+    .worklog-entity-detail {
+        font-size: 0.75rem;
+        padding: 2px 6px;
+    }
+    
+    .worklog-date-badge {
+        font-size: 0.75rem;
+        padding: 6px 8px;
+    }
+    
+    .worklog-duration-badge {
+        font-size: 0.65rem;
+        padding: 2px 6px;
+    }
+    
+    .worklog-metadata-item {
+        font-size: 0.75rem;
+    }
+    
+    .worklog-chip {
+        font-size: 0.7rem;
+        padding: 4px 8px;
+    }
+    
+    .worklog-earnings {
+        font-size: 1.1rem;
+        padding: 8px 0;
+    }
+    
+    .worklog-earnings span {
+        font-size: 0.85rem;
+    }
+    
+    .worklog-section-title {
+        font-size: 0.85rem;
+    }
+    
+    .worklog-section-content {
+        font-size: 0.75rem;
+        padding: 8px;
+    }
+    
+    .worklog-timestamp {
+        font-size: 0.65rem;
+    }
+    
+    .worklog-btn {
+        padding: 8px 12px;
+        font-size: 0.75rem;
+    }
+    
+    /* Forms */
+    .form-group label {
+        font-size: 0.8rem;
+    }
+    
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        padding: 8px;
+        font-size: 0.8rem;
+    }
+    
+    .help-text {
+        font-size: 0.65rem;
+    }
+    
+    /* Buttons */
+    .button {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+    }
+    
+    .button.small {
+        padding: 6px 10px;
+        font-size: 0.7rem;
+    }
+    
+    /* Tables */
+    .table {
+        font-size: 0.65rem;
+    }
+    
+    .table th,
+    .table td {
+        padding: 6px 3px;
+    }
+    
+    /* FAB */
+    .fab {
+        width: 45px;
+        height: 45px;
+        font-size: 20px;
+        bottom: 10px;
+        right: 10px;
+    }
+    
+    .fab-menu {
+        min-width: 150px;
+        bottom: 55px;
+        right: 0;
+    }
+    
+    .fab-item {
+        padding: 10px 12px;
+        font-size: 0.75rem;
+    }
+    
+    .fab-item .icon {
+        font-size: 16px;
+        margin-right: 6px;
+    }
+    
+    /* Modals */
+    .modal-content {
+        padding: 15px;
+    }
+    
+    .modal-header h2 {
+        font-size: 1rem;
+    }
+    
+    .info-item {
+        padding: 10px;
+        font-size: 0.8rem;
+    }
+    
+    .stat-card {
+        padding: 12px;
+    }
+    
+    .stat-value {
+        font-size: 1.2rem;
+    }
+    
+    .stat-label {
+        font-size: 0.7rem;
+    }
+    
+    /* Empty states */
+    .empty-message {
+        padding: 25px 10px;
+        font-size: 0.8rem;
+    }
+    
+    .worklog-empty-icon {
+        font-size: 32px;
+    }
+    
+    .worklog-empty-text {
+        font-size: 0.9rem;
+    }
+    
+    .worklog-empty-subtext {
+        font-size: 0.7rem;
+    }
+    
+    /* Notifications */
+    .notification {
+        min-width: 250px;
+        right: 10px;
+        left: 10px;
+    }
+    
+    .notification-content {
+        padding: 12px;
+    }
+    
+    .notification-message {
+        font-size: 0.8rem;
+    }
+}
+
+/* Extra small height adjustments */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+    .fab-container {
+        bottom: 5px;
+        right: 5px;
+    }
+    
+    .fab {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+    }
+    
+    .fab-menu {
+        bottom: 45px;
+    }
+    
+    .modal-content {
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+}
