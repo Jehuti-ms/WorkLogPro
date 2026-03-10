@@ -303,10 +303,11 @@ class WorklogManager {
     let entryData = {
         workType: workType,
         paymentType: document.getElementById('worklogPaymentType')?.value || 'hourly',
-        date: document.getElementById('worklogDate').value, // THIS IS CRITICAL
+        date: document.getElementById('worklogDate').value,
         subject: document.getElementById('worklogSubject').value.trim(),
         topic: document.getElementById('worklogTopic').value.trim(),
         duration: parseFloat(document.getElementById('worklogDuration').value),
+        sessions: parseInt(document.getElementById('worklogSessions').value) || 1, 
         rate: parseFloat(document.getElementById('worklogRate').value),
         description: document.getElementById('worklogDescription').value.trim(),
         outcomes: document.getElementById('worklogOutcomes').value.trim(),
