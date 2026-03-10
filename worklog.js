@@ -530,6 +530,10 @@ updateUI() {
                         <span class="worklog-metadata-icon">💰</span>
                         <span><strong>Type:</strong> <span class="worklog-payment-tag">${this.formatPaymentType(entry.paymentType)}</span></span>
                     </div>
+                    <div class="worklog-metadata-item">
+                        <span class="worklog-metadata-icon">🔄</span>
+                        <span><strong>Sessions:</strong> ${entry.sessions || 1}</span>
+                    </div>
                 </div>
 
                 <div class="worklog-earnings">
