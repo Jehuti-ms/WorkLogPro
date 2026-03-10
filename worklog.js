@@ -57,32 +57,41 @@ class WorklogManager {
         }
     }
 
-    loadEntries() {
-        try {
-            this.entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
-            console.log(`✅ Loaded ${this.entries.length} worklog entries`);
-        } catch (error) {
-            console.error('Error loading entries:', error);
-            this.entries = [];
+   loadEntries() {
+    try {
+        this.entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+        console.log(`✅ Loaded ${this.entries.length} worklog entries`);
+        
+        // Update stats on load
+        if (typeof updateGlobalStats === 'function') {
+            updateGlobalStats();
         }
+        
+        return this.entries;
+    } catch (error) {
+        console.error('Error loading entries:', error);
+        this.entries = [];
+        return [];
     }
+}
 
  saveEntries() {
     try {
         localStorage.setItem('worklog_entries', JSON.stringify(this.entries));
         console.log(`✅ Saved ${this.entries.length} entries to localStorage`);
         
-        // Log the first entry to verify date is saved
-        if (this.entries.length > 0) {
-            console.log('Sample entry date:', this.entries[0].date);
+        // Trigger global stats update
+        if (typeof updateGlobalStats === 'function') {
+            updateGlobalStats();
+            console.log('📊 Global stats updated from worklog');
         }
         
-        // Trigger refresh for profile stats
-        if (typeof refreshAllStats === 'function') {
-            refreshAllStats();
+        // Trigger profile stats update
+        if (typeof updateProfileStats === 'function') {
+            updateProfileStats();
         }
         
-        // Trigger update for reports
+        // Trigger refresh for reports
         document.dispatchEvent(new Event('worklogUpdated'));
         
         if (window.syncService && firebase.auth().currentUser) {
@@ -149,23 +158,21 @@ class WorklogManager {
         return newInst;
     }
 
-    deleteEntry(entryId) {
-        try {
-            if (!confirm('Delete this worklog entry?')) return false;
-            
-            this.entries = this.entries.filter(e => e.id !== entryId);
-            this.saveEntries();
-            this.updateUI();
-            this.updateStats();
-            
-            console.log('✅ Entry deleted:', entryId);
-            return true;
-        } catch (error) {
-            console.error('❌ Error deleting entry:', error);
-            return false;
-        }
+   deleteEntry(entryId) {
+    try {
+        if (!confirm('Delete this worklog entry?')) return false;
+        
+        this.entries = this.entries.filter(e => e.id !== entryId);
+        this.saveEntries(); // This already calls updateGlobalStats
+        
+        console.log('✅ Entry deleted:', entryId);
+        return true;
+    } catch (error) {
+        console.error('❌ Error deleting entry:', error);
+        return false;
     }
-
+}
+    
    editEntry(entryId) {
     const entry = this.entries.find(e => e.id === entryId);
     if (!entry) return;
