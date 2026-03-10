@@ -697,7 +697,7 @@ Culloden Road, St. Michael</textarea>
   </div>
 </div>
 
-    <!-- Worklog Tab -->
+  <!-- Worklog Tab -->
 <div id="worklog" class="tabcontent">
   <div class="section-header">
     <h2>📝 Worklog</h2>
@@ -708,9 +708,11 @@ Culloden Road, St. Michael</textarea>
     </div>
   </div>
 
-  <div class="form-grid">
-    <!-- Add Worklog Form -->
-    <div class="section-card">
+  <!-- Main Content Grid - Equal height columns -->
+  <div class="form-grid" style="grid-template-columns: 1fr 1fr; align-items: stretch; gap: 20px;">
+    
+    <!-- LEFT COLUMN - Worklog Form -->
+    <div class="section-card" style="display: flex; flex-direction: column; height: fit-content;">
       <h3>➕ Log Work</h3>
       <form id="worklogForm">
         <!-- Work Type Toggle -->
@@ -726,7 +728,7 @@ Culloden Road, St. Michael</textarea>
           </div>
         </div>
 
-        <!-- Student Selection (shown by default) -->
+        <!-- Student Selection -->
         <div id="studentSection" class="work-section">
           <div class="form-group">
             <label for="worklogStudent">Select Student *</label>
@@ -736,7 +738,7 @@ Culloden Road, St. Michael</textarea>
           </div>
         </div>
 
-        <!-- Institution Section (hidden by default) -->
+        <!-- Institution Section -->
         <div id="institutionSection" class="work-section" style="display: none;">
           <div class="form-group">
             <label for="worklogInstitution">Institution Name *</label>
@@ -748,7 +750,7 @@ Culloden Road, St. Michael</textarea>
           </div>
         </div>
 
-        <!-- ===== PAYMENT TYPE DROPDOWN (from Hours tab) ===== -->
+        <!-- Payment Type Dropdown -->
         <div class="form-group">
           <label for="worklogPaymentType">Payment Type</label>
           <select id="worklogPaymentType" class="form-control">
@@ -759,11 +761,6 @@ Culloden Road, St. Michael</textarea>
             <option value="consultation">Consultation</option>
             <option value="other">One-off Job</option>
           </select>
-          <div class="help-text">
-            • Hourly: Charged per hour worked<br>
-            • Session/Consultation: Flat fee per meeting<br>
-            • Contract/Project/One-off: Fixed amount for the job
-          </div>
         </div>
 
         <!-- Common Fields -->
@@ -790,7 +787,6 @@ Culloden Road, St. Michael</textarea>
         <div class="form-group">
           <label for="worklogRate">Hourly Rate ($) *</label>
           <input type="number" id="worklogRate" step="0.01" min="0" value="25.00" required>
-          <small>Default rate: <span id="worklogDefaultRate">25.00</span></small>
         </div>
 
         <div class="form-group">
@@ -819,24 +815,35 @@ Culloden Road, St. Michael</textarea>
         </div>
       </form>
     </div>
-    
 
-    <!-- Worklog History -->
-    <div class="section-card">
+    <!-- RIGHT COLUMN - Worklog History (Now matches height) -->
+    <div class="section-card worklog-history-container" style="display: flex; flex-direction: column; height: 100%; min-height: 600px;">
       <h3>📋 Worklog History</h3>
-      <div class="worklog-filters" style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-        <select id="worklogFilterType" style="flex: 1; min-width: 120px;">
+      
+      <!-- Filter Bar with Sort Option -->
+      <div class="worklog-filters" style="display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap;">
+        <select id="worklogFilterType" style="flex: 1; min-width: 100px; padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
           <option value="">All Types</option>
           <option value="student">👤 Students</option>
           <option value="institution">🏢 Institutions</option>
         </select>
-        <select id="worklogFilterEntity" style="flex: 2;">
+        
+        <select id="worklogFilterEntity" style="flex: 1.5; padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
           <option value="">All</option>
         </select>
-        <input type="text" id="worklogSearch" placeholder="🔍 Search..." style="flex: 2;">
+        
+        <input type="text" id="worklogSearch" placeholder="🔍 Search..." style="flex: 2; padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
+        
+        <!-- Sort Order Dropdown -->
+        <select id="worklogSortOrder" style="flex: 0.8; padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
+          <option value="newest">Newest First</option>
+          <option value="oldest">Oldest First</option>
+        </select>
       </div>
-      <div id="worklogContainer" class="worklog-container">
-        <p class="empty-message">No worklog entries yet.</p>
+      
+      <!-- Scrollable Worklog Container -->
+      <div id="worklogContainer" class="worklog-container" style="flex: 1; overflow-y: auto; max-height: 500px; padding-right: 5px;">
+        <!-- Worklog cards will be injected here -->
       </div>
     </div>
   </div>
