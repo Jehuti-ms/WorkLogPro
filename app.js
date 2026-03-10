@@ -861,7 +861,7 @@ function initSyncControls() {
     newSyncBtn.addEventListener('click', handleSync);
   }
   
-  // Auto-sync Checkbox
+  // Auto-sync Checkbox with visual indicator
   const autoSyncCheckbox = document.getElementById('autoSyncCheckbox');
   const autoSyncText = document.getElementById('autoSyncText');
   
@@ -870,6 +870,16 @@ function initSyncControls() {
     autoSyncCheckbox.checked = autoSyncEnabled;
     if (autoSyncText) autoSyncText.textContent = autoSyncEnabled ? 'Auto' : 'Manual';
     
+    // Add visual indicator class to parent label
+    const autoSyncLabel = autoSyncCheckbox.closest('.auto-sync-label');
+    if (autoSyncLabel) {
+      if (autoSyncEnabled) {
+        autoSyncLabel.classList.add('auto-enabled');
+      } else {
+        autoSyncLabel.classList.remove('auto-enabled');
+      }
+    }
+    
     const newCheckbox = autoSyncCheckbox.cloneNode(true);
     autoSyncCheckbox.parentNode.replaceChild(newCheckbox, autoSyncCheckbox);
     
@@ -877,6 +887,16 @@ function initSyncControls() {
       const isChecked = this.checked;
       if (autoSyncText) autoSyncText.textContent = isChecked ? 'Auto' : 'Manual';
       localStorage.setItem('autoSyncEnabled', isChecked);
+      
+      // Update visual indicator
+      const label = this.closest('.auto-sync-label');
+      if (label) {
+        if (isChecked) {
+          label.classList.add('auto-enabled');
+        } else {
+          label.classList.remove('auto-enabled');
+        }
+      }
       
       if (hasSyncService) {
         if (isChecked) {
@@ -923,6 +943,16 @@ function initSyncControls() {
   });
   
   console.log('✅ Sync controls initialized');
+}
+
+// Helper function to setup buttons (keep this as is)
+function setupButton(id, handler) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  
+  const newBtn = btn.cloneNode(true);
+  btn.parentNode.replaceChild(newBtn, btn);
+  newBtn.addEventListener('click', handler);
 }
 
 function setupButton(id, handler) {
