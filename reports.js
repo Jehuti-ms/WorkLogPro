@@ -266,123 +266,120 @@ class ReportManager {
   
 
     // ==================== BVTB CLAIM FORM GENERATION ====================
-    generateClaimForm() {
-        // Get form values
-        const name = document.getElementById('claimName')?.value || 'David Moseley';
-        const address = document.getElementById('claimAddress')?.value || '142 Coles Terrace, St.Philip';
-        const homePhone = document.getElementById('claimHomePhone')?.value || '572-8040';
-        const workPhone = document.getElementById('claimWorkPhone')?.value || '1367-8221';
-        const programme = document.getElementById('claimProgramme')?.value || 'Cosmetology';
-        const startDate = document.getElementById('claimStartDate')?.value;
-        const endDate = document.getElementById('claimEndDate')?.value;
-        
-        if (!startDate || !endDate) {
-            alert('Please select start and end dates');
-            return;
+   generateClaimForm() {
+       console.log(`📊 Date ${date}: +${sessionCount} sessions, ${entry.duration} hours`);
+       
+    // Get form values
+    const name = document.getElementById('claimName')?.value || 'David Moseley';
+    const address = document.getElementById('claimAddress')?.value || '142 Coles Terrace, St.Philip';
+    const homePhone = document.getElementById('claimHomePhone')?.value || '572-8040';
+    const workPhone = document.getElementById('claimWorkPhone')?.value || '1367-8221';
+    const programme = document.getElementById('claimProgramme')?.value || 'Cosmetology';
+    const startDate = document.getElementById('claimStartDate')?.value;
+    const endDate = document.getElementById('claimEndDate')?.value;
+    
+    if (!startDate || !endDate) {
+        alert('Please select start and end dates');
+        return;
+    }
+    
+    // Get entries in date range
+    const entries = this.getEntriesInDateRange(startDate, endDate);
+    
+    if (entries.length === 0) {
+        alert('No worklog entries found in this date range');
+        return;
+    }
+    
+    // Group entries by date with session counting
+    const groupedEntries = {};
+    entries.forEach(entry => {
+        const date = entry.date;
+        if (!groupedEntries[date]) {
+            groupedEntries[date] = {
+                date: date,
+                sessions: 0,
+                hours: 0
+            };
         }
         
-        // Get entries in date range
-        const entries = this.getEntriesInDateRange(startDate, endDate);
+        // USE THE SAVED SESSIONS FIELD - THIS IS THE KEY FIX!
+        const sessionCount = entry.sessions || 1; // Default to 1 if not set
+        groupedEntries[date].sessions += sessionCount;
+        groupedEntries[date].hours += entry.duration || 0;
         
-        if (entries.length === 0) {
-            alert('No worklog entries found in this date range');
-            return;
-        }
-        
-        // Group entries by date
-        const groupedEntries = {};
-        entries.forEach(entry => {
-            const date = entry.date;
-            if (!groupedEntries[date]) {
-                groupedEntries[date] = {
-                    date: date,
-                    sessions: 0,
-                    hours: 0
-                };
-            }
-            groupedEntries[date].sessions += 1;
-            groupedEntries[date].hours += entry.duration || 0;
-        });
-        
-        // Sort by date
-        const sortedEntries = Object.values(groupedEntries).sort((a, b) => 
-            new Date(a.date) - new Date(b.date)
-        );
-        
-        // Calculate totals
-        const totalSessions = sortedEntries.reduce((sum, e) => sum + e.sessions, 0);
-        const totalHours = sortedEntries.reduce((sum, e) => sum + e.hours, 0);
-        
-        // Format dates for display
-        const formatDisplayDate = (dateStr) => {
-            const [year, month, day] = dateStr.split('-');
-            return `${day}/${month}/${year}`;
-        };
-        
-        // Create claim form HTML
-        const claimHTML = `
-            <div style="font-family: 'Courier New', monospace; max-width: 800px; margin: 0 auto; padding: 20px; background: white; color: black;">
-                <h2 style="text-align: center; margin-bottom: 30px; color: #000;">Social Skills Programme Claim Form</h2>
-                
-                <div style="margin-bottom: 30px; color: #000;">
-                    <p><strong>Name:</strong> ${name}</p>
-                    <p><strong>Address:</strong> ${address}</p>
-                    <p><strong>Tel Nos:</strong> Home: ${homePhone} (Work: ${workPhone})</p>
+        console.log(`📊 Date ${date}: +${sessionCount} sessions, ${entry.duration} hours`);
+    });
+    
+    // Sort by date
+    const sortedEntries = Object.values(groupedEntries).sort((a, b) => 
+        new Date(a.date) - new Date(b.date)
+    );
+    
+    // Calculate totals
+    const totalSessions = sortedEntries.reduce((sum, e) => sum + e.sessions, 0);
+    const totalHours = sortedEntries.reduce((sum, e) => sum + e.hours, 0);
+    
+    console.log(`📊 Claim Form Totals: ${totalSessions} sessions, ${totalHours} hours`);
+    
+    // Format dates for display
+    const formatDisplayDate = (dateStr) => {
+        const [year, month, day] = dateStr.split('-');
+        return `${day}/${month}/${year}`;
+    };
+    
+    // Create claim form HTML
+    const claimHTML = `
+        <div style="font-family: 'Courier New', monospace; max-width: 800px; margin: 0 auto; padding: 20px; background: white; color: black;">
+            <h2 style="text-align: center; margin-bottom: 30px; color: #000;">Social Skills Programme Claim Form</h2>
+            
+            <div style="margin-bottom: 30px; color: #000;">
+                <p><strong>Name:</strong> ${name}</p>
+                <p><strong>Address:</strong> ${address}</p>
+                <p><strong>Tel Nos:</strong> Home: ${homePhone} (Work: ${workPhone})</p>
+            </div>
+            
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; color: #000;">
+                <thead>
+                    <tr style="background: #f0f0f0;">
+                        <th style="border: 1px solid #000; padding: 10px; text-align: left;">Date</th>
+                        <th style="border: 1px solid #000; padding: 10px; text-align: left;">Programme</th>
+                        <th style="border: 1px solid #000; padding: 10px; text-align: center;">Sessions</th>
+                        <th style="border: 1px solid #000; padding: 10px; text-align: center;">Hours</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${sortedEntries.map(entry => `
+                        <tr>
+                            <td style="border: 1px solid #000; padding: 10px;">${formatDisplayDate(entry.date)}</td>
+                            <td style="border: 1px solid #000; padding: 10px;">${programme}</td>
+                            <td style="border: 1px solid #000; padding: 10px; text-align: center;">${entry.sessions}</td>
+                            <td style="border: 1px solid #000; padding: 10px; text-align: center;">${entry.hours.toFixed(1)}</td>
+                        </tr>
+                    `).join('')}
+                    <tr style="background: #f9f9f9; font-weight: bold;">
+                        <td style="border: 1px solid #000; padding: 10px;" colspan="2">Totals</td>
+                        <td style="border: 1px solid #000; padding: 10px; text-align: center;">${totalSessions}</td>
+                        <td style="border: 1px solid #000; padding: 10px; text-align: center;">${totalHours.toFixed(1)}</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div style="display: flex; justify-content: space-between; margin-top: 50px; color: #000;">
+                <div>
+                    <p>Signature _________________________</p>
+                    <p>Date _________________________</p>
                 </div>
-                
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; color: #000;">
-                    <thead>
-                        <tr style="background: #f0f0f0;">
-                            <th style="border: 1px solid #000; padding: 10px; text-align: left;">Date</th>
-                            <th style="border: 1px solid #000; padding: 10px; text-align: left;">Programme</th>
-                            <th style="border: 1px solid #000; padding: 10px; text-align: center;">Sessions</th>
-                            <th style="border: 1px solid #000; padding: 10px; text-align: center;">Hours</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${sortedEntries.map(entry => `
-                            <tr>
-                                <td style="border: 1px solid #000; padding: 10px;">${formatDisplayDate(entry.date)}</td>
-                                <td style="border: 1px solid #000; padding: 10px;">${programme}</td>
-                                <td style="border: 1px solid #000; padding: 10px; text-align: center;">${entry.sessions}</td>
-                                <td style="border: 1px solid #000; padding: 10px; text-align: center;">${entry.hours.toFixed(1)}</td>
-                            </tr>
-                        `).join('')}
-                        <tr style="background: #f9f9f9; font-weight: bold;">
-                            <td style="border: 1px solid #000; padding: 10px;" colspan="2">Totals</td>
-                            <td style="border: 1px solid #000; padding: 10px; text-align: center;">${totalSessions}</td>
-                            <td style="border: 1px solid #000; padding: 10px; text-align: center;">${totalHours.toFixed(1)}</td>
-                        </tr>
-                    </tbody>
-                </table>
-                
-                <div style="display: flex; justify-content: space-between; margin-top: 50px; color: #000;">
-                    <div>
-                        <p>Signature _________________________</p>
-                        <p>Date _________________________</p>
-                    </div>
-                    <div>
-                        <p>Verified _________________________</p>
-                    </div>
+                <div>
+                    <p>Verified _________________________</p>
                 </div>
             </div>
-        `;
-
-       // Save report metadata to Firebase
-        this.saveReportToFirebase('claim', {
-            startDate: startDate,
-            endDate: endDate,
-            totals: {
-                sessions: totalSessions,
-                hours: totalHours
-            },
-            entryCount: entries.length,
-            summary: `${programme}: ${totalSessions} sessions, ${totalHours} hours`
-        });
-        
-        // Show preview
-        this.showPreview(claimHTML, 'Claim Form');
-    }
+        </div>
+    `;
+    
+    // Show preview
+    this.showPreview(claimHTML, 'Claim Form');
+}
 
     // ==================== BVTB INVOICE GENERATION ====================
     generateInvoice() {
