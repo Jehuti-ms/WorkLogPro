@@ -233,31 +233,40 @@ class WorklogManager {
         }
     }
 
-    setupEventListeners() {
-        const form = document.getElementById('worklogForm');
-        if (form) {
-            form.addEventListener('submit', (e) => {
-                e.preventDefault();
-                this.handleSubmit();
-            });
-        }
-
-        const filterType = document.getElementById('worklogFilterType');
-        if (filterType) {
-            filterType.addEventListener('change', () => this.updateFilterDropdown());
-        }
-
-        const filterEntity = document.getElementById('worklogFilterEntity');
-        if (filterEntity) {
-            filterEntity.addEventListener('change', () => this.updateUI());
-        }
-
-        const searchInput = document.getElementById('worklogSearch');
-        if (searchInput) {
-            searchInput.addEventListener('input', () => this.updateUI());
-        }
+   setupEventListeners() {
+    const form = document.getElementById('worklogForm');
+    if (form) {
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleSubmit();
+        });
     }
 
+    const filterType = document.getElementById('worklogFilterType');
+    if (filterType) {
+        filterType.addEventListener('change', () => this.updateUI());
+    }
+
+    const filterEntity = document.getElementById('worklogFilterEntity');
+    if (filterEntity) {
+        filterEntity.addEventListener('change', () => this.updateUI());
+    }
+
+    const searchInput = document.getElementById('worklogSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => this.updateUI());
+    }
+
+    // ADD THIS - Sort order dropdown
+    const sortOrder = document.getElementById('worklogSortOrder');
+    if (sortOrder) {
+        sortOrder.addEventListener('change', () => {
+            console.log('Sort changed to:', sortOrder.value);
+            this.updateUI();
+        });
+    }
+}
+    
     updateFilterDropdown() {
         const type = document.getElementById('worklogFilterType')?.value;
         const entitySelect = document.getElementById('worklogFilterEntity');
@@ -426,22 +435,24 @@ class WorklogManager {
     }
 }
 
- updateUI() {
+updateUI() {
     const container = document.getElementById('worklogContainer');
     if (!container) return;
 
     const filterType = document.getElementById('worklogFilterType')?.value;
     const filterEntity = document.getElementById('worklogFilterEntity')?.value;
     const searchQuery = document.getElementById('worklogSearch')?.value;
-    const sortOrder = document.getElementById('worklogSortOrder')?.value || 'newest'; // ADD THIS
+    const sortOrder = document.getElementById('worklogSortOrder')?.value || 'newest'; // Get sort order
 
     let displayEntries = [...this.entries];
 
     // ===== APPLY SORTING BASED ON DATE =====
     if (sortOrder === 'newest') {
         displayEntries.sort((a, b) => new Date(b.date) - new Date(a.date));
+        console.log('📅 Sorting: Newest first');
     } else {
         displayEntries.sort((a, b) => new Date(a.date) - new Date(b.date));
+        console.log('📅 Sorting: Oldest first');
     }
 
     // Apply filters
