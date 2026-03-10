@@ -4776,3 +4776,484 @@ button:focus:not(:focus-visible) {
 .worklog-entity-detail:hover {
     background: rgba(255, 255, 255, 0.35);
 }
+
+/* ==================== RESPONSIVE BREAKPOINTS ==================== */
+
+/* Large tablets and small desktops */
+@media screen and (max-width: 1024px) {
+    .container {
+        padding: 0 15px;
+    }
+    
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .summary-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .student-stats {
+        font-size: 0.85rem;
+    }
+}
+
+/* Tablets (portrait) */
+@media screen and (max-width: 768px) {
+    /* Header */
+    .header {
+        padding: 12px;
+    }
+    
+    .logo-title {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .header h1 {
+        font-size: 1.4rem;
+    }
+    
+    .stats-row {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .storage-status {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    /* Sync Toolbar */
+    .sync-toolbar {
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px;
+    }
+    
+    .sync-toolbar button {
+        flex: 1 1 calc(50% - 8px);
+        min-width: 120px;
+        font-size: 0.85rem;
+    }
+    
+    /* Tabs */
+    .tabs {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2px;
+    }
+    
+    .tab {
+        padding: 12px 5px;
+        font-size: 0.8rem;
+        white-space: normal;
+        word-break: break-word;
+    }
+    
+    /* Section Headers */
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .section-header h2 {
+        font-size: 1.3rem;
+    }
+    
+    .student-stats {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    /* Forms */
+    .form-row {
+        grid-template-columns: 1fr !important;
+        gap: 10px;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .form-actions button {
+        width: 100%;
+    }
+    
+    /* Cards */
+    .student-card {
+        padding: 15px;
+    }
+    
+    .student-card-header {
+        flex-wrap: wrap;
+    }
+    
+    /* Worklog Cards */
+    .worklog-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .worklog-date-badge {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .worklog-metadata {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .worklog-metadata-item {
+        width: 100%;
+    }
+    
+    .worklog-footer {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .worklog-actions {
+        width: 100%;
+    }
+    
+    .worklog-btn {
+        flex: 1;
+        justify-content: center;
+    }
+    
+    /* Tables */
+    .table {
+        font-size: 0.8rem;
+    }
+    
+    .table th,
+    .table td {
+        padding: 8px 5px;
+    }
+    
+    /* Reports */
+    .summary-cards {
+        grid-template-columns: 1fr;
+    }
+    
+    .report-display {
+        padding: 10px;
+    }
+    
+    /* Modals */
+    .modal-content {
+        width: 95%;
+        margin: 20px auto;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Small phones */
+@media screen and (max-width: 480px) {
+    /* Header */
+    .header h1 {
+        font-size: 1.2rem;
+    }
+    
+    .subtitle {
+        font-size: 0.8rem;
+    }
+    
+    .storage-status {
+        font-size: 0.75rem;
+    }
+    
+    /* Tabs - 2 columns for very small screens */
+    .tabs {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .tab {
+        padding: 10px 3px;
+        font-size: 0.75rem;
+    }
+    
+    /* Sync Toolbar */
+    .sync-toolbar button {
+        flex: 1 1 100%;
+        font-size: 0.8rem;
+    }
+    
+    #syncIndicator {
+        width: 100% !important;
+        margin-right: 0 !important;
+    }
+    
+    .auto-sync-label {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    /* Cards */
+    .student-card-header strong {
+        font-size: 1rem;
+    }
+    
+    .student-id {
+        font-size: 0.65rem;
+    }
+    
+    .student-rate {
+        font-size: 0.9rem;
+    }
+    
+    /* Worklog Cards */
+    .worklog-entity-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 18px;
+    }
+    
+    .worklog-entity-name {
+        font-size: 1.1rem;
+    }
+    
+    .worklog-chip {
+        font-size: 0.75rem;
+        padding: 4px 8px;
+    }
+    
+    .worklog-earnings {
+        font-size: 1.2rem;
+    }
+    
+    .worklog-section-title {
+        font-size: 0.9rem;
+    }
+    
+    .worklog-section-content {
+        font-size: 0.85rem;
+        padding: 10px;
+    }
+    
+    /* Date badge */
+    .worklog-date-badge {
+        font-size: 0.8rem;
+        padding: 6px 10px;
+    }
+    
+    .worklog-duration-badge {
+        font-size: 0.7rem;
+        padding: 3px 8px;
+    }
+    
+    /* Forms */
+    .form-group label {
+        font-size: 0.85rem;
+    }
+    
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        padding: 10px;
+        font-size: 0.85rem;
+    }
+    
+    .help-text {
+        font-size: 0.7rem;
+    }
+    
+    /* Tables */
+    .table {
+        font-size: 0.7rem;
+    }
+    
+    .table th,
+    .table td {
+        padding: 6px 3px;
+    }
+    
+    /* FAB */
+    .fab {
+        width: 50px;
+        height: 50px;
+        font-size: 20px;
+    }
+    
+    .fab-menu {
+        min-width: 160px;
+    }
+    
+    .fab-item {
+        padding: 10px 12px;
+        font-size: 0.8rem;
+    }
+    
+    /* Modals */
+    .modal-header h2 {
+        font-size: 1.1rem;
+    }
+    
+    .info-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    .stat-value {
+        font-size: 1.2rem;
+    }
+    
+    /* Empty states */
+    .empty-message {
+        padding: 30px 15px;
+        font-size: 0.9rem;
+    }
+    
+    .worklog-empty-icon {
+        font-size: 36px;
+    }
+    
+    .worklog-empty-text {
+        font-size: 1rem;
+    }
+    
+    .worklog-empty-subtext {
+        font-size: 0.8rem;
+    }
+}
+
+/* Extra small phones */
+@media screen and (max-width: 360px) {
+    .header h1 {
+        font-size: 1rem;
+    }
+    
+    .tab {
+        padding: 8px 2px;
+        font-size: 0.7rem;
+    }
+    
+    .student-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .student-actions {
+        margin-top: 8px;
+        width: 100%;
+        justify-content: flex-end;
+    }
+    
+    .worklog-entity-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 16px;
+    }
+    
+    .worklog-entity-name {
+        font-size: 1rem;
+    }
+    
+    .worklog-chip {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .worklog-chips {
+        flex-direction: column;
+    }
+    
+    .worklog-actions {
+        flex-direction: column;
+    }
+    
+    .worklog-btn {
+        width: 100%;
+    }
+}
+
+/* Landscape orientation fix for phones */
+@media screen and (max-height: 480px) and (orientation: landscape) {
+    .modal-content {
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    
+    .fab-container {
+        bottom: 10px;
+        right: 10px;
+    }
+    
+    .fab {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+    }
+    
+    .fab-menu {
+        bottom: 50px;
+    }
+}
+
+/* Print styles */
+@media print {
+    .header,
+    .sync-toolbar,
+    .tabs,
+    .fab-container,
+    .modal,
+    .notification,
+    .form-actions,
+    button {
+        display: none !important;
+    }
+    
+    .container {
+        padding: 0;
+        max-width: 100%;
+    }
+    
+    .tabcontent {
+        display: block !important;
+    }
+    
+    .section-card {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        border: 1px solid #000;
+        box-shadow: none;
+    }
+    
+    body {
+        background: white;
+        color: black;
+    }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+    :root {
+        --primary: #0000EE;
+        --text: #000000;
+        --background: #FFFFFF;
+        --border: #000000;
+    }
+    
+    .button,
+    .card,
+    .section-card {
+        border: 2px solid #000;
+    }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
