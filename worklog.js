@@ -177,6 +177,8 @@ class WorklogManager {
     const entry = this.entries.find(e => e.id === entryId);
     if (!entry) return;
 
+    console.log('✏️ Editing entry:', entry); // Debug log
+
     // Set work type
     if (entry.workType === 'student') {
         document.querySelector('input[name="workType"][value="student"]').checked = true;
@@ -189,11 +191,19 @@ class WorklogManager {
         document.getElementById('worklogContactPerson').value = entry.contactPerson || '';
     }
 
-    // Fill common fields - MAKE SURE DATE IS SET CORRECTLY
-    document.getElementById('worklogDate').value = entry.date; // This sets the date
+    // Fill common fields
+    document.getElementById('worklogDate').value = entry.date || '';
     document.getElementById('worklogSubject').value = entry.subject || '';
     document.getElementById('worklogTopic').value = entry.topic || '';
     document.getElementById('worklogDuration').value = entry.duration || '';
+    
+    // 🔴 FIX: ADD SESSIONS FIELD HERE
+    const sessionsField = document.getElementById('worklogSessions');
+    if (sessionsField) {
+        sessionsField.value = entry.sessions || 1;
+        console.log(`📊 Setting sessions to: ${entry.sessions || 1}`);
+    }
+    
     document.getElementById('worklogRate').value = entry.rate || '';
     document.getElementById('worklogDescription').value = entry.description || '';
     document.getElementById('worklogOutcomes').value = entry.outcomes || '';
@@ -307,13 +317,15 @@ class WorklogManager {
         subject: document.getElementById('worklogSubject').value.trim(),
         topic: document.getElementById('worklogTopic').value.trim(),
         duration: parseFloat(document.getElementById('worklogDuration').value),
-        sessions: parseInt(document.getElementById('worklogSessions').value) || 1, 
+        sessions: parseInt(document.getElementById('worklogSessions').value) || 1, // 🔴 FIX: Add this
         rate: parseFloat(document.getElementById('worklogRate').value),
         description: document.getElementById('worklogDescription').value.trim(),
         outcomes: document.getElementById('worklogOutcomes').value.trim(),
         nextSteps: document.getElementById('worklogNextSteps').value.trim(),
         notes: document.getElementById('worklogNotes').value.trim()
     };
+
+    console.log('📝 Submitting entry data:', entryData); // Debug log
 
     // Validate based on work type
     if (workType === 'student') {
@@ -370,9 +382,11 @@ class WorklogManager {
                 ...this.entries[index],
                 ...entryData,
                 totalEarnings: entryData.duration * entryData.rate,
-                createdAt: originalCreatedAt, // Keep original creation date
-                updatedAt: new Date().toISOString() // Update this to now
+                createdAt: originalCreatedAt,
+                updatedAt: new Date().toISOString()
             };
+            
+            console.log('✅ Updated entry:', this.entries[index]); // Debug log
             this.saveEntries();
             alert('Entry updated!');
         }
