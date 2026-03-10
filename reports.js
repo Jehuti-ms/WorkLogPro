@@ -266,9 +266,7 @@ class ReportManager {
   
 
     // ==================== BVTB CLAIM FORM GENERATION ====================
-   generateClaimForm() {
-       console.log(`📊 Date ${date}: +${sessionCount} sessions, ${entry.duration} hours`);
-       
+   generateClaimForm() {       
     // Get form values
     const name = document.getElementById('claimName')?.value || 'David Moseley';
     const address = document.getElementById('claimAddress')?.value || '142 Coles Terrace, St.Philip';
