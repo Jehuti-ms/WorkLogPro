@@ -419,15 +419,23 @@ class WorklogManager {
     }
 }
 
-  updateUI() {
+ updateUI() {
     const container = document.getElementById('worklogContainer');
     if (!container) return;
 
     const filterType = document.getElementById('worklogFilterType')?.value;
     const filterEntity = document.getElementById('worklogFilterEntity')?.value;
     const searchQuery = document.getElementById('worklogSearch')?.value;
+    const sortOrder = document.getElementById('worklogSortOrder')?.value || 'newest'; // ADD THIS
 
     let displayEntries = [...this.entries];
+
+    // ===== APPLY SORTING BASED ON DATE =====
+    if (sortOrder === 'newest') {
+        displayEntries.sort((a, b) => new Date(b.date) - new Date(a.date));
+    } else {
+        displayEntries.sort((a, b) => new Date(a.date) - new Date(b.date));
+    }
 
     // Apply filters
     if (filterType) {
@@ -560,8 +568,11 @@ class WorklogManager {
             </div>
         `;
     }).join('');
+    
+    // Update stats after rendering
+    this.updateStats();
 }
-
+    
 // Add this helper method to your WorklogManager class
 formatPaymentType(type) {
     const types = {
