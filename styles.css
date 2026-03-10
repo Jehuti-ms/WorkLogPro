@@ -5798,3 +5798,234 @@ button:focus:not(:focus-visible) {
         overflow-y: auto;
     }
 }
+
+/* ==================== REPORTS TAB RESPONSIVE FIXES ==================== */
+
+/* For screens under 900px */
+@media screen and (max-width: 900px) {
+    /* Make the reports grid stack vertically */
+    .reports-grid,
+    .form-grid[style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+    
+    /* Stack the two columns */
+    .reports-grid > div,
+    .form-grid > div {
+        width: 100% !important;
+    }
+}
+
+/* For medium phones (400px - 600px) */
+@media screen and (min-width: 400px) and (max-width: 600px) {
+    /* Reports section */
+    #reports .section-card {
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    
+    /* Summary cards in reports */
+    #reports .summary-cards {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    /* Overview list */
+    #reports ul {
+        margin: 10px 0;
+    }
+    
+    #reports li {
+        padding: 8px 0;
+        font-size: 0.9rem;
+    }
+    
+    /* Button grid in reports */
+    #reports .form-actions {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+    
+    #reports .button.small {
+        width: 100%;
+        margin: 0;
+        padding: 10px 5px;
+        font-size: 0.8rem;
+    }
+    
+    /* Claim and invoice forms */
+    #claimFormSection,
+    #invoiceFormSection {
+        margin-top: 20px;
+    }
+    
+    .form-group {
+        margin-bottom: 12px;
+    }
+    
+    /* Document preview */
+    #documentPreview {
+        margin-top: 15px;
+        padding: 15px;
+    }
+    
+    #previewContent {
+        padding: 15px;
+        font-size: 0.8rem;
+    }
+    
+    /* Tables in reports */
+    #reports .table {
+        font-size: 0.75rem;
+    }
+    
+    #reports .table th,
+    #reports .table td {
+        padding: 6px 3px;
+    }
+}
+
+/* For small phones (300px - 400px) */
+@media screen and (min-width: 300px) and (max-width: 400px) {
+    /* Reports section */
+    #reports .section-card {
+        padding: 12px;
+        margin-bottom: 12px;
+    }
+    
+    /* Summary cards - stack vertically */
+    #reports .summary-cards {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .summary-card {
+        padding: 15px !important;
+    }
+    
+    .summary-card div:first-child {
+        font-size: 0.75rem;
+    }
+    
+    .summary-card div:nth-child(2) {
+        font-size: 1.3rem;
+    }
+    
+    /* Overview list */
+    #reports li {
+        padding: 6px 0;
+        font-size: 0.8rem;
+    }
+    
+    /* Button grid - single column */
+    #reports .form-actions {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+    
+    #reports .button.small {
+        padding: 10px;
+        font-size: 0.8rem;
+        justify-content: center;
+    }
+    
+    /* Form inputs */
+    #reports input,
+    #reports select,
+    #reports textarea {
+        padding: 8px;
+        font-size: 0.8rem;
+    }
+    
+    #reports label {
+        font-size: 0.8rem;
+        margin-bottom: 3px;
+    }
+    
+    /* Two-column form inputs become single column */
+    #reports [style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+        gap: 8px;
+    }
+    
+    /* Document preview */
+    #documentPreview {
+        padding: 12px;
+    }
+    
+    #previewContent {
+        padding: 12px;
+        font-size: 0.7rem;
+    }
+    
+    #previewContent table {
+        font-size: 0.65rem;
+    }
+    
+    #previewContent th,
+    #previewContent td {
+        padding: 4px 2px;
+    }
+    
+    /* Quick stats card */
+    #reports .quick-stats {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .quick-stat-item {
+        padding: 10px;
+    }
+    
+    .quick-stat-value {
+        font-size: 1.2rem;
+    }
+    
+    .quick-stat-label {
+        font-size: 0.7rem;
+    }
+}
+
+/* Fix for the reports grid layout */
+@media screen and (max-width: 600px) {
+    /* Force all flex/grid layouts in reports to stack */
+    #reports .flex-row,
+    #reports [style*="display: flex"],
+    #reports [style*="display: grid"] {
+        flex-direction: column !important;
+        grid-template-columns: 1fr !important;
+    }
+    
+    /* But keep button groups as grid */
+    #reports .button-group,
+    #reports .form-actions {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    
+    /* Make sure preview section is full width */
+    #documentPreview {
+        width: 100%;
+        left: 0;
+        right: 0;
+    }
+    
+    /* Adjust font sizes for readability */
+    #reports h2 {
+        font-size: 1.2rem;
+    }
+    
+    #reports h3 {
+        font-size: 1rem;
+    }
+    
+    #reports h4 {
+        font-size: 0.9rem;
+    }
+    
+    /* Fix any absolute positioned elements */
+    #reports [style*="position: absolute"] {
+        position: relative !important;
+    }
+}
