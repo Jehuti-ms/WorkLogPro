@@ -14,6 +14,7 @@ class WorklogManager {
         console.log('📝 Initializing WorklogManager...');
         this.loadData();
         this.loadEntries();
+        this.migrateOldEntries();
         this.setupEventListeners();
         this.updateUI();
         this.updateStats();
