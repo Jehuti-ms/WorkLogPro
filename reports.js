@@ -113,23 +113,31 @@ class ReportManager {
         }
     }
 
-    getEntriesInDateRange(startDate, endDate) {
-    // Create date objects at UTC to avoid timezone issues
+   getEntriesInDateRange(startDate, endDate) {
+    console.log(`🔍 Date range check: ${startDate} to ${endDate}`);
+    
+    // Create dates that cover the full range
     const start = new Date(startDate + 'T00:00:00');
-    const end = new Date(endDate + 'T23:59:59.999'); // Include the entire end day
+    const end = new Date(endDate + 'T23:59:59.999');
     
-    console.log(`📅 Date range: ${start.toLocaleString()} to ${end.toLocaleString()}`);
+    console.log(`📅 Start: ${start.toLocaleString()}, End: ${end.toLocaleString()}`);
     
-    return this.worklogEntries.filter(entry => {
+    const filtered = this.worklogEntries.filter(entry => {
         const entryDate = new Date(entry.date + 'T12:00:00'); // Use noon to avoid timezone issues
         const isInRange = entryDate >= start && entryDate <= end;
         
-        if (isInRange) {
-            console.log(`✅ Including: ${entry.date}`);
+        // Debug log for the date range you're checking (March 6-12)
+        if (entry.date >= '2026-03-06') {
+            console.log(`Entry ${entry.date}: ${isInRange ? '✅ INCLUDED' : '❌ EXCLUDED'}`);
         }
         
         return isInRange;
     });
+    
+    console.log(`📊 Found ${filtered.length} entries in range:`, 
+        filtered.map(e => e.date).sort());
+    
+    return filtered;
 }
 
     updateStudentDropdowns() {
