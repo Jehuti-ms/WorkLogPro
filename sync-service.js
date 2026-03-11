@@ -436,22 +436,6 @@ async syncSettings() {
     }
   }
 
-  startAutoSync(interval = 30000) {
-    if (this.syncInterval) {
-      clearInterval(this.syncInterval);
-    }
-    
-    this.syncInterval = setInterval(() => {
-      if (navigator.onLine && !this.syncInProgress) {
-        console.log('🔄 Auto-sync triggered');
-        this.sync();
-      }
-    }, interval);
-    
-    localStorage.setItem('autoSyncEnabled', 'true');
-    console.log(`✅ Auto-sync started (every ${interval/1000}s)`);
-  }
-
   stopAutoSync() {
     if (this.syncInterval) {
       clearInterval(this.syncInterval);
