@@ -394,7 +394,84 @@ setupLogoUpload() {
     }
 }
 
-// Call this in init() or setupEventListeners
+// Add to your ReportManager class
+setupBusinessNameStyling() {
+    const businessNameInput = document.getElementById('invoiceBusinessName');
+    const fontSelect = document.getElementById('invoiceFont');
+    const fontSizeSelect = document.getElementById('invoiceFontSize');
+    const fontColorInput = document.getElementById('invoiceFontColor');
+    const fontBoldCheck = document.getElementById('invoiceFontBold');
+    const fontItalicCheck = document.getElementById('invoiceFontItalic');
+    const preview = document.getElementById('businessNamePreview');
+    
+    // Load saved preferences
+    this.loadBusinessNameStyles();
+    
+    // Update preview function
+    const updatePreview = () => {
+        if (!preview) return;
+        
+        const businessName = businessNameInput?.value || 'Your Business Name';
+        const font = fontSelect?.value || "'Courier New', monospace";
+        const size = fontSizeSelect?.value || '24px';
+        const color = fontColorInput?.value || '#000000';
+        const bold = fontBoldCheck?.checked ? 'bold' : 'normal';
+        const italic = fontItalicCheck?.checked ? 'italic' : 'normal';
+        
+        preview.textContent = businessName || 'Your Business Name';
+        preview.style.fontFamily = font;
+        preview.style.fontSize = size;
+        preview.style.color = color;
+        preview.style.fontWeight = bold;
+        preview.style.fontStyle = italic;
+        
+        // Save preferences
+        this.saveBusinessNameStyles({
+            font, size, color, bold: fontBoldCheck?.checked, italic: fontItalicCheck?.checked
+        });
+    };
+    
+    // Add event listeners
+    if (businessNameInput) businessNameInput.addEventListener('input', updatePreview);
+    if (fontSelect) fontSelect.addEventListener('change', updatePreview);
+    if (fontSizeSelect) fontSizeSelect.addEventListener('change', updatePreview);
+    if (fontColorInput) fontColorInput.addEventListener('input', updatePreview);
+    if (fontBoldCheck) fontBoldCheck.addEventListener('change', updatePreview);
+    if (fontItalicCheck) fontItalicCheck.addEventListener('change', updatePreview);
+    
+    // Initial preview
+    updatePreview();
+},
+
+saveBusinessNameStyles(styles) {
+    localStorage.setItem('invoiceFontStyles', JSON.stringify(styles));
+    console.log('✅ Font styles saved');
+},
+
+loadBusinessNameStyles() {
+    const saved = localStorage.getItem('invoiceFontStyles');
+    if (!saved) return;
+    
+    try {
+        const styles = JSON.parse(saved);
+        
+        const fontSelect = document.getElementById('invoiceFont');
+        const fontSizeSelect = document.getElementById('invoiceFontSize');
+        const fontColorInput = document.getElementById('invoiceFontColor');
+        const fontBoldCheck = document.getElementById('invoiceFontBold');
+        const fontItalicCheck = document.getElementById('invoiceFontItalic');
+        
+        if (fontSelect && styles.font) fontSelect.value = styles.font;
+        if (fontSizeSelect && styles.size) fontSizeSelect.value = styles.size;
+        if (fontColorInput && styles.color) fontColorInput.value = styles.color;
+        if (fontBoldCheck && styles.bold !== undefined) fontBoldCheck.checked = styles.bold;
+        if (fontItalicCheck && styles.italic !== undefined) fontItalicCheck.checked = styles.italic;
+        
+        console.log('✅ Font styles loaded');
+    } catch (error) {
+        console.error('Error loading font styles:', error);
+    }
+},
 
     // ==================== BVTB CLAIM FORM GENERATION ====================
    generateClaimForm() {       
