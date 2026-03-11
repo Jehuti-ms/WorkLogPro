@@ -114,15 +114,23 @@ class ReportManager {
     }
 
     getEntriesInDateRange(startDate, endDate) {
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999); // Include the entire end day
+    // Create date objects at UTC to avoid timezone issues
+    const start = new Date(startDate + 'T00:00:00');
+    const end = new Date(endDate + 'T23:59:59.999'); // Include the entire end day
+    
+    console.log(`📅 Date range: ${start.toLocaleString()} to ${end.toLocaleString()}`);
+    
+    return this.worklogEntries.filter(entry => {
+        const entryDate = new Date(entry.date + 'T12:00:00'); // Use noon to avoid timezone issues
+        const isInRange = entryDate >= start && entryDate <= end;
         
-        return this.worklogEntries.filter(entry => {
-            const entryDate = new Date(entry.date + 'T12:00:00');
-            return entryDate >= start && entryDate <= end;
-        });
-    }
+        if (isInRange) {
+            console.log(`✅ Including: ${entry.date}`);
+        }
+        
+        return isInRange;
+    });
+}
 
     updateStudentDropdowns() {
         // Update any existing student dropdowns
