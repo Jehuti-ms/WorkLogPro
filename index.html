@@ -581,6 +581,20 @@
         <h3>🧾 Invoice</h3>
         <p style="color: var(--text-light); font-size: 0.9rem; margin-bottom: 15px;">Generate official invoices from worklog data</p>
 
+        <!-- In the Invoice section, add this before or after the other fields -->
+        <div class="form-group">
+            <label for="invoiceLogo">Business Logo/Name</label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="text" id="invoiceBusinessName" placeholder="Your Business Name" value="Your Farm Name">
+                <button id="uploadLogoBtn" class="button small">🖼️ Upload Logo</button>
+            </div>
+            <small class="help-text">This will appear at the top of your invoices</small>
+            <div id="logoPreview" style="margin-top: 10px; display: none;">
+                <img id="logoImage" src="" alt="Logo preview" style="max-height: 60px; border: 1px solid var(--border); border-radius: 4px; padding: 4px;">
+                <button id="removeLogoBtn" class="button small" style="margin-left: 10px;">❌ Remove</button>
+            </div>
+        </div>
+
         <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
           <button id="fillInvoiceFromWorklogBtn" class="button small info">
             📋 Fill from Latest Worklog
