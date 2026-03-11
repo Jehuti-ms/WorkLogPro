@@ -29,6 +29,10 @@ class ReportManager {
         try {
             // Setup event listeners first
             this.setupEventListeners();
+
+            // Setting up Logo and styling
+            this.loadSavedLogo();
+            this.setupBusinessNameStyling();
             
             // Load data in background
             this.loadDataInBackground();
@@ -473,6 +477,75 @@ loadBusinessNameStyles() {
     }
 }
 
+    // Set up business name and logo 
+setupLogoUpload() {
+    const uploadBtn = document.getElementById('uploadLogoBtn');
+    const logoPreview = document.getElementById('logoPreview');
+    const logoImage = document.getElementById('logoImage');
+    const removeBtn = document.getElementById('removeLogoBtn');
+    const businessNameInput = document.getElementById('invoiceBusinessName');
+    
+    if (uploadBtn) {
+        uploadBtn.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (readerEvent) => {
+                        const logoData = readerEvent.target.result;
+                        
+                        // Save to localStorage
+                        localStorage.setItem('invoiceLogo', logoData);
+                        
+                        // Show preview
+                        if (logoImage && logoPreview) {
+                            logoImage.src = logoData;
+                            logoPreview.style.display = 'flex';
+                        }
+                        
+                        // Clear business name if logo is uploaded
+                        if (businessNameInput) {
+                            businessNameInput.value = '';
+                        }
+                        
+                        this.showNotification('Logo uploaded!', 'success');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+            
+            input.click();
+        });
+    }
+    
+    if (removeBtn) {
+        removeBtn.addEventListener('click', () => {
+            localStorage.removeItem('invoiceLogo');
+            if (logoPreview) logoPreview.style.display = 'none';
+            if (logoImage) logoImage.src = '';
+            this.showNotification('Logo removed', 'info');
+        });
+    }
+    
+    // Load existing logo on init
+    this.loadSavedLogo();
+}
+
+loadSavedLogo() {
+    const savedLogo = localStorage.getItem('invoiceLogo');
+    const logoPreview = document.getElementById('logoPreview');
+    const logoImage = document.getElementById('logoImage');
+    
+    if (savedLogo && logoImage && logoPreview) {
+        logoImage.src = savedLogo;
+        logoPreview.style.display = 'flex';
+        console.log('✅ Logo loaded from storage');
+    }
+}
     // ==================== BVTB CLAIM FORM GENERATION ====================
    generateClaimForm() {       
     // Get form values
@@ -588,119 +661,141 @@ loadBusinessNameStyles() {
 }
 
     // ==================== BVTB INVOICE GENERATION ====================
-    generateInvoice() {
-        // Get form values
-        const invoiceNumber = document.getElementById('invoiceNumber')?.value || '003';
-        const invoiceDate = document.getElementById('invoiceDate')?.value;
-        const invoiceTo = document.getElementById('invoiceTo')?.value || 'Barbados Vocational Board\nLawrence Green House\nCulloden Road, St. Michael';
-        const itemDesc = document.getElementById('invoiceItem')?.value || 'Cosmetology';
-        const rate = parseFloat(document.getElementById('invoiceRate')?.value) || 82.97;
-        const startDate = document.getElementById('invoiceStartDate')?.value;
-        const endDate = document.getElementById('invoiceEndDate')?.value;
-        
-        if (!invoiceDate || !startDate || !endDate) {
-            alert('Please select all dates');
-            return;
+generateInvoice() {
+    // Get form values
+    const invoiceNumber = document.getElementById('invoiceNumber')?.value || '003';
+    const invoiceDate = document.getElementById('invoiceDate')?.value;
+    const invoiceTo = document.getElementById('invoiceTo')?.value || 'Barbados Vocational Board\nLawrence Green House\nCulloden Road, St. Michael';
+    const itemDesc = document.getElementById('invoiceItem')?.value || 'Cosmetology';
+    const rate = parseFloat(document.getElementById('invoiceRate')?.value) || 82.97;
+    const startDate = document.getElementById('invoiceStartDate')?.value;
+    const endDate = document.getElementById('invoiceEndDate')?.value;
+    
+    // Get business name and logo
+    const businessName = document.getElementById('invoiceBusinessName')?.value || '';
+    const logoData = localStorage.getItem('invoiceLogo'); // THIS IS THE KEY LINE
+    
+    // Get font styles
+    const fontStyles = JSON.parse(localStorage.getItem('invoiceFontStyles') || '{}');
+    
+    console.log('📋 Generating invoice with logo:', logoData ? '✅ Present' : '❌ Not found');
+    
+    if (!invoiceDate || !startDate || !endDate) {
+        alert('Please select all dates');
+        return;
+    }
+    
+    // Get entries in date range
+    const entries = this.getEntriesInDateRange(startDate, endDate);
+    
+    if (entries.length === 0) {
+        alert('No worklog entries found in this date range');
+        return;
+    }
+    
+    // Group entries by date
+    const groupedEntries = {};
+    entries.forEach(entry => {
+        const date = entry.date;
+        if (!groupedEntries[date]) {
+            groupedEntries[date] = {
+                date: date,
+                hours: 0,
+                amount: 0
+            };
         }
-        
-        // Get entries in date range
-        const entries = this.getEntriesInDateRange(startDate, endDate);
-        
-        if (entries.length === 0) {
-            alert('No worklog entries found in this date range');
-            return;
-        }
-        
-        // Group entries by date
-        const groupedEntries = {};
-        entries.forEach(entry => {
-            const date = entry.date;
-            if (!groupedEntries[date]) {
-                groupedEntries[date] = {
-                    date: date,
-                    hours: 0,
-                    amount: 0
-                };
-            }
-            groupedEntries[date].hours += entry.duration || 0;
-            groupedEntries[date].amount += entry.totalEarnings || 0;
-        });
-        
-        // Sort by date
-        const sortedEntries = Object.values(groupedEntries).sort((a, b) => 
-            new Date(a.date) - new Date(b.date)
-        );
-        
-        // Calculate total
-        const totalAmount = sortedEntries.reduce((sum, e) => sum + e.amount, 0);
-        
-        // Format dates for display
-        const formatDisplayDate = (dateStr) => {
-            const [year, month, day] = dateStr.split('-');
-            return `${day}/${month}/${year}`;
-        };
-        
-        // Format address lines
-        const addressLines = invoiceTo.split('\n').map(line => line.trim()).filter(line => line);
-        
-        // Create invoice HTML
-        const invoiceHTML = `
-            <div style="font-family: 'Courier New', monospace; max-width: 800px; margin: 0 auto; padding: 20px; background: white; color: black;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 40px; color: #000;">
-                    <h2 style="color: #000;">INVOICE No. ${invoiceNumber}</h2>
-                    <p style="color: #000;">${formatDisplayDate(invoiceDate)}</p>
+        groupedEntries[date].hours += entry.duration || 0;
+        groupedEntries[date].amount += entry.totalEarnings || 0;
+    });
+    
+    // Sort by date
+    const sortedEntries = Object.values(groupedEntries).sort((a, b) => 
+        new Date(a.date) - new Date(b.date)
+    );
+    
+    // Calculate total
+    const totalAmount = sortedEntries.reduce((sum, e) => sum + e.amount, 0);
+    
+    // Format dates for display
+    const formatDisplayDate = (dateStr) => {
+        const [year, month, day] = dateStr.split('-');
+        return `${day}/${month}/${year}`;
+    };
+    
+    // Format address lines
+    const addressLines = invoiceTo.split('\n').map(line => line.trim()).filter(line => line);
+    
+    // Create logo HTML if exists
+    const logoHTML = logoData 
+        ? `<img src="${logoData}" style="max-height: 60px; max-width: 200px; object-fit: contain;">` 
+        : (businessName || 'INVOICE');
+    
+    // Create invoice HTML
+    const invoiceHTML = `
+        <div style="font-family: 'Courier New', monospace; max-width: 800px; margin: 0 auto; padding: 20px; background: white; color: black;">
+            <!-- Logo/Business Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #000;">
+                <div style="
+                    font-family: ${fontStyles.font || "'Courier New', monospace"};
+                    font-size: ${fontStyles.size || '24px'};
+                    color: ${fontStyles.color || '#000000'};
+                    font-weight: ${fontStyles.bold ? 'bold' : 'normal'};
+                    font-style: ${fontStyles.italic ? 'italic' : 'normal'};
+                ">
+                    ${logoHTML}
                 </div>
-                
-                <div style="margin-bottom: 30px; color: #000;">
-                    <p><strong>Issued to:</strong></p>
-                    ${addressLines.map(line => `<p>${line}</p>`).join('')}
-                </div>
-                
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; color: #000;">
-                    <thead>
-                        <tr style="background: #f0f0f0;">
-                            <th style="border: 1px solid #000; padding: 10px; text-align: left;">Date</th>
-                            <th style="border: 1px solid #000; padding: 10px; text-align: left;">Item</th>
-                            <th style="border: 1px solid #000; padding: 10px; text-align: right;">Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${sortedEntries.map(entry => `
-                            <tr>
-                                <td style="border: 1px solid #000; padding: 10px;">${formatDisplayDate(entry.date)}</td>
-                                <td style="border: 1px solid #000; padding: 10px;">${itemDesc} ${entry.hours.toFixed(1)} hours @ $${rate.toFixed(2)}</td>
-                                <td style="border: 1px solid #000; padding: 10px; text-align: right;">$${entry.amount.toFixed(2)}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-                
-                <div style="text-align: right; font-size: 1.2rem; font-weight: bold; margin-bottom: 50px; color: #000;">
-                    <p>Total $${totalAmount.toFixed(2)}</p>
-                </div>
-                
-                <div style="color: #000;">
-                    <p>Issued by: _________________________</p>
+                <div style="text-align: right;">
+                    <h2 style="margin: 0; color: #000;">INVOICE</h2>
+                    <p style="margin: 5px 0 0 0; color: #000;">No. ${invoiceNumber}</p>
                 </div>
             </div>
-        `;
-
-
-     // Save report metadata to Firebase
-        this.saveReportToFirebase('invoice', {
-            startDate: startDate,
-            endDate: endDate,
-            totals: {
-                amount: totalAmount,
-                entries: entries.length
-            },
-            entryCount: entries.length,
-            summary: `${itemDesc}: ${entries.length} entries, total $${totalAmount.toFixed(2)}`
-        });
-        
-        // Show preview
-        this.showPreview(invoiceHTML, `Invoice #${invoiceNumber}`);
-    }
+            
+            <!-- Invoice Date -->
+            <div style="text-align: right; margin-bottom: 30px; color: #000;">
+                <p><strong>Date:</strong> ${formatDisplayDate(invoiceDate)}</p>
+            </div>
+            
+            <!-- Issued To -->
+            <div style="margin-bottom: 30px; color: #000;">
+                <p><strong>Issued to:</strong></p>
+                ${addressLines.map(line => `<p>${line}</p>`).join('')}
+            </div>
+            
+            <!-- Items Table -->
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; color: #000;">
+                <thead>
+                    <tr style="background: #f0f0f0;">
+                        <th style="border: 1px solid #000; padding: 10px; text-align: left;">Date</th>
+                        <th style="border: 1px solid #000; padding: 10px; text-align: left;">Item</th>
+                        <th style="border: 1px solid #000; padding: 10px; text-align: right;">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${sortedEntries.map(entry => `
+                        <tr>
+                            <td style="border: 1px solid #000; padding: 10px;">${formatDisplayDate(entry.date)}</td>
+                            <td style="border: 1px solid #000; padding: 10px;">${itemDesc} ${entry.hours.toFixed(1)} hours @ $${rate.toFixed(2)}</td>
+                            <td style="border: 1px solid #000; padding: 10px; text-align: right;">$${entry.amount.toFixed(2)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            
+            <!-- Total -->
+            <div style="text-align: right; font-size: 1.2rem; font-weight: bold; margin-bottom: 50px; color: #000;">
+                <p>Total $${totalAmount.toFixed(2)}</p>
+            </div>
+            
+            <!-- Issued By -->
+            <div style="color: #000;">
+                <p>Issued by: _________________________</p>
+            </div>
+        </div>
+    `;
+    
+    // Show preview
+    this.showPreview(invoiceHTML, `Invoice #${invoiceNumber}`);
+}
 
     // ==================== PREVIEW & PRINT ====================
     showPreview(html, title) {
