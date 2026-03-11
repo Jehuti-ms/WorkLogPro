@@ -38,6 +38,10 @@ class ReportManager {
             
             // Set default dates for forms
             this.setDefaultDates();
+
+            // Set business logo
+            this.setupLogoUpload();
+            
             
             console.log('ReportManager initialized successfully');
             
@@ -340,7 +344,57 @@ setupEventListeners() {
             return false;
         }
     }
-  
+
+    // Add to ReportManager class
+setupLogoUpload() {
+    const uploadBtn = document.getElementById('uploadLogoBtn');
+    const logoPreview = document.getElementById('logoPreview');
+    const logoImage = document.getElementById('logoImage');
+    const removeBtn = document.getElementById('removeLogoBtn');
+    
+    if (uploadBtn) {
+        uploadBtn.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (readerEvent) => {
+                        const logoData = readerEvent.target.result;
+                        localStorage.setItem('invoiceLogo', logoData);
+                        logoImage.src = logoData;
+                        logoPreview.style.display = 'block';
+                        this.showNotification('Logo uploaded!', 'success');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+            
+            input.click();
+        });
+    }
+    
+    if (removeBtn) {
+        removeBtn.addEventListener('click', () => {
+            localStorage.removeItem('invoiceLogo');
+            logoPreview.style.display = 'none';
+            logoImage.src = '';
+            this.showNotification('Logo removed', 'info');
+        });
+    }
+    
+    // Load existing logo
+    const savedLogo = localStorage.getItem('invoiceLogo');
+    if (savedLogo && logoImage && logoPreview) {
+        logoImage.src = savedLogo;
+        logoPreview.style.display = 'block';
+    }
+}
+
+// Call this in init() or setupEventListeners
 
     // ==================== BVTB CLAIM FORM GENERATION ====================
    generateClaimForm() {       
