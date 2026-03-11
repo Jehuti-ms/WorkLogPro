@@ -422,6 +422,37 @@ class WorklogManager {
         this.updateFilterDropdown();
     }
 
+    // Add this method to your WorklogManager class
+migrateOldEntries() {
+    let needsSave = false;
+    
+    this.entries.forEach(entry => {
+        // Fix missing sessions field
+        if (entry.sessions === undefined) {
+            // For 4-hour entries, default to 2 sessions (assuming 2 hours each)
+            if (entry.duration === 4) {
+                entry.sessions = 2;
+            } else {
+                entry.sessions = 1;
+            }
+            needsSave = true;
+            console.log('🔄 Migrated old entry - added sessions:', entry.id);
+        }
+        
+        // Fix missing totalEarnings
+        if (entry.totalEarnings === undefined && entry.duration && entry.rate) {
+            entry.totalEarnings = entry.duration * entry.rate;
+            needsSave = true;
+            console.log('🔄 Migrated old entry - added totalEarnings:', entry.id);
+        }
+    });
+    
+    if (needsSave) {
+        this.saveEntries();
+        console.log('✅ Migrated old entries to include missing fields');
+    }
+}
+    
     // FIXED: Date display with proper formatting
   formatDate(dateStr) {
     if (!dateStr) return 'Unknown';
