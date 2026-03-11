@@ -441,12 +441,12 @@ setupBusinessNameStyling() {
     
     // Initial preview
     updatePreview();
-},
+}
 
 saveBusinessNameStyles(styles) {
     localStorage.setItem('invoiceFontStyles', JSON.stringify(styles));
     console.log('✅ Font styles saved');
-},
+}
 
 loadBusinessNameStyles() {
     const saved = localStorage.getItem('invoiceFontStyles');
@@ -471,7 +471,7 @@ loadBusinessNameStyles() {
     } catch (error) {
         console.error('Error loading font styles:', error);
     }
-},
+}
 
     // ==================== BVTB CLAIM FORM GENERATION ====================
    generateClaimForm() {       
