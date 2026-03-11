@@ -146,39 +146,110 @@ class ReportManager {
         }
     }
 
-    setupEventListeners() {
-        console.log('Setting up event listeners...');
-        
-        const buttons = [
-            'weeklyReportBtn',
-            'biWeeklyReportBtn', 
-            'monthlyReportBtn',
-            'subjectReportBtn',
-            'claimFormBtn',
-            'invoiceBtn',
-            'pdfReportBtn',
-            'emailReportBtn',
-            'generateClaimBtn',
-            'printClaimBtn',
-            'generateInvoiceBtn',
-            'printInvoiceBtn'
-        ];
-        
-        buttons.forEach(btnId => {
-            const btn = document.getElementById(btnId);
-            if (btn) {
-                // Remove any existing listeners
-                const newBtn = btn.cloneNode(true);
-                btn.parentNode.replaceChild(newBtn, btn);
-                
-                // Add our click handler
-                newBtn.addEventListener('click', (e) => this.handleButtonClick(e, btnId));
-                console.log(`Listener added to ${btnId}`);
-            }
-        });
+// Fill claim form from latest worklog
+fillClaimFromWorklog() {
+    if (this.worklogEntries.length === 0) {
+        alert('No worklog entries found');
+        return;
     }
+    
+    // Get the most recent worklog entry
+    const latestEntry = this.worklogEntries[0];
+    
+    // Fill claim form fields
+    const programmeField = document.getElementById('claimProgramme');
+    if (programmeField && latestEntry.subject) {
+        programmeField.value = latestEntry.subject;
+    }
+    
+    // If you have a rate field in claim form
+    const rateField = document.getElementById('claimRate');
+    if (rateField && latestEntry.rate) {
+        rateField.value = latestEntry.rate;
+    }
+    
+    // If you have a name field, you could also fill student/institution name
+    const claimNameField = document.getElementById('claimName');
+    if (claimNameField && latestEntry.entityName) {
+        // Optionally ask user before overwriting name
+        if (confirm(`Use "${latestEntry.entityName}" as the name?`)) {
+            claimNameField.value = latestEntry.entityName;
+        }
+    }
+    
+    showNotification('Claim form populated from latest worklog', 'success');
+    console.log('📋 Claim form populated from:', latestEntry);
+}
 
-   handleButtonClick(event, buttonId) {
+// Fill invoice form from latest worklog
+fillInvoiceFromWorklog() {
+    if (this.worklogEntries.length === 0) {
+        alert('No worklog entries found');
+        return;
+    }
+    
+    // Get the most recent worklog entry
+    const latestEntry = this.worklogEntries[0];
+    
+    // Fill invoice form fields
+    const itemField = document.getElementById('invoiceItem');
+    if (itemField && latestEntry.subject) {
+        itemField.value = latestEntry.subject;
+    }
+    
+    const rateField = document.getElementById('invoiceRate');
+    if (rateField && latestEntry.rate) {
+        rateField.value = latestEntry.rate;
+    }
+    
+    // Optionally fill the "Issued To" field
+    const issuedToField = document.getElementById('invoiceTo');
+    if (issuedToField && latestEntry.entityName) {
+        if (confirm(`Set recipient to "${latestEntry.entityName}"?`)) {
+            issuedToField.value = latestEntry.entityName;
+        }
+    }
+    
+    showNotification('Invoice form populated from latest worklog', 'success');
+    console.log('📋 Invoice form populated from:', latestEntry);
+}
+    
+setupEventListeners() {
+    console.log('Setting up event listeners...');
+    
+    const buttons = [
+        'weeklyReportBtn',
+        'biWeeklyReportBtn', 
+        'monthlyReportBtn',
+        'subjectReportBtn',
+        'claimFormBtn',
+        'invoiceBtn',
+        'pdfReportBtn',
+        'emailReportBtn',
+        'generateClaimBtn',
+        'printClaimBtn',
+        'generateInvoiceBtn',
+        'printInvoiceBtn',
+        // NEW BUTTONS
+        'fillClaimFromWorklogBtn',
+        'fillInvoiceFromWorklogBtn'
+    ];
+    
+    buttons.forEach(btnId => {
+        const btn = document.getElementById(btnId);
+        if (btn) {
+            // Remove any existing listeners
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            // Add our click handler
+            newBtn.addEventListener('click', (e) => this.handleButtonClick(e, btnId));
+            console.log(`Listener added to ${btnId}`);
+        }
+    });
+}
+
+  handleButtonClick(event, buttonId) {
     console.log(`Button clicked: ${buttonId}`);
     event.preventDefault();
     event.stopPropagation();
@@ -206,6 +277,9 @@ class ReportManager {
         case 'printClaimBtn':
             this.printDocument('claim');
             break;
+        case 'fillClaimFromWorklogBtn':  // NEW
+            this.fillClaimFromWorklog();
+            break;
         
         // Invoice buttons
         case 'invoiceBtn':
@@ -214,6 +288,9 @@ class ReportManager {
             break;
         case 'printInvoiceBtn':
             this.printDocument('invoice');
+            break;
+        case 'fillInvoiceFromWorklogBtn':  // NEW
+            this.fillInvoiceFromWorklog();
             break;
         
         // PDF and Email
