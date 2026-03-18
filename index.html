@@ -123,16 +123,8 @@
                 <input type="checkbox" id="autoSyncCheckbox">
                 <span class="auto-sync-text">Auto</span>
             </label>
-        </div>
-
-        <!-- Add this button to your sync-toolbar -->
-        <button id="recoverBackupBtn" class="button warning" onclick="BackupManager.restoreLatestBackup()">
-           🔄 Recover Backup
-        </button>
-        <button id="listBackupsBtn" class="button info" onclick="console.log(BackupManager.listBackups())">
-           📋 List Backups
-        </button>
-      
+        </div>     
+        
         <!-- Action buttons - grid on mobile, row on desktop -->
         <button id="syncBtn" class="button primary" title="Sync Now">🔄 Sync</button>
         <button id="exportCloudBtn" class="button success" title="Export to Cloud">☁️ Export</button>
@@ -140,6 +132,8 @@
         <button id="syncStatsBtn" class="button warning" title="Fix Statistics">🔧 Fix</button>
         <button id="exportDataBtn" class="button primary" title="Export Data to File">📤 Export</button>
         <button id="importDataBtn" class="button primary" title="Import Data from File">📥 Import</button>
+        <button id="recoverBackupBtn" class="button warning" onclick="BackupManager.restoreLatestBackup()">🔄 Recover Backup</button>
+        <button id="listBackupsBtn" class="button info" onclick="console.log(BackupManager.listBackups())"> 📋 List Backups</button>
         <button id="clearDataBtn" class="button danger" title="Clear All Data">🗑️ Clear</button>
     </div>
 
