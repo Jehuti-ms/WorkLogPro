@@ -124,7 +124,15 @@
                 <span class="auto-sync-text">Auto</span>
             </label>
         </div>
-    
+
+        <!-- Add this button to your sync-toolbar -->
+        <button id="recoverBackupBtn" class="button warning" onclick="BackupManager.restoreLatestBackup()">
+           🔄 Recover Backup
+        </button>
+        <button id="listBackupsBtn" class="button info" onclick="console.log(BackupManager.listBackups())">
+           📋 List Backups
+        </button>
+      
         <!-- Action buttons - grid on mobile, row on desktop -->
         <button id="syncBtn" class="button primary" title="Sync Now">🔄 Sync</button>
         <button id="exportCloudBtn" class="button success" title="Export to Cloud">☁️ Export</button>
