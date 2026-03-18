@@ -48,22 +48,22 @@ class SyncService {
     console.log('✅ SyncService initialized');
   }
 
- // In sync-service.js, modify the sync method:
+ // REPLACE the sync() method in sync-service.js with this:
 async sync(force = false, showNotifications = false) {
     if (this.syncInProgress) {
         console.log('⚠️ Sync already in progress');
-        return { success: false, message: 'Sync already in progress' };
+        return { success: false };
     }
 
     if (!navigator.onLine) {
         console.log('⚠️ Cannot sync: offline');
         this.updateSyncIndicator('Offline', 'offline');
-        return { success: false, message: 'Offline' };
+        return { success: false };
     }
 
     try {
         this.syncInProgress = true;
-        console.log('🔄 Starting sync...');
+        console.log('🔄 Starting SAFE sync...');
         this.updateSyncIndicator('Syncing...', 'syncing');
 
         const user = await this.getCurrentUser();
@@ -71,38 +71,55 @@ async sync(force = false, showNotifications = false) {
             console.log('⚠️ No authenticated user');
             this.updateSyncIndicator('Login Required', 'warning');
             this.syncInProgress = false;
-            return { success: false, message: 'Not authenticated' };
+            return { success: false };
         }
 
         console.log(`👤 Syncing as: ${user.email}`);
 
-        // STEP 1: Get local data
-        const localData = this.getAllLocalData();
-        console.log(`📊 Local data: ${localData.students?.length || 0} students, ${localData.worklogs?.length || 0} worklogs`);
-        
-        // STEP 2: ALWAYS SAVE LOCAL TO FIREBASE FIRST (PUSH)
-        console.log('☁️ Pushing local data to Firebase...');
-        await this.saveToFirestore(user.uid, localData);
-        console.log('✅ Local data pushed to Firebase');
-        
-        // STEP 3: THEN GET REMOTE DATA (PULL) - EVEN IF JUST PUSHED, GET THE SERVER TIMESTAMP VERSION
-        console.log('☁️ Pulling data from Firebase...');
+        // STEP 1: GET REMOTE DATA FIRST (DON'T OVERWRITE!)
+        console.log('☁️ Getting remote data...');
         const remoteData = await this.getRemoteData(user.uid);
         
-        // STEP 4: Update local storage with remote data
-        if (remoteData) {
-            console.log(`📊 Remote data received: ${remoteData.worklogs?.length || 0} worklogs`);
+        // STEP 2: GET LOCAL DATA
+        const localData = this.getAllLocalData();
+        
+        console.log(`📊 Local: ${localData.students.length} students, Remote: ${remoteData?.students?.length || 0} students`);
+
+        // STEP 3: SAFETY CHECKS - NEVER OVERWRITE NON-EMPTY WITH EMPTY
+        if (remoteData?.students?.length > 0 && localData.students.length === 0) {
+            console.log('⚠️ Remote has data but local is empty - RESTORING from remote');
             this.saveToLocalStorage(remoteData);
-            console.log('✅ Local storage updated from Firebase');
+            this.updateSyncIndicator('Restored', 'success');
+            this.refreshUI();
+            this.syncInProgress = false;
+            return { success: true, action: 'restored_from_cloud' };
+        }
+        
+        if (localData.students.length > 0 && remoteData?.students?.length === 0) {
+            console.log('⚠️ Local has data but remote is empty - PUSHING to cloud');
+            await this.saveToFirestore(user.uid, localData);
+            this.updateSyncIndicator('Pushed', 'success');
+            this.syncInProgress = false;
+            return { success: true, action: 'pushed_to_cloud' };
+        }
+        
+        // STEP 4: ONLY MERGE IF BOTH HAVE DATA
+        if (localData.students.length > 0 && remoteData?.students?.length > 0) {
+            console.log('🔄 Both have data - performing merge');
+            const mergedData = this.mergeData(localData, remoteData);
+            await this.saveToFirestore(user.uid, mergedData);
+            this.saveToLocalStorage(mergedData);
+            console.log('✅ Merge complete');
+            this.updateSyncIndicator('Merged', 'success');
+        } else {
+            console.log('ℹ️ No data to sync');
+            this.updateSyncIndicator('No changes', 'online');
         }
         
         // Update sync timestamp
         const timestamp = new Date().toISOString();
         localStorage.setItem('lastSyncTime', timestamp);
         this.lastSyncTime = timestamp;
-        
-        console.log('✅ Sync completed successfully');
-        this.updateSyncIndicator('Synced', 'success');
         
         // Refresh UI
         this.refreshUI();
@@ -127,7 +144,7 @@ async sync(force = false, showNotifications = false) {
         return { success: false, error: error.message };
     }
 }
-
+  
 // Update startAutoSync to use showNotifications = false
 startAutoSync(interval = 30000) {
     if (this.syncInterval) {
