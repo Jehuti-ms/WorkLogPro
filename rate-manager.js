@@ -1,119 +1,67 @@
-// rate-manager.js - USER-SPECIFIC Default Rate Management
-console.log('💰 Loading User-Specific RateManager...');
+// rate-manager.js - FIXED VERSION
+console.log('💰 Loading rate-manager.js...');
 
-const RateManager = {
+// Make sure RateManager is globally available
+window.RateManager = {
     // Get user-specific rate key
     getRateKey: function() {
         const user = firebase.auth().currentUser;
         if (user && user.email) {
-            // Create a safe key from email (replace dots and special chars)
             const safeEmail = user.email.replace(/[.#$[\]]/g, '_');
             return `defaultRate_${safeEmail}`;
         }
-        return 'defaultRate_guest'; // Fallback for guest
+        return 'defaultRate_guest';
     },
     
-    // Get current user email for display
-    getCurrentUserEmail: function() {
-        const user = firebase.auth().currentUser;
-        return user ? user.email : 'Guest';
-    },
-    
-    // Initialize default rate on page load
+    // Initialize
     init: function() {
-        console.log('💰 Initializing User-Specific RateManager...');
+        console.log('💰 Initializing RateManager...');
         this.loadDefaultRate();
         this.setupEventListeners();
-        this.setupAuthListener();
-        
-        // Display current user
-        this.updateUserDisplay();
     },
     
-    // Listen for auth changes
-    setupAuthListener: function() {
-        firebase.auth().onAuthStateChanged((user) => {
-            console.log('👤 Auth changed, reloading rate for:', user?.email);
-            this.loadDefaultRate();
-            this.updateUserDisplay();
-        });
-    },
-    
-    // Update UI to show current user
-    updateUserDisplay: function() {
-        const email = this.getCurrentUserEmail();
-        const userDisplay = document.getElementById('currentUserEmail');
-        if (userDisplay) {
-            userDisplay.textContent = email;
-        }
-        
-        // Also update any rate labels to show user context
-        const rateLabels = document.querySelectorAll('.user-specific-rate');
-        rateLabels.forEach(label => {
-            label.textContent = `Rates for: ${email}`;
-        });
-    },
-    
-    // Load default rate for CURRENT user
-    loadDefaultRate: function() {
-        const rateKey = this.getRateKey();
-        const defaultRate = localStorage.getItem(rateKey) || '25.00';
-        
-        // Also keep a backup in the old key for migration (optional)
-        if (!localStorage.getItem(rateKey) && localStorage.getItem('defaultHourlyRate')) {
-            // Migrate old rate to new user-specific key
-            const oldRate = localStorage.getItem('defaultHourlyRate');
-            localStorage.setItem(rateKey, oldRate);
-            console.log(`🔄 Migrated old rate ${oldRate} to user-specific key`);
-        }
-        
-        const defaultRateInput = document.getElementById('defaultBaseRate');
-        const currentRateDisplay = document.getElementById('currentDefaultRate');
-        
-        if (defaultRateInput) {
-            defaultRateInput.value = defaultRate;
-        }
-        
-        if (currentRateDisplay) {
-            currentRateDisplay.textContent = parseFloat(defaultRate).toFixed(2);
-        }
-        
-        console.log(`✅ Default rate loaded for ${this.getCurrentUserEmail()}: $${defaultRate} (key: ${rateKey})`);
-    },
-    
-    // Setup input event listener
+    // Setup input listeners
     setupEventListeners: function() {
-        const defaultRateInput = document.getElementById('defaultBaseRate');
-        if (defaultRateInput) {
-            defaultRateInput.addEventListener('input', function() {
-                const rate = parseFloat(this.value) || 0;
-                const currentRateDisplay = document.getElementById('currentDefaultRate');
-                if (currentRateDisplay) {
-                    currentRateDisplay.textContent = rate.toFixed(2);
-                }
+        const rateInput = document.getElementById('defaultBaseRate');
+        if (rateInput) {
+            rateInput.addEventListener('input', () => {
+                const rate = parseFloat(rateInput.value) || 0;
+                const display = document.getElementById('currentDefaultRate');
+                if (display) display.textContent = rate.toFixed(2);
             });
         }
     },
     
-    // Save default rate for CURRENT user
+    // Load default rate
+    loadDefaultRate: function() {
+        const rateKey = this.getRateKey();
+        const defaultRate = localStorage.getItem(rateKey) || 
+                           localStorage.getItem('defaultHourlyRate') || 
+                           '25.00';
+        
+        const rateInput = document.getElementById('defaultBaseRate');
+        const rateDisplay = document.getElementById('currentDefaultRate');
+        
+        if (rateInput) rateInput.value = defaultRate;
+        if (rateDisplay) rateDisplay.textContent = parseFloat(defaultRate).toFixed(2);
+        
+        console.log(`✅ Default rate loaded: $${defaultRate}`);
+        return defaultRate;
+    },
+    
+    // SAVE DEFAULT RATE
     saveDefaultRate: function() {
-        console.log('💰 Saving user-specific default rate...');
+        console.log('💰 Saving default rate...');
         
-        const user = firebase.auth().currentUser;
-        if (!user) {
-            this.showNotification('Please log in to save rates', 'error');
+        const rateInput = document.getElementById('defaultBaseRate');
+        if (!rateInput) {
+            alert('Rate input not found');
             return false;
         }
         
-        const defaultRateInput = document.getElementById('defaultBaseRate');
-        if (!defaultRateInput) {
-            console.error('Default rate input not found');
-            return false;
-        }
-        
-        const rate = parseFloat(defaultRateInput.value);
+        const rate = parseFloat(rateInput.value);
         if (isNaN(rate) || rate < 0) {
-            this.showNotification('Please enter a valid rate (positive number)', 'error');
+            alert('Please enter a valid positive rate');
             return false;
         }
         
@@ -121,178 +69,152 @@ const RateManager = {
         const rateKey = this.getRateKey();
         localStorage.setItem(rateKey, rate.toString());
         
-        // Also save to Firestore for cloud sync
-        this.saveRateToFirestore(rate);
+        // Save to old key for backward compatibility
+        localStorage.setItem('defaultHourlyRate', rate.toString());
+        localStorage.setItem('defaultRate', rate.toString());
         
         // Update display
-        const currentRateDisplay = document.getElementById('currentDefaultRate');
-        if (currentRateDisplay) {
-            currentRateDisplay.textContent = rate.toFixed(2);
-        }
+        const display = document.getElementById('currentDefaultRate');
+        if (display) display.textContent = rate.toFixed(2);
         
-        this.showNotification(`✅ Default rate set to $${rate.toFixed(2)}/hour for ${user.email}`, 'success');
-        console.log(`✅ Default rate saved for ${user.email}: $${rate} (key: ${rateKey})`);
+        // Show success
+        this.showNotification(`✅ Default rate saved: $${rate.toFixed(2)}`, 'success');
+        console.log(`✅ Rate saved with key: ${rateKey}`);
+        
         return true;
     },
     
-    // Save rate to Firestore
-    saveRateToFirestore: async function(rate) {
-        try {
-            const user = firebase.auth().currentUser;
-            if (!user) return;
-            
-            const db = firebase.firestore();
-            await db.collection('users').doc(user.uid).collection('settings').doc('preferences').set({
-                defaultHourlyRate: rate,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedBy: user.email
-            }, { merge: true });
-            
-            console.log('☁️ Rate saved to Firestore');
-        } catch (error) {
-            console.error('Error saving rate to Firestore:', error);
-        }
-    },
-    
-    // Load rate from Firestore
-    loadRateFromFirestore: async function() {
-        try {
-            const user = firebase.auth().currentUser;
-            if (!user) return null;
-            
-            const db = firebase.firestore();
-            const doc = await db.collection('users').doc(user.uid).collection('settings').doc('preferences').get();
-            
-            if (doc.exists && doc.data().defaultHourlyRate) {
-                const rate = doc.data().defaultHourlyRate;
-                
-                // Save to localStorage with user-specific key
-                const rateKey = this.getRateKey();
-                localStorage.setItem(rateKey, rate.toString());
-                
-                console.log(`☁️ Loaded rate from Firestore: $${rate}`);
-                return rate;
-            }
-            return null;
-        } catch (error) {
-            console.error('Error loading rate from Firestore:', error);
-            return null;
-        }
-    },
-    
-    // Use default rate in student form
+    // USE IN STUDENT FORM
     useDefaultRate: function() {
         console.log('📝 Using default rate in student form...');
         
-        const user = firebase.auth().currentUser;
+        // Get current rate
         const rateKey = this.getRateKey();
-        const defaultRate = localStorage.getItem(rateKey) || '25.00';
+        const rate = localStorage.getItem(rateKey) || 
+                    localStorage.getItem('defaultHourlyRate') || 
+                    '25.00';
         
+        // Find student rate field
         const studentRateField = document.getElementById('studentRate');
-        
-        if (studentRateField) {
-            studentRateField.value = defaultRate;
-            this.showNotification(`Default rate $${defaultRate} applied to form for ${user?.email || 'Guest'}`, 'info');
-            return true;
-        } else {
+        if (!studentRateField) {
             console.error('Student rate field not found');
-            this.showNotification('Student form not found', 'error');
+            alert('Please go to Students tab first');
             return false;
         }
+        
+        // Set the value
+        studentRateField.value = rate;
+        
+        // Show feedback
+        this.showNotification(`💰 Default rate $${rate} applied to form`, 'info');
+        console.log(`✅ Applied rate $${rate} to student form`);
+        
+        return true;
     },
     
-    // Apply default rate to all students for CURRENT user
+    // APPLY TO ALL STUDENTS
     applyDefaultRateToAll: async function() {
         console.log('🔄 Applying default rate to all students...');
         
-        const user = firebase.auth().currentUser;
-        if (!user) {
-            this.showNotification('Please log in first', 'error');
-            return false;
-        }
-        
-        // Confirm with user
-        if (!confirm(`Are you sure you want to update ALL students with the default rate for ${user.email}? This will overwrite their individual rates.`)) {
-            return false;
-        }
-        
+        // Get current rate
         const rateKey = this.getRateKey();
-        const defaultRate = parseFloat(localStorage.getItem(rateKey) || '25.00');
+        const rate = parseFloat(localStorage.getItem(rateKey) || 
+                                localStorage.getItem('defaultHourlyRate') || 
+                                '25.00');
+        
+        // Confirm
+        if (!confirm(`Update ALL students with rate $${rate.toFixed(2)}/hour?`)) {
+            return false;
+        }
         
         // Show loading on button
-        const btn = document.querySelector('[onclick="RateManager.applyDefaultRateToAll()"], [onclick="applyDefaultRateToAll()"]');
-        const originalText = btn?.textContent || 'Apply to All Students';
+        const btn = document.querySelector('[onclick*="applyDefaultRateToAll"]');
+        const originalText = btn ? btn.textContent : 'Apply to All';
         if (btn) {
             btn.textContent = '⏳ Updating...';
             btn.disabled = true;
         }
         
         try {
-            // Get all students
-            let students = [];
-            
-            // Try from dataManager first
-            if (window.dataManager && typeof window.dataManager.getAllStudents === 'function') {
-                students = await window.dataManager.getAllStudents();
-            } else {
-                // Fallback to localStorage
-                students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-            }
+            // Get students from localStorage
+            let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
             
             if (students.length === 0) {
-                this.showNotification('No students found to update', 'warning');
+                this.showNotification('No students found', 'warning');
                 return false;
             }
             
-            console.log(`📊 Found ${students.length} students to update for ${user.email}`);
+            console.log(`📊 Updating ${students.length} students...`);
             
-            // Update each student's rate
-            let updatedCount = 0;
-            
-            for (const student of students) {
-                // Update both rate fields
-                student.rate = defaultRate;
-                student.hourlyRate = defaultRate;
-                student.updatedAt = new Date().toISOString();
-                student.updatedBy = user.email; // Track who updated
+            // Update each student
+            let updated = 0;
+            students.forEach(student => {
+                // Convert old rate if it's a string
+                const oldRate = student.rate || student.hourlyRate;
+                console.log(`Student ${student.name}: old rate = ${oldRate}, new rate = ${rate}`);
                 
-                // If dataManager exists, update in Firebase
-                if (window.dataManager && typeof window.dataManager.updateStudent === 'function') {
-                    try {
-                        await window.dataManager.updateStudent(student.id, {
-                            rate: defaultRate,
-                            hourlyRate: defaultRate,
-                            updatedBy: user.email
-                        });
-                        updatedCount++;
-                    } catch (e) {
-                        console.log(`Failed to update ${student.name} in Firebase:`, e);
+                student.rate = rate;
+                student.hourlyRate = rate;
+                student.updatedAt = new Date().toISOString();
+                updated++;
+            });
+            
+            // Save back to localStorage
+            localStorage.setItem('worklog_students', JSON.stringify(students));
+            console.log(`✅ Saved ${updated} students to localStorage`);
+            
+            // Update Firebase if dataManager exists
+            if (window.dataManager) {
+                // Update in-memory array
+                window.dataManager.students = students;
+                
+                // Update UI
+                window.dataManager.syncUI();
+                
+                // Update Firebase if user is logged in
+                const user = firebase.auth().currentUser;
+                if (user) {
+                    console.log('☁️ Syncing to Firebase...');
+                    const db = firebase.firestore();
+                    
+                    // Update each student in Firebase
+                    for (const student of students) {
+                        try {
+                            await db.collection('users').doc(user.uid)
+                                .collection('students').doc(student.id)
+                                .set({
+                                    rate: rate,
+                                    hourlyRate: rate,
+                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                }, { merge: true });
+                        } catch (e) {
+                            console.log(`Error updating ${student.name}:`, e);
+                        }
                     }
-                } else {
-                    updatedCount++;
+                    
+                    // Also update consolidated data
+                    try {
+                        await db.collection('users').doc(user.uid)
+                            .collection('data').doc('worklog')
+                            .set({
+                                students: students,
+                                lastSync: firebase.firestore.FieldValue.serverTimestamp()
+                            }, { merge: true });
+                    } catch (e) {
+                        console.log('Error updating consolidated data:', e);
+                    }
                 }
             }
             
-            // Save to localStorage
-            localStorage.setItem('worklog_students', JSON.stringify(students));
+            // Refresh stats
+            if (typeof refreshAllStats === 'function') refreshAllStats();
+            if (typeof updateGlobalStats === 'function') updateGlobalStats();
             
-            // Refresh UI
-            if (window.dataManager && typeof window.dataManager.syncUI === 'function') {
-                window.dataManager.syncUI();
-            }
-            
-            // Refresh all stats
-            if (typeof refreshAllStats === 'function') {
-                refreshAllStats();
-            }
-            
-            this.showNotification(`✅ Updated ${updatedCount} students with $${defaultRate.toFixed(2)} rate for ${user.email}`, 'success');
-            return true;
+            this.showNotification(`✅ Updated ${updated} students to $${rate.toFixed(2)}/hour`, 'success');
             
         } catch (error) {
-            console.error('❌ Error applying default rate:', error);
-            this.showNotification('Error updating rates: ' + error.message, 'error');
-            return false;
+            console.error('❌ Error applying rates:', error);
+            this.showNotification('Error: ' + error.message, 'error');
         } finally {
             // Restore button
             if (btn) {
@@ -303,29 +225,25 @@ const RateManager = {
     },
     
     // Show notification
-    showNotification: function(message, type = 'info') {
-        if (window.formHandler && typeof window.formHandler.showNotification === 'function') {
+    showNotification: function(message, type) {
+        if (window.formHandler && window.formHandler.showNotification) {
             window.formHandler.showNotification(message, type);
-            return;
+        } else {
+            alert(message);
         }
-        
-        // Fallback notification
-        console.log(`🔔 [${type}] ${message}`);
-        alert(message); // Simple fallback
     }
 };
 
-// Initialize on DOM ready
+// Initialize
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => RateManager.init());
 } else {
     RateManager.init();
 }
 
-// Make functions globally available
+// Make functions globally available for onclick handlers
 window.saveDefaultRate = () => RateManager.saveDefaultRate();
 window.useDefaultRate = () => RateManager.useDefaultRate();
 window.applyDefaultRateToAll = () => RateManager.applyDefaultRateToAll();
-window.initDefaultRate = () => RateManager.loadDefaultRate();
 
-console.log('✅ User-Specific RateManager loaded');
+console.log('✅ RateManager loaded with working functions');
