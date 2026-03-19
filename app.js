@@ -799,7 +799,8 @@ function initTabs() {
   
   console.log(`Found ${tabButtons.length} tabs and ${tabContents.length} content sections`);
   
-  function switchTab(tabName) {
+  // Define switchTab function
+  window.switchTab = function(tabName) {
     console.log('Switching to tab:', tabName);
     
     // Hide all tab contents
@@ -829,17 +830,14 @@ function initTabs() {
     
     // Update URL hash
     window.location.hash = tabName;
-  }
+  };
   
-  // Remove all existing listeners and add fresh ones
+  // Add click handlers to all tab buttons
   tabButtons.forEach(button => {
-    const newButton = button.cloneNode(true);
-    button.parentNode.replaceChild(newButton, button);
-    
-    newButton.addEventListener('click', function(e) {
+    button.addEventListener('click', function(e) {
       e.preventDefault();
       const tabName = this.getAttribute('data-tab');
-      switchTab(tabName);
+      window.switchTab(tabName);
     });
   });
   
@@ -847,98 +845,65 @@ function initTabs() {
   const hash = window.location.hash.replace('#', '');
   const initialTab = hash && document.getElementById(hash) ? hash : 'students';
   
+  // Set initial tab
   setTimeout(() => {
-    switchTab(initialTab);
+    window.switchTab(initialTab);
   }, 100);
-  
-  // Make switchTab globally available
-  window.switchTab = switchTab;
   
   console.log('✅ Tabs initialized');
 }
 
-// ==================== LOAD TAB DATA (COMPLETE FIXED VERSION) ====================
+// ==================== LOAD TAB DATA ====================
 function loadTabData(tabName) {
   console.log(`📊 Loading data for ${tabName} tab...`);
   
-  // Small delay to ensure DOM is ready
   setTimeout(() => {
     try {
       switch(tabName) {
         case 'students':
           console.log('👥 Loading students tab...');
-          if (typeof loadStudents === 'function') {
-            loadStudents();
-          }
-          // Update student stats
+          if (typeof loadStudents === 'function') loadStudents();
           updateGlobalStats();
           break;
           
-        case 'worklog':  // ← FIXED: Changed from 'hours' to 'worklog'
+        case 'worklog':
           console.log('📝 Loading worklog tab...');
           if (window.worklogManager) {
             window.worklogManager.loadData();
             window.worklogManager.populateDropdowns();
             window.worklogManager.updateUI();
             window.worklogManager.updateStats();
-          } else {
-            console.log('worklogManager not available');
-            // Fallback: try to load from localStorage
-            const container = document.getElementById('worklogContainer');
-            if (container) {
-              const entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
-              if (entries.length === 0) {
-                container.innerHTML = '<p class="empty-message">No worklog entries yet.</p>';
-              }
-            }
           }
           break;
           
         case 'marks':
           console.log('📊 Loading marks tab...');
-          if (typeof loadMarks === 'function') {
-            loadMarks();
-          }
-          // Populate marks student dropdown
+          if (typeof loadMarks === 'function') loadMarks();
           populateMarksStudentDropdown();
-          // Set today's date
           const marksDate = document.getElementById('marksDate');
           if (marksDate) marksDate.value = new Date().toISOString().split('T')[0];
           break;
           
         case 'attendance':
           console.log('✅ Loading attendance tab...');
-          if (typeof loadAttendance === 'function') {
-            loadAttendance();
-          }
-          // Populate attendance students
+          if (typeof loadAttendance === 'function') loadAttendance();
           populateAttendanceStudents();
-          // Set today's date
           const attendanceDate = document.getElementById('attendanceDate');
           if (attendanceDate) attendanceDate.value = new Date().toISOString().split('T')[0];
           break;
           
         case 'payments':
           console.log('💰 Loading payments tab...');
-          if (typeof loadPayments === 'function') {
-            loadPayments();
-          }
-          // Populate payment student dropdown
+          if (typeof loadPayments === 'function') loadPayments();
           populatePaymentStudentDropdown();
-          // Set today's date
           const paymentDate = document.getElementById('paymentDate');
           if (paymentDate) paymentDate.value = new Date().toISOString().split('T')[0];
-          // Update balances
-          if (typeof updatePaymentBalances === 'function') {
-            updatePaymentBalances();
-          }
+          if (typeof updatePaymentBalances === 'function') updatePaymentBalances();
           break;
           
         case 'reports':
           console.log('📈 Loading reports tab...');
-          if (typeof loadReports === 'function') {
-            loadReports();
-          }
+          if (typeof loadReports === 'function') loadReports();
           break;
           
         default:
