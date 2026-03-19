@@ -198,7 +198,7 @@ class SyncService {
         setTimeout(() => this.updateSyncIndicator('Online', 'online'), 3000);
         return { success: false };
     }
-}
+
 
             // ============ SAFETY CHECKS ============
             
