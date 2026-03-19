@@ -150,8 +150,16 @@ class DataManager {
                     // Add a visual indicator for test students
                     const isTestStudent = !student.studentId || student.studentId.toString().trim() === '';
                     
-                    // Calculate rate display
-                    const rate = student.hourlyRate || student.rate || 0;
+                    // Calculate rate display - WITH ERROR HANDLING
+                    let rate = student.hourlyRate || student.rate || 0;
+                    
+                    // Ensure rate is a number
+                    if (typeof rate !== 'number') {
+                        rate = parseFloat(rate) || 0;
+                    }
+                    
+                    // Format safely with fallback
+                    const rateDisplay = !isNaN(rate) ? rate.toFixed(2) : '0.00';
                     
                     return `
                         <div class="student-card" data-id="${student.id}" style="${isTestStudent ? 'opacity: 0.7; border-left: 3px solid orange;' : ''}">
@@ -164,7 +172,7 @@ class DataManager {
                                 </div>
                             </div>
                             <div class="student-details">
-                                <div class="student-rate">$${rate.toFixed(2)}/hour</div>
+                                <div class="student-rate">$${rateDisplay}/hour</div>
                                 <div>${student.gender || ''} • ${student.email || 'No email'}</div>
                                 <div>${student.phone || 'No phone'}</div>
                                 <div class="student-meta">
@@ -174,8 +182,6 @@ class DataManager {
                             </div>
                         </div>
                     `;
-                }).join('');
-            }
             
             // Update student count
             const countElem = document.getElementById('studentCount');
