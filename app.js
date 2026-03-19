@@ -1025,6 +1025,36 @@ function stopAutoSync() {
   }
 }
 
+// Add to app.js - Mobile detection and auto-refresh
+function detectMobile() {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    console.log('📱 Device detection:', isMobile ? 'Mobile' : 'Desktop');
+    return isMobile;
+}
+
+// Force refresh on mobile when app loads
+if (detectMobile()) {
+    console.log('📱 Mobile device detected - will force refresh');
+    
+    // Wait for auth and sync service to be ready
+    setTimeout(() => {
+        if (window.syncService && firebase.auth().currentUser) {
+            console.log('📱 Auto-refreshing for mobile...');
+            window.syncService.forceRefreshFromCloud();
+        }
+    }, 3000);
+}
+
+// Add visibility change listener (when user switches back to app)
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && detectMobile()) {
+        console.log('📱 App became visible on mobile - refreshing...');
+        if (window.syncService && firebase.auth().currentUser) {
+            window.syncService.forceRefreshFromCloud();
+        }
+    }
+});
+
 // ==================== FILE INPUT ====================
 function createFileInput() {
   if (document.getElementById('importFileInput')) return;
