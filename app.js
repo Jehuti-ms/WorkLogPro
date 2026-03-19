@@ -91,6 +91,122 @@ const SimpleRateManager = {
 
 window.SimpleRateManager = SimpleRateManager;
 
+// ==================== THEME MANAGEMENT ====================
+const ThemeManager = {
+    init: function() {
+        console.log('🎨 Initializing ThemeManager...');
+        
+        // Load saved theme or default to dark
+        const savedTheme = localStorage.getItem('worklog-theme') || 'dark';
+        this.applyTheme(savedTheme);
+        
+        // Setup toggle button
+        this.setupToggle();
+    },
+    
+    applyTheme: function(theme) {
+        document.body.className = theme;
+        document.documentElement.setAttribute('data-theme', theme);
+        
+        // Update toggle button text
+        const toggleBtn = document.querySelector('.theme-toggle button');
+        if (toggleBtn) {
+            toggleBtn.textContent = theme === 'dark' ? '🌓' : '🌞';
+        }
+        
+        console.log(`🎨 Theme applied: ${theme}`);
+    },
+    
+    setupToggle: function() {
+        const toggleBtn = document.querySelector('.theme-toggle button');
+        if (!toggleBtn) {
+            console.log('⚠️ Theme toggle button not found');
+            return;
+        }
+        
+        // Remove old listeners
+        const newBtn = toggleBtn.cloneNode(true);
+        toggleBtn.parentNode.replaceChild(newBtn, toggleBtn);
+        
+        // Add new listener
+        newBtn.addEventListener('click', () => {
+            const currentTheme = document.body.className;
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            // Add transition class
+            document.body.classList.add('theme-transition');
+            
+            // Apply new theme
+            this.applyTheme(newTheme);
+            localStorage.setItem('worklog-theme', newTheme);
+            
+            // Remove transition class after animation
+            setTimeout(() => {
+                document.body.classList.remove('theme-transition');
+            }, 300);
+            
+            console.log(`🎨 Theme toggled to: ${newTheme}`);
+        });
+        
+        console.log('✅ Theme toggle setup complete');
+    }
+};
+
+// Add transition styles
+(function addThemeStyles() {
+    if (!document.getElementById('theme-styles')) {
+        const style = document.createElement('style');
+        style.id = 'theme-styles';
+        style.textContent = `
+            .theme-transition,
+            .theme-transition * {
+                transition: background-color 0.3s ease, 
+                            color 0.3s ease, 
+                            border-color 0.3s ease,
+                            box-shadow 0.3s ease !important;
+            }
+            
+            /* User context theme-specific styles */
+            body.light .user-context {
+                background: linear-gradient(135deg, #f0f4ff 0%, #e6ecf7 100%);
+                border: 1px solid #d1d9e8;
+                color: #1e293b;
+            }
+            
+            body.dark .user-context {
+                background: linear-gradient(135deg, #2d3748 0%, #1e2937 100%);
+                border: 1px solid #4a5568;
+                color: #e2e8f0;
+            }
+            
+            body.light .user-context strong {
+                color: #2563eb;
+            }
+            
+            body.dark .user-context strong {
+                color: #60a5fa;
+                text-shadow: 0 0 5px rgba(96, 165, 250, 0.3);
+            }
+            
+            body.light #ratePreview {
+                color: #059669;
+                background: rgba(5, 150, 105, 0.1);
+                padding: 2px 8px;
+                border-radius: 16px;
+            }
+            
+            body.dark #ratePreview {
+                color: #34d399;
+                background: rgba(52, 211, 153, 0.15);
+                padding: 2px 8px;
+                border-radius: 16px;
+                border: 1px solid rgba(52, 211, 153, 0.3);
+            }
+        `;
+        document.head.appendChild(style);
+    }
+})();
+
 // ==================== IMPROVED AUTH CHECK ====================
 async function checkAuthentication() {
   console.log('🔍 Checking authentication...');
@@ -180,6 +296,7 @@ async function safeInit() {
     appInitialized = true;
     
     syncDataManagerWithAuth();
+    ThemeManager.init();
     initAppUI();
     
   } catch (error) {
