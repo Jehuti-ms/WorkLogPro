@@ -423,15 +423,24 @@ function handleUserLogout() {
     }
     
     // Public API
-    return {
-        init: init,
-        saveDefaultRate: saveDefaultRate,
-        useInStudentForm: useInStudentForm,
-        applyToAllStudents: applyToAllStudents,
-        loadDefaultRate: loadDefaultRate,
-        getCurrentUser: () => currentUser,
-        getRateKey: () => rateKey
-    };
+return {
+    init: init,
+    saveDefaultRate: saveDefaultRate,
+    useInStudentForm: useInStudentForm,
+    applyToAllStudents: applyToAllStudents,
+    loadDefaultRate: loadDefaultRate,
+    getCurrentUser: () => currentUser,
+    getRateKey: () => rateKey,
+    // ADD THESE - They allow firebase-config.js to notify RateManager
+    handleUserLogin: function(user) {
+        console.log('👤 RateManager received external login:', user?.email);
+        handleUserLogin(user);
+    },
+    handleUserLogout: function() {
+        console.log('👤 RateManager received external logout');
+        handleUserLogout();
+    }
+};
 })();
 
 // Initialize
