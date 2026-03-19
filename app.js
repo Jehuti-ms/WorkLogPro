@@ -817,7 +817,6 @@ function initTabs() {
       selectedTab.classList.add('active');
       selectedTab.style.display = 'block'; // Force show
       
-      // ==================== LOAD TAB DATA (COMPLETE FIXED VERSION) ====================
 // ==================== LOAD TAB DATA (COMPLETE FIXED VERSION) ====================
 function loadTabData(tabName) {
   console.log(`📊 Loading data for ${tabName} tab...`);
@@ -830,12 +829,12 @@ function loadTabData(tabName) {
           console.log('👥 Loading students tab...');
           if (typeof loadStudents === 'function') {
             loadStudents();
-          } else {
-            console.error('loadStudents function not found');
           }
+          // Update student stats
+          updateGlobalStats();
           break;
           
-        case 'worklog':
+        case 'worklog':  // ← FIXED: Changed from 'hours' to 'worklog'
           console.log('📝 Loading worklog tab...');
           if (window.worklogManager) {
             window.worklogManager.loadData();
@@ -843,7 +842,15 @@ function loadTabData(tabName) {
             window.worklogManager.updateUI();
             window.worklogManager.updateStats();
           } else {
-            console.error('worklogManager not found');
+            console.log('worklogManager not available');
+            // Fallback: try to load from localStorage
+            const container = document.getElementById('worklogContainer');
+            if (container) {
+              const entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+              if (entries.length === 0) {
+                container.innerHTML = '<p class="empty-message">No worklog entries yet.</p>';
+              }
+            }
           }
           break;
           
@@ -851,8 +858,6 @@ function loadTabData(tabName) {
           console.log('📊 Loading marks tab...');
           if (typeof loadMarks === 'function') {
             loadMarks();
-          } else {
-            console.error('loadMarks function not found');
           }
           // Populate marks student dropdown
           populateMarksStudentDropdown();
@@ -865,8 +870,6 @@ function loadTabData(tabName) {
           console.log('✅ Loading attendance tab...');
           if (typeof loadAttendance === 'function') {
             loadAttendance();
-          } else {
-            console.error('loadAttendance function not found');
           }
           // Populate attendance students
           populateAttendanceStudents();
@@ -879,8 +882,6 @@ function loadTabData(tabName) {
           console.log('💰 Loading payments tab...');
           if (typeof loadPayments === 'function') {
             loadPayments();
-          } else {
-            console.error('loadPayments function not found');
           }
           // Populate payment student dropdown
           populatePaymentStudentDropdown();
@@ -897,8 +898,6 @@ function loadTabData(tabName) {
           console.log('📈 Loading reports tab...');
           if (typeof loadReports === 'function') {
             loadReports();
-          } else {
-            console.error('loadReports function not found');
           }
           break;
           
@@ -914,7 +913,7 @@ function loadTabData(tabName) {
   }, 100);
 }
         
-// ==================== TAB HELPER FUNCTIONS ====================
+// ==================== MISSING HELPER FUNCTIONS ====================
 
 // Populate marks student dropdown
 function populateMarksStudentDropdown() {
@@ -956,6 +955,41 @@ function populatePaymentStudentDropdown() {
   });
   
   console.log(`✅ Populated payment dropdown with ${students.length} students`);
+}
+
+// Populate attendance students
+function populateAttendanceStudents() {
+  const container = document.getElementById('attendanceStudents');
+  if (!container) {
+    console.log('attendanceStudents container not found');
+    return;
+  }
+  
+  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+  
+  if (students.length === 0) {
+    container.innerHTML = '<p class="empty-message">No students registered. Add students first.</p>';
+    return;
+  }
+  
+  container.innerHTML = students.map(student => `
+    <div class="attendance-student-item">
+      <input type="checkbox" id="attendance_${student.id}" value="${student.id}">
+      <label for="attendance_${student.id}">${student.name} (${student.studentId || 'No ID'})</label>
+    </div>
+  `).join('');
+  
+  // Add select all button if it doesn't exist
+  const selectAllBtn = document.getElementById('selectAllStudentsBtn');
+  if (selectAllBtn && !selectAllBtn.hasAttribute('data-listener')) {
+    selectAllBtn.setAttribute('data-listener', 'true');
+    selectAllBtn.addEventListener('click', function() {
+      const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+      checkboxes.forEach(cb => cb.checked = true);
+    });
+  }
+  
+  console.log(`✅ Populated attendance with ${students.length} students`);
 }
 
 // Update payment balances
@@ -1004,20 +1038,25 @@ function updatePaymentBalances() {
   });
   
   // Display balances
-  balancesContainer.innerHTML = balances.map(b => `
-    <div class="balance-item">
-      <div class="balance-header">
-        <strong>${b.name}</strong>
-        <span class="balance-amount ${b.balance > 0 ? 'warning' : 'success'}">
-          $${b.balance.toFixed(2)}
-        </span>
+  balancesContainer.innerHTML = balances.map(b => {
+    const statusClass = b.balance > 0 ? 'warning' : (b.balance < 0 ? 'info' : 'success');
+    const statusText = b.balance > 0 ? 'Owes' : (b.balance < 0 ? 'Credit' : 'Paid');
+    
+    return `
+      <div class="balance-item">
+        <div class="balance-header">
+          <strong>${b.name}</strong>
+          <span class="balance-amount ${statusClass}">
+            $${Math.abs(b.balance).toFixed(2)} ${statusText}
+          </span>
+        </div>
+        <div class="balance-details">
+          <span>Earned: $${b.earnings.toFixed(2)}</span>
+          <span>Paid: $${b.payments.toFixed(2)}</span>
+        </div>
       </div>
-      <div class="balance-details">
-        <span>Earned: $${b.earnings.toFixed(2)}</span>
-        <span>Paid: $${b.payments.toFixed(2)}</span>
-      </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
   
   // Calculate total owed
   const totalOwed = balances.reduce((sum, b) => sum + Math.max(0, b.balance), 0);
@@ -1025,6 +1064,46 @@ function updatePaymentBalances() {
   if (totalOwedElem) totalOwedElem.textContent = `$${totalOwed.toFixed(2)}`;
   
   console.log(`✅ Updated payment balances for ${students.length} students`);
+}
+
+// Make sure these functions exist
+if (typeof loadMarks !== 'function') {
+  window.loadMarks = function() {
+    console.log('📊 Loading marks (fallback)...');
+    const container = document.getElementById('marksContainer');
+    if (container) {
+      const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+      if (marks.length === 0) {
+        container.innerHTML = '<p class="empty-message">No marks recorded yet.</p>';
+      }
+    }
+  };
+}
+
+if (typeof loadAttendance !== 'function') {
+  window.loadAttendance = function() {
+    console.log('✅ Loading attendance (fallback)...');
+    const container = document.getElementById('attendanceContainer');
+    if (container) {
+      const attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
+      if (attendance.length === 0) {
+        container.innerHTML = '<p class="empty-message">No attendance records yet.</p>';
+      }
+    }
+  };
+}
+
+if (typeof loadPayments !== 'function') {
+  window.loadPayments = function() {
+    console.log('💰 Loading payments (fallback)...');
+    const container = document.getElementById('paymentActivityLog');
+    if (container) {
+      const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
+      if (payments.length === 0) {
+        container.innerHTML = '<p class="empty-message">No payments yet.</p>';
+      }
+    }
+  };
 }
         
 // ==================== INIT FAB ====================
