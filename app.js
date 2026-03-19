@@ -396,78 +396,83 @@ function showErrorMessage(message) {
 }
 
 // ==================== PROFILE INFO FUNCTION ====================
+// Update profile info
 function updateProfileInfo() {
-  console.log('🔄 Updating profile info...');
-  
-  try {
-    let userEmail = 'Not logged in';
-    let userName = 'User';
-    let memberSince = 'Unknown';
+    console.log('🔄 Updating profile info...');
     
-    // Get current default rate
-    const defaultRate = SimpleRateManager.get();
+    const user = firebase.auth().currentUser;
+    const userNameSpan = document.getElementById('userName');
+    const profileEmailSpan = document.getElementById('profileUserEmail');
+    const profileSinceSpan = document.getElementById('profileUserSince');
+    const profileRateSpan = document.getElementById('profileDefaultRate');
     
-    // Get user email from various sources
-    const storedEmail = localStorage.getItem('userEmail');
-    if (storedEmail) {
-      userEmail = storedEmail;
-      userName = userEmail.split('@')[0];
-    } else {
-      const worklogUser = localStorage.getItem('worklog_user');
-      if (worklogUser) {
-        try {
-          const parsed = JSON.parse(worklogUser);
-          if (parsed && parsed.email) {
-            userEmail = parsed.email;
-            userName = parsed.displayName || parsed.email.split('@')[0];
-          }
-        } catch (e) {
-          console.log('Could not parse worklog_user');
+    if (user) {
+        // Update user name in header
+        if (userNameSpan) {
+            const displayName = user.email ? user.email.split('@')[0] : 'User';
+            userNameSpan.textContent = displayName;
         }
-      }
+        
+        // Update profile email
+        if (profileEmailSpan) {
+            profileEmailSpan.textContent = user.email || 'Not provided';
+        }
+        
+        // ===== FIXED: Member Since =====
+            if (profileSinceSpan) {
+                if (user.metadata && user.metadata.creationTime) {
+                    const creationDate = new Date(user.metadata.creationTime);
+                    profileSinceSpan.textContent = creationDate.toLocaleDateString();
+                } else {
+                    // Try localStorage backup
+                    const savedSince = localStorage.getItem('userMemberSince');
+                    if (savedSince) {
+                        const creationDate = new Date(savedSince);
+                        profileSinceSpan.textContent = creationDate.toLocaleDateString();
+                    } else {
+                        profileSinceSpan.textContent = 'Unknown';
+                    }
+                }
+            }
+        
+        // Update default rate
+        if (profileRateSpan) {
+            const user = firebase.auth().currentUser;
+            if (user && user.email) {
+                const safeEmail = user.email.replace(/[.#$[\]]/g, '_');
+                const rateKey = `defaultRate_${safeEmail}`;
+                const rate = localStorage.getItem(rateKey) || 
+                            localStorage.getItem('defaultHourlyRate') || 
+                            '25.00';
+                profileRateSpan.textContent = `$${parseFloat(rate).toFixed(2)}/hour`;
+            }
+        }
+    } else {
+        if (userNameSpan) userNameSpan.textContent = 'Guest';
+        if (profileEmailSpan) profileEmailSpan.textContent = 'Not logged in';
+        if (profileSinceSpan) profileSinceSpan.textContent = 'Never';
+        if (profileRateSpan) profileRateSpan.textContent = '$0.00/hour';
     }
-    
-    // Try to get member since from Firebase
-    if (typeof firebase !== 'undefined' && firebase.auth().currentUser) {
-      const user = firebase.auth().currentUser;
-      if (user.metadata && user.metadata.creationTime) {
-        memberSince = new Date(user.metadata.creationTime).toLocaleDateString();
-      }
-    }
-    
-    console.log('User email found:', userEmail);
-    console.log('Member since:', memberSince);
-    console.log('Default rate:', defaultRate);
-    
-    // Update profile modal elements
-    const profileEmail = document.getElementById('profileUserEmail');
-    const userNameElem = document.getElementById('userName');
-    const memberSinceElem = document.getElementById('profileUserSince');
-    const defaultRateElem = document.getElementById('profileDefaultRate');
-    
-    if (profileEmail) profileEmail.textContent = userEmail;
-    if (userNameElem) userNameElem.textContent = userName;
-    if (memberSinceElem) memberSinceElem.textContent = memberSince;
-    if (defaultRateElem) defaultRateElem.textContent = `$${parseFloat(defaultRate).toFixed(2)}/hour`;
-    
-    // Update profile stats
-    updateProfileStats();
-    
-  } catch (error) {
-    console.error('Error updating profile:', error);
-    
-    // Set fallback values
-    const profileEmail = document.getElementById('profileUserEmail');
-    const userName = document.getElementById('userName');
-    const memberSinceElem = document.getElementById('profileUserSince');
-    const defaultRateElem = document.getElementById('profileDefaultRate');
-    
-    if (profileEmail) profileEmail.textContent = 'Not logged in';
-    if (userName) userName.textContent = 'User';
-    if (memberSinceElem) memberSinceElem.textContent = 'Unknown';
-    if (defaultRateElem) defaultRateElem.textContent = '$25.00/hour';
-  }
 }
+
+// Save user metadata when they first log in
+function saveUserMetadata() {
+    const user = firebase.auth().currentUser;
+    if (user && user.metadata && user.metadata.creationTime) {
+        // Save to localStorage as backup
+        localStorage.setItem('userMemberSince', user.metadata.creationTime);
+        localStorage.setItem('userEmail', user.email);
+        console.log('✅ User metadata saved to localStorage');
+    }
+}
+
+// Call this when user logs in
+firebase.auth().onAuthStateChanged((user) => {
+    if (user) {
+        saveUserMetadata();
+        updateProfileInfo();
+    }
+});
 
 // ==================== UPDATED PROFILE STATS WITH WORKLOG ====================
 function updateProfileStats() {
