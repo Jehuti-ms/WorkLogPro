@@ -59,7 +59,7 @@ db.enablePersistence({
     }
 });
 
-// SMART AUTH STATE HANDLER - NO REDIRECT LOOPS
+// SMART AUTH STATE HANDLER - FIXED VERSION
 let authCheckInProgress = false;
 auth.onAuthStateChanged((user) => {
     if (authCheckInProgress) {
@@ -77,6 +77,11 @@ auth.onAuthStateChanged((user) => {
         localStorage.setItem('userId', user.uid);
         localStorage.setItem('lastAuthTime', Date.now().toString());
         
+        // CRITICAL: Notify RateManager about the user
+        if (window.RateManager && window.RateManager.handleUserLogin) {
+            window.RateManager.handleUserLogin(user);
+        }
+        
         // WE ARE ON THE MAIN APP - STAY HERE
         if (window.location.pathname.includes('auth.html')) {
             console.log('📱 On auth page but logged in - redirecting to app');
@@ -88,6 +93,11 @@ auth.onAuthStateChanged((user) => {
         // Clear stored user
         localStorage.removeItem('userEmail');
         localStorage.removeItem('userId');
+        
+        // CRITICAL: Notify RateManager about logout
+        if (window.RateManager && window.RateManager.handleUserLogout) {
+            window.RateManager.handleUserLogout();
+        }
         
         // ONLY redirect if we're not already on auth page AND not in a loop
         if (!window.location.pathname.includes('auth.html')) {
