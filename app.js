@@ -913,6 +913,7 @@ function updatePaymentBalances() {
   console.log(`✅ Updated payment balances for ${students.length} students`);
 }
 
+
 // ==================== INIT FAB ====================
 function initFAB() {
   const fab = document.getElementById('floatingAddBtn');
