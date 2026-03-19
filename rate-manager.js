@@ -56,17 +56,25 @@ const RateManager = (function() {
         updateUserDisplay();
     }
     
-    // Handle user logout
-    function handleUserLogout() {
-        console.log('👤 User logged out');
-        currentUser = null;
-        rateKey = 'defaultRate_guest';
-        authReady = false;
-        
-        // Load guest rate
-        loadDefaultRate();
-        updateUserDisplay();
+   // Handle user logout
+function handleUserLogout() {
+    // Double-check if there's REALLY no user
+    const actualUser = firebase.auth().currentUser;
+    if (actualUser) {
+        console.log('⚠️ Logout event but user still exists! Ignoring...');
+        handleUserLogin(actualUser); // Force login handling
+        return;
     }
+    
+    console.log('👤 User logged out');
+    currentUser = null;
+    rateKey = 'defaultRate_guest';
+    authReady = false;
+    
+    // Load guest rate
+    loadDefaultRate();
+    updateUserDisplay();
+}
     
     // Setup auth listener
     function setupAuthListener() {
