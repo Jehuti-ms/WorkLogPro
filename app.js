@@ -760,6 +760,159 @@ function loadTabData(tabName) {
   }, 100);
 }
 
+// ==================== MISSING DROPDOWN FUNCTIONS ====================
+
+// Populate marks student dropdown
+function populateMarksStudentDropdown() {
+  console.log('📊 Populating marks student dropdown...');
+  const select = document.getElementById('marksStudent');
+  if (!select) {
+    console.log('marksStudent dropdown not found');
+    return;
+  }
+  
+  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+  select.innerHTML = '<option value="">Select Student</option>';
+  
+  students.forEach(student => {
+    const option = document.createElement('option');
+    option.value = student.id;
+    option.textContent = `${student.name} (${student.studentId || 'No ID'})`;
+    select.appendChild(option);
+  });
+  
+  console.log(`✅ Populated marks dropdown with ${students.length} students`);
+}
+
+// Populate payment student dropdown
+function populatePaymentStudentDropdown() {
+  console.log('💰 Populating payment student dropdown...');
+  const select = document.getElementById('paymentStudent');
+  if (!select) {
+    console.log('paymentStudent dropdown not found');
+    return;
+  }
+  
+  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+  select.innerHTML = '<option value="">Select Student</option>';
+  
+  students.forEach(student => {
+    const option = document.createElement('option');
+    option.value = student.id;
+    option.textContent = `${student.name} (${student.studentId || 'No ID'})`;
+    select.appendChild(option);
+  });
+  
+  console.log(`✅ Populated payment dropdown with ${students.length} students`);
+}
+
+// Populate attendance students
+function populateAttendanceStudents() {
+  console.log('✅ Populating attendance students...');
+  const container = document.getElementById('attendanceStudents');
+  if (!container) {
+    console.log('attendanceStudents container not found');
+    return;
+  }
+  
+  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+  
+  if (students.length === 0) {
+    container.innerHTML = '<p class="empty-message">No students registered. Add students first.</p>';
+    return;
+  }
+  
+  container.innerHTML = students.map(student => `
+    <div class="attendance-student-item">
+      <input type="checkbox" id="attendance_${student.id}" value="${student.id}">
+      <label for="attendance_${student.id}">${student.name} (${student.studentId || 'No ID'})</label>
+    </div>
+  `).join('');
+  
+  // Add select all button functionality
+  const selectAllBtn = document.getElementById('selectAllStudentsBtn');
+  if (selectAllBtn && !selectAllBtn.hasAttribute('data-listener')) {
+    selectAllBtn.setAttribute('data-listener', 'true');
+    selectAllBtn.addEventListener('click', function() {
+      const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+      checkboxes.forEach(cb => cb.checked = true);
+    });
+  }
+  
+  console.log(`✅ Populated attendance with ${students.length} students`);
+}
+
+// Update payment balances
+function updatePaymentBalances() {
+  console.log('💰 Updating payment balances...');
+  
+  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+  const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
+  const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
+  const worklogs = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+  
+  const balancesContainer = document.getElementById('studentBalancesContainer');
+  if (!balancesContainer) return;
+  
+  if (students.length === 0) {
+    balancesContainer.innerHTML = '<p class="empty-message">No students yet</p>';
+    return;
+  }
+  
+  // Calculate balances for each student
+  const balances = students.map(student => {
+    const hoursEarnings = hours
+      .filter(h => h.hoursStudent === student.id)
+      .reduce((sum, h) => sum + (parseFloat(h.hoursWorked) || 0) * (parseFloat(h.baseRate) || 0), 0);
+    
+    const worklogEarnings = worklogs
+      .filter(w => w.studentId === student.id)
+      .reduce((sum, w) => sum + (parseFloat(w.totalEarnings) || 0), 0);
+    
+    const totalPayments = payments
+      .filter(p => p.paymentStudent === student.id)
+      .reduce((sum, p) => sum + (parseFloat(p.paymentAmount) || 0), 0);
+    
+    const totalEarnings = hoursEarnings + worklogEarnings;
+    const balance = totalEarnings - totalPayments;
+    
+    return {
+      name: student.name,
+      earnings: totalEarnings,
+      payments: totalPayments,
+      balance: balance
+    };
+  });
+  
+  // Display balances
+  balancesContainer.innerHTML = balances.map(b => {
+    const statusClass = b.balance > 0 ? 'warning' : (b.balance < 0 ? 'info' : 'success');
+    const statusText = b.balance > 0 ? 'Owes' : (b.balance < 0 ? 'Credit' : 'Paid');
+    
+    return `
+      <div class="balance-item">
+        <div class="balance-header">
+          <strong>${b.name}</strong>
+          <span class="balance-amount ${statusClass}">
+            $${Math.abs(b.balance).toFixed(2)} ${statusText}
+          </span>
+        </div>
+        <div class="balance-details">
+          <span>Earned: $${b.earnings.toFixed(2)}</span>
+          <span>Paid: $${b.payments.toFixed(2)}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  // Calculate total owed
+  const totalOwed = balances.reduce((sum, b) => sum + Math.max(0, b.balance), 0);
+  const totalOwedElem = document.getElementById('totalOwed');
+  if (totalOwedElem) totalOwedElem.textContent = `$${totalOwed.toFixed(2)}`;
+  
+  console.log(`✅ Updated payment balances for ${students.length} students`);
+}
+
 // ==================== INIT FAB ====================
 function initFAB() {
   const fab = document.getElementById('floatingAddBtn');
