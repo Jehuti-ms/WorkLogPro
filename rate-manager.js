@@ -250,3 +250,29 @@ window.useDefaultRate = () => RateManager.useDefaultRate();
 window.applyDefaultRateToAll = () => RateManager.applyDefaultRateToAll();
 
 console.log('✅ RateManager loaded with working functions');
+
+// Fallback direct functions in case RateManager fails
+if (typeof RateManager === 'undefined') {
+    console.warn('⚠️ RateManager not found, using direct functions');
+    window.saveDefaultRate = function() {
+        const rate = parseFloat(document.getElementById('defaultBaseRate')?.value) || 25;
+        localStorage.setItem('defaultHourlyRate', rate.toString());
+        document.getElementById('currentDefaultRate').textContent = rate.toFixed(2);
+        alert(`Rate saved: $${rate.toFixed(2)}`);
+    };
+    
+    window.useDefaultRate = function() {
+        const rate = localStorage.getItem('defaultHourlyRate') || '25.00';
+        const field = document.getElementById('studentRate');
+        if (field) field.value = rate;
+    };
+    
+    window.applyDefaultRateToAll = function() {
+        const rate = parseFloat(localStorage.getItem('defaultHourlyRate') || '25.00');
+        const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+        students.forEach(s => { s.rate = rate; s.hourlyRate = rate; });
+        localStorage.setItem('worklog_students', JSON.stringify(students));
+        if (window.dataManager) window.dataManager.syncUI();
+        alert(`Updated ${students.length} students`);
+    };
+}
