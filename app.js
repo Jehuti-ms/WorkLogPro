@@ -792,69 +792,241 @@ function initTabs() {
   const tabButtons = document.querySelectorAll('.tab');
   const tabContents = document.querySelectorAll('.tabcontent');
   
+  if (!tabButtons.length || !tabContents.length) {
+    console.error('❌ Tabs not found in HTML!');
+    return;
+  }
+  
+  console.log(`Found ${tabButtons.length} tabs and ${tabContents.length} content sections`);
+  
   function switchTab(tabName) {
     console.log('Switching to tab:', tabName);
     
-    tabContents.forEach(tab => tab.classList.remove('active'));
+    // Hide all tab contents
+    tabContents.forEach(tab => {
+      tab.classList.remove('active');
+      tab.style.display = 'none'; // Force hide
+    });
+    
+    // Remove active class from all tab buttons
     tabButtons.forEach(btn => btn.classList.remove('active'));
     
+    // Show the selected tab content
     const selectedTab = document.getElementById(tabName);
-    if (selectedTab) selectedTab.classList.add('active');
-    
-    const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
-    if (activeButton) activeButton.classList.add('active');
-    
-    window.location.hash = tabName;
-    loadTabData(tabName);
-  }
-  
-  tabButtons.forEach(button => {
-    button.addEventListener('click', function() {
-      switchTab(this.getAttribute('data-tab'));
-    });
-  });
-  
-  const hash = window.location.hash.replace('#', '');
-  switchTab(hash && document.getElementById(hash) ? hash : 'students');
-  
-  window.switchTab = switchTab;
-}
-
+    if (selectedTab) {
+      selectedTab.classList.add('active');
+      selectedTab.style.display = 'block'; // Force show
+      
+      // ==================== LOAD TAB DATA (COMPLETE FIXED VERSION) ====================
+// ==================== LOAD TAB DATA (COMPLETE FIXED VERSION) ====================
 function loadTabData(tabName) {
   console.log(`📊 Loading data for ${tabName} tab...`);
   
+  // Small delay to ensure DOM is ready
   setTimeout(() => {
-    switch(tabName) {
-      case 'students':
-        loadStudents();
-        break;
-      case 'hours':
-        loadHours();
-        break;
-      case 'marks':
-        loadMarks();
-        break;
-      case 'attendance':
-        loadAttendance();
-        break;
-      case 'payments':
-        loadPayments();
-        break;
-      case 'reports':
-        loadReports();
-        break;
-      case 'worklog':
-        if (window.worklogManager) {
-          window.worklogManager.loadData();
-          window.worklogManager.populateDropdowns();
-          window.worklogManager.updateUI();
-          window.worklogManager.updateStats();
-        }
-        break;
+    try {
+      switch(tabName) {
+        case 'students':
+          console.log('👥 Loading students tab...');
+          if (typeof loadStudents === 'function') {
+            loadStudents();
+          } else {
+            console.error('loadStudents function not found');
+          }
+          break;
+          
+        case 'worklog':
+          console.log('📝 Loading worklog tab...');
+          if (window.worklogManager) {
+            window.worklogManager.loadData();
+            window.worklogManager.populateDropdowns();
+            window.worklogManager.updateUI();
+            window.worklogManager.updateStats();
+          } else {
+            console.error('worklogManager not found');
+          }
+          break;
+          
+        case 'marks':
+          console.log('📊 Loading marks tab...');
+          if (typeof loadMarks === 'function') {
+            loadMarks();
+          } else {
+            console.error('loadMarks function not found');
+          }
+          // Populate marks student dropdown
+          populateMarksStudentDropdown();
+          // Set today's date
+          const marksDate = document.getElementById('marksDate');
+          if (marksDate) marksDate.value = new Date().toISOString().split('T')[0];
+          break;
+          
+        case 'attendance':
+          console.log('✅ Loading attendance tab...');
+          if (typeof loadAttendance === 'function') {
+            loadAttendance();
+          } else {
+            console.error('loadAttendance function not found');
+          }
+          // Populate attendance students
+          populateAttendanceStudents();
+          // Set today's date
+          const attendanceDate = document.getElementById('attendanceDate');
+          if (attendanceDate) attendanceDate.value = new Date().toISOString().split('T')[0];
+          break;
+          
+        case 'payments':
+          console.log('💰 Loading payments tab...');
+          if (typeof loadPayments === 'function') {
+            loadPayments();
+          } else {
+            console.error('loadPayments function not found');
+          }
+          // Populate payment student dropdown
+          populatePaymentStudentDropdown();
+          // Set today's date
+          const paymentDate = document.getElementById('paymentDate');
+          if (paymentDate) paymentDate.value = new Date().toISOString().split('T')[0];
+          // Update balances
+          if (typeof updatePaymentBalances === 'function') {
+            updatePaymentBalances();
+          }
+          break;
+          
+        case 'reports':
+          console.log('📈 Loading reports tab...');
+          if (typeof loadReports === 'function') {
+            loadReports();
+          } else {
+            console.error('loadReports function not found');
+          }
+          break;
+          
+        default:
+          console.log('Unknown tab:', tabName);
+      }
+      
+      console.log(`✅ ${tabName} tab loaded successfully`);
+      
+    } catch (error) {
+      console.error(`❌ Error loading ${tabName} tab:`, error);
     }
   }, 100);
 }
+        
+// ==================== TAB HELPER FUNCTIONS ====================
 
+// Populate marks student dropdown
+function populateMarksStudentDropdown() {
+  const select = document.getElementById('marksStudent');
+  if (!select) {
+    console.log('marksStudent dropdown not found');
+    return;
+  }
+  
+  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+  select.innerHTML = '<option value="">Select Student</option>';
+  
+  students.forEach(student => {
+    const option = document.createElement('option');
+    option.value = student.id;
+    option.textContent = `${student.name} (${student.studentId || 'No ID'})`;
+    select.appendChild(option);
+  });
+  
+  console.log(`✅ Populated marks dropdown with ${students.length} students`);
+}
+
+// Populate payment student dropdown
+function populatePaymentStudentDropdown() {
+  const select = document.getElementById('paymentStudent');
+  if (!select) {
+    console.log('paymentStudent dropdown not found');
+    return;
+  }
+  
+  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+  select.innerHTML = '<option value="">Select Student</option>';
+  
+  students.forEach(student => {
+    const option = document.createElement('option');
+    option.value = student.id;
+    option.textContent = `${student.name} (${student.studentId || 'No ID'})`;
+    select.appendChild(option);
+  });
+  
+  console.log(`✅ Populated payment dropdown with ${students.length} students`);
+}
+
+// Update payment balances
+function updatePaymentBalances() {
+  console.log('💰 Updating payment balances...');
+  
+  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+  const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
+  const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
+  const worklogs = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+  
+  const balancesContainer = document.getElementById('studentBalancesContainer');
+  if (!balancesContainer) return;
+  
+  if (students.length === 0) {
+    balancesContainer.innerHTML = '<p class="empty-message">No students yet</p>';
+    return;
+  }
+  
+  // Calculate balances for each student
+  const balances = students.map(student => {
+    // Calculate earnings from hours
+    const hoursEarnings = hours
+      .filter(h => h.hoursStudent === student.id)
+      .reduce((sum, h) => sum + (parseFloat(h.hoursWorked) || 0) * (parseFloat(h.baseRate) || 0), 0);
+    
+    // Calculate earnings from worklogs
+    const worklogEarnings = worklogs
+      .filter(w => w.studentId === student.id)
+      .reduce((sum, w) => sum + (parseFloat(w.totalEarnings) || 0), 0);
+    
+    // Calculate total payments
+    const totalPayments = payments
+      .filter(p => p.paymentStudent === student.id)
+      .reduce((sum, p) => sum + (parseFloat(p.paymentAmount) || 0), 0);
+    
+    const totalEarnings = hoursEarnings + worklogEarnings;
+    const balance = totalEarnings - totalPayments;
+    
+    return {
+      name: student.name,
+      earnings: totalEarnings,
+      payments: totalPayments,
+      balance: balance
+    };
+  });
+  
+  // Display balances
+  balancesContainer.innerHTML = balances.map(b => `
+    <div class="balance-item">
+      <div class="balance-header">
+        <strong>${b.name}</strong>
+        <span class="balance-amount ${b.balance > 0 ? 'warning' : 'success'}">
+          $${b.balance.toFixed(2)}
+        </span>
+      </div>
+      <div class="balance-details">
+        <span>Earned: $${b.earnings.toFixed(2)}</span>
+        <span>Paid: $${b.payments.toFixed(2)}</span>
+      </div>
+    </div>
+  `).join('');
+  
+  // Calculate total owed
+  const totalOwed = balances.reduce((sum, b) => sum + Math.max(0, b.balance), 0);
+  const totalOwedElem = document.getElementById('totalOwed');
+  if (totalOwedElem) totalOwedElem.textContent = `$${totalOwed.toFixed(2)}`;
+  
+  console.log(`✅ Updated payment balances for ${students.length} students`);
+}
+        
 // ==================== INIT FAB ====================
 function initFAB() {
   const fab = document.getElementById('floatingAddBtn');
