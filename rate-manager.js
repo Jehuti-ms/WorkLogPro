@@ -118,9 +118,9 @@ function handleUserLogout() {
         }
         
         // No rate exists, set default
-        console.log('📝 No rate found, setting default 30.00');
-        localStorage.setItem(rateKey, '30.00');
-        localStorage.setItem('defaultHourlyRate', '30.00');
+        console.log('📝 No rate found, setting default 25.00');
+        localStorage.setItem(rateKey, '25.00');
+        localStorage.setItem('defaultHourlyRate', '25.00');
     }
     
     // Update user display
