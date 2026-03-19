@@ -667,32 +667,69 @@ function initTabs() {
   const tabButtons = document.querySelectorAll('.tab');
   const tabContents = document.querySelectorAll('.tabcontent');
   
+  // First, hide all tab contents
+  tabContents.forEach(tab => {
+    tab.style.display = 'none';
+    tab.classList.remove('active');
+  });
+  
   function switchTab(tabName) {
     console.log('Switching to tab:', tabName);
     
-    tabContents.forEach(tab => tab.classList.remove('active'));
+    // Hide all tab contents
+    tabContents.forEach(tab => {
+      tab.style.display = 'none';
+      tab.classList.remove('active');
+    });
+    
+    // Remove active class from all tab buttons
     tabButtons.forEach(btn => btn.classList.remove('active'));
     
+    // Show the selected tab
     const selectedTab = document.getElementById(tabName);
-    if (selectedTab) selectedTab.classList.add('active');
+    if (selectedTab) {
+      selectedTab.style.display = 'block';
+      selectedTab.classList.add('active');
+      console.log(`✅ Showing ${tabName} tab`);
+    } else {
+      console.error(`❌ Tab content not found: ${tabName}`);
+    }
     
+    // Activate the clicked tab button
     const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
-    if (activeButton) activeButton.classList.add('active');
+    if (activeButton) {
+      activeButton.classList.add('active');
+    }
     
+    // Update URL hash
     window.location.hash = tabName;
+    
+    // Load tab data
     loadTabData(tabName);
   }
   
+  // Add click handlers to all tab buttons
   tabButtons.forEach(button => {
-    button.addEventListener('click', function() {
-      switchTab(this.getAttribute('data-tab'));
+    button.addEventListener('click', function(e) {
+      e.preventDefault();
+      const tabName = this.getAttribute('data-tab');
+      switchTab(tabName);
     });
   });
   
+  // Check URL hash for initial tab
   const hash = window.location.hash.replace('#', '');
-  switchTab(hash && document.getElementById(hash) ? hash : 'students');
+  const initialTab = hash && document.getElementById(hash) ? hash : 'students';
   
+  // Show initial tab
+  setTimeout(() => {
+    switchTab(initialTab);
+  }, 100);
+  
+  // Make switchTab globally available
   window.switchTab = switchTab;
+  
+  console.log('✅ Tabs initialized');
 }
 
 function loadTabData(tabName) {
