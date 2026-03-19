@@ -514,7 +514,6 @@ class SyncService {
         localStorage.setItem('autoSyncEnabled', 'false');
         console.log('⏹️ Auto-sync stopped');
     }
-}
 
 // Add to sync-service.js - FORCE REFRESH FROM CLOUD
 async forceRefreshFromCloud() {
