@@ -134,6 +134,7 @@
         <button id="importDataBtn" class="button primary" title="Import Data from File">📥 Import</button>
         <button id="recoverBackupBtn" class="button warning" onclick="BackupManager.restoreLatestBackup()">🔄 Recover Backup</button>
         <button id="listBackupsBtn" class="button info" onclick="console.log(BackupManager.listBackups())"> 📋 List Backups</button>
+        <button id="forceRefreshBtn" class="button warning" onclick="window.syncService.manualRefresh()"> 📱 Force Refresh</button>
         <button id="clearDataBtn" class="button danger" title="Clear All Data">🗑️ Clear</button>
     </div>
 
