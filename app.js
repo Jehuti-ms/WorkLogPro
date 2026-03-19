@@ -296,7 +296,10 @@ async function safeInit() {
     appInitialized = true;
     
     syncDataManagerWithAuth();
+
+    // Initialize theme before UI
     ThemeManager.init();
+      
     initAppUI();
     
   } catch (error) {
