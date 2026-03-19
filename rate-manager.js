@@ -1,5 +1,5 @@
-// rate-manager.js - PROFESSIONAL VERSION with Event Listeners & Visual Feedback
-console.log('💰 Loading RateManager Pro...');
+// rate-manager.js - FIXED User-Specific Rate Management
+console.log('💰 Loading FIXED RateManager...');
 
 const RateManager = (function() {
     // Private variables
@@ -8,55 +8,88 @@ const RateManager = (function() {
     
     // Initialize
     function init() {
-        console.log('💰 Initializing RateManager Pro...');
+        console.log('💰 Initializing FIXED RateManager...');
         
-        // Check for user
+        // Check for user immediately
         checkCurrentUser();
         
         // Setup auth listener
         setupAuthListener();
         
-        // Setup all event listeners
+        // Setup event listeners
         setupEventListeners();
         
         // Load rate
         loadDefaultRate();
         
-        console.log('✅ RateManager Pro ready');
+        console.log('✅ FIXED RateManager ready');
     }
     
     // Check current user
     function checkCurrentUser() {
         currentUser = firebase.auth().currentUser;
-        if (currentUser) {
+        if (currentUser && currentUser.email) {
             const safeEmail = currentUser.email.replace(/[.#$[\]]/g, '_');
             rateKey = `defaultRate_${safeEmail}`;
-            updateUserDisplay();
             console.log(`👤 User: ${currentUser.email}, Rate Key: ${rateKey}`);
+            
+            // CRITICAL: Migrate old rate to new key if needed
+            migrateOldRate();
         } else {
             rateKey = 'defaultRate_guest';
-            updateUserDisplay();
             console.log(`👤 Guest user, Rate Key: ${rateKey}`);
+        }
+        updateUserDisplay();
+    }
+    
+    // CRITICAL: Migrate old rate to user-specific key
+    function migrateOldRate() {
+        if (!currentUser) return;
+        
+        const oldRate = localStorage.getItem('defaultHourlyRate');
+        const userRate = localStorage.getItem(rateKey);
+        
+        console.log('🔄 Checking rate migration:', {
+            oldRate: oldRate,
+            userRate: userRate,
+            rateKey: rateKey
+        });
+        
+        // If user-specific rate doesn't exist but old rate does, migrate it
+        if (!userRate && oldRate) {
+            console.log(`🔄 Migrating old rate ${oldRate} to ${rateKey}`);
+            localStorage.setItem(rateKey, oldRate);
+            showNotification(`💰 Migrated your rate: $${oldRate}`, 'info');
+        }
+        
+        // If NEITHER exists, set a default
+        if (!userRate && !oldRate) {
+            console.log('📝 No rate found, setting default 25.00');
+            localStorage.setItem(rateKey, '25.00');
+            localStorage.setItem('defaultHourlyRate', '25.00');
         }
     }
     
     // Setup auth listener
     function setupAuthListener() {
         firebase.auth().onAuthStateChanged((user) => {
-            console.log('🔄 Auth changed, updating rate key...');
+            console.log('🔄 Auth changed, updating rate...');
             currentUser = user;
-            if (user) {
+            
+            if (user && user.email) {
                 const safeEmail = user.email.replace(/[.#$[\]]/g, '_');
                 rateKey = `defaultRate_${safeEmail}`;
+                migrateOldRate(); // Check migration again
             } else {
                 rateKey = 'defaultRate_guest';
             }
+            
             updateUserDisplay();
             loadDefaultRate();
         });
     }
     
-    // Update user display in UI
+    // Update user display
     function updateUserDisplay() {
         const userDisplay = document.getElementById('currentUserEmail');
         if (userDisplay) {
@@ -64,58 +97,44 @@ const RateManager = (function() {
         }
     }
     
-    // Setup ALL event listeners
+    // Setup event listeners
     function setupEventListeners() {
         console.log('🔧 Setting up rate button listeners...');
         
-        // 1. Save Default Rate Button
+        // Save button
         const saveBtn = document.getElementById('saveDefaultRateBtn');
         if (saveBtn) {
-            // Remove old listeners
             const newBtn = saveBtn.cloneNode(true);
             saveBtn.parentNode.replaceChild(newBtn, saveBtn);
-            
-            // Add new listener
-            newBtn.addEventListener('click', function(e) {
+            newBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 saveDefaultRate();
             });
-            console.log('✅ Save button listener attached');
-        } else {
-            console.warn('⚠️ Save button not found');
         }
         
-        // 2. Use in Student Form Button
+        // Use in form button
         const useBtn = document.getElementById('useDefaultRateBtn');
         if (useBtn) {
             const newBtn = useBtn.cloneNode(true);
             useBtn.parentNode.replaceChild(newBtn, useBtn);
-            
-            newBtn.addEventListener('click', function(e) {
+            newBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 useInStudentForm();
             });
-            console.log('✅ Use in form button listener attached');
-        } else {
-            console.warn('⚠️ Use in form button not found');
         }
         
-        // 3. Apply to All Students Button
+        // Apply to all button
         const applyBtn = document.getElementById('applyRateToAllBtn');
         if (applyBtn) {
             const newBtn = applyBtn.cloneNode(true);
             applyBtn.parentNode.replaceChild(newBtn, applyBtn);
-            
-            newBtn.addEventListener('click', function(e) {
+            newBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 applyToAllStudents();
             });
-            console.log('✅ Apply to all button listener attached');
-        } else {
-            console.warn('⚠️ Apply to all button not found');
         }
         
-        // 4. Rate input change - live preview
+        // Rate input preview
         const rateInput = document.getElementById('defaultBaseRate');
         if (rateInput) {
             rateInput.addEventListener('input', function() {
@@ -128,12 +147,40 @@ const RateManager = (function() {
         }
     }
     
-    // Load default rate
+    // Load default rate - FIXED VERSION
     function loadDefaultRate() {
-        const rate = localStorage.getItem(rateKey) || 
-                    localStorage.getItem('defaultHourlyRate') || 
-                    '25.00';
+        console.log('💰 Loading default rate...');
         
+        let rate = '25.00'; // Default fallback
+        
+        // Try user-specific key first
+        if (currentUser) {
+            rate = localStorage.getItem(rateKey);
+            console.log(`🔍 Looking for rate at ${rateKey}:`, rate);
+        }
+        
+        // If no user-specific rate, try old key
+        if (!rate) {
+            rate = localStorage.getItem('defaultHourlyRate');
+            console.log('🔍 Looking for rate at defaultHourlyRate:', rate);
+        }
+        
+        // If still no rate, use default
+        if (!rate) {
+            rate = '25.00';
+            console.log('📝 No rate found, using default:', rate);
+            
+            // Save default to user-specific key if logged in
+            if (currentUser) {
+                localStorage.setItem(rateKey, rate);
+                console.log(`💾 Saved default to ${rateKey}`);
+            }
+        }
+        
+        // Ensure rate is a string with proper format
+        rate = rate.toString();
+        
+        // Update UI
         const rateInput = document.getElementById('defaultBaseRate');
         const rateDisplay = document.getElementById('currentDefaultRate');
         const ratePreview = document.getElementById('ratePreview');
@@ -142,106 +189,11 @@ const RateManager = (function() {
         if (rateDisplay) rateDisplay.textContent = parseFloat(rate).toFixed(2);
         if (ratePreview) ratePreview.textContent = `$${parseFloat(rate).toFixed(2)}/hour`;
         
-        console.log(`💰 Loaded rate: $${rate} (${rateKey})`);
+        console.log(`✅ Loaded rate: $${rate} (${rateKey})`);
+        return rate;
     }
     
-    // Show notification
-    function showNotification(message, type = 'info') {
-        console.log(`🔔 [${type}] ${message}`);
-        
-        // Create notification element
-        const notification = document.createElement('div');
-        notification.className = `rate-notification ${type}`;
-        notification.innerHTML = `
-            <div class="notification-content">
-                <span class="notification-icon">${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
-                <span class="notification-message">${message}</span>
-            </div>
-        `;
-        
-        // Style it
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 15px 20px;
-            background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
-            color: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            z-index: 10000;
-            animation: slideIn 0.3s ease;
-            font-family: Arial, sans-serif;
-            min-width: 250px;
-        `;
-        
-        // Add animation styles if not present
-        if (!document.getElementById('rate-notification-styles')) {
-            const style = document.createElement('style');
-            style.id = 'rate-notification-styles';
-            style.textContent = `
-                @keyframes slideIn {
-                    from { transform: translateX(100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-                @keyframes slideOut {
-                    from { transform: translateX(0); opacity: 1; }
-                    to { transform: translateX(100%); opacity: 0; }
-                }
-                .rate-notification {
-                    transition: all 0.3s ease;
-                }
-            `;
-            document.head.appendChild(style);
-        }
-        
-        document.body.appendChild(notification);
-        
-        // Remove after 3 seconds
-        setTimeout(() => {
-            notification.style.animation = 'slideOut 0.3s ease';
-            setTimeout(() => notification.remove(), 300);
-        }, 3000);
-    }
-    
-    // Show button feedback
-    function showButtonFeedback(button, originalText, isLoading = true) {
-        if (!button) return;
-        
-        if (isLoading) {
-            button.dataset.originalText = button.textContent;
-            button.innerHTML = '<span class="spinner"></span> Processing...';
-            button.disabled = true;
-            
-            // Add spinner styles
-            if (!document.getElementById('rate-spinner-styles')) {
-                const style = document.createElement('style');
-                style.id = 'rate-spinner-styles';
-                style.textContent = `
-                    .spinner {
-                        display: inline-block;
-                        width: 16px;
-                        height: 16px;
-                        border: 2px solid rgba(255,255,255,0.3);
-                        border-radius: 50%;
-                        border-top-color: white;
-                        animation: spin 1s ease-in-out infinite;
-                        margin-right: 8px;
-                        vertical-align: middle;
-                    }
-                    @keyframes spin {
-                        to { transform: rotate(360deg); }
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-        } else {
-            button.innerHTML = button.dataset.originalText || originalText;
-            button.disabled = false;
-        }
-    }
-    
-    // SAVE DEFAULT RATE
+    // Save default rate - FIXED VERSION
     function saveDefaultRate() {
         console.log('💰 saveDefaultRate called');
         
@@ -254,7 +206,6 @@ const RateManager = (function() {
         const rate = parseFloat(rateInput.value);
         if (isNaN(rate) || rate < 0) {
             showNotification('Please enter a valid positive rate', 'error');
-            rateInput.focus();
             return;
         }
         
@@ -262,10 +213,13 @@ const RateManager = (function() {
         const saveBtn = document.getElementById('saveDefaultRateBtn');
         showButtonFeedback(saveBtn, '💾 Save Default Rate', true);
         
-        // Save to user-specific key
-        localStorage.setItem(rateKey, rate.toString());
+        // CRITICAL: Save to user-specific key
+        if (currentUser) {
+            localStorage.setItem(rateKey, rate.toString());
+            console.log(`✅ Saved to user key: ${rateKey} = $${rate}`);
+        }
         
-        // Save to old keys for compatibility
+        // Also save to old key for backward compatibility
         localStorage.setItem('defaultHourlyRate', rate.toString());
         localStorage.setItem('defaultRate', rate.toString());
         
@@ -286,16 +240,19 @@ const RateManager = (function() {
         console.log(`✅ Rate saved: $${rate} (${rateKey})`);
     }
     
-    // USE IN STUDENT FORM
+    // Use in student form
     function useInStudentForm() {
         console.log('📝 useInStudentForm called');
         
-        // Get current rate
-        const rate = localStorage.getItem(rateKey) || 
-                    localStorage.getItem('defaultHourlyRate') || 
-                    '25.00';
+        // Get current rate from user-specific key
+        let rate = '25.00';
         
-        // Find student rate field
+        if (currentUser) {
+            rate = localStorage.getItem(rateKey) || localStorage.getItem('defaultHourlyRate') || '25.00';
+        } else {
+            rate = localStorage.getItem('defaultHourlyRate') || '25.00';
+        }
+        
         const studentRateField = document.getElementById('studentRate');
         if (!studentRateField) {
             showNotification('Please go to Students tab first', 'error');
@@ -304,7 +261,6 @@ const RateManager = (function() {
             const studentsTab = document.querySelector('.tab[data-tab="students"]');
             if (studentsTab) studentsTab.click();
             
-            // Try again after tab switch
             setTimeout(() => {
                 const field = document.getElementById('studentRate');
                 if (field) {
@@ -317,107 +273,120 @@ const RateManager = (function() {
             return;
         }
         
-        // Set the value
         studentRateField.value = rate;
         
-        // Visual feedback - highlight the field
+        // Visual feedback
         studentRateField.style.border = '2px solid #4CAF50';
-        studentRateField.style.transition = 'border 0.5s ease';
         setTimeout(() => studentRateField.style.border = '', 1000);
-        
-        // Show feedback on button
-        const useBtn = document.getElementById('useDefaultRateBtn');
-        showButtonFeedback(useBtn, '📝 Use in Student Form', true);
-        setTimeout(() => showButtonFeedback(useBtn, '📝 Use in Student Form', false), 500);
         
         showNotification(`💰 Rate $${rate} applied to student form`, 'success');
         console.log(`✅ Applied rate $${rate} to student form`);
     }
     
-// In rate-manager.js - Update the applyToAllStudents function
-applyToAllStudents: async function() {
-    console.log('🔄 applyToAllStudents called');
-    
-    // Get current rate
-    const rate = parseFloat(localStorage.getItem(rateKey) || 
-                            localStorage.getItem('defaultHourlyRate') || 
-                            '25.00');
-    
-    // Confirm
-    const studentCount = JSON.parse(localStorage.getItem('worklog_students') || '[]').length;
-    if (!confirm(`⚠️ Update ALL ${studentCount} students with rate $${rate.toFixed(2)}/hour?`)) {
-        return;
-    }
-    
-    // Show loading
-    const applyBtn = document.getElementById('applyRateToAllBtn');
-    showButtonFeedback(applyBtn, '🔄 Apply to All Students', true);
-    
-    try {
-        // Get students
-        let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    // Apply to all students
+    async function applyToAllStudents() {
+        console.log('🔄 applyToAllStudents called');
         
-        if (students.length === 0) {
-            showNotification('No students found', 'warning');
+        // Get current rate from user-specific key
+        let rate = 25;
+        if (currentUser) {
+            rate = parseFloat(localStorage.getItem(rateKey) || localStorage.getItem('defaultHourlyRate') || '25');
+        } else {
+            rate = parseFloat(localStorage.getItem('defaultHourlyRate') || '25');
+        }
+        
+        // Confirm
+        const studentCount = JSON.parse(localStorage.getItem('worklog_students') || '[]').length;
+        if (!confirm(`⚠️ Update ALL ${studentCount} students with rate $${rate.toFixed(2)}/hour?`)) {
             return;
         }
         
-        console.log(`📊 Updating ${students.length} students to $${rate.toFixed(2)}...`);
+        const applyBtn = document.getElementById('applyRateToAllBtn');
+        showButtonFeedback(applyBtn, '🔄 Apply to All Students', true);
         
-        // CRITICAL: Update BOTH rate fields
-        students.forEach(student => {
-            console.log(`  ${student.name}: old rate = ${student.rate || student.hourlyRate}, new = ${rate}`);
-            student.rate = rate;           // Set primary rate
-            student.hourlyRate = rate;      // Set secondary rate for compatibility
-            student.updatedAt = new Date().toISOString();
-        });
-        
-        // Save to localStorage
-        localStorage.setItem('worklog_students', JSON.stringify(students));
-        console.log(`✅ Saved ${students.length} students to localStorage`);
-        
-        // CRITICAL: Force UI update
-        if (window.dataManager) {
-            window.dataManager.students = students;
-            window.dataManager.syncUI();    // This will refresh the display
-            console.log('🔄 Forced UI refresh');
+        try {
+            let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+            
+            if (students.length === 0) {
+                showNotification('No students found', 'warning');
+                return;
+            }
+            
+            console.log(`📊 Updating ${students.length} students to $${rate.toFixed(2)}...`);
+            
+            students.forEach(student => {
+                student.rate = rate;
+                student.hourlyRate = rate;
+                student.updatedAt = new Date().toISOString();
+                if (currentUser) {
+                    student.updatedBy = currentUser.email;
+                }
+            });
+            
+            localStorage.setItem('worklog_students', JSON.stringify(students));
+            
+            // Update UI
+            if (window.dataManager) {
+                window.dataManager.students = students;
+                window.dataManager.syncUI();
+            }
+            
+            showNotification(`✅ Updated ${students.length} students to $${rate.toFixed(2)}/hour`, 'success');
+            
+        } catch (error) {
+            console.error('❌ Error:', error);
+            showNotification('Error: ' + error.message, 'error');
+        } finally {
+            setTimeout(() => showButtonFeedback(applyBtn, '🔄 Apply to All Students', false), 500);
         }
-        
-        // Also update any global student arrays
-        if (window.formHandler) {
-            window.formHandler.students = students;
-        }
-        
-        // Update Firebase if logged in
-        if (currentUser) {
-            // ... Firebase update code ...
-        }
-        
-        // Refresh stats
-        if (typeof refreshAllStats === 'function') refreshAllStats();
-        if (typeof updateGlobalStats === 'function') updateGlobalStats();
-        
-        showNotification(`✅ Updated ${students.length} students to $${rate.toFixed(2)}/hour`, 'success');
-        
-        // Double-check the update worked
-        setTimeout(() => {
-            const verifyStudents = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-            console.log('✅ Verification - First 3 students:',
-                verifyStudents.slice(0,3).map(s => ({
-                    name: s.name,
-                    rate: s.rate,
-                    hourlyRate: s.hourlyRate
-                }))
-            );
-        }, 500);
-        
-    } catch (error) {
-        console.error('❌ Error:', error);
-        showNotification('Error: ' + error.message, 'error');
-    } finally {
-        setTimeout(() => showButtonFeedback(applyBtn, '🔄 Apply to All Students', false), 500);
     }
-}
+    
+    // Show button feedback
+    function showButtonFeedback(button, originalText, isLoading) {
+        if (!button) return;
+        
+        if (isLoading) {
+            button.dataset.originalText = button.textContent;
+            button.innerHTML = '<span class="spinner"></span> Processing...';
+            button.disabled = true;
+        } else {
+            button.innerHTML = button.dataset.originalText || originalText;
+            button.disabled = false;
+        }
+    }
+    
+    // Show notification
+    function showNotification(message, type) {
+        console.log(`🔔 [${type}] ${message}`);
+        
+        const notification = document.createElement('div');
+        notification.className = `rate-notification ${type}`;
+        notification.innerHTML = `
+            <div class="notification-content">
+                <span class="notification-icon">${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
+                <span class="notification-message">${message}</span>
+            </div>
+        `;
+        
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
+            color: white;
+            border-radius: 8px;
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
+    }
     
     // Public API
     return {
@@ -429,14 +398,17 @@ applyToAllStudents: async function() {
     };
 })();
 
-// Initialize when ready
+// Initialize
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => RateManager.init());
 } else {
     RateManager.init();
 }
 
-// Global references for debugging
+// Make available globally
 window.RateManager = RateManager;
+window.saveDefaultRate = () => RateManager.saveDefaultRate();
+window.useDefaultRate = () => RateManager.useDefaultRate();
+window.applyDefaultRateToAll = () => RateManager.applyDefaultRateToAll();
 
-console.log('✅ RateManager Pro loaded with event listeners');
+console.log('✅ FIXED RateManager loaded');
