@@ -1,31 +1,18 @@
-// Service Worker for WorkLog App - FIXED VERSION
-const cacheName = 'worklog-app-v3'; // Increment version
+// sw.js - Updated to prevent auth page caching
+const cacheName = 'worklog-app-v4';
 const assetsToCache = [
   './styles.css',
   './app.js',
-  './auth.js',
-  './cloud-sync.js',
   './manifest.json',
   './icons/icon-72x72.png',
   './icons/icon-144x144.png', 
   './icons/icon-192x192.png',
   './icons/icon-512x512.png'
-  // REMOVED: index.html and auth.html from cache
+  // NO HTML FILES CACHED!
 ];
 
 self.addEventListener('install', event => {
   console.log('Service Worker installing...');
-  event.waitUntil(
-    caches.open(cacheName)
-      .then(cache => {
-        console.log('Opened cache');
-        return cache.addAll(assetsToCache)
-          .then(() => console.log('All assets cached successfully'))
-          .catch(err => {
-            console.error('Failed to cache assets:', err);
-          });
-      })
-  );
   self.skipWaiting();
 });
 
@@ -47,18 +34,28 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-  // DON'T cache HTML files - always fetch fresh versions
+  // NEVER cache HTML files
   if (event.request.url.includes('.html')) {
-    console.log('Fetching fresh HTML:', event.request.url);
-    event.respondWith(fetch(event.request));
+    console.log('🌐 Fetching fresh HTML:', event.request.url);
+    event.respondWith(
+      fetch(event.request)
+        .catch(() => {
+          // If offline and trying to get auth page, show offline message
+          if (event.request.url.includes('auth.html')) {
+            return new Response(
+              '<html><body><h1>Offline</h1><p>Please check your connection</p></body></html>',
+              { headers: { 'Content-Type': 'text/html' } }
+            );
+          }
+          return caches.match('./offline.html');
+        })
+    );
     return;
   }
   
   // For other assets, try cache first
   event.respondWith(
     caches.match(event.request)
-      .then(response => {
-        return response || fetch(event.request);
-      })
+      .then(response => response || fetch(event.request))
   );
 });
