@@ -91,122 +91,6 @@ const SimpleRateManager = {
 
 window.SimpleRateManager = SimpleRateManager;
 
-// ==================== THEME MANAGEMENT ====================
-const ThemeManager = {
-    init: function() {
-        console.log('🎨 Initializing ThemeManager...');
-        
-        // Load saved theme or default to dark
-        const savedTheme = localStorage.getItem('worklog-theme') || 'dark';
-        this.applyTheme(savedTheme);
-        
-        // Setup toggle button
-        this.setupToggle();
-    },
-    
-    applyTheme: function(theme) {
-        document.body.className = theme;
-        document.documentElement.setAttribute('data-theme', theme);
-        
-        // Update toggle button text
-        const toggleBtn = document.querySelector('.theme-toggle button');
-        if (toggleBtn) {
-            toggleBtn.textContent = theme === 'dark' ? '🌓' : '🌞';
-        }
-        
-        console.log(`🎨 Theme applied: ${theme}`);
-    },
-    
-    setupToggle: function() {
-        const toggleBtn = document.querySelector('.theme-toggle button');
-        if (!toggleBtn) {
-            console.log('⚠️ Theme toggle button not found');
-            return;
-        }
-        
-        // Remove old listeners
-        const newBtn = toggleBtn.cloneNode(true);
-        toggleBtn.parentNode.replaceChild(newBtn, toggleBtn);
-        
-        // Add new listener
-        newBtn.addEventListener('click', () => {
-            const currentTheme = document.body.className;
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            
-            // Add transition class
-            document.body.classList.add('theme-transition');
-            
-            // Apply new theme
-            this.applyTheme(newTheme);
-            localStorage.setItem('worklog-theme', newTheme);
-            
-            // Remove transition class after animation
-            setTimeout(() => {
-                document.body.classList.remove('theme-transition');
-            }, 300);
-            
-            console.log(`🎨 Theme toggled to: ${newTheme}`);
-        });
-        
-        console.log('✅ Theme toggle setup complete');
-    }
-};
-
-// Add transition styles
-(function addThemeStyles() {
-    if (!document.getElementById('theme-styles')) {
-        const style = document.createElement('style');
-        style.id = 'theme-styles';
-        style.textContent = `
-            .theme-transition,
-            .theme-transition * {
-                transition: background-color 0.3s ease, 
-                            color 0.3s ease, 
-                            border-color 0.3s ease,
-                            box-shadow 0.3s ease !important;
-            }
-            
-            /* User context theme-specific styles */
-            body.light .user-context {
-                background: linear-gradient(135deg, #f0f4ff 0%, #e6ecf7 100%);
-                border: 1px solid #d1d9e8;
-                color: #1e293b;
-            }
-            
-            body.dark .user-context {
-                background: linear-gradient(135deg, #2d3748 0%, #1e2937 100%);
-                border: 1px solid #4a5568;
-                color: #e2e8f0;
-            }
-            
-            body.light .user-context strong {
-                color: #2563eb;
-            }
-            
-            body.dark .user-context strong {
-                color: #60a5fa;
-                text-shadow: 0 0 5px rgba(96, 165, 250, 0.3);
-            }
-            
-            body.light #ratePreview {
-                color: #059669;
-                background: rgba(5, 150, 105, 0.1);
-                padding: 2px 8px;
-                border-radius: 16px;
-            }
-            
-            body.dark #ratePreview {
-                color: #34d399;
-                background: rgba(52, 211, 153, 0.15);
-                padding: 2px 8px;
-                border-radius: 16px;
-                border: 1px solid rgba(52, 211, 153, 0.3);
-            }
-        `;
-        document.head.appendChild(style);
-    }
-})();
-
 // ==================== IMPROVED AUTH CHECK ====================
 async function checkAuthentication() {
   console.log('🔍 Checking authentication...');
@@ -296,10 +180,6 @@ async function safeInit() {
     appInitialized = true;
     
     syncDataManagerWithAuth();
-
-    // Initialize theme before UI
-    ThemeManager.init();
-      
     initAppUI();
     
   } catch (error) {
@@ -516,83 +396,78 @@ function showErrorMessage(message) {
 }
 
 // ==================== PROFILE INFO FUNCTION ====================
-// Update profile info
 function updateProfileInfo() {
-    console.log('🔄 Updating profile info...');
+  console.log('🔄 Updating profile info...');
+  
+  try {
+    let userEmail = 'Not logged in';
+    let userName = 'User';
+    let memberSince = 'Unknown';
     
-    const user = firebase.auth().currentUser;
-    const userNameSpan = document.getElementById('userName');
-    const profileEmailSpan = document.getElementById('profileUserEmail');
-    const profileSinceSpan = document.getElementById('profileUserSince');
-    const profileRateSpan = document.getElementById('profileDefaultRate');
+    // Get current default rate
+    const defaultRate = SimpleRateManager.get();
     
-    if (user) {
-        // Update user name in header
-        if (userNameSpan) {
-            const displayName = user.email ? user.email.split('@')[0] : 'User';
-            userNameSpan.textContent = displayName;
-        }
-        
-        // Update profile email
-        if (profileEmailSpan) {
-            profileEmailSpan.textContent = user.email || 'Not provided';
-        }
-        
-        // ===== FIXED: Member Since =====
-            if (profileSinceSpan) {
-                if (user.metadata && user.metadata.creationTime) {
-                    const creationDate = new Date(user.metadata.creationTime);
-                    profileSinceSpan.textContent = creationDate.toLocaleDateString();
-                } else {
-                    // Try localStorage backup
-                    const savedSince = localStorage.getItem('userMemberSince');
-                    if (savedSince) {
-                        const creationDate = new Date(savedSince);
-                        profileSinceSpan.textContent = creationDate.toLocaleDateString();
-                    } else {
-                        profileSinceSpan.textContent = 'Unknown';
-                    }
-                }
-            }
-        
-        // Update default rate
-        if (profileRateSpan) {
-            const user = firebase.auth().currentUser;
-            if (user && user.email) {
-                const safeEmail = user.email.replace(/[.#$[\]]/g, '_');
-                const rateKey = `defaultRate_${safeEmail}`;
-                const rate = localStorage.getItem(rateKey) || 
-                            localStorage.getItem('defaultHourlyRate') || 
-                            '25.00';
-                profileRateSpan.textContent = `$${parseFloat(rate).toFixed(2)}/hour`;
-            }
-        }
+    // Get user email from various sources
+    const storedEmail = localStorage.getItem('userEmail');
+    if (storedEmail) {
+      userEmail = storedEmail;
+      userName = userEmail.split('@')[0];
     } else {
-        if (userNameSpan) userNameSpan.textContent = 'Guest';
-        if (profileEmailSpan) profileEmailSpan.textContent = 'Not logged in';
-        if (profileSinceSpan) profileSinceSpan.textContent = 'Never';
-        if (profileRateSpan) profileRateSpan.textContent = '$0.00/hour';
+      const worklogUser = localStorage.getItem('worklog_user');
+      if (worklogUser) {
+        try {
+          const parsed = JSON.parse(worklogUser);
+          if (parsed && parsed.email) {
+            userEmail = parsed.email;
+            userName = parsed.displayName || parsed.email.split('@')[0];
+          }
+        } catch (e) {
+          console.log('Could not parse worklog_user');
+        }
+      }
     }
+    
+    // Try to get member since from Firebase
+    if (typeof firebase !== 'undefined' && firebase.auth().currentUser) {
+      const user = firebase.auth().currentUser;
+      if (user.metadata && user.metadata.creationTime) {
+        memberSince = new Date(user.metadata.creationTime).toLocaleDateString();
+      }
+    }
+    
+    console.log('User email found:', userEmail);
+    console.log('Member since:', memberSince);
+    console.log('Default rate:', defaultRate);
+    
+    // Update profile modal elements
+    const profileEmail = document.getElementById('profileUserEmail');
+    const userNameElem = document.getElementById('userName');
+    const memberSinceElem = document.getElementById('profileUserSince');
+    const defaultRateElem = document.getElementById('profileDefaultRate');
+    
+    if (profileEmail) profileEmail.textContent = userEmail;
+    if (userNameElem) userNameElem.textContent = userName;
+    if (memberSinceElem) memberSinceElem.textContent = memberSince;
+    if (defaultRateElem) defaultRateElem.textContent = `$${parseFloat(defaultRate).toFixed(2)}/hour`;
+    
+    // Update profile stats
+    updateProfileStats();
+    
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    
+    // Set fallback values
+    const profileEmail = document.getElementById('profileUserEmail');
+    const userName = document.getElementById('userName');
+    const memberSinceElem = document.getElementById('profileUserSince');
+    const defaultRateElem = document.getElementById('profileDefaultRate');
+    
+    if (profileEmail) profileEmail.textContent = 'Not logged in';
+    if (userName) userName.textContent = 'User';
+    if (memberSinceElem) memberSinceElem.textContent = 'Unknown';
+    if (defaultRateElem) defaultRateElem.textContent = '$25.00/hour';
+  }
 }
-
-// Save user metadata when they first log in
-function saveUserMetadata() {
-    const user = firebase.auth().currentUser;
-    if (user && user.metadata && user.metadata.creationTime) {
-        // Save to localStorage as backup
-        localStorage.setItem('userMemberSince', user.metadata.creationTime);
-        localStorage.setItem('userEmail', user.email);
-        console.log('✅ User metadata saved to localStorage');
-    }
-}
-
-// Call this when user logs in
-firebase.auth().onAuthStateChanged((user) => {
-    if (user) {
-        saveUserMetadata();
-        updateProfileInfo();
-    }
-});
 
 // ==================== UPDATED PROFILE STATS WITH WORKLOG ====================
 function updateProfileStats() {
@@ -792,325 +667,69 @@ function initTabs() {
   const tabButtons = document.querySelectorAll('.tab');
   const tabContents = document.querySelectorAll('.tabcontent');
   
-  if (!tabButtons.length || !tabContents.length) {
-    console.error('❌ Tabs not found in HTML!');
-    return;
-  }
-  
-  console.log(`Found ${tabButtons.length} tabs and ${tabContents.length} content sections`);
-  
-  // Define switchTab function
-  window.switchTab = function(tabName) {
+  function switchTab(tabName) {
     console.log('Switching to tab:', tabName);
     
-    // Hide all tab contents
-    tabContents.forEach(tab => {
-      tab.classList.remove('active');
-      tab.style.display = 'none';
-    });
-    
-    // Remove active class from all tab buttons
+    tabContents.forEach(tab => tab.classList.remove('active'));
     tabButtons.forEach(btn => btn.classList.remove('active'));
     
-    // Show the selected tab content
     const selectedTab = document.getElementById(tabName);
-    if (selectedTab) {
-      selectedTab.classList.add('active');
-      selectedTab.style.display = 'block';
-      
-      // Load tab-specific data
-      loadTabData(tabName);
-    }
+    if (selectedTab) selectedTab.classList.add('active');
     
-    // Activate the clicked tab button
     const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
-    if (activeButton) {
-      activeButton.classList.add('active');
-    }
+    if (activeButton) activeButton.classList.add('active');
     
-    // Update URL hash
     window.location.hash = tabName;
-  };
+    loadTabData(tabName);
+  }
   
-  // Add click handlers to all tab buttons
   tabButtons.forEach(button => {
-    button.addEventListener('click', function(e) {
-      e.preventDefault();
-      const tabName = this.getAttribute('data-tab');
-      window.switchTab(tabName);
+    button.addEventListener('click', function() {
+      switchTab(this.getAttribute('data-tab'));
     });
   });
   
-  // Check URL hash for initial tab
   const hash = window.location.hash.replace('#', '');
-  const initialTab = hash && document.getElementById(hash) ? hash : 'students';
+  switchTab(hash && document.getElementById(hash) ? hash : 'students');
   
-  // Set initial tab
-  setTimeout(() => {
-    window.switchTab(initialTab);
-  }, 100);
-  
-  console.log('✅ Tabs initialized');
+  window.switchTab = switchTab;
 }
 
-// ==================== LOAD TAB DATA ====================
 function loadTabData(tabName) {
   console.log(`📊 Loading data for ${tabName} tab...`);
   
   setTimeout(() => {
-    try {
-      switch(tabName) {
-        case 'students':
-          console.log('👥 Loading students tab...');
-          if (typeof loadStudents === 'function') loadStudents();
-          updateGlobalStats();
-          break;
-          
-        case 'worklog':
-          console.log('📝 Loading worklog tab...');
-          if (window.worklogManager) {
-            window.worklogManager.loadData();
-            window.worklogManager.populateDropdowns();
-            window.worklogManager.updateUI();
-            window.worklogManager.updateStats();
-          }
-          break;
-          
-        case 'marks':
-          console.log('📊 Loading marks tab...');
-          if (typeof loadMarks === 'function') loadMarks();
-          populateMarksStudentDropdown();
-          const marksDate = document.getElementById('marksDate');
-          if (marksDate) marksDate.value = new Date().toISOString().split('T')[0];
-          break;
-          
-        case 'attendance':
-          console.log('✅ Loading attendance tab...');
-          if (typeof loadAttendance === 'function') loadAttendance();
-          populateAttendanceStudents();
-          const attendanceDate = document.getElementById('attendanceDate');
-          if (attendanceDate) attendanceDate.value = new Date().toISOString().split('T')[0];
-          break;
-          
-        case 'payments':
-          console.log('💰 Loading payments tab...');
-          if (typeof loadPayments === 'function') loadPayments();
-          populatePaymentStudentDropdown();
-          const paymentDate = document.getElementById('paymentDate');
-          if (paymentDate) paymentDate.value = new Date().toISOString().split('T')[0];
-          if (typeof updatePaymentBalances === 'function') updatePaymentBalances();
-          break;
-          
-        case 'reports':
-          console.log('📈 Loading reports tab...');
-          if (typeof loadReports === 'function') loadReports();
-          break;
-          
-        default:
-          console.log('Unknown tab:', tabName);
-      }
-      
-      console.log(`✅ ${tabName} tab loaded successfully`);
-      
-    } catch (error) {
-      console.error(`❌ Error loading ${tabName} tab:`, error);
+    switch(tabName) {
+      case 'students':
+        loadStudents();
+        break;
+      case 'hours':
+        loadHours();
+        break;
+      case 'marks':
+        loadMarks();
+        break;
+      case 'attendance':
+        loadAttendance();
+        break;
+      case 'payments':
+        loadPayments();
+        break;
+      case 'reports':
+        loadReports();
+        break;
+      case 'worklog':
+        if (window.worklogManager) {
+          window.worklogManager.loadData();
+          window.worklogManager.populateDropdowns();
+          window.worklogManager.updateUI();
+          window.worklogManager.updateStats();
+        }
+        break;
     }
   }, 100);
 }
-        
-// ==================== MISSING HELPER FUNCTIONS ====================
 
-// Populate marks student dropdown
-function populateMarksStudentDropdown() {
-  const select = document.getElementById('marksStudent');
-  if (!select) {
-    console.log('marksStudent dropdown not found');
-    return;
-  }
-  
-  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-  select.innerHTML = '<option value="">Select Student</option>';
-  
-  students.forEach(student => {
-    const option = document.createElement('option');
-    option.value = student.id;
-    option.textContent = `${student.name} (${student.studentId || 'No ID'})`;
-    select.appendChild(option);
-  });
-  
-  console.log(`✅ Populated marks dropdown with ${students.length} students`);
-}
-
-// Populate payment student dropdown
-function populatePaymentStudentDropdown() {
-  const select = document.getElementById('paymentStudent');
-  if (!select) {
-    console.log('paymentStudent dropdown not found');
-    return;
-  }
-  
-  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-  select.innerHTML = '<option value="">Select Student</option>';
-  
-  students.forEach(student => {
-    const option = document.createElement('option');
-    option.value = student.id;
-    option.textContent = `${student.name} (${student.studentId || 'No ID'})`;
-    select.appendChild(option);
-  });
-  
-  console.log(`✅ Populated payment dropdown with ${students.length} students`);
-}
-
-// Populate attendance students
-function populateAttendanceStudents() {
-  const container = document.getElementById('attendanceStudents');
-  if (!container) {
-    console.log('attendanceStudents container not found');
-    return;
-  }
-  
-  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-  
-  if (students.length === 0) {
-    container.innerHTML = '<p class="empty-message">No students registered. Add students first.</p>';
-    return;
-  }
-  
-  container.innerHTML = students.map(student => `
-    <div class="attendance-student-item">
-      <input type="checkbox" id="attendance_${student.id}" value="${student.id}">
-      <label for="attendance_${student.id}">${student.name} (${student.studentId || 'No ID'})</label>
-    </div>
-  `).join('');
-  
-  // Add select all button if it doesn't exist
-  const selectAllBtn = document.getElementById('selectAllStudentsBtn');
-  if (selectAllBtn && !selectAllBtn.hasAttribute('data-listener')) {
-    selectAllBtn.setAttribute('data-listener', 'true');
-    selectAllBtn.addEventListener('click', function() {
-      const checkboxes = container.querySelectorAll('input[type="checkbox"]');
-      checkboxes.forEach(cb => cb.checked = true);
-    });
-  }
-  
-  console.log(`✅ Populated attendance with ${students.length} students`);
-}
-
-// Update payment balances
-function updatePaymentBalances() {
-  console.log('💰 Updating payment balances...');
-  
-  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-  const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
-  const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
-  const worklogs = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
-  
-  const balancesContainer = document.getElementById('studentBalancesContainer');
-  if (!balancesContainer) return;
-  
-  if (students.length === 0) {
-    balancesContainer.innerHTML = '<p class="empty-message">No students yet</p>';
-    return;
-  }
-  
-  // Calculate balances for each student
-  const balances = students.map(student => {
-    // Calculate earnings from hours
-    const hoursEarnings = hours
-      .filter(h => h.hoursStudent === student.id)
-      .reduce((sum, h) => sum + (parseFloat(h.hoursWorked) || 0) * (parseFloat(h.baseRate) || 0), 0);
-    
-    // Calculate earnings from worklogs
-    const worklogEarnings = worklogs
-      .filter(w => w.studentId === student.id)
-      .reduce((sum, w) => sum + (parseFloat(w.totalEarnings) || 0), 0);
-    
-    // Calculate total payments
-    const totalPayments = payments
-      .filter(p => p.paymentStudent === student.id)
-      .reduce((sum, p) => sum + (parseFloat(p.paymentAmount) || 0), 0);
-    
-    const totalEarnings = hoursEarnings + worklogEarnings;
-    const balance = totalEarnings - totalPayments;
-    
-    return {
-      name: student.name,
-      earnings: totalEarnings,
-      payments: totalPayments,
-      balance: balance
-    };
-  });
-  
-  // Display balances
-  balancesContainer.innerHTML = balances.map(b => {
-    const statusClass = b.balance > 0 ? 'warning' : (b.balance < 0 ? 'info' : 'success');
-    const statusText = b.balance > 0 ? 'Owes' : (b.balance < 0 ? 'Credit' : 'Paid');
-    
-    return `
-      <div class="balance-item">
-        <div class="balance-header">
-          <strong>${b.name}</strong>
-          <span class="balance-amount ${statusClass}">
-            $${Math.abs(b.balance).toFixed(2)} ${statusText}
-          </span>
-        </div>
-        <div class="balance-details">
-          <span>Earned: $${b.earnings.toFixed(2)}</span>
-          <span>Paid: $${b.payments.toFixed(2)}</span>
-        </div>
-      </div>
-    `;
-  }).join('');
-  
-  // Calculate total owed
-  const totalOwed = balances.reduce((sum, b) => sum + Math.max(0, b.balance), 0);
-  const totalOwedElem = document.getElementById('totalOwed');
-  if (totalOwedElem) totalOwedElem.textContent = `$${totalOwed.toFixed(2)}`;
-  
-  console.log(`✅ Updated payment balances for ${students.length} students`);
-}
-
-// Make sure these functions exist
-if (typeof loadMarks !== 'function') {
-  window.loadMarks = function() {
-    console.log('📊 Loading marks (fallback)...');
-    const container = document.getElementById('marksContainer');
-    if (container) {
-      const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
-      if (marks.length === 0) {
-        container.innerHTML = '<p class="empty-message">No marks recorded yet.</p>';
-      }
-    }
-  };
-}
-
-if (typeof loadAttendance !== 'function') {
-  window.loadAttendance = function() {
-    console.log('✅ Loading attendance (fallback)...');
-    const container = document.getElementById('attendanceContainer');
-    if (container) {
-      const attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
-      if (attendance.length === 0) {
-        container.innerHTML = '<p class="empty-message">No attendance records yet.</p>';
-      }
-    }
-  };
-}
-
-if (typeof loadPayments !== 'function') {
-  window.loadPayments = function() {
-    console.log('💰 Loading payments (fallback)...');
-    const container = document.getElementById('paymentActivityLog');
-    if (container) {
-      const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
-      if (payments.length === 0) {
-        container.innerHTML = '<p class="empty-message">No payments yet.</p>';
-      }
-    }
-  };
-}
-        
 // ==================== INIT FAB ====================
 function initFAB() {
   const fab = document.getElementById('floatingAddBtn');
@@ -1405,36 +1024,6 @@ function stopAutoSync() {
     autoSyncInterval = null;
   }
 }
-
-// Add to app.js - Mobile detection and auto-refresh
-function detectMobile() {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    console.log('📱 Device detection:', isMobile ? 'Mobile' : 'Desktop');
-    return isMobile;
-}
-
-// Force refresh on mobile when app loads
-if (detectMobile()) {
-    console.log('📱 Mobile device detected - will force refresh');
-    
-    // Wait for auth and sync service to be ready
-    setTimeout(() => {
-        if (window.syncService && firebase.auth().currentUser) {
-            console.log('📱 Auto-refreshing for mobile...');
-            window.syncService.forceRefreshFromCloud();
-        }
-    }, 3000);
-}
-
-// Add visibility change listener (when user switches back to app)
-document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && detectMobile()) {
-        console.log('📱 App became visible on mobile - refreshing...');
-        if (window.syncService && firebase.auth().currentUser) {
-            window.syncService.forceRefreshFromCloud();
-        }
-    }
-});
 
 // ==================== FILE INPUT ====================
 function createFileInput() {
