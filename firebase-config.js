@@ -3,7 +3,7 @@ console.log('🔥 Loading mobile-optimized firebase-config.js');
 
 // Your Firebase config
 const firebaseConfig = {
-    apiKey: "AIzaSyA-duULS1Do5F6Ac-2vzRgE_1d9Xm-lC0M",
+    apiKey: "AIzaSyDdLP_LgiC6EgzC3hUP_mGuNW4_BUEACs8",
     authDomain: "worklog-3351a.firebaseapp.com",
     projectId: "worklog-3351a",
     storageBucket: "worklog-3351a.firebasestorage.app",
