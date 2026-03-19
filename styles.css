@@ -6650,3 +6650,114 @@ button:focus:not(:focus-visible) {
     }
 }
 
+/* User Context Display - Fixed for Dark Mode */
+.user-context {
+    margin-top: 10px;
+    padding: 12px 15px;
+    border-radius: 8px;
+    font-size: 0.95em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    transition: all 0.3s ease;
+}
+
+/* Light mode styles */
+body.light .user-context {
+    background: linear-gradient(135deg, #f0f4ff 0%, #e6ecf7 100%);
+    border: 1px solid #d1d9e8;
+    color: #1e293b;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+body.light .user-context strong {
+    color: #2563eb;
+}
+
+body.light .user-context #ratePreview {
+    color: #059669;
+    font-weight: bold;
+    background: rgba(5, 150, 105, 0.1);
+    padding: 4px 10px;
+    border-radius: 20px;
+}
+
+/* Dark mode styles */
+body.dark .user-context {
+    background: linear-gradient(135deg, #2d3748 0%, #1e2937 100%);
+    border: 1px solid #4a5568;
+    color: #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+body.dark .user-context strong {
+    color: #60a5fa;
+    text-shadow: 0 0 5px rgba(96, 165, 250, 0.3);
+}
+
+body.dark .user-context #ratePreview {
+    color: #34d399;
+    font-weight: bold;
+    background: rgba(52, 211, 153, 0.15);
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+/* User email highlight */
+.user-context .user-email-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+body.light .user-context .user-email-badge {
+    background: rgba(37, 99, 235, 0.1);
+    padding: 4px 12px;
+    border-radius: 20px;
+}
+
+body.dark .user-context .user-email-badge {
+    background: rgba(96, 165, 250, 0.15);
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid rgba(96, 165, 250, 0.3);
+}
+
+/* Rate display enhancement */
+.user-context .rate-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 1.1em;
+}
+
+body.light .user-context .rate-badge {
+    background: rgba(5, 150, 105, 0.1);
+    padding: 4px 15px;
+    border-radius: 25px;
+}
+
+body.dark .user-context .rate-badge {
+    background: rgba(52, 211, 153, 0.15);
+    padding: 4px 15px;
+    border-radius: 25px;
+    border: 1px solid rgba(52, 211, 153, 0.4);
+    box-shadow: 0 0 10px rgba(52, 211, 153, 0.2);
+}
+
+/* Responsive design */
+@media (max-width: 640px) {
+    .user-context {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 12px;
+    }
+    
+    .user-context .rate-badge {
+        align-self: flex-end;
+    }
+}
+
