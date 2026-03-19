@@ -1,3 +1,4 @@
+this is from an older file that was working
 /* =========================== */
 /* CSS VARIABLES - MODERN PWA */
 /* =========================== */
@@ -6649,21 +6650,3 @@ button:focus:not(:focus-visible) {
       
     }
 }
-
-/* ==================== FIX SCROLLING ==================== */
-.tabcontent {
-    min-height: 500px;
-    overflow-y: auto !important;
-    max-height: calc(100vh - 200px);
-}
-
-#worklogContainer,
-#marksContainer,
-#attendanceContainer,
-#paymentActivityLog,
-#studentBalancesContainer {
-    min-height: 400px;
-    max-height: none !important;
-    overflow-y: auto !important;
-}
-
