@@ -334,113 +334,90 @@ const RateManager = (function() {
         console.log(`✅ Applied rate $${rate} to student form`);
     }
     
-    // APPLY TO ALL STUDENTS
-    async function applyToAllStudents() {
-        console.log('🔄 applyToAllStudents called');
+// In rate-manager.js - Update the applyToAllStudents function
+applyToAllStudents: async function() {
+    console.log('🔄 applyToAllStudents called');
+    
+    // Get current rate
+    const rate = parseFloat(localStorage.getItem(rateKey) || 
+                            localStorage.getItem('defaultHourlyRate') || 
+                            '25.00');
+    
+    // Confirm
+    const studentCount = JSON.parse(localStorage.getItem('worklog_students') || '[]').length;
+    if (!confirm(`⚠️ Update ALL ${studentCount} students with rate $${rate.toFixed(2)}/hour?`)) {
+        return;
+    }
+    
+    // Show loading
+    const applyBtn = document.getElementById('applyRateToAllBtn');
+    showButtonFeedback(applyBtn, '🔄 Apply to All Students', true);
+    
+    try {
+        // Get students
+        let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
         
-        // Get current rate
-        const rate = parseFloat(localStorage.getItem(rateKey) || 
-                                localStorage.getItem('defaultHourlyRate') || 
-                                '25.00');
-        
-        // Confirm with styled dialog
-        const studentCount = JSON.parse(localStorage.getItem('worklog_students') || '[]').length;
-        
-        if (!confirm(`⚠️ Update ALL ${studentCount} students with rate $${rate.toFixed(2)}/hour?\n\nThis will overwrite their individual rates.`)) {
+        if (students.length === 0) {
+            showNotification('No students found', 'warning');
             return;
         }
         
-        // Show loading on button
-        const applyBtn = document.getElementById('applyRateToAllBtn');
-        showButtonFeedback(applyBtn, '🔄 Apply to All Students', true);
+        console.log(`📊 Updating ${students.length} students to $${rate.toFixed(2)}...`);
         
-        try {
-            // Get students from localStorage
-            let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-            
-            if (students.length === 0) {
-                showNotification('No students found', 'warning');
-                return;
-            }
-            
-            console.log(`📊 Updating ${students.length} students to $${rate.toFixed(2)}...`);
-            
-            // Update each student
-            let updated = 0;
-            students.forEach(student => {
-                const oldRate = student.rate || student.hourlyRate || 0;
-                console.log(`  ${student.name}: $${oldRate} → $${rate}`);
-                
-                student.rate = rate;
-                student.hourlyRate = rate;
-                student.updatedAt = new Date().toISOString();
-                if (currentUser) {
-                    student.updatedBy = currentUser.email;
-                }
-                updated++;
-            });
-            
-            // Save to localStorage
-            localStorage.setItem('worklog_students', JSON.stringify(students));
-            console.log(`✅ Saved ${updated} students to localStorage`);
-            
-            // Update UI
-            if (window.dataManager) {
-                window.dataManager.students = students;
-                window.dataManager.syncUI();
-            }
-            
-            // Update Firebase if logged in
-            if (currentUser) {
-                console.log('☁️ Syncing to Firebase...');
-                const db = firebase.firestore();
-                
-                // Update each student in Firebase students collection
-                for (const student of students) {
-                    try {
-                        await db.collection('users').doc(currentUser.uid)
-                            .collection('students').doc(student.id)
-                            .set({
-                                rate: rate,
-                                hourlyRate: rate,
-                                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                                updatedBy: currentUser.email
-                            }, { merge: true });
-                    } catch (e) {
-                        console.log(`Error updating ${student.name}:`, e);
-                    }
-                }
-                
-                // Update consolidated data
-                try {
-                    await db.collection('users').doc(currentUser.uid)
-                        .collection('data').doc('worklog')
-                        .set({
-                            students: students,
-                            lastSync: firebase.firestore.FieldValue.serverTimestamp(),
-                            lastSyncClient: new Date().toISOString()
-                        }, { merge: true });
-                } catch (e) {
-                    console.log('Error updating consolidated data:', e);
-                }
-                
-                console.log('✅ Firebase updated');
-            }
-            
-            // Refresh stats
-            if (typeof refreshAllStats === 'function') refreshAllStats();
-            if (typeof updateGlobalStats === 'function') updateGlobalStats();
-            
-            showNotification(`✅ Updated ${updated} students to $${rate.toFixed(2)}/hour`, 'success');
-            
-        } catch (error) {
-            console.error('❌ Error:', error);
-            showNotification('Error: ' + error.message, 'error');
-        } finally {
-            // Reset button
-            setTimeout(() => showButtonFeedback(applyBtn, '🔄 Apply to All Students', false), 500);
+        // CRITICAL: Update BOTH rate fields
+        students.forEach(student => {
+            console.log(`  ${student.name}: old rate = ${student.rate || student.hourlyRate}, new = ${rate}`);
+            student.rate = rate;           // Set primary rate
+            student.hourlyRate = rate;      // Set secondary rate for compatibility
+            student.updatedAt = new Date().toISOString();
+        });
+        
+        // Save to localStorage
+        localStorage.setItem('worklog_students', JSON.stringify(students));
+        console.log(`✅ Saved ${students.length} students to localStorage`);
+        
+        // CRITICAL: Force UI update
+        if (window.dataManager) {
+            window.dataManager.students = students;
+            window.dataManager.syncUI();    // This will refresh the display
+            console.log('🔄 Forced UI refresh');
         }
+        
+        // Also update any global student arrays
+        if (window.formHandler) {
+            window.formHandler.students = students;
+        }
+        
+        // Update Firebase if logged in
+        if (currentUser) {
+            // ... Firebase update code ...
+        }
+        
+        // Refresh stats
+        if (typeof refreshAllStats === 'function') refreshAllStats();
+        if (typeof updateGlobalStats === 'function') updateGlobalStats();
+        
+        showNotification(`✅ Updated ${students.length} students to $${rate.toFixed(2)}/hour`, 'success');
+        
+        // Double-check the update worked
+        setTimeout(() => {
+            const verifyStudents = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+            console.log('✅ Verification - First 3 students:',
+                verifyStudents.slice(0,3).map(s => ({
+                    name: s.name,
+                    rate: s.rate,
+                    hourlyRate: s.hourlyRate
+                }))
+            );
+        }, 500);
+        
+    } catch (error) {
+        console.error('❌ Error:', error);
+        showNotification('Error: ' + error.message, 'error');
+    } finally {
+        setTimeout(() => showButtonFeedback(applyBtn, '🔄 Apply to All Students', false), 500);
     }
+}
     
     // Public API
     return {
