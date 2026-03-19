@@ -691,8 +691,6 @@ function initTabs() {
       selectedTab.style.display = 'block';
       selectedTab.classList.add('active');
       console.log(`✅ Showing ${tabName} tab`);
-    } else {
-      console.error(`❌ Tab content not found: ${tabName}`);
     }
     
     // Activate the clicked tab button
