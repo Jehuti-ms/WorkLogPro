@@ -1,48 +1,87 @@
-// rate-manager.js - FIXED User-Specific Rate Management
-console.log('💰 Loading FIXED RateManager...');
+// rate-manager.js - FINAL FIXED VERSION (waits for auth)
+console.log('💰 Loading FINAL RateManager...');
 
 const RateManager = (function() {
     // Private variables
     let currentUser = null;
     let rateKey = 'defaultRate_guest';
+    let authReady = false;
     
     // Initialize
     function init() {
-        console.log('💰 Initializing FIXED RateManager...');
+        console.log('💰 Initializing FINAL RateManager...');
         
-        // Check for user immediately
-        checkCurrentUser();
+        // Check if auth is already ready
+        checkAuthState();
         
-        // Setup auth listener
+        // Setup auth listener (this will fire when auth state changes)
         setupAuthListener();
         
-        // Setup event listeners
+        // Setup event listeners (buttons always work)
         setupEventListeners();
         
-        // Load rate
-        loadDefaultRate();
-        
-        console.log('✅ FIXED RateManager ready');
+        console.log('⏳ RateManager waiting for auth...');
     }
     
-    // Check current user
-    function checkCurrentUser() {
-        currentUser = firebase.auth().currentUser;
-        if (currentUser && currentUser.email) {
-            const safeEmail = currentUser.email.replace(/[.#$[\]]/g, '_');
-            rateKey = `defaultRate_${safeEmail}`;
-            console.log(`👤 User: ${currentUser.email}, Rate Key: ${rateKey}`);
-            
-            // CRITICAL: Migrate old rate to new key if needed
-            migrateOldRate();
+    // Check current auth state
+    function checkAuthState() {
+        const user = firebase.auth().currentUser;
+        if (user) {
+            handleUserLogin(user);
         } else {
-            rateKey = 'defaultRate_guest';
-            console.log(`👤 Guest user, Rate Key: ${rateKey}`);
+            console.log('👤 No user yet, waiting for auth...');
         }
+    }
+    
+    // Handle user login
+    function handleUserLogin(user) {
+        if (!user || !user.email) return;
+        
+        console.log(`👤 User logged in: ${user.email}`);
+        currentUser = user;
+        
+        const safeEmail = user.email.replace(/[.#$[\]]/g, '_');
+        rateKey = `defaultRate_${safeEmail}`;
+        authReady = true;
+        
+        console.log(`🔑 Rate key set to: ${rateKey}`);
+        
+        // Migrate old rate if needed
+        migrateOldRate();
+        
+        // Load the rate
+        loadDefaultRate();
+        
+        // Update UI
         updateUserDisplay();
     }
     
-    // CRITICAL: Migrate old rate to user-specific key
+    // Handle user logout
+    function handleUserLogout() {
+        console.log('👤 User logged out');
+        currentUser = null;
+        rateKey = 'defaultRate_guest';
+        authReady = false;
+        
+        // Load guest rate
+        loadDefaultRate();
+        updateUserDisplay();
+    }
+    
+    // Setup auth listener
+    function setupAuthListener() {
+        firebase.auth().onAuthStateChanged((user) => {
+            console.log('🔄 Auth state changed');
+            
+            if (user && user.email) {
+                handleUserLogin(user);
+            } else {
+                handleUserLogout();
+            }
+        });
+    }
+    
+    // Migrate old rate to user-specific key
     function migrateOldRate() {
         if (!currentUser) return;
         
@@ -55,38 +94,25 @@ const RateManager = (function() {
             rateKey: rateKey
         });
         
-        // If user-specific rate doesn't exist but old rate does, migrate it
-        if (!userRate && oldRate) {
-            console.log(`🔄 Migrating old rate ${oldRate} to ${rateKey}`);
-            localStorage.setItem(rateKey, oldRate);
-            showNotification(`💰 Migrated your rate: $${oldRate}`, 'info');
+        // If user rate exists, use it and update old key
+        if (userRate) {
+            console.log(`✅ Using existing user rate: $${userRate}`);
+            localStorage.setItem('defaultHourlyRate', userRate);
+            return;
         }
         
-        // If NEITHER exists, set a default
-        if (!userRate && !oldRate) {
-            console.log('📝 No rate found, setting default 25.00');
-            localStorage.setItem(rateKey, '25.00');
-            localStorage.setItem('defaultHourlyRate', '25.00');
+        // If old rate exists, migrate it
+        if (oldRate) {
+            console.log(`🔄 Migrating old rate $${oldRate} to ${rateKey}`);
+            localStorage.setItem(rateKey, oldRate);
+            showNotification(`💰 Rate migrated: $${oldRate}`, 'info');
+            return;
         }
-    }
-    
-    // Setup auth listener
-    function setupAuthListener() {
-        firebase.auth().onAuthStateChanged((user) => {
-            console.log('🔄 Auth changed, updating rate...');
-            currentUser = user;
-            
-            if (user && user.email) {
-                const safeEmail = user.email.replace(/[.#$[\]]/g, '_');
-                rateKey = `defaultRate_${safeEmail}`;
-                migrateOldRate(); // Check migration again
-            } else {
-                rateKey = 'defaultRate_guest';
-            }
-            
-            updateUserDisplay();
-            loadDefaultRate();
-        });
+        
+        // No rate exists, set default
+        console.log('📝 No rate found, setting default 30.00');
+        localStorage.setItem(rateKey, '30.00');
+        localStorage.setItem('defaultHourlyRate', '30.00');
     }
     
     // Update user display
@@ -147,19 +173,19 @@ const RateManager = (function() {
         }
     }
     
-    // Load default rate - FIXED VERSION
+    // Load default rate
     function loadDefaultRate() {
         console.log('💰 Loading default rate...');
         
         let rate = '25.00'; // Default fallback
         
-        // Try user-specific key first
-        if (currentUser) {
+        // If we have a user, try user-specific key
+        if (currentUser && rateKey) {
             rate = localStorage.getItem(rateKey);
             console.log(`🔍 Looking for rate at ${rateKey}:`, rate);
         }
         
-        // If no user-specific rate, try old key
+        // If no user rate, try old key
         if (!rate) {
             rate = localStorage.getItem('defaultHourlyRate');
             console.log('🔍 Looking for rate at defaultHourlyRate:', rate);
@@ -170,14 +196,14 @@ const RateManager = (function() {
             rate = '25.00';
             console.log('📝 No rate found, using default:', rate);
             
-            // Save default to user-specific key if logged in
-            if (currentUser) {
+            // Save default to user key if logged in
+            if (currentUser && rateKey) {
                 localStorage.setItem(rateKey, rate);
                 console.log(`💾 Saved default to ${rateKey}`);
             }
         }
         
-        // Ensure rate is a string with proper format
+        // Ensure rate is a string
         rate = rate.toString();
         
         // Update UI
@@ -189,11 +215,11 @@ const RateManager = (function() {
         if (rateDisplay) rateDisplay.textContent = parseFloat(rate).toFixed(2);
         if (ratePreview) ratePreview.textContent = `$${parseFloat(rate).toFixed(2)}/hour`;
         
-        console.log(`✅ Loaded rate: $${rate} (${rateKey})`);
+        console.log(`✅ Loaded rate: $${rate} (${currentUser ? rateKey : 'guest'})`);
         return rate;
     }
     
-    // Save default rate - FIXED VERSION
+    // Save default rate
     function saveDefaultRate() {
         console.log('💰 saveDefaultRate called');
         
@@ -213,13 +239,16 @@ const RateManager = (function() {
         const saveBtn = document.getElementById('saveDefaultRateBtn');
         showButtonFeedback(saveBtn, '💾 Save Default Rate', true);
         
-        // CRITICAL: Save to user-specific key
-        if (currentUser) {
+        // Save to user-specific key if logged in
+        if (currentUser && rateKey) {
             localStorage.setItem(rateKey, rate.toString());
             console.log(`✅ Saved to user key: ${rateKey} = $${rate}`);
+            showNotification(`💰 Rate saved for ${currentUser.email}`, 'info');
+        } else {
+            showNotification('⚠️ Not logged in - rate saved locally only', 'warning');
         }
         
-        // Also save to old key for backward compatibility
+        // Always save to old key for backward compatibility
         localStorage.setItem('defaultHourlyRate', rate.toString());
         localStorage.setItem('defaultRate', rate.toString());
         
@@ -235,19 +264,16 @@ const RateManager = (function() {
         
         // Reset button
         setTimeout(() => showButtonFeedback(saveBtn, '💾 Save Default Rate', false), 500);
-        
-        // Log for debugging
-        console.log(`✅ Rate saved: $${rate} (${rateKey})`);
     }
     
     // Use in student form
     function useInStudentForm() {
         console.log('📝 useInStudentForm called');
         
-        // Get current rate from user-specific key
+        // Get current rate
         let rate = '25.00';
         
-        if (currentUser) {
+        if (currentUser && rateKey) {
             rate = localStorage.getItem(rateKey) || localStorage.getItem('defaultHourlyRate') || '25.00';
         } else {
             rate = localStorage.getItem('defaultHourlyRate') || '25.00';
@@ -287,9 +313,9 @@ const RateManager = (function() {
     async function applyToAllStudents() {
         console.log('🔄 applyToAllStudents called');
         
-        // Get current rate from user-specific key
+        // Get current rate
         let rate = 25;
-        if (currentUser) {
+        if (currentUser && rateKey) {
             rate = parseFloat(localStorage.getItem(rateKey) || localStorage.getItem('defaultHourlyRate') || '25');
         } else {
             rate = parseFloat(localStorage.getItem('defaultHourlyRate') || '25');
@@ -394,16 +420,14 @@ const RateManager = (function() {
         saveDefaultRate: saveDefaultRate,
         useInStudentForm: useInStudentForm,
         applyToAllStudents: applyToAllStudents,
-        loadDefaultRate: loadDefaultRate
+        loadDefaultRate: loadDefaultRate,
+        getCurrentUser: () => currentUser,
+        getRateKey: () => rateKey
     };
 })();
 
 // Initialize
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => RateManager.init());
-} else {
-    RateManager.init();
-}
+RateManager.init();
 
 // Make available globally
 window.RateManager = RateManager;
@@ -411,4 +435,4 @@ window.saveDefaultRate = () => RateManager.saveDefaultRate();
 window.useDefaultRate = () => RateManager.useDefaultRate();
 window.applyDefaultRateToAll = () => RateManager.applyDefaultRateToAll();
 
-console.log('✅ FIXED RateManager loaded');
+console.log('✅ FINAL RateManager loaded');
