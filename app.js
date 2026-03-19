@@ -667,12 +667,6 @@ function initTabs() {
   const tabButtons = document.querySelectorAll('.tab');
   const tabContents = document.querySelectorAll('.tabcontent');
   
-  // First, hide all tab contents
-  tabContents.forEach(tab => {
-    tab.style.display = 'none';
-    tab.classList.remove('active');
-  });
-  
   function switchTab(tabName) {
     console.log('Switching to tab:', tabName);
     
@@ -736,22 +730,7 @@ function loadTabData(tabName) {
   setTimeout(() => {
     switch(tabName) {
       case 'students':
-        loadStudents();
-        break;
-      case 'hours':
-        loadHours();
-        break;
-      case 'marks':
-        loadMarks();
-        break;
-      case 'attendance':
-        loadAttendance();
-        break;
-      case 'payments':
-        loadPayments();
-        break;
-      case 'reports':
-        loadReports();
+        if (typeof loadStudents === 'function') loadStudents();
         break;
       case 'worklog':
         if (window.worklogManager) {
@@ -760,6 +739,22 @@ function loadTabData(tabName) {
           window.worklogManager.updateUI();
           window.worklogManager.updateStats();
         }
+        break;
+      case 'marks':
+        if (typeof loadMarks === 'function') loadMarks();
+        populateMarksStudentDropdown();
+        break;
+      case 'attendance':
+        if (typeof loadAttendance === 'function') loadAttendance();
+        populateAttendanceStudents();
+        break;
+      case 'payments':
+        if (typeof loadPayments === 'function') loadPayments();
+        populatePaymentStudentDropdown();
+        if (typeof updatePaymentBalances === 'function') updatePaymentBalances();
+        break;
+      case 'reports':
+        if (typeof loadReports === 'function') loadReports();
         break;
     }
   }, 100);
