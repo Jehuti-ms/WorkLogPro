@@ -66,152 +66,170 @@ class DataManager {
         return settings;
     }
     
-    // SYNC UI METHOD - WITH PROPER SORTING AND TEST DATA HANDLING
-    syncUI(sortMethod = 'id') {
-        console.log('🔄 Syncing UI with student data...');
-        
-        // Get students from localStorage
-        let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-        
-        // Split into real students (with valid studentId) and test data
-        const realStudents = students.filter(s => s.studentId && s.studentId.toString().trim() !== '');
-        const testStudents = students.filter(s => !s.studentId || s.studentId.toString().trim() === '');
-        
-        // Sort based on method
-        if (sortMethod === 'id') {
-            // Sort by student ID numerically
-            realStudents.sort((a, b) => {
-                const getNum = (id) => {
-                    const match = id.toString().match(/\d+/);
-                    return match ? parseInt(match[0], 10) : 999999;
-                };
-                
-                const numA = getNum(a.studentId);
-                const numB = getNum(b.studentId);
-                
-                if (numA !== numB) {
-                    return numA - numB; // Sort by numeric part
+    // In data-manager.js - REPLACE the syncUI method with this:
+        syncUI(sortMethod = 'id') {
+            console.log('🔄 Syncing UI with student data...');
+            
+            // Get students from localStorage
+            let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+            
+            // Log raw student data to debug
+            console.log('📊 Raw student data:', students.map(s => ({
+                name: s.name,
+                rate: s.rate,
+                hourlyRate: s.hourlyRate,
+                type: typeof s.rate
+            })));
+            
+            // Split into real students (with valid studentId) and test data
+            const realStudents = students.filter(s => s.studentId && s.studentId.toString().trim() !== '');
+            const testStudents = students.filter(s => !s.studentId || s.studentId.toString().trim() === '');
+            
+            // Sort based on method
+            if (sortMethod === 'id') {
+                realStudents.sort((a, b) => {
+                    const getNum = (id) => {
+                        const match = id.toString().match(/\d+/);
+                        return match ? parseInt(match[0], 10) : 999999;
+                    };
+                    
+                    const numA = getNum(a.studentId);
+                    const numB = getNum(b.studentId);
+                    
+                    if (numA !== numB) {
+                        return numA - numB;
+                    }
+                    return (a.studentId || '').localeCompare(b.studentId || '');
+                });
+            } else if (sortMethod === 'name') {
+                realStudents.sort((a, b) => {
+                    const nameA = (a.name || '').toLowerCase();
+                    const nameB = (b.name || '').toLowerCase();
+                    return nameA.localeCompare(nameB);
+                });
+            } else if (sortMethod === 'date') {
+                realStudents.sort((a, b) => {
+                    const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+                    const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+                    return dateB - dateA;
+                });
+            } else if (sortMethod === 'rate') {
+                realStudents.sort((a, b) => {
+                    const rateA = parseFloat(a.rate || a.hourlyRate || 0);
+                    const rateB = parseFloat(b.rate || b.hourlyRate || 0);
+                    return rateB - rateA;
+                });
+            }
+            
+            // Combine real students first, then test data at the end
+            students = [...realStudents, ...testStudents];
+            
+            // Update formHandler
+            if (window.formHandler) {
+                window.formHandler.students = students;
+            }
+            
+            // DIRECT UI UPDATE
+            const container = document.getElementById('studentsContainer');
+            if (container) {
+                if (students.length === 0) {
+                    container.innerHTML = '<p class="empty-message">No students registered yet.</p>';
+                } else {
+                    container.innerHTML = students.map(student => {
+                        // Format the date properly
+                        let dateStr = 'Unknown';
+                        if (student.createdAt) {
+                            try {
+                                const date = student.createdAt.toDate ? 
+                                    student.createdAt.toDate() : 
+                                    new Date(student.createdAt);
+                                dateStr = date.toLocaleDateString();
+                            } catch (e) {
+                                dateStr = 'Unknown';
+                            }
+                        }
+                        
+                        // Add a visual indicator for test students
+                        const isTestStudent = !student.studentId || student.studentId.toString().trim() === '';
+                        
+                        // CRITICAL FIX: Get rate safely from either field
+                        let rate = student.rate;
+                        // If rate is undefined/null/0, try hourlyRate
+                        if (rate === undefined || rate === null || rate === 0) {
+                            rate = student.hourlyRate;
+                        }
+                        // Ensure it's a number
+                        rate = parseFloat(rate) || 0;
+                        
+                        // Format rate display
+                        const rateDisplay = rate.toFixed(2);
+                        
+                        // Debug log for first few students
+                        if (students.indexOf(student) < 3) {
+                            console.log(`👤 Student ${student.name}: rate=${student.rate}, hourlyRate=${student.hourlyRate}, display=${rateDisplay}`);
+                        }
+                        
+                        return `
+                            <div class="student-card" data-id="${student.id}" style="${isTestStudent ? 'opacity: 0.7; border-left: 3px solid orange;' : ''}">
+                                <div class="student-card-header">
+                                    <strong>${student.name || ''}</strong>
+                                    <span class="student-id">${student.studentId || '⚠️ No ID'}</span>
+                                    <div class="student-actions">
+                                        <button class="btn-icon edit-student" onclick="window.editStudent('${student.id}')" title="Edit">✏️</button>
+                                        <button class="btn-icon delete-student" onclick="window.deleteStudent('${student.id}')" title="Delete">🗑️</button>
+                                    </div>
+                                </div>
+                                <div class="student-details">
+                                    <div class="student-rate">$${rateDisplay}/hour</div>
+                                    <div>${student.gender || ''} • ${student.email || 'No email'}</div>
+                                    <div>${student.phone || 'No phone'}</div>
+                                    <div class="student-meta">
+                                        Added: ${dateStr}
+                                        ${isTestStudent ? '<span style="color: orange; margin-left: 10px;">⚠️ Test Data</span>' : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
                 }
                 
-                // If same number, sort alphabetically by full ID
-                return (a.studentId || '').localeCompare(b.studentId || '');
-            });
-        } else if (sortMethod === 'name') {
-            // Sort by name alphabetically
-            realStudents.sort((a, b) => {
-                const nameA = (a.name || '').toLowerCase();
-                const nameB = (b.name || '').toLowerCase();
-                return nameA.localeCompare(nameB);
-            });
-        } else if (sortMethod === 'date') {
-            // Sort by creation date (newest first)
-            realStudents.sort((a, b) => {
-                const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
-                const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
-                return dateB - dateA; // Newest first
-            });
-        } else if (sortMethod === 'rate') {
-            // Sort by rate (highest first)
-            realStudents.sort((a, b) => {
-                const rateA = parseFloat(a.rate || a.hourlyRate || 0);
-                const rateB = parseFloat(b.rate || b.hourlyRate || 0);
-                return rateB - rateA; // Highest first
-            });
-        }
-        
-        // Combine real students first, then test data at the end
-        students = [...realStudents, ...testStudents];
-        
-        // Update formHandler
-        if (window.formHandler) {
-            window.formHandler.students = students;
-        }
-        
-        // DIRECT UI UPDATE
-        const container = document.getElementById('studentsContainer');
-        if (container) {
-            if (students.length === 0) {
-                container.innerHTML = '<p class="empty-message">No students registered yet.</p>';
-            } else {
-                container.innerHTML = students.map(student => {
-                    // Format the date properly
-                    let dateStr = 'Unknown';
-                    if (student.createdAt) {
-                        try {
-                            const date = student.createdAt.toDate ? 
-                                student.createdAt.toDate() : 
-                                new Date(student.createdAt);
-                            dateStr = date.toLocaleDateString();
-                        } catch (e) {
-                            dateStr = 'Unknown';
-                        }
+                // Update student count
+                const countElem = document.getElementById('studentCount');
+                if (countElem) countElem.textContent = realStudents.length;
+                
+                // Also update stats
+                const statStudents = document.getElementById('statStudents');
+                if (statStudents) statStudents.textContent = realStudents.length;
+                
+                // Update average rate
+                const avgRateElem = document.getElementById('averageRate');
+                if (avgRateElem && realStudents.length > 0) {
+                    const totalRate = realStudents.reduce((sum, student) => {
+                        let rate = parseFloat(student.rate || student.hourlyRate || 0);
+                        return sum + (isNaN(rate) ? 0 : rate);
+                    }, 0);
+                    const avgRate = totalRate / realStudents.length;
+                    avgRateElem.textContent = avgRate.toFixed(2);
+                    
+                    // Also update modal stats
+                    const modalAvgRate = document.getElementById('modalStatRate');
+                    if (modalAvgRate) {
+                        modalAvgRate.textContent = `$${avgRate.toFixed(2)}`;
                     }
-                    
-                    // Add a visual indicator for test students
-                    const isTestStudent = !student.studentId || student.studentId.toString().trim() === '';
-                    
-                    // Calculate rate display - WITH ERROR HANDLING
-                    let rate = student.hourlyRate || student.rate || 0;
-                    
-                    // Ensure rate is a number
-                    if (typeof rate !== 'number') {
-                        rate = parseFloat(rate) || 0;
-                    }
-                    
-                    // Format safely with fallback
-                    const rateDisplay = !isNaN(rate) ? rate.toFixed(2) : '0.00';
-                    
-                    return `
-                        <div class="student-card" data-id="${student.id}" style="${isTestStudent ? 'opacity: 0.7; border-left: 3px solid orange;' : ''}">
-                            <div class="student-card-header">
-                                <strong>${student.name || ''}</strong>
-                                <span class="student-id">${student.studentId || '⚠️ No ID'}</span>
-                                <div class="student-actions">
-                                    <button class="btn-icon edit-student" onclick="window.editStudent('${student.id}')" title="Edit">✏️</button>
-                                    <button class="btn-icon delete-student" onclick="window.deleteStudent('${student.id}')" title="Delete">🗑️</button>
-                                </div>
-                            </div>
-                            <div class="student-details">
-                                <div class="student-rate">$${rateDisplay}/hour</div>
-                                <div>${student.gender || ''} • ${student.email || 'No email'}</div>
-                                <div>${student.phone || 'No phone'}</div>
-                                <div class="student-meta">
-                                    Added: ${dateStr}
-                                    ${isTestStudent ? '<span style="color: orange; margin-left: 10px;">⚠️ Test Data</span>' : ''}
-                                </div>
-                            </div>
-                        </div>
-                    `;
-            
-            // Update student count
-            const countElem = document.getElementById('studentCount');
-            if (countElem) countElem.textContent = realStudents.length;
-            
-            // Also update stats
-            const statStudents = document.getElementById('statStudents');
-            if (statStudents) statStudents.textContent = realStudents.length;
-            
-            // Update average rate
-            const avgRateElem = document.getElementById('averageRate');
-            if (avgRateElem && realStudents.length > 0) {
-                const totalRate = realStudents.reduce((sum, student) => 
-                    sum + parseFloat(student.rate || student.hourlyRate || 0), 0);
-                const avgRate = totalRate / realStudents.length;
-                avgRateElem.textContent = avgRate.toFixed(2);
+                }
             }
+            
+            console.log(`✅ UI synced with ${realStudents.length} real students + ${testStudents.length} test entries`);
+            console.log(`📋 Student order (${sortMethod}):`, realStudents.map(s => 
+                sortMethod === 'id' ? `${s.studentId}: ${s.name} ($${parseFloat(s.rate||s.hourlyRate||0).toFixed(2)})` : 
+                sortMethod === 'name' ? `${s.name} ($${parseFloat(s.rate||s.hourlyRate||0).toFixed(2)})` : 
+                sortMethod === 'date' ? `${new Date(s.createdAt).toLocaleDateString()}: ${s.name} ($${parseFloat(s.rate||s.hourlyRate||0).toFixed(2)})` :
+                sortMethod === 'rate' ? `$${parseFloat(s.rate||0).toFixed(2)}: ${s.name}` : 
+                `${s.studentId}: ${s.name}`
+            ).join(' → '));
+            
+            return students;
         }
-        
-        console.log(`✅ UI synced with ${realStudents.length} real students + ${testStudents.length} test entries`);
-        console.log(`📋 Student order (${sortMethod}):`, realStudents.map(s => 
-            sortMethod === 'id' ? `${s.studentId}: ${s.name}` : 
-            sortMethod === 'name' ? s.name : 
-            sortMethod === 'date' ? `${new Date(s.createdAt).toLocaleDateString()}: ${s.name}` :
-            sortMethod === 'rate' ? `$${parseFloat(s.rate || 0).toFixed(2)}: ${s.name}` : 
-            `${s.studentId}: ${s.name}`
-        ).join(' → '));
-        
-        return students;
-    }
 
     // STUDENT METHODS
     async addStudent(studentData) {
