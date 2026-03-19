@@ -21,7 +21,7 @@ console.log('🔄 Loading Bulletproof SyncService...');
                 const current = localStorage.getItem('worklog_students');
                 const currentCount = current ? JSON.parse(current).length : 0;
                 
-                // If trying to replace 12 students with 0 students - BLOCK IT
+                // If trying to replace students with 0 students - BLOCK IT
                 if (newCount === 0 && currentCount > 0) {
                     console.log('🚫 BLOCKED attempt to delete students');
                     return;
@@ -37,12 +37,14 @@ class SyncService {
         this.syncInProgress = false;
         this.lastSyncTime = localStorage.getItem('lastSyncTime');
         this.syncInterval = null;
-        this.conflictResolution = 'safe-merge'; // New safe strategy
+        this.conflictResolution = 'safe-merge';
         
         // Bind methods
         this.sync = this.sync.bind(this);
         this.startAutoSync = this.startAutoSync.bind(this);
         this.stopAutoSync = this.stopAutoSync.bind(this);
+        this.forceRefreshFromCloud = this.forceRefreshFromCloud.bind(this);
+        this.manualRefresh = this.manualRefresh.bind(this);
         
         // Initialize
         this.init();
@@ -51,16 +53,14 @@ class SyncService {
     init() {
         console.log('🔄 SyncService initializing with DATA PROTECTION...');
         
-        // Check if auto-sync was enabled - but DON'T auto-start if data was lost before
         const autoSync = localStorage.getItem('autoSyncEnabled') === 'true';
         const dataLossPrevention = localStorage.getItem('dataLossPrevention') === 'true';
         
         if (autoSync && !dataLossPrevention) {
             console.log('⚠️ Auto-sync was enabled but starting in SAFE MODE');
-            this.startAutoSync(60000); // Slower interval (60 seconds)
+            this.startAutoSync(60000);
         }
         
-        // Listen for online/offline events
         window.addEventListener('online', () => {
             console.log('📶 App is online');
             this.updateSyncIndicator('Online', 'online');
@@ -71,153 +71,88 @@ class SyncService {
             this.updateSyncIndicator('Offline', 'offline');
         });
         
-        // Set data loss prevention flag
         localStorage.setItem('dataLossPrevention', 'true');
         
         console.log('✅ Bulletproof SyncService initialized');
     }
 
     // ==================== SAFE SYNC METHOD ====================
-   async sync(force = false, showNotifications = false) {
-    if (this.syncInProgress) {
-        console.log('⚠️ Sync already in progress');
-        return { success: false };
-    }
-
-    if (!navigator.onLine) {
-        console.log('⚠️ Cannot sync: offline');
-        this.updateSyncIndicator('Offline', 'offline');
-        return { success: false };
-    }
-
-    try {
-        this.syncInProgress = true;
-        console.log('🔄 Starting PROTECTED sync...');
-        this.updateSyncIndicator('Syncing...', 'syncing');
-
-        const user = await this.getCurrentUser();
-        if (!user) {
-            console.log('⚠️ No authenticated user');
-            this.updateSyncIndicator('Login Required', 'warning');
-            this.syncInProgress = false;
+    async sync(force = false, showNotifications = false) {
+        if (this.syncInProgress) {
+            console.log('⚠️ Sync already in progress');
             return { success: false };
         }
 
-        // STEP 1: GET LOCAL DATA FIRST (BACKUP)
-        const localData = this.getAllLocalData();
-        const localStudentCount = localData.students?.length || 0;
-        console.log(`📊 Local data: ${localStudentCount} students`);
-
-        // STEP 2: BACKUP LOCAL DATA BEFORE ANY SYNC
-        if (localStudentCount > 0) {
-            localStorage.setItem('worklog_students_PRE_SYNC', JSON.stringify(localData.students));
-            console.log('💾 Pre-sync backup saved');
+        if (!navigator.onLine) {
+            console.log('⚠️ Cannot sync: offline');
+            this.updateSyncIndicator('Offline', 'offline');
+            return { success: false };
         }
 
-        // STEP 3: TRY TO GET REMOTE DATA
-        let remoteData = null;
-        let remoteError = false;
-        
         try {
-            console.log('☁️ Getting remote data...');
-            remoteData = await this.getRemoteData(user.uid);
-            console.log('✅ Got remote data:', remoteData?.students?.length || 0, 'students');
-        } catch (error) {
-            console.error('❌ Failed to get remote data:', error);
-            remoteError = true;
+            this.syncInProgress = true;
+            console.log('🔄 Starting PROTECTED sync...');
+            this.updateSyncIndicator('Syncing...', 'syncing');
+
+            const user = await this.getCurrentUser();
+            if (!user) {
+                console.log('⚠️ No authenticated user');
+                this.updateSyncIndicator('Login Required', 'warning');
+                this.syncInProgress = false;
+                return { success: false };
+            }
+
+            // STEP 1: GET LOCAL DATA FIRST (BACKUP)
+            const localData = this.getAllLocalData();
+            const localStudentCount = localData.students?.length || 0;
+            console.log(`📊 Local data: ${localStudentCount} students`);
+
+            // STEP 2: BACKUP LOCAL DATA BEFORE ANY SYNC
+            if (localStudentCount > 0) {
+                localStorage.setItem('worklog_students_PRE_SYNC', JSON.stringify(localData.students));
+                console.log('💾 Pre-sync backup saved');
+            }
+
+            // STEP 3: TRY TO GET REMOTE DATA
+            let remoteData = null;
+            let remoteError = false;
             
-            // Check if it's a permission error
-            if (error.message?.includes('permission-denied') || error.code === 'permission-denied') {
-                console.log('🚨 PERMISSION ERROR DETECTED - USING LOCAL DATA ONLY');
-                this.showNotification('Firebase permission error - using local data', 'warning');
+            try {
+                console.log('☁️ Getting remote data...');
+                remoteData = await this.getRemoteData(user.uid);
+                console.log('✅ Got remote data:', remoteData?.students?.length || 0, 'students');
+            } catch (error) {
+                console.error('❌ Failed to get remote data:', error);
+                remoteError = true;
                 
-                // DON'T overwrite local data, DON'T try to push
+                if (error.message?.includes('permission-denied') || error.code === 'permission-denied') {
+                    console.log('🚨 PERMISSION ERROR DETECTED - USING LOCAL DATA ONLY');
+                    this.showNotification('Firebase permission error - using local data', 'warning');
+                    
+                    this.updateSyncIndicator('Local Only', 'warning');
+                    this.syncInProgress = false;
+                    return { success: true, mode: 'local-only' };
+                }
+            }
+
+            // STEP 4: SAFETY CHECKS
+            if (remoteError) {
+                console.log('🛡️ Remote error - preserving local data');
                 this.updateSyncIndicator('Local Only', 'warning');
                 this.syncInProgress = false;
                 return { success: true, mode: 'local-only' };
             }
-        }
 
-        // STEP 4: SAFETY CHECKS - NEVER OVERWRITE GOOD DATA WITH EMPTY
-        if (remoteError) {
-            // If remote error, keep local data
-            console.log('🛡️ Remote error - preserving local data');
-            this.updateSyncIndicator('Local Only', 'warning');
-            this.syncInProgress = false;
-            return { success: true, mode: 'local-only' };
-        }
-
-        // STEP 5: COMPARE AND DECIDE
-        if (localStudentCount === 0 && remoteData?.students?.length > 0) {
-            // Local empty, remote has data - RESTORE
-            console.log('🔄 Restoring from remote');
-            this.saveToLocalStorage(remoteData);
-            this.showNotification(`Restored ${remoteData.students.length} students from cloud`, 'success');
-            
-        } else if (localStudentCount > 0 && (!remoteData || remoteData.students?.length === 0)) {
-            // Local has data, remote empty - PUSH LOCAL (but confirm first)
-            console.log('☁️ Remote empty, pushing local data');
-            if (confirm('Cloud is empty. Upload your local data?')) {
-                await this.saveToFirestore(user.uid, localData);
-                this.showNotification(`Uploaded ${localStudentCount} students to cloud`, 'success');
-            }
-            
-        } else if (localStudentCount > 0 && remoteData?.students?.length > 0) {
-            // Both have data - MERGE
-            console.log('🔄 Merging local and remote data');
-            const mergedData = this.safeMerge(localData, remoteData);
-            await this.saveToFirestore(user.uid, mergedData);
-            this.saveToLocalStorage(mergedData);
-            this.showNotification('Data merged successfully', 'success');
-        }
-
-        // Update sync timestamp
-        localStorage.setItem('lastSyncTime', new Date().toISOString());
-        this.refreshUI();
-        
-        this.syncInProgress = false;
-        this.updateSyncIndicator('Synced', 'success');
-        
-        setTimeout(() => this.updateSyncIndicator('Online', 'online'), 3000);
-        
-        return { success: true };
-        
-    } catch (error) {
-        console.error('❌ Sync failed:', error);
-        this.updateSyncIndicator('Sync Failed', 'error');
-        this.syncInProgress = false;
-        
-        // RESTORE FROM PRE-SYNC BACKUP IF NEEDED
-        const backup = localStorage.getItem('worklog_students_PRE_SYNC');
-        if (backup) {
-            const students = JSON.parse(backup);
-            localStorage.setItem('worklog_students', backup);
-            console.log(`🔄 Restored ${students.length} students from pre-sync backup`);
-        }
-        
-        setTimeout(() => this.updateSyncIndicator('Online', 'online'), 3000);
-        return { success: false };
-    }
-
-
-            // ============ SAFETY CHECKS ============
-            
-            // SAFETY CHECK 1: PROTECT AGAINST EMPTY OVERWRITE
+            // STEP 5: SAFETY CHECKS - PROTECT AGAINST EMPTY OVERWRITE
             if (this.isEmptyData(localData) && !this.isEmptyData(remoteData)) {
                 console.log('🚨 SAFETY TRIGGERED: Local empty but remote has data!');
                 console.log('✅ RESTORING from remote to prevent data loss');
                 
-                // Restore remote data to local
                 this.saveToLocalStorage(remoteData);
-                
-                // Show warning
                 this.showNotification('⚠️ Restored data from cloud (local was empty)', 'warning');
-                
                 this.updateSyncIndicator('Restored', 'success');
                 this.refreshUI();
                 this.syncInProgress = false;
-                
-                // Create backup of restored data
                 this.createEmergencyBackup('post-restore');
                 
                 return { 
@@ -232,9 +167,7 @@ class SyncService {
                 console.log('🚨 SAFETY TRIGGERED: Remote empty but local has data!');
                 console.log('✅ PUSHING local to cloud to preserve data');
                 
-                // Push local to cloud
                 await this.saveToFirestore(user.uid, localData);
-                
                 this.showNotification('☁️ Pushed local data to cloud', 'info');
                 this.updateSyncIndicator('Pushed', 'success');
                 this.syncInProgress = false;
@@ -258,13 +191,11 @@ class SyncService {
                 };
             }
             
-            // SAFETY CHECK 4: PREVENT MASS DELETION (if data dropped by >50%)
+            // SAFETY CHECK 4: PREVENT MASS DELETION
             if (this.hasMassDataLoss(localData, remoteData)) {
                 console.error('🚨 MASS DATA LOSS DETECTED!');
                 this.showNotification('❌ Mass data loss detected - sync aborted', 'error');
                 this.syncInProgress = false;
-                
-                // Create emergency backup
                 this.createEmergencyBackup('mass-loss-detected');
                 
                 return { 
@@ -275,67 +206,106 @@ class SyncService {
             }
             
             // ============ SAFE MERGE ============
-            
-            // Only proceed if both have data or we're forcing sync
-            if (localData.students.length > 0 && remoteData?.students?.length > 0) {
+            if (localStudentCount > 0 && remoteData?.students?.length > 0) {
                 console.log('🔄 Both have data - performing SAFE merge');
                 
-                // Create pre-merge backup
                 this.createEmergencyBackup('pre-merge');
-                
-                // Merge with cloud preference (but preserve both)
                 const mergedData = this.safeMerge(localData, remoteData);
-                
-                // Save merged data
                 await this.saveToFirestore(user.uid, mergedData);
                 this.saveToLocalStorage(mergedData);
-                
                 console.log('✅ Safe merge complete');
                 this.showNotification('🔄 Data merged successfully', 'success');
-                
-                // Create post-merge backup
                 this.createEmergencyBackup('post-merge');
                 
             } else {
                 console.log('ℹ️ No data to sync or one side empty - already handled');
             }
-            
+
             // Update sync timestamp
-            const timestamp = new Date().toISOString();
-            localStorage.setItem('lastSyncTime', timestamp);
-            localStorage.setItem('lastSuccessfulSync', timestamp);
-            this.lastSyncTime = timestamp;
-            
-            // Refresh UI
+            localStorage.setItem('lastSyncTime', new Date().toISOString());
             this.refreshUI();
             
             this.syncInProgress = false;
             this.updateSyncIndicator('Synced', 'success');
             
-            setTimeout(() => {
-                this.updateSyncIndicator('Online', 'online');
-            }, 3000);
+            setTimeout(() => this.updateSyncIndicator('Online', 'online'), 3000);
             
-            return { success: true, timestamp };
+            return { success: true };
             
         } catch (error) {
             console.error('❌ Sync failed:', error);
             this.updateSyncIndicator('Sync Failed', 'error');
             this.syncInProgress = false;
             
-            // Create error backup
-            this.createEmergencyBackup('sync-error');
+            const backup = localStorage.getItem('worklog_students_PRE_SYNC');
+            if (backup) {
+                const students = JSON.parse(backup);
+                localStorage.setItem('worklog_students', backup);
+                console.log(`🔄 Restored ${students.length} students from pre-sync backup`);
+            }
             
-            setTimeout(() => {
-                this.updateSyncIndicator('Online', 'online');
-            }, 3000);
-            
-            return { success: false, error: error.message };
+            setTimeout(() => this.updateSyncIndicator('Online', 'online'), 3000);
+            return { success: false };
         }
     }
 
+    // ==================== FORCE REFRESH METHODS ====================
+    async forceRefreshFromCloud() {
+        console.log('📱 FORCE REFRESH from cloud initiated...');
+        
+        try {
+            const user = await this.getCurrentUser();
+            if (!user) {
+                console.log('⚠️ No user, cannot refresh');
+                return false;
+            }
+            
+            console.log('☁️ Fetching fresh data from Firebase...');
+            const db = firebase.firestore();
+            const docRef = db.collection('users').doc(user.uid).collection('data').doc('worklog');
+            const serverDoc = await docRef.get({ source: 'server' });
+            
+            if (serverDoc.exists) {
+                const freshData = serverDoc.data();
+                console.log('✅ Got fresh server data:', {
+                    students: freshData.students?.length || 0,
+                    worklogs: freshData.worklogs?.length || 0
+                });
+                
+                this.saveToLocalStorage(freshData);
+                this.refreshUI();
+                this.showNotification('📱 Data refreshed from cloud', 'success');
+                return true;
+            } else {
+                console.log('⚠️ No data on server');
+                return false;
+            }
+        } catch (error) {
+            console.error('❌ Force refresh failed:', error);
+            return false;
+        }
+    }
+
+    async manualRefresh() {
+        console.log('🔄 Manual refresh requested');
+        this.updateSyncIndicator('Refreshing...', 'syncing');
+        
+        const result = await this.forceRefreshFromCloud();
+        
+        if (result) {
+            this.updateSyncIndicator('Refreshed', 'success');
+        } else {
+            this.updateSyncIndicator('Refresh failed', 'error');
+        }
+        
+        setTimeout(() => {
+            this.updateSyncIndicator('Online', 'online');
+        }, 3000);
+        
+        return result;
+    }
+
     // ==================== SAFETY HELPER METHODS ====================
-    
     isEmptyData(data) {
         if (!data) return true;
         const checks = [
@@ -343,18 +313,15 @@ class SyncService {
             !data.hours || data.hours.length === 0,
             !data.worklogs || data.worklogs.length === 0
         ];
-        // Return true if ALL are empty (likely a reset)
         return checks.every(Boolean);
     }
     
     verifyDataIntegrity(data) {
-        if (!data) return true; // No data is fine
+        if (!data) return true;
         
-        // Check if data structure is valid
         if (data.students && !Array.isArray(data.students)) return false;
         if (data.hours && !Array.isArray(data.hours)) return false;
         
-        // Check for corrupted data
         if (data.students) {
             for (const student of data.students) {
                 if (!student || typeof student !== 'object') return false;
@@ -368,7 +335,6 @@ class SyncService {
     hasMassDataLoss(local, remote) {
         if (!local || !remote) return false;
         
-        // If one side has >50% less data, something's wrong
         const localCount = local.students?.length || 0;
         const remoteCount = remote.students?.length || 0;
         
@@ -384,7 +350,6 @@ class SyncService {
     }
     
     safeMerge(local, remote) {
-        // Create maps for merging (cloud takes precedence for conflicts)
         const merged = {
             students: [],
             hours: [],
@@ -395,17 +360,14 @@ class SyncService {
             settings: { ...local.settings, ...remote.settings }
         };
         
-        // Merge students (by ID, remote wins if conflict)
         const studentMap = new Map();
         
-        // Add local students
         if (local.students) {
             local.students.forEach(student => {
                 studentMap.set(student.id, { ...student, _source: 'local' });
             });
         }
         
-        // Add/overwrite with remote students
         if (remote.students) {
             remote.students.forEach(student => {
                 studentMap.set(student.id, { ...student, _source: 'remote' });
@@ -414,7 +376,6 @@ class SyncService {
         
         merged.students = Array.from(studentMap.values()).map(({ _source, ...student }) => student);
         
-        // Similarly merge other collections
         merged.hours = this.mergeCollections(local.hours, remote.hours, 'id');
         merged.marks = this.mergeCollections(local.marks, remote.marks, 'id');
         merged.attendance = this.mergeCollections(local.attendance, remote.attendance, 'id');
@@ -427,14 +388,12 @@ class SyncService {
     mergeCollections(local = [], remote = [], key) {
         const map = new Map();
         
-        // Add local
         local.forEach(item => {
             if (item && item[key]) {
                 map.set(item[key], { ...item, _source: 'local' });
             }
         });
         
-        // Add/overwrite with remote
         remote.forEach(item => {
             if (item && item[key]) {
                 map.set(item[key], { ...item, _source: 'remote' });
@@ -450,7 +409,6 @@ class SyncService {
             const backupKey = `worklog_emergency_${reason}_${Date.now()}`;
             localStorage.setItem(backupKey, JSON.stringify(data));
             
-            // Keep only last 5 backups
             const backups = Object.keys(localStorage)
                 .filter(key => key.startsWith('worklog_emergency_'))
                 .sort()
@@ -466,8 +424,7 @@ class SyncService {
         }
     }
 
-    // ==================== EXISTING METHODS (keep as is) ====================
-    
+    // ==================== EXISTING METHODS ====================
     async getCurrentUser() {
         return new Promise((resolve) => {
             const user = firebase.auth().currentUser;
@@ -601,7 +558,7 @@ class SyncService {
         }
     }
 
-    startAutoSync(interval = 60000) { // Default 60 seconds (slower)
+    startAutoSync(interval = 60000) {
         if (this.syncInterval) {
             clearInterval(this.syncInterval);
         }
@@ -625,75 +582,6 @@ class SyncService {
         localStorage.setItem('autoSyncEnabled', 'false');
         console.log('⏹️ Auto-sync stopped');
     }
-
-// Add to sync-service.js - FORCE REFRESH FROM CLOUD
-async forceRefreshFromCloud() {
-    console.log('📱 FORCE REFRESH from cloud initiated...');
-    
-    try {
-        const user = await this.getCurrentUser();
-        if (!user) {
-            console.log('⚠️ No user, cannot refresh');
-            return false;
-        }
-        
-        // Clear local cache indicators
-        console.log('🔄 Clearing local cache indicators...');
-        
-        // Get FRESH data from Firebase (bypass cache)
-        console.log('☁️ Fetching fresh data from Firebase...');
-        const db = firebase.firestore();
-        
-        // Force server fetch with {source: 'server'}
-        const docRef = db.collection('users').doc(user.uid).collection('data').doc('worklog');
-        const serverDoc = await docRef.get({ source: 'server' });
-        
-        if (serverDoc.exists) {
-            const freshData = serverDoc.data();
-            console.log('✅ Got fresh server data:', {
-                students: freshData.students?.length || 0,
-                worklogs: freshData.worklogs?.length || 0
-            });
-            
-            // Save to localStorage
-            this.saveToLocalStorage(freshData, user);
-            
-            // Force UI refresh
-            this.refreshUI();
-            
-            // Show notification
-            this.showNotification('📱 Data refreshed from cloud', 'success');
-            
-            return true;
-        } else {
-            console.log('⚠️ No data on server');
-            return false;
-        }
-    } catch (error) {
-        console.error('❌ Force refresh failed:', error);
-        return false;
-    }
-}
-
-// Add manual refresh button handler
-async manualRefresh() {
-    console.log('🔄 Manual refresh requested');
-    this.updateSyncIndicator('Refreshing...', 'syncing');
-    
-    const result = await this.forceRefreshFromCloud();
-    
-    if (result) {
-        this.updateSyncIndicator('Refreshed', 'success');
-    } else {
-        this.updateSyncIndicator('Refresh failed', 'error');
-    }
-    
-    setTimeout(() => {
-        this.updateSyncIndicator('Online', 'online');
-    }, 3000);
-    
-    return result;
-}
 }
 
 // Create global instance
