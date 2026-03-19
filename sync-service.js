@@ -584,6 +584,7 @@ async manualRefresh() {
     
     return result;
 }
+}
 
 // Create global instance
 window.syncService = new SyncService();
