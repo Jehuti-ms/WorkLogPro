@@ -1,81 +1,58 @@
-// firebase-config.js - FIXED WITH PROPER PERSISTENCE
-console.log('🔥 Loading FIXED firebase-config.js with proper persistence');
+// firebase-config.js - WITH FORCED PERSISTENCE
+console.log('🔥 Loading firebase-config.js with enhanced persistence...');
 
+// Your Firebase config
 const firebaseConfig = {
-  apiKey: "AIzaSyDdLP_LgiC6EgzC3hUP_mGuNW4_BUEACs8",
-  authDomain: "worklogpro-4284e.firebaseapp.com",
-  projectId: "worklogpro-4284e",
-  storageBucket: "worklogpro-4284e.firebasestorage.app",
-  messagingSenderId: "299567233913",
-  appId: "1:299567233913:web:7232a5a5a8aa9b79948da8",
-  measurementId: "G-7JMG3LLJXX"
+    apiKey: "AIzaSyA-duULS1Do5F6Ac-2vzRgE_1d9Xm-lC0M",
+    authDomain: "worklog-3351a.firebaseapp.com",
+    projectId: "worklog-3351a",
+    storageBucket: "worklog-3351a.firebasestorage.app",
+    messagingSenderId: "549780363324",
+    appId: "1:549780363324:web:fb85fbcd42b566e1932559"
 };
 
 // Initialize Firebase
-if (typeof firebase !== 'undefined') {
-  if (!firebase.apps.length) {
+if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
     console.log('✅ Firebase initialized');
-    
-    // CRITICAL: Set persistence to LOCAL
-    firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-      .then(() => {
-        console.log('✅ Auth persistence set to LOCAL - user will stay logged in');
-      })
-      .catch((error) => {
-        console.error('❌ Failed to set persistence:', error);
-      });
-    
-    // Enable Firestore offline persistence
-    firebase.firestore().enablePersistence()
-      .then(() => {
-        console.log('✅ Firestore persistence enabled - works offline');
-      })
-      .catch((err) => {
-        if (err.code === 'failed-precondition') {
-          console.warn('⚠️ Multiple tabs open, persistence enabled in one tab only');
-        } else if (err.code === 'unimplemented') {
-          console.warn('⚠️ Browser doesn\'t support persistence');
-        }
-      });
-  }
-} else {
-  console.error('❌ Firebase SDK not loaded!');
 }
 
-// Store auth state in localStorage as backup
-firebase.auth().onAuthStateChanged((user) => {
-  if (user) {
-    console.log('👤 Auth state changed: User logged in:', user.email);
-    localStorage.setItem('worklog_user', JSON.stringify({
-      uid: user.uid,
-      email: user.email,
-      displayName: user.displayName,
-      lastLogin: new Date().toISOString()
-    }));
-    localStorage.setItem('userEmail', user.email);
-  } else {
-    console.log('👤 Auth state changed: No user');
-    // Don't clear on every change, only on explicit logout
-  }
+// CRITICAL: Enable persistence with forced cache size
+firebase.firestore().enablePersistence({
+    synchronizeTabs: true,
+    experimentalForceOwningTab: true
+})
+.then(() => {
+    console.log('✅ Firestore persistence enabled - works across tabs');
+})
+.catch((err) => {
+    if (err.code == 'failed-precondition') {
+        console.warn('⚠️ Multiple tabs open, persistence disabled');
+    } else if (err.code == 'unimplemented') {
+        console.warn('⚠️ Browser doesn\'t support persistence');
+    }
 });
 
-// Helper to check auth status
-window.checkFirebaseAuth = function() {
-  return new Promise((resolve) => {
-    const user = firebase.auth().currentUser;
+// Set auth persistence to LOCAL (survives browser restart)
+firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+    .then(() => console.log('✅ Auth persistence set to LOCAL'))
+    .catch((error) => console.error('❌ Auth persistence error:', error));
+
+// Monitor auth state
+firebase.auth().onAuthStateChanged((user) => {
     if (user) {
-      resolve(user);
+        console.log('👤 Auth state changed: User logged in:', user.email);
+        
+        // FORCE A SYNC WHEN USER LOGS IN ON PHONE
+        setTimeout(() => {
+            if (window.syncService) {
+                console.log('📱 Phone detected - forcing sync...');
+                window.syncService.forceRefreshFromCloud();
+            }
+        }, 2000);
     } else {
-      const unsubscribe = firebase.auth().onAuthStateChanged((user) => {
-        unsubscribe();
-        resolve(user);
-      });
-      // Timeout after 3 seconds
-      setTimeout(() => {
-        unsubscribe();
-        resolve(null);
-      }, 3000);
+        console.log('👤 Auth state changed: No user');
     }
-  });
-};
+});
+
+console.log('✅ Firebase config loaded with enhanced mobile support');
