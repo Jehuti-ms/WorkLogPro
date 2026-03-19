@@ -805,7 +805,7 @@ function initTabs() {
     // Hide all tab contents
     tabContents.forEach(tab => {
       tab.classList.remove('active');
-      tab.style.display = 'none'; // Force hide
+      tab.style.display = 'none';
     });
     
     // Remove active class from all tab buttons
@@ -815,8 +815,48 @@ function initTabs() {
     const selectedTab = document.getElementById(tabName);
     if (selectedTab) {
       selectedTab.classList.add('active');
-      selectedTab.style.display = 'block'; // Force show
+      selectedTab.style.display = 'block';
       
+      // Load tab-specific data
+      loadTabData(tabName);
+    }
+    
+    // Activate the clicked tab button
+    const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
+    if (activeButton) {
+      activeButton.classList.add('active');
+    }
+    
+    // Update URL hash
+    window.location.hash = tabName;
+  }
+  
+  // Remove all existing listeners and add fresh ones
+  tabButtons.forEach(button => {
+    const newButton = button.cloneNode(true);
+    button.parentNode.replaceChild(newButton, button);
+    
+    newButton.addEventListener('click', function(e) {
+      e.preventDefault();
+      const tabName = this.getAttribute('data-tab');
+      switchTab(tabName);
+    });
+  });
+  
+  // Check URL hash for initial tab
+  const hash = window.location.hash.replace('#', '');
+  const initialTab = hash && document.getElementById(hash) ? hash : 'students';
+  
+  setTimeout(() => {
+    switchTab(initialTab);
+  }, 100);
+  
+  // Make switchTab globally available
+  window.switchTab = switchTab;
+  
+  console.log('✅ Tabs initialized');
+}
+
 // ==================== LOAD TAB DATA (COMPLETE FIXED VERSION) ====================
 function loadTabData(tabName) {
   console.log(`📊 Loading data for ${tabName} tab...`);
