@@ -516,6 +516,75 @@ class SyncService {
     }
 }
 
+// Add to sync-service.js - FORCE REFRESH FROM CLOUD
+async forceRefreshFromCloud() {
+    console.log('📱 FORCE REFRESH from cloud initiated...');
+    
+    try {
+        const user = await this.getCurrentUser();
+        if (!user) {
+            console.log('⚠️ No user, cannot refresh');
+            return false;
+        }
+        
+        // Clear local cache indicators
+        console.log('🔄 Clearing local cache indicators...');
+        
+        // Get FRESH data from Firebase (bypass cache)
+        console.log('☁️ Fetching fresh data from Firebase...');
+        const db = firebase.firestore();
+        
+        // Force server fetch with {source: 'server'}
+        const docRef = db.collection('users').doc(user.uid).collection('data').doc('worklog');
+        const serverDoc = await docRef.get({ source: 'server' });
+        
+        if (serverDoc.exists) {
+            const freshData = serverDoc.data();
+            console.log('✅ Got fresh server data:', {
+                students: freshData.students?.length || 0,
+                worklogs: freshData.worklogs?.length || 0
+            });
+            
+            // Save to localStorage
+            this.saveToLocalStorage(freshData, user);
+            
+            // Force UI refresh
+            this.refreshUI();
+            
+            // Show notification
+            this.showNotification('📱 Data refreshed from cloud', 'success');
+            
+            return true;
+        } else {
+            console.log('⚠️ No data on server');
+            return false;
+        }
+    } catch (error) {
+        console.error('❌ Force refresh failed:', error);
+        return false;
+    }
+}
+
+// Add manual refresh button handler
+async manualRefresh() {
+    console.log('🔄 Manual refresh requested');
+    this.updateSyncIndicator('Refreshing...', 'syncing');
+    
+    const result = await this.forceRefreshFromCloud();
+    
+    if (result) {
+        this.updateSyncIndicator('Refreshed', 'success');
+    } else {
+        this.updateSyncIndicator('Refresh failed', 'error');
+    }
+    
+    setTimeout(() => {
+        this.updateSyncIndicator('Online', 'online');
+    }, 3000);
+    
+    return result;
+}
+
 // Create global instance
 window.syncService = new SyncService();
 
