@@ -241,7 +241,10 @@ if (document.readyState === 'loading') {
     RateManager.init();
 }
 
-// Make functions globally available for onclick handlers
+// Make sure RateManager is defined first
+const RateManager = { ... } // Your full RateManager object
+
+// THEN make functions globally available
 window.saveDefaultRate = () => RateManager.saveDefaultRate();
 window.useDefaultRate = () => RateManager.useDefaultRate();
 window.applyDefaultRateToAll = () => RateManager.applyDefaultRateToAll();
