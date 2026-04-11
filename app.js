@@ -670,24 +670,22 @@ function initTabs() {
   function switchTab(tabName) {
     console.log('Switching to tab:', tabName);
     
-    // Hide all tab contents
-    tabContents.forEach(tab => {
-      tab.style.display = 'none';
-      tab.classList.remove('active');
+    // Hide all tabs using CSS classes only (no style.display)
+    tabContents.forEach(content => {
+      content.classList.remove('active');
     });
     
     // Remove active class from all tab buttons
     tabButtons.forEach(btn => btn.classList.remove('active'));
     
-    // Show the selected tab
+    // Show selected tab
     const selectedTab = document.getElementById(tabName);
     if (selectedTab) {
-      selectedTab.style.display = 'block';
       selectedTab.classList.add('active');
       console.log(`✅ Showing ${tabName} tab`);
     }
     
-    // Activate the clicked tab button
+    // Activate clicked button
     const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
     if (activeButton) {
       activeButton.classList.add('active');
@@ -700,28 +698,29 @@ function initTabs() {
     loadTabData(tabName);
   }
   
-  // Add click handlers to all tab buttons
+  // Add click handlers
   tabButtons.forEach(button => {
     button.addEventListener('click', function(e) {
       e.preventDefault();
       const tabName = this.getAttribute('data-tab');
-      switchTab(tabName);
+      if (tabName) {
+        switchTab(tabName);
+      }
     });
   });
   
-  // Check URL hash for initial tab
+  // Set initial tab
   const hash = window.location.hash.replace('#', '');
-  const initialTab = hash && document.getElementById(hash) ? hash : 'students';
+  const validTabs = ['students', 'worklog', 'marks', 'attendance', 'payments', 'reports'];
+  const initialTab = hash && validTabs.includes(hash) ? hash : 'students';
   
-  // Show initial tab
   setTimeout(() => {
     switchTab(initialTab);
   }, 100);
   
-  // Make switchTab globally available
   window.switchTab = switchTab;
   
-  console.log('✅ Tabs initialized');
+  console.log('✅ Tabs initialized, found:', tabButtons.length, 'tabs');
 }
 
 function loadTabData(tabName) {
