@@ -6655,3 +6655,42 @@ button:focus:not(:focus-visible) {
       
     }
 }
+
+/* FORCE WORKLOG TAB VISIBILITY */
+#worklog {
+  display: block !important;
+  min-height: auto !important;
+  overflow: visible !important;
+}
+
+#worklog .form-grid {
+  display: block !important;
+  min-height: auto !important;
+}
+
+#worklog .section-card {
+  height: auto !important;
+  min-height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  margin-bottom: 20px !important;
+}
+
+#worklog .worklog-history-container,
+#worklog .section-card:first-child {
+  height: auto !important;
+  max-height: none !important;
+  margin-bottom: 20px !important;
+}
+
+#worklog .worklog-container {
+  max-height: 400px !important;
+  overflow-y: auto !important;
+  display: block !important;
+}
+
+/* Make sure all tab content is visible */
+.tabcontent {
+  min-height: 400px !important;
+  padding: 20px !important;
+}
