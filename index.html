@@ -1423,5 +1423,73 @@ Culloden Road, St. Michael</textarea>
       alert('This feature would update all student rates to the default rate');
     }
   </script>
+
+    <script>
+// COMPLETE TAB SYSTEM OVERRIDE
+(function() {
+  console.log('🔥 EMERGENCY TAB SYSTEM LOADED');
+  
+  // Get all tabs and contents
+  const tabs = document.querySelectorAll('.tab');
+  const contents = document.querySelectorAll('.tabcontent');
+  
+  // Hide all contents first
+  contents.forEach(content => {
+    content.style.display = 'none';
+    content.classList.remove('active');
+  });
+  
+  // Show students tab by default
+  const studentsContent = document.getElementById('students');
+  if (studentsContent) {
+    studentsContent.style.display = 'block';
+    studentsContent.classList.add('active');
+  }
+  
+  // Mark students button as active
+  const studentsBtn = document.querySelector('.tab[data-tab="students"]');
+  if (studentsBtn) {
+    studentsBtn.classList.add('active');
+  }
+  
+  // Add click handlers to all tabs
+  tabs.forEach(tab => {
+    // Remove old listeners
+    const newTab = tab.cloneNode(true);
+    tab.parentNode.replaceChild(newTab, tab);
+    
+    newTab.addEventListener('click', function(e) {
+      e.preventDefault();
+      const tabName = this.getAttribute('data-tab');
+      console.log('Tab clicked:', tabName);
+      
+      // Hide all contents
+      contents.forEach(content => {
+        content.style.display = 'none';
+        content.classList.remove('active');
+      });
+      
+      // Remove active class from all buttons
+      tabs.forEach(t => t.classList.remove('active'));
+      
+      // Show selected content
+      const selectedContent = document.getElementById(tabName);
+      if (selectedContent) {
+        selectedContent.style.display = 'block';
+        selectedContent.classList.add('active');
+        console.log('Showing:', tabName);
+      } else {
+        console.error('Content not found for:', tabName);
+      }
+      
+      // Mark button as active
+      this.classList.add('active');
+    });
+  });
+  
+  console.log('✅ Emergency tab system initialized');
+})();
+</script>
+    
 </body>
 </html>
