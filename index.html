@@ -1,236 +1,587 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="WorkLog Pro">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="theme-color" content="#4361ee">
-  <title>WorkLog - Student Tracker & Hours Management</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="manifest" href="app.webmanifest">
-  <link rel="icon" type="image/svg+xml" href="icons/favicon_cogs32x32.svg">
-  <link rel="stylesheet" href="styles.css">
+  <title>WorkLog Pro - Complete System</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background: #f5f5f5; padding: 20px; }
+    .container { max-width: 1400px; margin: 0 auto; }
+    
+    /* Header */
+    .header { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .logo-title { display: flex; align-items: center; gap: 15px; }
+    .logo-title h1 { color: #2563eb; }
+    .stats-row { display: flex; justify-content: space-between; margin-top: 15px; flex-wrap: wrap; gap: 10px; }
+    .storage-status { display: flex; gap: 20px; color: #666; font-size: 14px; }
+    .header-controls { display: flex; gap: 10px; }
+    .theme-toggle button, .auth-section button { padding: 8px 16px; border: 1px solid #ddd; background: white; border-radius: 8px; cursor: pointer; }
+    
+    /* Sync Toolbar */
+    .sync-toolbar { background: white; padding: 12px 20px; border-radius: 12px; margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .sync-indicator { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+    .sync-indicator.online { background: #10b981; color: white; }
+    .button { padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
+    .button.primary { background: #2563eb; color: white; }
+    .button.success { background: #10b981; color: white; }
+    .button.warning { background: #f59e0b; color: white; }
+    .button.danger { background: #ef4444; color: white; }
+    .button.secondary { background: #6b7280; color: white; }
+    
+    /* Tabs */
+    .tabs { display: flex; gap: 5px; margin-bottom: 0; flex-wrap: wrap; }
+    .tab { padding: 12px 24px; background: #e5e7eb; border: none; cursor: pointer; font-size: 14px; border-radius: 8px 8px 0 0; transition: all 0.2s; }
+    .tab:hover { background: #d1d5db; }
+    .tab.active { background: white; color: #2563eb; font-weight: bold; border-bottom: 2px solid #2563eb; }
+    
+    /* Tab Content */
+    .tabcontent { display: none; background: white; padding: 24px; border-radius: 0 12px 12px 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .tabcontent.active { display: block; }
+    
+    /* Forms */
+    .form-group { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; font-weight: 600; color: #374151; }
+    input, select, textarea { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb; ring: 2px solid #2563eb; }
+    
+    /* Cards */
+    .section-card { background: #f9fafb; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e5e7eb; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .student-card, .worklog-card, .mark-entry, .attendance-entry, .payment-item { background: white; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 10px; }
+    .student-card-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+    .student-actions button { padding: 4px 8px; margin-left: 5px; font-size: 12px; }
+    .empty-message { text-align: center; color: #9ca3af; padding: 40px; }
+    
+    /* Student Stats */
+    .student-stats { display: flex; gap: 15px; align-items: center; }
+    .stat-badge { background: #2563eb; color: white; padding: 4px 12px; border-radius: 20px; font-size: 14px; }
+    
+    /* Worklog specific */
+    .worklog-filters { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .worklog-filters select, .worklog-filters input { width: auto; min-width: 150px; }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .tabs { flex-wrap: wrap; }
+      .tab { flex: 1; text-align: center; }
+      .sync-toolbar { flex-direction: column; align-items: stretch; }
+    }
+  </style>
 </head>
 <body>
-<div id="profileModal" class="modal" style="display: none;">
-  <div class="modal-content profile-modal">
-    <div class="modal-header"><h2>👤 User Profile</h2><button id="closeProfileModal" class="close">&times;</button></div>
-    <div class="modal-body">
-      <div class="profile-section"><h3>Account Information</h3><div class="info-grid"><div class="info-item"><label>Email:</label><span id="profileUserEmail">user@example.com</span></div><div class="info-item"><label>Member Since:</label><span id="profileUserSince">Loading...</span></div><div class="info-item"><label>Default Rate:</label><span id="profileDefaultRate">$0.00/hour</span></div></div></div>
-      <div class="profile-section"><h3>📊 Usage Statistics</h3><div class="stats-grid"><div class="stat-card"><div class="stat-value" id="modalStatStudents">0</div><div class="stat-label">Students</div></div><div class="stat-card"><div class="stat-value" id="modalStatHours">0</div><div class="stat-label">Hours Worked</div></div><div class="stat-card"><div class="stat-value"><span id="modalStatEarnings">0.00</span></div><div class="stat-label">Money Earned</div></div></div><div class="last-updated">Last updated: <span id="modalStatUpdated">Never</span></div></div>
-      <div class="profile-section"><h3>Actions</h3><div class="actions-grid"><button id="logoutBtn" class="btn btn-danger btn-full">🚪 Logout</button></div></div>
-    </div>
-  </div>
-</div>
-
 <div class="container">
   <header class="header">
-    <div class="logo-title"><img src="icons/worklog_cogs.svg" alt="WorkLog Logo" class="logo"><h1>WorkLog</h1></div>
-    <div class="header-main">
-      <p class="subtitle">Student Tracker & Hours Management System</p>
-      <div class="stats-row">
-        <div class="storage-status"><span id="localStatus">💾 Local Storage: Active</span><span id="syncStatus">☁️ Cloud Sync: Ready</span><span id="dataStatus">📊 Data: <span id="statStudents">0</span> Students, <span id="statHours">0</span> Hours</span></div>
-        <div class="header-controls"><div class="theme-toggle"><button>🌓</button></div><div class="auth-section"><button id="profileBtn" class="btn btn-secondary">👤 <span id="userName">Loading...</span></button></div></div>
-      </div>
+    <div class="logo-title"><h1>📝 WorkLog Pro</h1></div>
+    <div class="stats-row">
+      <div class="storage-status"><span>💾 Local Storage: Active</span><span>📊 Data: <span id="statStudents">0</span> Students, <span id="statHours">0</span> Hours</span></div>
+      <div class="header-controls"><div class="theme-toggle"><button onclick="toggleTheme()">🌓 Theme</button></div><div class="auth-section"><button id="profileBtn" onclick="showProfile()">👤 <span id="userName">User</span></button></div></div>
     </div>
   </header>
 
   <div class="sync-toolbar">
-    <div class="sync-status-row"><div id="syncIndicator" class="sync-indicator online">Online</div><label class="auto-sync-label"><input type="checkbox" id="autoSyncCheckbox"><span class="auto-sync-text">Auto</span></label></div>
-    <button id="syncBtn" class="button primary">🔄 Sync</button>
-    <button id="exportCloudBtn" class="button success">☁️ Export</button>
-    <button id="importCloudBtn" class="button info">☁️ Import</button>
-    <button id="syncStatsBtn" class="button warning">🔧 Fix</button>
-    <button id="exportDataBtn" class="button primary">📤 Export</button>
-    <button id="importDataBtn" class="button primary">📥 Import</button>
-    <button id="recoverBackupBtn" class="button warning">🔄 Recover Backup</button>
-    <button id="listBackupsBtn" class="button info">📋 List Backups</button>
-    <button id="forceRefreshBtn" class="button warning">📱 Force Refresh</button>
-    <button id="clearDataBtn" class="button danger">🗑️ Clear</button>
+    <div id="syncIndicator" class="sync-indicator online">Online</div>
+    <button id="syncBtn" class="button primary" onclick="syncData()">🔄 Sync</button>
+    <button id="exportDataBtn" class="button primary" onclick="exportData()">📤 Export</button>
+    <button id="importDataBtn" class="button primary" onclick="importData()">📥 Import</button>
+    <button id="clearDataBtn" class="button danger" onclick="clearAllData()">🗑️ Clear</button>
   </div>
 
-  <div class="tabs-container"><div class="tabs">
+  <!-- TABS -->
+  <div class="tabs">
     <button class="tab active" data-tab="students">👥 Students</button>
     <button class="tab" data-tab="worklog">📝 Worklog</button>
     <button class="tab" data-tab="marks">📊 Marks</button>
     <button class="tab" data-tab="attendance">✅ Attendance</button>
     <button class="tab" data-tab="payments">💰 Payments</button>
     <button class="tab" data-tab="reports">📈 Reports</button>
-  </div></div>
-
-  <!-- STUDENTS TAB - CLOSED PROPERLY -->
-  <div id="students" class="tabcontent active">
-    <div class="section-header"><div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;"><h2>📚 Student Management</h2><div class="sort-controls"><select id="studentSortSelect" class="sort-select" onchange="changeStudentSort(this.value)"><option value="id">Sort by ID 🔢</option><option value="name">Sort by Name 📝</option><option value="date">Sort by Date 📅</option><option value="rate">Sort by Rate 💰</option></select></div></div><div class="student-stats"><span class="stat-badge" id="studentCount">0</span><span class="stat-divider">|</span><span class="stat-text">Avg Rate: $<span id="averageRate">0.00</span>/session</span></div></div>
-    <div class="default-rate-panel"><h4>💰 Default Rate Settings</h4><div class="form-group"><label for="defaultBaseRate">Set Default Rate ($/session)</label><div class="rate-input-wrapper"><span class="currency-symbol">$</span><input type="number" id="defaultBaseRate" step="0.01" min="0" placeholder="25.00"><span class="rate-suffix">/ session</span></div><div class="help-text">This rate will be automatically filled for new students</div></div><div class="current-rate-display"><span class="current-label">Current Default Rate:</span><span class="current-value">$<span id="currentDefaultRate">0.00</span>/session</span></div><div class="rate-actions"><button type="button" class="button success" id="saveDefaultRateBtn">💾 Save Default Rate</button><button type="button" class="button warning" id="applyRateToAllBtn">🔄 Apply to All Students</button><button type="button" class="button secondary" id="useDefaultRateBtn">📝 Use in Student Form</button></div><div class="user-context"><div class="user-email-badge"><span>👤</span><span><strong id="currentUserEmail">Loading...</strong></span></div><div class="rate-badge"><span>💰</span><span>Rate: <span id="ratePreview">$25.00/hour</span></span></div></div></div>
-    <div class="section-card"><h3>👤 Student Registration</h3><form id="studentForm"><div class="form-grid"><div class="form-group"><label for="studentName">Full Name *</label><input type="text" id="studentName" required></div><div class="form-group"><label for="studentId">Student ID *</label><input type="text" id="studentId" required></div><div class="form-group"><label for="studentGender">Gender *</label><select id="studentGender" required><option value="">Select gender</option><option>Male</option><option>Female</option><option>Other</option></select></div><div class="form-group"><label for="studentEmail">Email</label><input type="email" id="studentEmail"></div><div class="form-group"><label for="studentPhone">Phone</label><input type="tel" id="studentPhone"></div><div class="form-group"><label for="studentRate">Base Rate ($/session)</label><input type="number" id="studentRate" step="0.01" min="0"></div></div><div class="form-actions"><button type="button" class="button primary" id="studentSubmitBtn">➕ Add Student</button><button type="button" class="button secondary" onclick="clearStudentForm()">🗑️ Clear Form</button><button type="button" class="button warning" id="studentCancelBtn" style="display:none">❌ Cancel Edit</button></div></form></div>
-    <div class="section-card"><div class="section-header"><h3>📋 Registered Students</h3><div class="list-controls"><input type="text" id="studentSearch" placeholder="🔍 Search students..."></div></div><div class="students-container" id="studentsContainer"><p class="empty-message">No students registered yet.</p></div></div>
   </div>
-  <!-- END STUDENTS TAB -->
 
-  <!-- WORKLOG TAB - COMPLETELY SEPARATE -->
-  <div id="worklog" class="tabcontent">
-    <div class="section-header"><h2>📝 Worklog</h2><div class="student-stats"><span class="stat-badge" id="worklogCount">0</span><span class="stat-divider">|</span><span class="stat-text">Last Entry: <span id="lastWorklogDate">Never</span></span></div></div>
-    <div class="form-grid" style="grid-template-columns:1fr 1fr; gap:20px">
-      <div class="section-card"><h3>➕ Log Work</h3><form id="worklogForm"><div class="form-group"><label>Work Type *</label><div style="display:flex;gap:20px"><label><input type="radio" name="workType" value="student" checked onchange="toggleWorkType('student')"> 👤 Student</label><label><input type="radio" name="workType" value="institution" onchange="toggleWorkType('institution')"> 🏢 Institution</label></div></div><div id="studentSection"><div class="form-group"><label for="worklogStudent">Select Student *</label><select id="worklogStudent" required><option value="">Select Student</option></select></div></div><div id="institutionSection" style="display:none"><div class="form-group"><label for="worklogInstitution">Institution Name *</label><input type="text" id="worklogInstitution"></div><div class="form-group"><label for="worklogContactPerson">Contact Person</label><input type="text" id="worklogContactPerson"></div></div><div class="form-group"><label for="worklogPaymentType">Payment Type</label><select id="worklogPaymentType"><option value="hourly">Hourly</option><option value="session">Per-Session</option><option value="contract">Contract Work</option><option value="project">Project Based</option><option value="consultation">Consultation</option><option value="other">One-off Job</option></select></div><div class="form-group"><label for="worklogDate">Date *</label><input type="date" id="worklogDate" required></div><div class="form-group"><label for="worklogSubject">Subject/Area *</label><input type="text" id="worklogSubject" required></div><div class="form-group"><label for="worklogTopic">Topic/Project *</label><input type="text" id="worklogTopic" required></div><div class="form-group"><label for="worklogDuration">Duration (hours) *</label><input type="number" id="worklogDuration" step="0.5" min="0.5" required></div><div class="form-group"><label for="worklogSessions">Number of Sessions *</label><input type="number" id="worklogSessions" min="1" value="1" required><small class="help-text">How many separate sessions/classes on this date</small></div><div class="form-group"><label for="worklogRate">Hourly Rate ($) *</label><input type="number" id="worklogRate" step="0.01" min="0" value="25.00" required></div><div class="form-group"><label for="worklogDescription">Work Description *</label><textarea id="worklogDescription" rows="4" required></textarea></div><div class="form-group"><label for="worklogOutcomes">Outcomes/Achievements</label><textarea id="worklogOutcomes" rows="2"></textarea></div><div class="form-group"><label for="worklogNextSteps">Next Steps/Follow-up</label><textarea id="worklogNextSteps" rows="2"></textarea></div><div class="form-group"><label for="worklogNotes">Additional Notes</label><textarea id="worklogNotes" rows="2"></textarea></div><div class="form-actions"><button type="submit" class="button primary" id="worklogSubmitBtn">💾 Save Worklog</button><button type="button" class="button secondary" onclick="clearWorklogForm()">🗑️ Clear Form</button></div></form></div>
-      <div class="section-card"><h3>📋 Worklog History</h3><div class="worklog-filters" style="display:flex;gap:8px;margin-bottom:15px;flex-wrap:wrap"><select id="worklogFilterType"><option value="">All Types</option><option value="student">👤 Students</option><option value="institution">🏢 Institutions</option></select><select id="worklogFilterEntity"><option value="">All</option></select><input type="text" id="worklogSearch" placeholder="🔍 Search..."><select id="worklogSortOrder"><option value="newest">Newest First</option><option value="oldest">Oldest First</option></select></div><div id="worklogContainer" style="max-height:500px;overflow-y:auto"><p class="empty-message">No worklog entries yet.</p></div></div>
+  <!-- STUDENTS TAB -->
+  <div id="students" class="tabcontent active">
+    <div class="section-header"><h2>📚 Student Management</h2><div class="student-stats"><span class="stat-badge" id="studentCount">0</span><span>Avg Rate: $<span id="averageRate">0.00</span>/hr</span></div></div>
+    
+    <div class="section-card">
+      <h3>💰 Default Rate Settings</h3>
+      <div class="form-group"><label>Default Rate ($/hour)</label><input type="number" id="defaultRate" step="0.01" value="25.00"></div>
+      <button class="button success" onclick="saveDefaultRate()">💾 Save Default Rate</button>
+      <button class="button secondary" onclick="applyRateToAll()">🔄 Apply to All Students</button>
+    </div>
+
+    <div class="section-card">
+      <h3>👤 Student Registration</h3>
+      <div class="form-grid">
+        <div class="form-group"><label>Full Name *</label><input type="text" id="studentName" placeholder="Full name"></div>
+        <div class="form-group"><label>Student ID *</label><input type="text" id="studentId" placeholder="Student ID"></div>
+        <div class="form-group"><label>Gender</label><select id="studentGender"><option>Male</option><option>Female</option><option>Other</option></select></div>
+        <div class="form-group"><label>Email</label><input type="email" id="studentEmail" placeholder="Email"></div>
+        <div class="form-group"><label>Phone</label><input type="tel" id="studentPhone" placeholder="Phone"></div>
+        <div class="form-group"><label>Hourly Rate ($)</label><input type="number" id="studentRate" step="0.01" value="25.00"></div>
+      </div>
+      <button class="button primary" onclick="addStudent()">➕ Add Student</button>
+      <button class="button secondary" onclick="clearStudentForm()">🗑️ Clear Form</button>
+    </div>
+
+    <div class="section-card">
+      <div class="section-header"><h3>📋 Registered Students</h3><input type="text" id="studentSearch" placeholder="🔍 Search students..." style="width: 250px;" onkeyup="filterStudents()"></div>
+      <div id="studentsList"></div>
     </div>
   </div>
-  <!-- END WORKLOG TAB -->
+
+  <!-- WORKLOG TAB -->
+  <div id="worklog" class="tabcontent">
+    <div class="section-header"><h2>📝 Worklog</h2><div class="student-stats"><span class="stat-badge" id="worklogCount">0</span><span>Last Entry: <span id="lastWorklogDate">Never</span></span></div></div>
+    <div class="form-grid">
+      <div class="section-card">
+        <h3>➕ Log Work</h3>
+        <div class="form-group"><label>Work Type</label><select id="workType" onchange="toggleWorkType()"><option value="student">👤 Student</option><option value="institution">🏢 Institution</option></select></div>
+        <div class="form-group" id="studentSelectGroup"><label>Student</label><select id="workStudent"></select></div>
+        <div class="form-group" id="institutionGroup" style="display:none"><label>Institution Name</label><input type="text" id="workInstitution" placeholder="Institution name"></div>
+        <div class="form-group"><label>Date</label><input type="date" id="workDate"></div>
+        <div class="form-group"><label>Subject/Area</label><input type="text" id="workSubject" placeholder="Subject"></div>
+        <div class="form-group"><label>Topic/Project</label><input type="text" id="workTopic" placeholder="Topic"></div>
+        <div class="form-group"><label>Duration (hours)</label><input type="number" id="workHours" step="0.5" min="0.5"></div>
+        <div class="form-group"><label>Hourly Rate ($)</label><input type="number" id="workRate" step="0.01" value="25.00"></div>
+        <div class="form-group"><label>Description</label><textarea id="workDesc" rows="3" placeholder="Work description"></textarea></div>
+        <div class="form-group"><label>Outcomes</label><textarea id="workOutcomes" rows="2" placeholder="What was achieved"></textarea></div>
+        <button class="button primary" onclick="addWorklog()">💾 Save Worklog</button>
+        <button class="button secondary" onclick="clearWorklogForm()">🗑️ Clear Form</button>
+      </div>
+      <div class="section-card">
+        <h3>📋 Work History</h3>
+        <div class="worklog-filters">
+          <select id="filterType" onchange="loadWorklogs()"><option value="">All Types</option><option value="student">Students</option><option value="institution">Institutions</option></select>
+          <select id="filterEntity" onchange="loadWorklogs()"><option value="">All</option></select>
+          <input type="text" id="searchWorklog" placeholder="🔍 Search..." onkeyup="loadWorklogs()">
+        </div>
+        <div id="worklogList"></div>
+      </div>
+    </div>
+  </div>
 
   <!-- MARKS TAB -->
   <div id="marks" class="tabcontent">
-    <div class="section-header"><h2>📊 Marks & Assessments</h2><div class="student-stats"><span class="stat-badge" id="marksCount">0</span><span class="stat-divider">|</span><span class="stat-text">Avg Score: <span id="avgMarks">0%</span></span></div></div>
-    <div class="form-grid"><div class="section-card"><h3>➕ Add New Mark</h3><form id="marksForm"><div class="form-group"><label for="marksStudent">Student *</label><select id="marksStudent" required><option value="">Select Student</option></select></div><div class="form-group"><label for="marksSubject">Subject *</label><input type="text" id="marksSubject" required></div><div class="form-group"><label for="marksTopic">Topic *</label><input type="text" id="marksTopic" required></div><div class="form-group"><label for="marksDate">Date *</label><input type="date" id="marksDate" required></div><div class="form-group"><label for="marksScore">Score *</label><input type="number" id="marksScore" step="0.1" required oninput="updateMarksPercentage()"></div><div class="form-group"><label for="marksMax">Max Score *</label><input type="number" id="marksMax" step="0.1" required oninput="updateMarksPercentage()"></div><div class="form-group"><label for="percentage">Percentage</label><input type="text" id="percentage" readonly></div><div class="form-group"><label for="grade">Grade</label><input type="text" id="grade" readonly></div><div class="form-group"><label for="marksNotes">Notes</label><textarea id="marksNotes"></textarea></div><div class="form-actions"><button type="submit" class="button primary" id="marksSubmitBtn">➕ Add Mark</button><button type="button" class="button secondary" onclick="resetMarksForm()">🗑️ Clear Form</button><button type="button" class="button warning" id="cancelMarkBtn" style="display:none">❌ Cancel Edit</button></div></form></div><div class="section-card"><h3>📋 Recent Marks</h3><div id="marksContainer"><p class="empty-message">No marks recorded yet.</p></div></div></div>
+    <div class="section-header"><h2>📊 Marks & Assessments</h2><div class="student-stats"><span class="stat-badge" id="marksCount">0</span><span>Avg Score: <span id="avgMarks">0%</span></span></div></div>
+    <div class="form-grid">
+      <div class="section-card">
+        <h3>➕ Add Mark</h3>
+        <div class="form-group"><label>Student</label><select id="markStudent"></select></div>
+        <div class="form-group"><label>Subject</label><input type="text" id="markSubject" placeholder="Subject"></div>
+        <div class="form-group"><label>Topic</label><input type="text" id="markTopic" placeholder="Topic"></div>
+        <div class="form-group"><label>Date</label><input type="date" id="markDate"></div>
+        <div class="form-group"><label>Score</label><input type="number" id="markScore" step="0.1" oninput="calculatePercentage()"></div>
+        <div class="form-group"><label>Max Score</label><input type="number" id="markMax" step="0.1" value="100" oninput="calculatePercentage()"></div>
+        <div class="form-group"><label>Percentage</label><input type="text" id="markPercentage" readonly></div>
+        <div class="form-group"><label>Grade</label><input type="text" id="markGrade" readonly></div>
+        <div class="form-group"><label>Notes</label><textarea id="markNotes" rows="2"></textarea></div>
+        <button class="button primary" onclick="addMark()">➕ Add Mark</button>
+      </div>
+      <div class="section-card"><h3>📋 Recent Marks</h3><div id="marksList"></div></div>
+    </div>
   </div>
 
   <!-- ATTENDANCE TAB -->
   <div id="attendance" class="tabcontent">
-    <div class="section-header"><h2>✅ Attendance Tracking</h2><div class="student-stats"><span class="stat-badge" id="attendanceCount">0</span><span class="stat-divider">|</span><span class="stat-text">Last Session: <span id="lastSessionDate">Never</span></span></div></div>
-    <div class="form-grid"><div class="section-card"><h3>📅 Quick Attendance</h3><form id="attendanceForm"><div class="form-group"><label for="attendanceDate">Date *</label><input type="date" id="attendanceDate" required></div><div class="form-group"><label for="attendanceSubject">Subject *</label><input type="text" id="attendanceSubject" required></div><div class="form-group"><label for="attendanceTopic">Topic</label><input type="text" id="attendanceTopic"></div><div class="form-group"><label>Mark Students Present:</label><button type="button" id="selectAllStudentsBtn" class="btn btn-secondary" onclick="selectAllStudents()">Select All</button><div id="attendanceStudents" class="attendance-students-container"><p class="empty-message">No students registered. Add students first.</p></div></div><div class="form-group"><label for="attendanceNotes">Notes</label><textarea id="attendanceNotes"></textarea></div><div class="form-actions"><button type="submit" class="button primary" id="attendanceSubmitBtn">💾 Save Attendance</button><button type="button" class="button secondary" onclick="clearAttendanceForm()">🗑️ Clear Form</button><button type="button" class="button warning" id="cancelAttendanceBtn" style="display:none">❌ Cancel Edit</button></div></form></div><div class="section-card"><h3>📋 Recent Attendance</h3><div id="attendanceContainer"><p class="empty-message">No attendance records yet.</p></div></div></div>
+    <div class="section-header"><h2>✅ Attendance Tracking</h2><div class="student-stats"><span class="stat-badge" id="attendanceCount">0</span><span>Last Session: <span id="lastSessionDate">Never</span></span></div></div>
+    <div class="form-grid">
+      <div class="section-card">
+        <h3>📅 Take Attendance</h3>
+        <div class="form-group"><label>Date</label><input type="date" id="attendanceDate"></div>
+        <div class="form-group"><label>Subject</label><input type="text" id="attendanceSubject" placeholder="Subject"></div>
+        <div class="form-group"><label>Topic</label><input type="text" id="attendanceTopic" placeholder="Topic"></div>
+        <div class="form-group"><label>Present Students</label><div id="attendanceCheckboxes"></div></div>
+        <div class="form-group"><label>Notes</label><textarea id="attendanceNotes" rows="2"></textarea></div>
+        <button class="button primary" onclick="saveAttendance()">💾 Save Attendance</button>
+      </div>
+      <div class="section-card"><h3>📋 Recent Attendance</h3><div id="attendanceList"></div></div>
+    </div>
   </div>
 
   <!-- PAYMENTS TAB -->
   <div id="payments" class="tabcontent">
-    <div class="section-header"><h2>💰 Payment Management</h2><div class="student-stats"><span class="stat-text">Total Students: <span id="totalStudentsCount">0</span></span><span class="stat-divider">|</span><span class="stat-text">Total Owed: <span id="totalOwed">$0</span></span><span class="stat-divider">|</span><span class="stat-text">This Month: <span id="monthlyPayments">$0</span></span></div></div>
-    <div class="form-grid"><div class="section-card"><h3>💳 Record Payment</h3><form id="paymentForm"><div class="form-group"><label for="paymentStudent">Student *</label><select id="paymentStudent" required><option value="">Select Student</option></select></div><div class="form-group"><label for="paymentAmount">Amount ($) *</label><input type="number" id="paymentAmount" step="0.01" min="0.01" required></div><div class="form-group"><label for="paymentDate">Date *</label><input type="date" id="paymentDate" required></div><div class="form-group"><label for="paymentMethod">Method</label><select id="paymentMethod"><option>Cash</option><option>Bank Transfer</option><option>Credit Card</option><option>PayPal</option><option>Other</option></select></div><div class="form-group"><label for="paymentNotes">Notes</label><textarea id="paymentNotes"></textarea></div><div class="form-actions"><button type="submit" class="button primary" id="paymentSubmitBtn">💾 Record Payment</button><button type="button" class="button secondary" onclick="resetPaymentForm()">🗑️ Clear Form</button><button type="button" class="button warning" id="cancelPaymentBtn" style="display:none">❌ Cancel Edit</button></div></form></div><div class="section-card"><h3>👥 Student Balances</h3><div id="studentBalancesContainer"><p class="empty-message">No payment data yet.</p></div></div><div class="section-card"><h3>📜 Payment Activity</h3><div id="paymentActivityLog"><p class="empty-message">No recent payment activity.</p></div></div></div>
+    <div class="section-header"><h2>💰 Payment Management</h2><div class="student-stats"><span>Total Owed: $<span id="totalOwed">0</span></span></div></div>
+    <div class="form-grid">
+      <div class="section-card">
+        <h3>💳 Record Payment</h3>
+        <div class="form-group"><label>Student</label><select id="paymentStudent"></select></div>
+        <div class="form-group"><label>Amount ($)</label><input type="number" id="paymentAmount" step="0.01"></div>
+        <div class="form-group"><label>Date</label><input type="date" id="paymentDate"></div>
+        <div class="form-group"><label>Method</label><select id="paymentMethod"><option>Cash</option><option>Bank Transfer</option><option>Credit Card</option></select></div>
+        <div class="form-group"><label>Notes</label><textarea id="paymentNotes" rows="2"></textarea></div>
+        <button class="button primary" onclick="addPayment()">💾 Record Payment</button>
+      </div>
+      <div class="section-card"><h3>📜 Payment History</h3><div id="paymentsList"></div></div>
+    </div>
   </div>
 
   <!-- REPORTS TAB -->
   <div id="reports" class="tabcontent">
-    <div class="section-header"><h2>📈 Reports & Documents</h2><p>Summaries of students, hours, marks, payments, and generate official BVTB forms.</p></div>
-    <div class="summary-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:15px;margin-bottom:25px"><div class="summary-card" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:20px;border-radius:10px"><div>Total Hours</div><div style="font-size:1.8rem;font-weight:bold" id="reportTotalHours">0</div></div><div class="summary-card" style="background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);color:white;padding:20px;border-radius:10px"><div>Total Earnings</div><div style="font-size:1.8rem;font-weight:bold" id="reportTotalEarnings">$0</div></div><div class="summary-card" style="background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);color:white;padding:20px;border-radius:10px"><div>This Month</div><div style="font-size:1.8rem;font-weight:bold" id="reportMonthEarnings">$0</div></div><div class="summary-card" style="background:linear-gradient(135deg,#43e97b 0%,#38f9d7 100%);color:white;padding:20px;border-radius:10px"><div>Outstanding</div><div style="font-size:1.8rem;font-weight:bold" id="outstandingBalance">$0</div></div></div>
-    <div class="form-grid" style="grid-template-columns:1fr 1fr"><div><div class="section-card"><h3>📊 Overview</h3><ul style="list-style:none;padding:0"><li><span>Total Students:</span><span id="totalStudentsReport">0</span></li><li><span>Total Hours:</span><span id="totalHoursReport">0</span></li><li><span>Total Earnings:</span><span id="totalEarningsReport">$0</span></li><li><span>Average Mark:</span><span id="avgMarkReport">0%</span></li><li><span>Total Payments:</span><span id="totalPaymentsReport">$0</span></li></ul><div><button id="weeklyReportBtn" class="button small">📅 Weekly</button><button id="biWeeklyReportBtn" class="button small">📅 Bi-Weekly</button><button id="monthlyReportBtn" class="button small">📅 Monthly</button><button id="subjectReportBtn" class="button small">📚 By Subject</button><button id="claimFormBtn" class="button small warning">💰 Claim</button><button id="invoiceBtn" class="button small warning">🧾 Invoice</button><button id="pdfReportBtn" class="button small success">📄 PDF</button><button id="emailReportBtn" class="button small info">📧 Email</button></div></div><div class="section-card"><h3>📋 Claim Form</h3><div class="form-group"><label for="claimName">Your Name</label><input type="text" id="claimName" value="David Moseley"></div><div class="form-group"><label for="claimAddress">Address</label><input type="text" id="claimAddress" value="142 Coles Terrace, St.Philip"></div><div><div class="form-group"><label for="claimHomePhone">Home Telephone</label><input type="text" id="claimHomePhone" value="572-8040"></div><div class="form-group"><label for="claimWorkPhone">Work Telephone</label><input type="text" id="claimWorkPhone" value="1367-8221"></div></div><div class="form-group"><label for="claimProgramme">Programme</label><input type="text" id="claimProgramme" value="Cosmetology"></div><div><div class="form-group"><label for="claimStartDate">Start Date</label><input type="date" id="claimStartDate"></div><div class="form-group"><label for="claimEndDate">End Date</label><input type="date" id="claimEndDate"></div></div><div><button id="generateClaimBtn" class="button primary">📄 Generate Claim Form</button><button id="printClaimBtn" class="button secondary">🖨️ Print</button></div></div></div><div><div class="section-card"><h3>🧾 Invoice</h3><div class="form-group"><label for="invoiceNumber">Invoice Number</label><input type="text" id="invoiceNumber" value="003"></div><div class="form-group"><label for="invoiceDate">Invoice Date</label><input type="date" id="invoiceDate"></div><div class="form-group"><label for="invoiceTo">Issued To</label><textarea id="invoiceTo" rows="3">Barbados Vocational Board</textarea></div><div class="form-group"><label for="invoiceItem">Item Description</label><input type="text" id="invoiceItem" value="Cosmetology"></div><div><button id="generateInvoiceBtn" class="button primary">💰 Generate Invoice</button><button id="printInvoiceBtn" class="button secondary">🖨️ Print</button></div></div><div class="section-card"><h3>📊 Quick Stats</h3><div><div><div>Worklog Entries</div><div id="worklogStatsCount">0</div></div><div><div>Avg Session</div><div id="worklogAvgDuration">0h</div></div></div></div></div></div>
+    <div class="section-header"><h2>📈 Reports</h2></div>
+    <div class="form-grid">
+      <div class="section-card">
+        <h3>Generate Report</h3>
+        <div class="form-group"><label>Report Type</label><select id="reportType"><option value="summary">Summary</option><option value="detailed">Detailed</option></select></div>
+        <button class="button primary" onclick="generateReport()">📄 Generate Report</button>
+      </div>
+      <div class="section-card"><h3>Report Preview</h3><div id="reportPreview"></div></div>
+    </div>
   </div>
-
-  <div id="syncStatsModal" class="modal"><div class="modal-content"><span class="close" onclick="closeSyncStats()">&times;</span><h3>☁️ Cloud Sync Statistics</h3><div id="syncStatsContent"><p>Loading...</p></div></div></div>
 </div>
 
-<div class="fab-container"><button id="floatingAddBtn" class="fab">+</button><div id="fabMenu" class="fab-menu"><button id="fabAddStudent" class="fab-item"><span class="icon">👤</span>Add Student</button><button id="fabAddWorklog" class="fab-item"><span class="icon">📝</span>Log Work</button><button id="fabAddMark" class="fab-item"><span class="icon">📊</span>Add Mark</button><button id="fabAddAttendance" class="fab-item"><span class="icon">✅</span>Take Attendance</button><button id="fabAddPayment" class="fab-item"><span class="icon">💰</span>Record Payment</button></div><div id="fabOverlay" class="fab-overlay"></div></div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-<script src="firebase-config.js"></script>
-<script src="sync-service.js"></script>
-<script src="firebase-manager.js"></script>
-<script src="data-manager.js"></script>
-<script src="reports.js"></script>
-<script src="form-handler.js"></script>
-<script src="worklog.js"></script>
-<script src="app.js"></script>
-<script src="rate-manager.js"></script>
-<script src="backup-manager.js"></script>
-
 <script>
-(function() {
-  console.log('🔥 TAB SYSTEM');
-  const tabs = document.querySelectorAll('.tab');
-  const contents = document.querySelectorAll('.tabcontent');
-  contents.forEach(c => { c.style.display = 'none'; c.classList.remove('active'); });
-  const studentsDiv = document.getElementById('students');
-  if(studentsDiv) { studentsDiv.style.display = 'block'; studentsDiv.classList.add('active'); }
-  const studentsBtn = document.querySelector('.tab[data-tab="students"]');
-  if(studentsBtn) studentsBtn.classList.add('active');
-  tabs.forEach(tab => {
-    const newTab = tab.cloneNode(true);
-    tab.parentNode.replaceChild(newTab, tab);
-    newTab.addEventListener('click', function(e) {
-      e.preventDefault();
-      const tabName = this.getAttribute('data-tab');
-      contents.forEach(c => { c.style.display = 'none'; c.classList.remove('active'); });
-      tabs.forEach(t => t.classList.remove('active'));
-      const selected = document.getElementById(tabName);
-      if(selected) { selected.style.display = 'block'; selected.classList.add('active'); }
-      this.classList.add('active');
-    });
-  });
-})();
-</script>
+// ============ DATA STORAGE KEYS ============
+const STORAGE_KEYS = {
+  STUDENTS: 'worklog_students',
+  WORKLOGS: 'worklog_entries',
+  MARKS: 'worklog_marks',
+  ATTENDANCE: 'worklog_attendance',
+  PAYMENTS: 'worklog_payments',
+  DEFAULT_RATE: 'defaultHourlyRate'
+};
 
-  <script>
-// FINAL TAB FIX - OVERRIDE EVERYTHING
-(function() {
-  // Wait for everything to load
-  window.addEventListener('load', function() {
-    console.log('🏁 FINAL TAB FIX RUNNING');
-    
-    // Get all tabs and contents
-    const tabs = document.querySelectorAll('.tab');
-    const contents = document.querySelectorAll('.tabcontent');
-    
-    console.log('Found tabs:', tabs.length);
-    console.log('Found contents:', contents.length);
-    
-    // FORCE hide all contents
-    contents.forEach(content => {
-      content.style.display = 'none';
-      content.classList.remove('active');
-    });
-    
-    // FORCE show students tab only
-    const studentsTab = document.getElementById('students');
-    if (studentsTab) {
-      studentsTab.style.display = 'block';
-      studentsTab.classList.add('active');
-      console.log('Students tab forced visible');
-    }
-    
-    // Remove all existing click listeners and add new ones
-    tabs.forEach(tab => {
-      // Clone and replace to remove old listeners
-      const newTab = tab.cloneNode(true);
-      tab.parentNode.replaceChild(newTab, tab);
-      
-      newTab.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const tabName = this.getAttribute('data-tab');
-        console.log('🔘 Tab clicked:', tabName);
-        
-        // Hide ALL contents
-        document.querySelectorAll('.tabcontent').forEach(content => {
-          content.style.display = 'none';
-          content.classList.remove('active');
-        });
-        
-        // Remove active class from all tabs
-        document.querySelectorAll('.tab').forEach(t => {
-          t.classList.remove('active');
-        });
-        
-        // Show selected content
-        const selected = document.getElementById(tabName);
-        if (selected) {
-          selected.style.display = 'block';
-          selected.classList.add('active');
-          console.log('✅ Showing:', tabName);
-        } else {
-          console.error('❌ Content not found:', tabName);
-        }
-        
-        // Mark this tab as active
-        this.classList.add('active');
-      });
-    });
-    
-    // Also fix FAB buttons if they use switchTab
-    if (window.switchTab) {
-      window.switchTab = function(tabName) {
-        const tab = document.querySelector(`.tab[data-tab="${tabName}"]`);
-        if (tab) tab.click();
-      };
-    }
-    
-    console.log('✅ FINAL TAB FIX COMPLETE');
+// ============ TAB SYSTEM ============
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', function() {
+    const tabName = this.getAttribute('data-tab');
+    document.querySelectorAll('.tabcontent').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(tabName).classList.add('active');
+    this.classList.add('active');
+    loadTabData(tabName);
   });
-})();
+});
+
+function loadTabData(tabName) {
+  if (tabName === 'students') loadStudents();
+  if (tabName === 'worklog') { loadStudentsDropdown(); loadWorklogs(); }
+  if (tabName === 'marks') { loadStudentsDropdownForMarks(); loadMarks(); }
+  if (tabName === 'attendance') { loadAttendanceCheckboxes(); loadAttendance(); }
+  if (tabName === 'payments') { loadStudentsDropdownForPayments(); loadPayments(); updateBalances(); }
+}
+
+// ============ STUDENT FUNCTIONS ============
+function loadStudents() {
+  let students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS) || '[]');
+  const searchTerm = document.getElementById('studentSearch')?.value.toLowerCase() || '';
+  if (searchTerm) students = students.filter(s => s.name.toLowerCase().includes(searchTerm) || s.studentId.toLowerCase().includes(searchTerm));
+  
+  document.getElementById('studentCount').innerText = students.length;
+  document.getElementById('statStudents').innerText = students.length;
+  
+  const avgRate = students.length ? students.reduce((sum, s) => sum + (parseFloat(s.rate) || 0), 0) / students.length : 0;
+  document.getElementById('averageRate').innerText = avgRate.toFixed(2);
+  
+  const container = document.getElementById('studentsList');
+  if (!students.length) { container.innerHTML = '<p class="empty-message">No students registered yet.</p>'; return; }
+  
+  container.innerHTML = students.map(s => `
+    <div class="student-card">
+      <div class="student-card-header"><strong>${s.name}</strong> <span class="student-id">ID: ${s.studentId}</span><div class="student-actions"><button onclick="editStudent('${s.id}')">✏️</button><button onclick="deleteStudent('${s.id}')">🗑️</button></div></div>
+      <div>${s.email || 'No email'} | ${s.phone || 'No phone'} | Gender: ${s.gender || 'N/A'}</div>
+      <div>💰 Rate: $${parseFloat(s.rate || 25).toFixed(2)}/hour</div>
+    </div>
+  `).join('');
+}
+
+function addStudent() {
+  const name = document.getElementById('studentName').value;
+  const studentId = document.getElementById('studentId').value;
+  if (!name || !studentId) { alert('Please enter name and student ID'); return; }
+  
+  const students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS) || '[]');
+  students.push({
+    id: Date.now().toString(),
+    name, studentId, gender: document.getElementById('studentGender').value,
+    email: document.getElementById('studentEmail').value,
+    phone: document.getElementById('studentPhone').value,
+    rate: parseFloat(document.getElementById('studentRate').value) || parseFloat(localStorage.getItem(STORAGE_KEYS.DEFAULT_RATE) || '25')
+  });
+  localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
+  clearStudentForm();
+  loadStudents();
+  updateStats();
+}
+
+function deleteStudent(id) {
+  if (!confirm('Delete this student?')) return;
+  let students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS) || '[]');
+  students = students.filter(s => s.id !== id);
+  localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
+  loadStudents();
+  updateStats();
+}
+
+function editStudent(id) { alert('Edit feature - implement as needed'); }
+function filterStudents() { loadStudents(); }
+function clearStudentForm() { document.getElementById('studentForm')?.reset(); }
+function saveDefaultRate() { const rate = document.getElementById('defaultRate').value; localStorage.setItem(STORAGE_KEYS.DEFAULT_RATE, rate); alert(`Default rate set to $${rate}`); }
+function applyRateToAll() { const rate = parseFloat(document.getElementById('defaultRate').value); let students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS) || '[]'); students = students.map(s => ({ ...s, rate })); localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students)); loadStudents(); alert(`Applied $${rate} to all students`); }
+
+// ============ WORKLOG FUNCTIONS ============
+function loadStudentsDropdown() {
+  const students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS) || '[]');
+  const select = document.getElementById('workStudent');
+  select.innerHTML = '<option value="">Select Student</option>' + students.map(s => `<option value="${s.id}">${s.name} (${s.studentId})</option>`).join('');
+}
+
+function toggleWorkType() {
+  const type = document.getElementById('workType').value;
+  document.getElementById('studentSelectGroup').style.display = type === 'student' ? 'block' : 'none';
+  document.getElementById('institutionGroup').style.display = type === 'institution' ? 'block' : 'none';
+}
+
+function addWorklog() {
+  const type = document.getElementById('workType').value;
+  const studentId = document.getElementById('workStudent').value;
+  const studentName = type === 'student' ? document.getElementById('workStudent').selectedOptions[0]?.text.split('(')[0].trim() : '';
+  const institution = document.getElementById('workInstitution').value;
+  const date = document.getElementById('workDate').value || new Date().toISOString().split('T')[0];
+  const subject = document.getElementById('workSubject').value;
+  const topic = document.getElementById('workTopic').value;
+  const hours = parseFloat(document.getElementById('workHours').value);
+  const rate = parseFloat(document.getElementById('workRate').value);
+  const description = document.getElementById('workDesc').value;
+  const outcomes = document.getElementById('workOutcomes').value;
+  
+  if (!subject || !hours) { alert('Please fill subject and duration'); return; }
+  if (type === 'student' && !studentId) { alert('Please select a student'); return; }
+  if (type === 'institution' && !institution) { alert('Please enter institution name'); return; }
+  
+  const worklogs = JSON.parse(localStorage.getItem(STORAGE_KEYS.WORKLOGS) || '[]');
+  worklogs.unshift({
+    id: Date.now().toString(), type, studentId, studentName, institution,
+    date, subject, topic, hours, rate, description, outcomes,
+    total: hours * rate, createdAt: new Date().toISOString()
+  });
+  localStorage.setItem(STORAGE_KEYS.WORKLOGS, JSON.stringify(worklogs));
+  clearWorklogForm();
+  loadWorklogs();
+  updateStats();
+}
+
+function loadWorklogs() {
+  let worklogs = JSON.parse(localStorage.getItem(STORAGE_KEYS.WORKLOGS) || '[]');
+  const filterType = document.getElementById('filterType')?.value || '';
+  const searchTerm = document.getElementById('searchWorklog')?.value.toLowerCase() || '';
+  
+  if (filterType) worklogs = worklogs.filter(w => w.type === filterType);
+  if (searchTerm) worklogs = worklogs.filter(w => (w.subject || '').toLowerCase().includes(searchTerm) || (w.studentName || '').toLowerCase().includes(searchTerm) || (w.institution || '').toLowerCase().includes(searchTerm));
+  
+  document.getElementById('worklogCount').innerText = worklogs.length;
+  if (worklogs.length) document.getElementById('lastWorklogDate').innerText = worklogs[0].date;
+  
+  const container = document.getElementById('worklogList');
+  if (!worklogs.length) { container.innerHTML = '<p class="empty-message">No worklog entries yet.</p>'; return; }
+  
+  container.innerHTML = worklogs.map(w => `
+    <div class="worklog-card">
+      <div><strong>${w.type === 'student' ? w.studentName : w.institution}</strong> - ${w.subject}</div>
+      <div>📅 ${w.date} | ⏱️ ${w.hours}h | 💰 $${(w.hours * w.rate).toFixed(2)}</div>
+      <div>📝 ${w.description || 'No description'}</div>
+      ${w.outcomes ? `<div>🎯 ${w.outcomes}</div>` : ''}
+      <button onclick="deleteWorklog('${w.id}')" style="margin-top:10px; background:#ef4444;">Delete</button>
+    </div>
+  `).join('');
+}
+
+function deleteWorklog(id) {
+  let worklogs = JSON.parse(localStorage.getItem(STORAGE_KEYS.WORKLOGS) || '[]');
+  worklogs = worklogs.filter(w => w.id !== id);
+  localStorage.setItem(STORAGE_KEYS.WORKLOGS, JSON.stringify(worklogs));
+  loadWorklogs();
+  updateStats();
+}
+
+function clearWorklogForm() {
+  document.getElementById('workStudent').value = '';
+  document.getElementById('workInstitution').value = '';
+  document.getElementById('workSubject').value = '';
+  document.getElementById('workTopic').value = '';
+  document.getElementById('workHours').value = '';
+  document.getElementById('workDesc').value = '';
+  document.getElementById('workOutcomes').value = '';
+  document.getElementById('workDate').value = new Date().toISOString().split('T')[0];
+}
+
+// ============ MARKS FUNCTIONS ============
+function loadStudentsDropdownForMarks() {
+  const students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS) || '[]');
+  const select = document.getElementById('markStudent');
+  select.innerHTML = '<option value="">Select Student</option>' + students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+}
+
+function calculatePercentage() {
+  const score = parseFloat(document.getElementById('markScore').value) || 0;
+  const max = parseFloat(document.getElementById('markMax').value) || 1;
+  const percentage = (score / max) * 100;
+  document.getElementById('markPercentage').value = percentage.toFixed(1) + '%';
+  const grade = percentage >= 90 ? 'A' : percentage >= 80 ? 'B' : percentage >= 70 ? 'C' : percentage >= 60 ? 'D' : 'F';
+  document.getElementById('markGrade').value = grade;
+}
+
+function addMark() {
+  const studentId = document.getElementById('markStudent').value;
+  if (!studentId) { alert('Select a student'); return; }
+  const marks = JSON.parse(localStorage.getItem(STORAGE_KEYS.MARKS) || '[]');
+  marks.push({
+    id: Date.now().toString(), studentId, studentName: document.getElementById('markStudent').selectedOptions[0]?.text,
+    subject: document.getElementById('markSubject').value, topic: document.getElementById('markTopic').value,
+    date: document.getElementById('markDate').value || new Date().toISOString().split('T')[0],
+    score: parseFloat(document.getElementById('markScore').value), max: parseFloat(document.getElementById('markMax').value) || 100,
+    percentage: parseFloat(document.getElementById('markPercentage').value), grade: document.getElementById('markGrade').value,
+    notes: document.getElementById('markNotes').value
+  });
+  localStorage.setItem(STORAGE_KEYS.MARKS, JSON.stringify(marks));
+  loadMarks();
+  clearMarkForm();
+}
+
+function loadMarks() {
+  const marks = JSON.parse(localStorage.getItem(STORAGE_KEYS.MARKS) || '[]');
+  document.getElementById('marksCount').innerText = marks.length;
+  const avg = marks.length ? marks.reduce((sum, m) => sum + (parseFloat(m.percentage) || 0), 0) / marks.length : 0;
+  document.getElementById('avgMarks').innerText = avg.toFixed(1);
+  const container = document.getElementById('marksList');
+  if (!marks.length) { container.innerHTML = '<p class="empty-message">No marks recorded yet.</p>'; return; }
+  container.innerHTML = marks.slice(0, 20).map(m => `<div class="mark-entry"><strong>${m.studentName}</strong> - ${m.subject}<br>📅 ${m.date} | Score: ${m.score}/${m.max} (${m.percentage}% - Grade ${m.grade})<br>${m.notes || ''}</div>`).join('');
+}
+
+function clearMarkForm() {
+  document.getElementById('markSubject').value = '';
+  document.getElementById('markTopic').value = '';
+  document.getElementById('markScore').value = '';
+  document.getElementById('markNotes').value = '';
+}
+
+// ============ ATTENDANCE FUNCTIONS ============
+function loadAttendanceCheckboxes() {
+  const students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS) || '[]');
+  const container = document.getElementById('attendanceCheckboxes');
+  if (!students.length) { container.innerHTML = '<p class="empty-message">No students registered.</p>'; return; }
+  container.innerHTML = students.map(s => `<label style="display:block; margin:5px 0;"><input type="checkbox" value="${s.id}"> ${s.name}</label>`).join('');
+}
+
+function saveAttendance() {
+  const checkboxes = document.querySelectorAll('#attendanceCheckboxes input:checked');
+  const presentStudents = Array.from(checkboxes).map(cb => cb.value);
+  const attendance = JSON.parse(localStorage.getItem(STORAGE_KEYS.ATTENDANCE) || '[]');
+  attendance.unshift({
+    id: Date.now().toString(),
+    date: document.getElementById('attendanceDate').value || new Date().toISOString().split('T')[0],
+    subject: document.getElementById('attendanceSubject').value,
+    topic: document.getElementById('attendanceTopic').value,
+    presentStudents,
+    notes: document.getElementById('attendanceNotes').value
+  });
+  localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(attendance));
+  loadAttendance();
+  alert('Attendance saved!');
+}
+
+function loadAttendance() {
+  const attendance = JSON.parse(localStorage.getItem(STORAGE_KEYS.ATTENDANCE) || '[]');
+  document.getElementById('attendanceCount').innerText = attendance.length;
+  if (attendance.length) document.getElementById('lastSessionDate').innerText = attendance[0].date;
+  const container = document.getElementById('attendanceList');
+  if (!attendance.length) { container.innerHTML = '<p class="empty-message">No attendance records yet.</p>'; return; }
+  container.innerHTML = attendance.slice(0, 20).map(a => `<div class="attendance-entry"><strong>${a.subject}</strong> - ${a.topic}<br>📅 ${a.date} | ${a.presentStudents.length} students present<br>${a.notes || ''}</div>`).join('');
+}
+
+// ============ PAYMENTS FUNCTIONS ============
+function loadStudentsDropdownForPayments() {
+  const students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS) || '[]');
+  const select = document.getElementById('paymentStudent');
+  select.innerHTML = '<option value="">Select Student</option>' + students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+}
+
+function addPayment() {
+  const studentId = document.getElementById('paymentStudent').value;
+  if (!studentId) { alert('Select a student'); return; }
+  const payments = JSON.parse(localStorage.getItem(STORAGE_KEYS.PAYMENTS) || '[]');
+  payments.unshift({
+    id: Date.now().toString(), studentId,
+    studentName: document.getElementById('paymentStudent').selectedOptions[0]?.text,
+    amount: parseFloat(document.getElementById('paymentAmount').value),
+    date: document.getElementById('paymentDate').value || new Date().toISOString().split('T')[0],
+    method: document.getElementById('paymentMethod').value,
+    notes: document.getElementById('paymentNotes').value
+  });
+  localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(payments));
+  loadPayments();
+  updateBalances();
+  alert('Payment recorded!');
+}
+
+function loadPayments() {
+  const payments = JSON.parse(localStorage.getItem(STORAGE_KEYS.PAYMENTS) || '[]');
+  const container = document.getElementById('paymentsList');
+  if (!payments.length) { container.innerHTML = '<p class="empty-message">No payments yet.</p>'; return; }
+  container.innerHTML = payments.slice(0, 20).map(p => `<div class="payment-item"><strong>${p.studentName}</strong> - $${p.amount}<br>📅 ${p.date} | ${p.method}<br>${p.notes || ''}</div>`).join('');
+}
+
+function updateBalances() {
+  const students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS) || '[]');
+  const worklogs = JSON.parse(localStorage.getItem(STORAGE_KEYS.WORKLOGS) || '[]');
+  const payments = JSON.parse(localStorage.getItem(STORAGE_KEYS.PAYMENTS) || '[]');
+  let totalOwed = 0;
+  students.forEach(s => {
+    const earned = worklogs.filter(w => w.studentId === s.id).reduce((sum, w) => sum + (w.hours * w.rate), 0);
+    const paid = payments.filter(p => p.studentId === s.id).reduce((sum, p) => sum + p.amount, 0);
+    totalOwed += Math.max(0, earned - paid);
+  });
+  document.getElementById('totalOwed').innerText = totalOwed.toFixed(2);
+}
+
+// ============ REPORTS FUNCTIONS ============
+function generateReport() {
+  const students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS) || '[]');
+  const worklogs = JSON.parse(localStorage.getItem(STORAGE_KEYS.WORKLOGS) || '[]');
+  const totalHours = worklogs.reduce((sum, w) => sum + w.hours, 0);
+  const totalEarnings = worklogs.reduce((sum, w) => sum + (w.hours * w.rate), 0);
+  const preview = document.getElementById('reportPreview');
+  preview.innerHTML = `<div class="section-card"><h3>Summary Report</h3><p>📊 Total Students: ${students.length}</p><p>⏱️ Total Hours: ${totalHours.toFixed(1)}</p><p>💰 Total Earnings: $${totalEarnings.toFixed(2)}</p><p>📝 Total Worklog Entries: ${worklogs.length}</p></div>`;
+}
+
+// ============ UTILITY FUNCTIONS ============
+function updateStats() {
+  const students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS) || '[]');
+  const worklogs = JSON.parse(localStorage.getItem(STORAGE_KEYS.WORKLOGS) || '[]');
+  const totalHours = worklogs.reduce((sum, w) => sum + w.hours, 0);
+  document.getElementById('statStudents').innerText = students.length;
+  document.getElementById('statHours').innerText = totalHours.toFixed(1);
+}
+
+function toggleTheme() { document.body.style.background = document.body.style.background === 'rgb(245, 245, 245)' ? '#1a1a2e' : '#f5f5f5'; document.body.style.color = document.body.style.background === '#1a1a2e' ? 'white' : 'black'; }
+function showProfile() { alert('User Profile - Logged in as Guest'); }
+function syncData() { alert('Sync feature - would sync to cloud'); }
+function exportData() { const data = {}; Object.values(STORAGE_KEYS).forEach(k => data[k] = JSON.parse(localStorage.getItem(k) || '[]')); const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `worklog_backup_${new Date().toISOString().split('T')[0]}.json`; a.click(); }
+function importData() { const input = document.createElement('input'); input.type = 'file'; input.accept = '.json'; input.onchange = e => { const file = e.target.files[0]; const reader = new FileReader(); reader.onload = ev => { const data = JSON.parse(ev.target.result); Object.keys(data).forEach(k => { if (Object.values(STORAGE_KEYS).includes(k)) localStorage.setItem(k, JSON.stringify(data[k])); }); location.reload(); }; reader.readAsText(file); }; input.click(); }
+function clearAllData() { if (confirm('DELETE ALL DATA? This cannot be undone!')) { Object.values(STORAGE_KEYS).forEach(k => localStorage.removeItem(k)); location.reload(); } }
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('workDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('attendanceDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('paymentDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('markDate').value = new Date().toISOString().split('T')[0];
+  const defaultRate = localStorage.getItem(STORAGE_KEYS.DEFAULT_RATE) || '25';
+  document.getElementById('defaultRate').value = defaultRate;
+  document.getElementById('workRate').value = defaultRate;
+  loadStudents();
+  loadStudentsDropdown();
+  loadWorklogs();
+  loadStudentsDropdownForMarks();
+  loadMarks();
+  loadAttendanceCheckboxes();
+  loadAttendance();
+  loadStudentsDropdownForPayments();
+  loadPayments();
+  updateBalances();
+  generateReport();
+  updateStats();
+});
 </script>
 </body>
 </html>
