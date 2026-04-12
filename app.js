@@ -660,7 +660,7 @@ window.changeStudentSort = function(method) {
   }
 };
 
-// ==================== INIT TABS - WORKING VERSION ====================
+// ==================== INIT TABS - FIXED VERSION ====================
 function initTabs() {
   console.log('📋 Initializing tabs...');
   
@@ -673,11 +673,6 @@ function initTabs() {
   }
   
   console.log(`Found ${tabButtons.length} tabs and ${tabContents.length} contents`);
-  
-  // Remove any existing inline styles that might be hiding content
-  tabContents.forEach(content => {
-    content.style.removeProperty('display');
-  });
   
   function switchTab(tabName) {
     console.log("Switching to tab:", tabName);
@@ -728,54 +723,14 @@ function initTabs() {
   // Re-query tab buttons after replacement
   const newTabButtons = document.querySelectorAll('.tab');
   
-  // Get initial tab from URL hash or default to 'students'
-  let initialTab = window.location.hash.replace('#', '');
-  const validTabs = ['students', 'worklog', 'marks', 'attendance', 'payments', 'reports'];
+  // IMPORTANT: Default to 'students' tab - NOT from URL hash
+  // This ensures the Students tab is shown first
+  const defaultTab = 'students';
   
-  if (!initialTab || !validTabs.includes(initialTab)) {
-    initialTab = 'students';
-  }
-  
-  // Initialize with the correct tab
-  switchTab(initialTab);
+  // Initialize with students tab (not marks!)
+  switchTab(defaultTab);
   
   console.log("✅ Tabs initialized successfully");
-}
-
-// Helper function to load tab-specific data
-function loadTabData(tabName) {
-  console.log(`📊 Loading data for ${tabName} tab...`);
-  
-  setTimeout(() => {
-    switch(tabName) {
-      case 'students':
-        if (typeof loadStudents === 'function') loadStudents();
-        break;
-      case 'worklog':
-        if (window.worklogManager && typeof window.worklogManager.loadData === 'function') {
-          window.worklogManager.loadData();
-        }
-        if (typeof loadWorklogEntries === 'function') loadWorklogEntries();
-        break;
-      case 'marks':
-        if (typeof loadMarks === 'function') loadMarks();
-        if (typeof populateMarksStudentDropdown === 'function') populateMarksStudentDropdown();
-        break;
-      case 'attendance':
-        if (typeof loadAttendance === 'function') loadAttendance();
-        if (typeof populateAttendanceStudents === 'function') populateAttendanceStudents();
-        break;
-      case 'payments':
-        if (typeof loadPayments === 'function') loadPayments();
-        if (typeof populatePaymentStudentDropdown === 'function') populatePaymentStudentDropdown();
-        if (typeof updatePaymentBalances === 'function') updatePaymentBalances();
-        break;
-      case 'reports':
-        if (typeof loadReports === 'function') loadReports();
-        if (typeof generateReport === 'function') generateReport();
-        break;
-    }
-  }, 100);
 }
 
 function loadTabData(tabName) {
