@@ -91,15 +91,33 @@
     <button class="tab" data-tab="reports">📈 Reports</button>
   </div></div>
 
-  <!-- STUDENTS TAB -->
+  <!-- ==================== STUDENTS TAB ==================== -->
   <div id="students" class="tabcontent active">
-    <div class="section-header"><div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;"><h2>📚 Student Management</h2><div class="sort-controls"><select id="studentSortSelect" class="sort-select" onchange="changeStudentSort(this.value)"><option value="id">Sort by ID 🔢</option><option value="name">Sort by Name 📝</option><option value="date">Sort by Date 📅</option><option value="rate">Sort by Rate 💰</option></select></div></div><div class="student-stats"><span class="stat-badge" id="studentCount">0</span><span class="stat-divider">|</span><span class="stat-text">Avg Rate: $<span id="averageRate">0.00</span>/session</span></div></div>
-    <div class="default-rate-panel"><h4>💰 Default Rate Settings</h4><div class="form-group"><label for="defaultBaseRate">Set Default Rate ($/session)</label><div class="rate-input-wrapper"><span class="currency-symbol">$</span><input type="number" id="defaultBaseRate" step="0.01" min="0" placeholder="25.00"><span class="rate-suffix">/ session</span></div><div class="help-text">This rate will be automatically filled for new students</div></div><div class="current-rate-display"><span class="current-label">Current Default Rate:</span><span class="current-value">$<span id="currentDefaultRate">0.00</span>/session</span></div><div class="rate-actions"><button type="button" class="button success" id="saveDefaultRateBtn">💾 Save Default Rate</button><button type="button" class="button warning" id="applyRateToAllBtn">🔄 Apply to All Students</button><button type="button" class="button secondary" id="useDefaultRateBtn">📝 Use in Student Form</button></div><div class="user-context"><div class="user-email-badge"><span>👤</span><span><strong id="currentUserEmail">Loading...</strong></span></div><div class="rate-badge"><span>💰</span><span>Rate: <span id="ratePreview">$25.00/hour</span></span></div></div></div>
-    <div class="section-card"><h3>👤 Student Registration</h3><form id="studentForm"><div class="form-grid"><div class="form-group"><label for="studentName">Full Name *</label><input type="text" id="studentName" required></div><div class="form-group"><label for="studentId">Student ID *</label><input type="text" id="studentId" required></div><div class="form-group"><label for="studentGender">Gender *</label><select id="studentGender" required><option value="">Select gender</option><option>Male</option><option>Female</option><option>Other</option></select></div><div class="form-group"><label for="studentEmail">Email</label><input type="email" id="studentEmail"></div><div class="form-group"><label for="studentPhone">Phone</label><input type="tel" id="studentPhone"></div><div class="form-group"><label for="studentRate">Base Rate ($/session)</label><input type="number" id="studentRate" step="0.01" min="0"></div></div><div class="form-actions"><button type="button" class="button primary" id="studentSubmitBtn">➕ Add Student</button><button type="button" class="button secondary" onclick="clearStudentForm()">🗑️ Clear Form</button><button type="button" class="button warning" id="studentCancelBtn" style="display:none">❌ Cancel Edit</button></div></form></div>
-    <div class="section-card"><div class="section-header"><h3>📋 Registered Students</h3><div class="list-controls"><input type="text" id="studentSearch" placeholder="🔍 Search students..."></div></div><div class="students-container" id="studentsContainer"><p class="empty-message">No students registered yet.</p></div></div>
+    <div class="section-header">
+      <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+        <h2>📚 Student Management</h2>
+        <div class="sort-controls"><select id="studentSortSelect" class="sort-select" onchange="changeStudentSort(this.value)"><option value="id">Sort by ID 🔢</option><option value="name">Sort by Name 📝</option><option value="date">Sort by Date 📅</option><option value="rate">Sort by Rate 💰</option></select></div>
+      </div>
+      <div class="student-stats"><span class="stat-badge" id="studentCount">0</span><span class="stat-divider">|</span><span class="stat-text">Avg Rate: $<span id="averageRate">0.00</span>/session</span></div>
+    </div>
+    <div class="default-rate-panel">
+      <h4>💰 Default Rate Settings</h4>
+      <div class="form-group"><label for="defaultBaseRate">Set Default Rate ($/session)</label><div class="rate-input-wrapper"><span class="currency-symbol">$</span><input type="number" id="defaultBaseRate" step="0.01" min="0" placeholder="25.00"><span class="rate-suffix">/ session</span></div><div class="help-text">This rate will be automatically filled for new students</div></div>
+      <div class="current-rate-display"><span class="current-label">Current Default Rate:</span><span class="current-value">$<span id="currentDefaultRate">0.00</span>/session</span></div>
+      <div class="rate-actions"><button type="button" class="button success" id="saveDefaultRateBtn">💾 Save Default Rate</button><button type="button" class="button warning" id="applyRateToAllBtn">🔄 Apply to All Students</button><button type="button" class="button secondary" id="useDefaultRateBtn">📝 Use in Student Form</button></div>
+      <div class="user-context"><div class="user-email-badge"><span>👤</span><span><strong id="currentUserEmail">Loading...</strong></span></div><div class="rate-badge"><span>💰</span><span>Rate: <span id="ratePreview">$25.00/hour</span></span></div></div>
+    </div>
+    <div class="section-card">
+      <h3>👤 Student Registration</h3>
+      <form id="studentForm"><div class="form-grid"><div class="form-group"><label for="studentName">Full Name *</label><input type="text" id="studentName" required></div><div class="form-group"><label for="studentId">Student ID *</label><input type="text" id="studentId" required></div><div class="form-group"><label for="studentGender">Gender *</label><select id="studentGender" required><option value="">Select gender</option><option>Male</option><option>Female</option><option>Other</option></select></div><div class="form-group"><label for="studentEmail">Email</label><input type="email" id="studentEmail"></div><div class="form-group"><label for="studentPhone">Phone</label><input type="tel" id="studentPhone"></div><div class="form-group"><label for="studentRate">Base Rate ($/session)</label><input type="number" id="studentRate" step="0.01" min="0"></div></div><div class="form-actions"><button type="button" class="button primary" id="studentSubmitBtn">➕ Add Student</button><button type="button" class="button secondary" onclick="clearStudentForm()">🗑️ Clear Form</button><button type="button" class="button warning" id="studentCancelBtn" style="display:none">❌ Cancel Edit</button></div></form>
+    </div>
+    <div class="section-card">
+      <div class="section-header"><h3>📋 Registered Students</h3><div class="list-controls"><input type="text" id="studentSearch" placeholder="🔍 Search students..."></div></div>
+      <div class="students-container" id="studentsContainer"><p class="empty-message">No students registered yet.</p></div>
+    </div>
   </div>
 
-  <!-- WORKLOG TAB -->
+  <!-- ==================== WORKLOG TAB ==================== -->
   <div id="worklog" class="tabcontent">
     <div class="section-header"><h2>📝 Worklog</h2><div class="student-stats"><span class="stat-badge" id="worklogCount">0</span><span class="stat-divider">|</span><span class="stat-text">Last Entry: <span id="lastWorklogDate">Never</span></span></div></div>
     <div class="form-grid" style="grid-template-columns:1fr 1fr; gap:20px">
@@ -108,25 +126,25 @@
     </div>
   </div>
 
-  <!-- MARKS TAB -->
+  <!-- ==================== MARKS TAB ==================== -->
   <div id="marks" class="tabcontent">
     <div class="section-header"><h2>📊 Marks & Assessments</h2><div class="student-stats"><span class="stat-badge" id="marksCount">0</span><span class="stat-divider">|</span><span class="stat-text">Avg Score: <span id="avgMarks">0%</span></span></div></div>
     <div class="form-grid"><div class="section-card"><h3>➕ Add New Mark</h3><form id="marksForm"><div class="form-group"><label for="marksStudent">Student *</label><select id="marksStudent" required><option value="">Select Student</option></select></div><div class="form-group"><label for="marksSubject">Subject *</label><input type="text" id="marksSubject" required></div><div class="form-group"><label for="marksTopic">Topic *</label><input type="text" id="marksTopic" required></div><div class="form-group"><label for="marksDate">Date *</label><input type="date" id="marksDate" required></div><div class="form-group"><label for="marksScore">Score *</label><input type="number" id="marksScore" step="0.1" required oninput="updateMarksPercentage()"></div><div class="form-group"><label for="marksMax">Max Score *</label><input type="number" id="marksMax" step="0.1" required oninput="updateMarksPercentage()"></div><div class="form-group"><label for="percentage">Percentage</label><input type="text" id="percentage" readonly></div><div class="form-group"><label for="grade">Grade</label><input type="text" id="grade" readonly></div><div class="form-group"><label for="marksNotes">Notes</label><textarea id="marksNotes"></textarea></div><div class="form-actions"><button type="submit" class="button primary" id="marksSubmitBtn">➕ Add Mark</button><button type="button" class="button secondary" onclick="resetMarksForm()">🗑️ Clear Form</button><button type="button" class="button warning" id="cancelMarkBtn" style="display:none">❌ Cancel Edit</button></div></form></div><div class="section-card"><h3>📋 Recent Marks</h3><div id="marksContainer"><p class="empty-message">No marks recorded yet.</p></div></div></div>
   </div>
 
-  <!-- ATTENDANCE TAB -->
+  <!-- ==================== ATTENDANCE TAB ==================== -->
   <div id="attendance" class="tabcontent">
     <div class="section-header"><h2>✅ Attendance Tracking</h2><div class="student-stats"><span class="stat-badge" id="attendanceCount">0</span><span class="stat-divider">|</span><span class="stat-text">Last Session: <span id="lastSessionDate">Never</span></span></div></div>
     <div class="form-grid"><div class="section-card"><h3>📅 Quick Attendance</h3><form id="attendanceForm"><div class="form-group"><label for="attendanceDate">Date *</label><input type="date" id="attendanceDate" required></div><div class="form-group"><label for="attendanceSubject">Subject *</label><input type="text" id="attendanceSubject" required></div><div class="form-group"><label for="attendanceTopic">Topic</label><input type="text" id="attendanceTopic"></div><div class="form-group"><label>Mark Students Present:</label><button type="button" id="selectAllStudentsBtn" class="btn btn-secondary" onclick="selectAllStudents()">Select All</button><div id="attendanceStudents" class="attendance-students-container"><p class="empty-message">No students registered. Add students first.</p></div></div><div class="form-group"><label for="attendanceNotes">Notes</label><textarea id="attendanceNotes"></textarea></div><div class="form-actions"><button type="submit" class="button primary" id="attendanceSubmitBtn">💾 Save Attendance</button><button type="button" class="button secondary" onclick="clearAttendanceForm()">🗑️ Clear Form</button><button type="button" class="button warning" id="cancelAttendanceBtn" style="display:none">❌ Cancel Edit</button></div></form></div><div class="section-card"><h3>📋 Recent Attendance</h3><div id="attendanceContainer"><p class="empty-message">No attendance records yet.</p></div></div></div>
   </div>
 
-  <!-- PAYMENTS TAB -->
+  <!-- ==================== PAYMENTS TAB ==================== -->
   <div id="payments" class="tabcontent">
     <div class="section-header"><h2>💰 Payment Management</h2><div class="student-stats"><span class="stat-text">Total Students: <span id="totalStudentsCount">0</span></span><span class="stat-divider">|</span><span class="stat-text">Total Owed: <span id="totalOwed">$0</span></span><span class="stat-divider">|</span><span class="stat-text">This Month: <span id="monthlyPayments">$0</span></span></div></div>
     <div class="form-grid"><div class="section-card"><h3>💳 Record Payment</h3><form id="paymentForm"><div class="form-group"><label for="paymentStudent">Student *</label><select id="paymentStudent" required><option value="">Select Student</option></select></div><div class="form-group"><label for="paymentAmount">Amount ($) *</label><input type="number" id="paymentAmount" step="0.01" min="0.01" required></div><div class="form-group"><label for="paymentDate">Date *</label><input type="date" id="paymentDate" required></div><div class="form-group"><label for="paymentMethod">Method</label><select id="paymentMethod"><option>Cash</option><option>Bank Transfer</option><option>Credit Card</option><option>PayPal</option><option>Other</option></select></div><div class="form-group"><label for="paymentNotes">Notes</label><textarea id="paymentNotes"></textarea></div><div class="form-actions"><button type="submit" class="button primary" id="paymentSubmitBtn">💾 Record Payment</button><button type="button" class="button secondary" onclick="resetPaymentForm()">🗑️ Clear Form</button><button type="button" class="button warning" id="cancelPaymentBtn" style="display:none">❌ Cancel Edit</button></div></form></div><div class="section-card"><h3>👥 Student Balances</h3><div id="studentBalancesContainer"><p class="empty-message">No payment data yet.</p></div></div><div class="section-card"><h3>📜 Payment Activity</h3><div id="paymentActivityLog"><p class="empty-message">No recent payment activity.</p></div></div></div>
   </div>
 
-  <!-- REPORTS TAB -->
+  <!-- ==================== REPORTS TAB ==================== -->
   <div id="reports" class="tabcontent">
     <div class="section-header"><h2>📈 Reports & Documents</h2><p>Summaries of students, hours, marks, payments, and generate official BVTB forms.</p></div>
     <div class="summary-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:15px;margin-bottom:25px"><div class="summary-card" style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:20px;border-radius:10px"><div style="font-size:0.9rem;opacity:0.9">Total Hours</div><div style="font-size:1.8rem;font-weight:bold" id="reportTotalHours">0</div></div><div class="summary-card" style="background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);color:white;padding:20px;border-radius:10px"><div style="font-size:0.9rem;opacity:0.9">Total Earnings</div><div style="font-size:1.8rem;font-weight:bold" id="reportTotalEarnings">$0</div></div><div class="summary-card" style="background:linear-gradient(135deg,#4facfe 0%,#00f2fe 100%);color:white;padding:20px;border-radius:10px"><div style="font-size:0.9rem;opacity:0.9">This Month</div><div style="font-size:1.8rem;font-weight:bold" id="reportMonthEarnings">$0</div></div><div class="summary-card" style="background:linear-gradient(135deg,#43e97b 0%,#38f9d7 100%);color:white;padding:20px;border-radius:10px"><div style="font-size:0.9rem;opacity:0.9">Outstanding</div><div style="font-size:1.8rem;font-weight:bold" id="outstandingBalance">$0</div></div></div>
@@ -156,7 +174,7 @@
 <script src="backup-manager.js"></script>
 
 <script>
-// ONLY the emergency tab override - NO other inline tab code
+// ONLY emergency tab override - NO other tab code
 (function() {
   console.log('🔥 EMERGENCY TAB SYSTEM LOADED');
   const tabs = document.querySelectorAll('.tab');
