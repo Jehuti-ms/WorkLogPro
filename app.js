@@ -230,7 +230,7 @@ function initAppUI() {
   try {
     initDefaultRate();
     updateProfileInfo();
-    initTabs();
+   /* initTabs(); */
     initForms();
     initFAB();
     initProfileModal();
