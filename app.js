@@ -230,7 +230,7 @@ function initAppUI() {
   try {
     initDefaultRate();
     updateProfileInfo();
-   /* initTabs(); */
+    initTabs(); 
     initForms();
     initFAB();
     initProfileModal();
@@ -660,47 +660,63 @@ window.changeStudentSort = function(method) {
   }
 };
 
-// ==================== INIT TABS ====================
-/*function initTabs() {
+// ==================== INIT TABS - WORKING VERSION ====================
+function initTabs() {
   console.log('📋 Initializing tabs...');
   
   const tabButtons = document.querySelectorAll('.tab');
   const tabContents = document.querySelectorAll('.tabcontent');
   
+  if (tabButtons.length === 0 || tabContents.length === 0) {
+    console.error('Tabs not found in DOM');
+    return;
+  }
+  
+  console.log(`Found ${tabButtons.length} tabs and ${tabContents.length} contents`);
+  
+  // Remove any existing inline styles that might be hiding content
+  tabContents.forEach(content => {
+    content.style.removeProperty('display');
+  });
+  
   function switchTab(tabName) {
-    console.log('Switching to tab:', tabName);
+    console.log("Switching to tab:", tabName);
     
-    // Hide all tabs using CSS classes only (no style.display)
+    // Hide all tab contents using classes
     tabContents.forEach(content => {
       content.classList.remove('active');
     });
     
     // Remove active class from all tab buttons
-    tabButtons.forEach(btn => btn.classList.remove('active'));
+    tabButtons.forEach(button => {
+      button.classList.remove('active');
+    });
     
-    // Show selected tab
+    // Show the selected tab content
     const selectedTab = document.getElementById(tabName);
     if (selectedTab) {
       selectedTab.classList.add('active');
-      console.log(`✅ Showing ${tabName} tab`);
+    } else {
+      console.error(`Tab content not found: ${tabName}`);
+      return;
     }
     
-    // Activate clicked button
+    // Activate the clicked tab button
     const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
     if (activeButton) {
       activeButton.classList.add('active');
     }
     
-    // Update URL hash
-    window.location.hash = tabName;
-    
-    // Load tab data
+    // Load tab-specific data
     loadTabData(tabName);
   }
   
-  // Add click handlers
+  // Remove all existing listeners by cloning and replacing
   tabButtons.forEach(button => {
-    button.addEventListener('click', function(e) {
+    const newButton = button.cloneNode(true);
+    button.parentNode.replaceChild(newButton, button);
+    
+    newButton.addEventListener('click', function(e) {
       e.preventDefault();
       const tabName = this.getAttribute('data-tab');
       if (tabName) {
@@ -709,19 +725,58 @@ window.changeStudentSort = function(method) {
     });
   });
   
-  // Set initial tab
-  const hash = window.location.hash.replace('#', '');
+  // Re-query tab buttons after replacement
+  const newTabButtons = document.querySelectorAll('.tab');
+  
+  // Get initial tab from URL hash or default to 'students'
+  let initialTab = window.location.hash.replace('#', '');
   const validTabs = ['students', 'worklog', 'marks', 'attendance', 'payments', 'reports'];
-  const initialTab = hash && validTabs.includes(hash) ? hash : 'students';
+  
+  if (!initialTab || !validTabs.includes(initialTab)) {
+    initialTab = 'students';
+  }
+  
+  // Initialize with the correct tab
+  switchTab(initialTab);
+  
+  console.log("✅ Tabs initialized successfully");
+}
+
+// Helper function to load tab-specific data
+function loadTabData(tabName) {
+  console.log(`📊 Loading data for ${tabName} tab...`);
   
   setTimeout(() => {
-    switchTab(initialTab);
+    switch(tabName) {
+      case 'students':
+        if (typeof loadStudents === 'function') loadStudents();
+        break;
+      case 'worklog':
+        if (window.worklogManager && typeof window.worklogManager.loadData === 'function') {
+          window.worklogManager.loadData();
+        }
+        if (typeof loadWorklogEntries === 'function') loadWorklogEntries();
+        break;
+      case 'marks':
+        if (typeof loadMarks === 'function') loadMarks();
+        if (typeof populateMarksStudentDropdown === 'function') populateMarksStudentDropdown();
+        break;
+      case 'attendance':
+        if (typeof loadAttendance === 'function') loadAttendance();
+        if (typeof populateAttendanceStudents === 'function') populateAttendanceStudents();
+        break;
+      case 'payments':
+        if (typeof loadPayments === 'function') loadPayments();
+        if (typeof populatePaymentStudentDropdown === 'function') populatePaymentStudentDropdown();
+        if (typeof updatePaymentBalances === 'function') updatePaymentBalances();
+        break;
+      case 'reports':
+        if (typeof loadReports === 'function') loadReports();
+        if (typeof generateReport === 'function') generateReport();
+        break;
+    }
   }, 100);
-  
-  window.switchTab = switchTab;
-  
-  console.log('✅ Tabs initialized, found:', tabButtons.length, 'tabs');
-} */
+}
 
 function loadTabData(tabName) {
   console.log(`📊 Loading data for ${tabName} tab...`);
