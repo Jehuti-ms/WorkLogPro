@@ -2,91 +2,385 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WorkLog Pro - Complete System</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>WorkLog Pro - Student Tracker</title>
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background: #f5f5f5; padding: 20px; }
-    .container { max-width: 1400px; margin: 0 auto; }
+    /* ==================== CSS VARIABLES ==================== */
+    :root {
+      --primary: #2563eb;
+      --primary-light: #3b82f6;
+      --primary-dark: #1d4ed8;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --background: #f8fafc;
+      --surface: #ffffff;
+      --text: #1e293b;
+      --text-light: #64748b;
+      --border: #e2e8f0;
+      --border-light: #f1f5f9;
+      --radius: 12px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.1);
+      --shadow-lg: 0 10px 25px rgba(0,0,0,0.1);
+    }
+    
+    [data-theme="dark"] {
+      --primary: #60a5fa;
+      --background: #0f172a;
+      --surface: #1e293b;
+      --text: #f8fafc;
+      --text-light: #cbd5e1;
+      --border: #475569;
+      --border-light: #334155;
+    }
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      background: var(--background);
+      color: var(--text);
+      transition: all 0.3s ease;
+    }
+    
+    .container { max-width: 1400px; margin: 0 auto; padding: 0 20px; }
     
     /* Header */
-    .header { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .logo-title { display: flex; align-items: center; gap: 15px; }
-    .logo-title h1 { color: #2563eb; }
-    .stats-row { display: flex; justify-content: space-between; margin-top: 15px; flex-wrap: wrap; gap: 10px; }
-    .storage-status { display: flex; gap: 20px; color: #666; font-size: 14px; }
-    .header-controls { display: flex; gap: 10px; }
-    .theme-toggle button, .auth-section button { padding: 8px 16px; border: 1px solid #ddd; background: white; border-radius: 8px; cursor: pointer; }
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 20px;
+      border-radius: 0 0 var(--radius) var(--radius);
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+    
+    .logo-title { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .logo { width: 40px; height: 40px; }
+    .logo-title h1 { font-size: 1.8rem; color: var(--primary); }
+    .subtitle { color: var(--text-light); margin-bottom: 16px; }
+    
+    .stats-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    
+    .storage-status { display: flex; gap: 20px; font-size: 0.85rem; color: var(--text-light); }
+    .header-controls { display: flex; gap: 12px; }
+    .theme-toggle button, .auth-section button {
+      padding: 8px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 1rem;
+      color: var(--text);
+    }
     
     /* Sync Toolbar */
-    .sync-toolbar { background: white; padding: 12px 20px; border-radius: 12px; margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .sync-indicator { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
-    .sync-indicator.online { background: #10b981; color: white; }
-    .button { padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
-    .button.primary { background: #2563eb; color: white; }
-    .button.success { background: #10b981; color: white; }
-    .button.warning { background: #f59e0b; color: white; }
-    .button.danger { background: #ef4444; color: white; }
-    .button.secondary { background: #6b7280; color: white; }
+    .sync-toolbar {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 20px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    
+    .sync-indicator {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      background: var(--success);
+      color: white;
+    }
+    
+    .button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .button.primary { background: var(--primary); color: white; }
+    .button.success { background: var(--success); color: white; }
+    .button.warning { background: var(--warning); color: white; }
+    .button.danger { background: var(--error); color: white; }
+    .button.secondary { background: var(--text-light); color: white; }
+    .button.small { padding: 6px 12px; font-size: 0.75rem; }
     
     /* Tabs */
-    .tabs { display: flex; gap: 5px; margin-bottom: 0; flex-wrap: wrap; }
-    .tab { padding: 12px 24px; background: #e5e7eb; border: none; cursor: pointer; font-size: 14px; border-radius: 8px 8px 0 0; transition: all 0.2s; }
-    .tab:hover { background: #d1d5db; }
-    .tab.active { background: white; color: #2563eb; font-weight: bold; border-bottom: 2px solid #2563eb; }
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .tab {
+      padding: 12px 24px;
+      background: transparent;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-light);
+      transition: all 0.2s;
+    }
+    
+    .tab:hover { background: var(--border-light); color: var(--text); }
+    .tab.active { background: var(--primary); color: white; }
     
     /* Tab Content */
-    .tabcontent { display: none; background: white; padding: 24px; border-radius: 0 12px 12px 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    .tabcontent.active { display: block; }
+    .tabcontent { display: none; }
+    .tabcontent.active { display: block; animation: fadeIn 0.3s ease; }
     
-    /* Forms */
-    .form-group { margin-bottom: 15px; }
-    label { display: block; margin-bottom: 5px; font-weight: 600; color: #374151; }
-    input, select, textarea { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; }
-    input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb; ring: 2px solid #2563eb; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
     
     /* Cards */
-    .section-card { background: #f9fafb; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e5e7eb; }
-    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
-    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    .student-card, .worklog-card, .mark-entry, .attendance-entry, .payment-item { background: white; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 10px; }
-    .student-card-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
-    .student-actions button { padding: 4px 8px; margin-left: 5px; font-size: 12px; }
-    .empty-message { text-align: center; color: #9ca3af; padding: 40px; }
+    .section-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow);
+    }
     
-    /* Student Stats */
-    .student-stats { display: flex; gap: 15px; align-items: center; }
-    .stat-badge { background: #2563eb; color: white; padding: 4px 12px; border-radius: 20px; font-size: 14px; }
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
     
-    /* Worklog specific */
-    .worklog-filters { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .section-header h2, .section-header h3 { color: var(--text); }
+    .section-header h2 { font-size: 1.5rem; }
+    .section-header h3 { font-size: 1.25rem; }
+    
+    /* Forms */
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: var(--text); }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--background);
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+    }
+    .form-actions { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+    
+    /* Student Cards */
+    .students-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px; }
+    .student-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      transition: all 0.2s;
+    }
+    .student-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+    .student-card-header { display: flex; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+    .student-card-header strong { font-size: 1.1rem; }
+    .student-id { font-size: 0.75rem; color: var(--text-light); background: var(--border-light); padding: 2px 8px; border-radius: 20px; }
+    .student-actions { display: flex; gap: 8px; }
+    .btn-icon { background: none; border: none; cursor: pointer; font-size: 1rem; padding: 4px 8px; border-radius: 6px; }
+    .btn-icon:hover { background: var(--border-light); }
+    .student-rate { color: var(--primary); font-weight: 600; margin-top: 8px; }
+    .student-details { font-size: 0.85rem; color: var(--text-light); margin-top: 8px; }
+    
+    /* Worklog Cards */
+    .worklog-filters { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
     .worklog-filters select, .worklog-filters input { width: auto; min-width: 150px; }
+    .worklog-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 12px;
+    }
+    .worklog-card.student { border-left: 4px solid var(--success); }
+    .worklog-card.institution { border-left: 4px solid var(--warning); }
+    
+    /* Stats */
+    .student-stats { display: flex; gap: 16px; align-items: center; }
+    .stat-badge { background: var(--primary); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; }
+    .stat-divider { color: var(--border); }
+    
+    /* Default Rate Panel */
+    .default-rate-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+      border-left: 4px solid var(--primary);
+    }
+    .rate-input-wrapper { position: relative; display: flex; align-items: center; max-width: 250px; }
+    .currency-symbol { position: absolute; left: 12px; color: var(--text-light); }
+    .rate-input-wrapper input { padding-left: 28px; }
+    .rate-suffix { position: absolute; right: 12px; color: var(--text-light); font-size: 0.8rem; }
+    .current-rate-display { display: flex; gap: 8px; margin: 16px 0; padding: 12px; background: var(--border-light); border-radius: var(--radius); }
+    .rate-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+    
+    /* FAB */
+    .fab-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 1000;
+    }
+    .fab {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: white;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      box-shadow: var(--shadow-lg);
+      transition: transform 0.2s;
+    }
+    .fab:hover { transform: scale(1.05); }
+    .fab-menu {
+      position: absolute;
+      bottom: 70px;
+      right: 0;
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 12px;
+      box-shadow: var(--shadow-lg);
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 180px;
+      border: 1px solid var(--border);
+    }
+    .fab-menu.active { display: flex; }
+    .fab-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .fab-item:hover { background: var(--primary); color: white; transform: translateX(-4px); }
+    .fab-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.3);
+      display: none;
+      z-index: 999;
+    }
+    .fab-overlay.active { display: block; }
+    
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 10000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      background: var(--surface);
+      border-radius: var(--radius);
+      max-width: 500px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-header { display: flex; justify-content: space-between; padding: 20px; border-bottom: 1px solid var(--border); }
+    .modal-body { padding: 20px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 15px 0; }
+    .stat-card { background: var(--background); padding: 15px; border-radius: var(--radius); text-align: center; }
+    .stat-value { font-size: 1.5rem; font-weight: bold; color: var(--primary); }
+    
+    /* Empty state */
+    .empty-message { text-align: center; padding: 60px 20px; color: var(--text-light); }
     
     /* Responsive */
     @media (max-width: 768px) {
-      .form-grid { grid-template-columns: 1fr; }
+      .container { padding: 0 12px; }
       .tabs { flex-wrap: wrap; }
-      .tab { flex: 1; text-align: center; }
+      .tab { flex: 1; text-align: center; padding: 10px; }
+      .form-grid { grid-template-columns: 1fr; }
+      .students-container { grid-template-columns: 1fr; }
       .sync-toolbar { flex-direction: column; align-items: stretch; }
+      .stats-row { flex-direction: column; align-items: flex-start; }
     }
   </style>
 </head>
 <body>
 <div class="container">
   <header class="header">
-    <div class="logo-title"><h1>📝 WorkLog Pro</h1></div>
+    <div class="logo-title">
+      <div class="logo">📝</div>
+      <h1>WorkLog Pro</h1>
+    </div>
+    <p class="subtitle">Student Tracker & Hours Management System</p>
     <div class="stats-row">
-      <div class="storage-status"><span>💾 Local Storage: Active</span><span>📊 Data: <span id="statStudents">0</span> Students, <span id="statHours">0</span> Hours</span></div>
-      <div class="header-controls"><div class="theme-toggle"><button onclick="toggleTheme()">🌓 Theme</button></div><div class="auth-section"><button id="profileBtn" onclick="showProfile()">👤 <span id="userName">User</span></button></div></div>
+      <div class="storage-status">
+        <span>💾 Local Storage: Active</span>
+        <span>📊 <span id="statStudents">0</span> Students, <span id="statHours">0</span> Hours</span>
+      </div>
+      <div class="header-controls">
+        <div class="theme-toggle"><button onclick="toggleTheme()">🌓</button></div>
+        <div class="auth-section"><button id="profileBtn">👤 <span id="userName">Guest</span></button></div>
+      </div>
     </div>
   </header>
 
   <div class="sync-toolbar">
-    <div id="syncIndicator" class="sync-indicator online">Online</div>
-    <button id="syncBtn" class="button primary" onclick="syncData()">🔄 Sync</button>
-    <button id="exportDataBtn" class="button primary" onclick="exportData()">📤 Export</button>
-    <button id="importDataBtn" class="button primary" onclick="importData()">📥 Import</button>
-    <button id="clearDataBtn" class="button danger" onclick="clearAllData()">🗑️ Clear</button>
+    <div id="syncIndicator" class="sync-indicator">Online</div>
+    <button id="syncBtn" class="button primary">🔄 Sync</button>
+    <button id="exportDataBtn" class="button primary">📤 Export</button>
+    <button id="importDataBtn" class="button primary">📥 Import</button>
+    <button id="clearDataBtn" class="button danger">🗑️ Clear</button>
   </div>
 
   <!-- TABS -->
@@ -101,13 +395,22 @@
 
   <!-- STUDENTS TAB -->
   <div id="students" class="tabcontent active">
-    <div class="section-header"><h2>📚 Student Management</h2><div class="student-stats"><span class="stat-badge" id="studentCount">0</span><span>Avg Rate: $<span id="averageRate">0.00</span>/hr</span></div></div>
+    <div class="section-header">
+      <h2>📚 Student Management</h2>
+      <div class="student-stats"><span class="stat-badge" id="studentCount">0</span><span>Avg Rate: $<span id="averageRate">0.00</span>/hr</span></div>
+    </div>
     
-    <div class="section-card">
-      <h3>💰 Default Rate Settings</h3>
-      <div class="form-group"><label>Default Rate ($/hour)</label><input type="number" id="defaultRate" step="0.01" value="25.00"></div>
-      <button class="button success" onclick="saveDefaultRate()">💾 Save Default Rate</button>
-      <button class="button secondary" onclick="applyRateToAll()">🔄 Apply to All Students</button>
+    <div class="default-rate-panel">
+      <h4>💰 Default Rate Settings</h4>
+      <div class="form-group">
+        <label>Set Default Rate ($/hour)</label>
+        <div class="rate-input-wrapper"><span class="currency-symbol">$</span><input type="number" id="defaultRate" step="0.01" value="25.00"><span class="rate-suffix">/ hour</span></div>
+      </div>
+      <div class="current-rate-display"><span class="current-label">Current Default Rate:</span><span class="current-value">$<span id="currentDefaultRate">25.00</span>/hour</span></div>
+      <div class="rate-actions">
+        <button class="button success" onclick="saveDefaultRate()">💾 Save Default Rate</button>
+        <button class="button warning" onclick="applyRateToAll()">🔄 Apply to All Students</button>
+      </div>
     </div>
 
     <div class="section-card">
@@ -120,40 +423,39 @@
         <div class="form-group"><label>Phone</label><input type="tel" id="studentPhone" placeholder="Phone"></div>
         <div class="form-group"><label>Hourly Rate ($)</label><input type="number" id="studentRate" step="0.01" value="25.00"></div>
       </div>
-      <button class="button primary" onclick="addStudent()">➕ Add Student</button>
-      <button class="button secondary" onclick="clearStudentForm()">🗑️ Clear Form</button>
+      <div class="form-actions">
+        <button class="button primary" onclick="addStudent()">➕ Add Student</button>
+        <button class="button secondary" onclick="clearStudentForm()">🗑️ Clear Form</button>
+      </div>
     </div>
 
     <div class="section-card">
-      <div class="section-header"><h3>📋 Registered Students</h3><input type="text" id="studentSearch" placeholder="🔍 Search students..." style="width: 250px;" onkeyup="filterStudents()"></div>
-      <div id="studentsList"></div>
+      <div class="section-header"><h3>📋 Registered Students</h3><input type="text" id="studentSearch" placeholder="🔍 Search students..." style="width: 250px; padding: 8px; border-radius: 8px; border: 1px solid var(--border);"></div>
+      <div id="studentsList" class="students-container"></div>
     </div>
   </div>
 
   <!-- WORKLOG TAB -->
   <div id="worklog" class="tabcontent">
-    <div class="section-header"><h2>📝 Worklog</h2><div class="student-stats"><span class="stat-badge" id="worklogCount">0</span><span>Last Entry: <span id="lastWorklogDate">Never</span></span></div></div>
+    <div class="section-header"><h2>📝 Worklog</h2><div class="student-stats"><span class="stat-badge" id="worklogCount">0</span><span>Last: <span id="lastWorklogDate">Never</span></span></div></div>
     <div class="form-grid">
       <div class="section-card">
         <h3>➕ Log Work</h3>
         <div class="form-group"><label>Work Type</label><select id="workType" onchange="toggleWorkType()"><option value="student">👤 Student</option><option value="institution">🏢 Institution</option></select></div>
-        <div class="form-group" id="studentSelectGroup"><label>Student</label><select id="workStudent"></select></div>
-        <div class="form-group" id="institutionGroup" style="display:none"><label>Institution Name</label><input type="text" id="workInstitution" placeholder="Institution name"></div>
+        <div id="studentSelectGroup"><div class="form-group"><label>Student</label><select id="workStudent"></select></div></div>
+        <div id="institutionGroup" style="display:none"><div class="form-group"><label>Institution Name</label><input type="text" id="workInstitution" placeholder="Institution name"></div></div>
         <div class="form-group"><label>Date</label><input type="date" id="workDate"></div>
         <div class="form-group"><label>Subject/Area</label><input type="text" id="workSubject" placeholder="Subject"></div>
         <div class="form-group"><label>Topic/Project</label><input type="text" id="workTopic" placeholder="Topic"></div>
         <div class="form-group"><label>Duration (hours)</label><input type="number" id="workHours" step="0.5" min="0.5"></div>
         <div class="form-group"><label>Hourly Rate ($)</label><input type="number" id="workRate" step="0.01" value="25.00"></div>
         <div class="form-group"><label>Description</label><textarea id="workDesc" rows="3" placeholder="Work description"></textarea></div>
-        <div class="form-group"><label>Outcomes</label><textarea id="workOutcomes" rows="2" placeholder="What was achieved"></textarea></div>
-        <button class="button primary" onclick="addWorklog()">💾 Save Worklog</button>
-        <button class="button secondary" onclick="clearWorklogForm()">🗑️ Clear Form</button>
+        <div class="form-actions"><button class="button primary" onclick="addWorklog()">💾 Save Worklog</button><button class="button secondary" onclick="clearWorklogForm()">🗑️ Clear</button></div>
       </div>
       <div class="section-card">
         <h3>📋 Work History</h3>
         <div class="worklog-filters">
           <select id="filterType" onchange="loadWorklogs()"><option value="">All Types</option><option value="student">Students</option><option value="institution">Institutions</option></select>
-          <select id="filterEntity" onchange="loadWorklogs()"><option value="">All</option></select>
           <input type="text" id="searchWorklog" placeholder="🔍 Search..." onkeyup="loadWorklogs()">
         </div>
         <div id="worklogList"></div>
@@ -163,7 +465,7 @@
 
   <!-- MARKS TAB -->
   <div id="marks" class="tabcontent">
-    <div class="section-header"><h2>📊 Marks & Assessments</h2><div class="student-stats"><span class="stat-badge" id="marksCount">0</span><span>Avg Score: <span id="avgMarks">0%</span></span></div></div>
+    <div class="section-header"><h2>📊 Marks & Assessments</h2><div class="student-stats"><span class="stat-badge" id="marksCount">0</span><span>Avg: <span id="avgMarks">0%</span></span></div></div>
     <div class="form-grid">
       <div class="section-card">
         <h3>➕ Add Mark</h3>
@@ -171,8 +473,8 @@
         <div class="form-group"><label>Subject</label><input type="text" id="markSubject" placeholder="Subject"></div>
         <div class="form-group"><label>Topic</label><input type="text" id="markTopic" placeholder="Topic"></div>
         <div class="form-group"><label>Date</label><input type="date" id="markDate"></div>
-        <div class="form-group"><label>Score</label><input type="number" id="markScore" step="0.1" oninput="calculatePercentage()"></div>
-        <div class="form-group"><label>Max Score</label><input type="number" id="markMax" step="0.1" value="100" oninput="calculatePercentage()"></div>
+        <div class="form-group"><label>Score</label><input type="number" id="markScore" step="0.1" oninput="calcPercentage()"></div>
+        <div class="form-group"><label>Max Score</label><input type="number" id="markMax" step="0.1" value="100" oninput="calcPercentage()"></div>
         <div class="form-group"><label>Percentage</label><input type="text" id="markPercentage" readonly></div>
         <div class="form-group"><label>Grade</label><input type="text" id="markGrade" readonly></div>
         <div class="form-group"><label>Notes</label><textarea id="markNotes" rows="2"></textarea></div>
@@ -184,7 +486,7 @@
 
   <!-- ATTENDANCE TAB -->
   <div id="attendance" class="tabcontent">
-    <div class="section-header"><h2>✅ Attendance Tracking</h2><div class="student-stats"><span class="stat-badge" id="attendanceCount">0</span><span>Last Session: <span id="lastSessionDate">Never</span></span></div></div>
+    <div class="section-header"><h2>✅ Attendance Tracking</h2><div class="student-stats"><span class="stat-badge" id="attendanceCount">0</span><span>Last: <span id="lastSessionDate">Never</span></span></div></div>
     <div class="form-grid">
       <div class="section-card">
         <h3>📅 Take Attendance</h3>
@@ -222,17 +524,43 @@
     <div class="form-grid">
       <div class="section-card">
         <h3>Generate Report</h3>
-        <div class="form-group"><label>Report Type</label><select id="reportType"><option value="summary">Summary</option><option value="detailed">Detailed</option></select></div>
-        <button class="button primary" onclick="generateReport()">📄 Generate Report</button>
+        <button class="button primary" onclick="generateReport()">📄 Generate Summary</button>
       </div>
       <div class="section-card"><h3>Report Preview</h3><div id="reportPreview"></div></div>
     </div>
   </div>
 </div>
 
+<!-- Profile Modal -->
+<div id="profileModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header"><h2>👤 User Profile</h2><button onclick="closeModal()" class="close" style="background:none; border:none; font-size:24px; cursor:pointer;">&times;</button></div>
+    <div class="modal-body">
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-value" id="modalStatStudents">0</div><div class="stat-label">Students</div></div>
+        <div class="stat-card"><div class="stat-value" id="modalStatHours">0</div><div class="stat-label">Hours</div></div>
+        <div class="stat-card"><div class="stat-value" id="modalStatEarnings">$0</div><div class="stat-label">Earnings</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FAB -->
+<div class="fab-container">
+  <button class="fab" id="fabBtn">+</button>
+  <div class="fab-menu" id="fabMenu">
+    <button class="fab-item" onclick="switchToTab('students')"><span class="icon">👤</span>Add Student</button>
+    <button class="fab-item" onclick="switchToTab('worklog')"><span class="icon">📝</span>Log Work</button>
+    <button class="fab-item" onclick="switchToTab('marks')"><span class="icon">📊</span>Add Mark</button>
+    <button class="fab-item" onclick="switchToTab('attendance')"><span class="icon">✅</span>Take Attendance</button>
+    <button class="fab-item" onclick="switchToTab('payments')"><span class="icon">💰</span>Record Payment</button>
+  </div>
+  <div class="fab-overlay" id="fabOverlay"></div>
+</div>
+
 <script>
-// ============ DATA STORAGE KEYS ============
-const STORAGE_KEYS = {
+// ============ STORAGE KEYS ============
+const STORAGE = {
   STUDENTS: 'worklog_students',
   WORKLOGS: 'worklog_entries',
   MARKS: 'worklog_marks',
@@ -241,36 +569,50 @@ const STORAGE_KEYS = {
   DEFAULT_RATE: 'defaultHourlyRate'
 };
 
-// ============ TAB SYSTEM ============
+// ============ TAB SYSTEM (CRITICAL - FIXED) ============
+function switchToTab(tabName) {
+  document.querySelectorAll('.tabcontent').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(tabName).classList.add('active');
+  document.querySelector(`.tab[data-tab="${tabName}"]`).classList.add('active');
+  
+  // Load tab data
+  if (tabName === 'students') loadStudents();
+  if (tabName === 'worklog') { loadStudentDropdown(); loadWorklogs(); }
+  if (tabName === 'marks') { loadMarkStudentDropdown(); loadMarks(); }
+  if (tabName === 'attendance') { loadAttendanceCheckboxes(); loadAttendance(); }
+  if (tabName === 'payments') { loadPaymentStudentDropdown(); loadPayments(); updateBalances(); }
+  if (tabName === 'reports') generateReport();
+}
+
+// Initialize tabs
 document.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', function() {
-    const tabName = this.getAttribute('data-tab');
-    document.querySelectorAll('.tabcontent').forEach(c => c.classList.remove('active'));
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.getElementById(tabName).classList.add('active');
-    this.classList.add('active');
-    loadTabData(tabName);
-  });
+  tab.addEventListener('click', () => switchToTab(tab.getAttribute('data-tab')));
 });
 
-function loadTabData(tabName) {
-  if (tabName === 'students') loadStudents();
-  if (tabName === 'worklog') { loadStudentsDropdown(); loadWorklogs(); }
-  if (tabName === 'marks') { loadStudentsDropdownForMarks(); loadMarks(); }
-  if (tabName === 'attendance') { loadAttendanceCheckboxes(); loadAttendance(); }
-  if (tabName === 'payments') { loadStudentsDropdownForPayments(); loadPayments(); updateBalances(); }
-}
+// FAB Menu
+const fabBtn = document.getElementById('fabBtn');
+const fabMenu = document.getElementById('fabMenu');
+const fabOverlay = document.getElementById('fabOverlay');
+fabBtn?.addEventListener('click', () => { fabMenu.classList.toggle('active'); fabOverlay.classList.toggle('active'); });
+fabOverlay?.addEventListener('click', () => { fabMenu.classList.remove('active'); fabOverlay.classList.remove('active'); });
+
+// Profile Modal
+const profileBtn = document.getElementById('profileBtn');
+const profileModal = document.getElementById('profileModal');
+profileBtn?.addEventListener('click', () => { updateProfileModal(); profileModal.style.display = 'flex'; });
+function closeModal() { profileModal.style.display = 'none'; }
+window.onclick = (e) => { if (e.target === profileModal) closeModal(); };
 
 // ============ STUDENT FUNCTIONS ============
 function loadStudents() {
-  let students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS) || '[]');
-  const searchTerm = document.getElementById('studentSearch')?.value.toLowerCase() || '';
-  if (searchTerm) students = students.filter(s => s.name.toLowerCase().includes(searchTerm) || s.studentId.toLowerCase().includes(searchTerm));
+  let students = JSON.parse(localStorage.getItem(STORAGE.STUDENTS) || '[]');
+  const search = document.getElementById('studentSearch')?.value.toLowerCase() || '';
+  if (search) students = students.filter(s => s.name.toLowerCase().includes(search) || s.studentId.toLowerCase().includes(search));
   
   document.getElementById('studentCount').innerText = students.length;
   document.getElementById('statStudents').innerText = students.length;
-  
-  const avgRate = students.length ? students.reduce((sum, s) => sum + (parseFloat(s.rate) || 0), 0) / students.length : 0;
+  const avgRate = students.length ? students.reduce((s, a) => s + (parseFloat(a.rate) || 0), 0) / students.length : 0;
   document.getElementById('averageRate').innerText = avgRate.toFixed(2);
   
   const container = document.getElementById('studentsList');
@@ -278,9 +620,15 @@ function loadStudents() {
   
   container.innerHTML = students.map(s => `
     <div class="student-card">
-      <div class="student-card-header"><strong>${s.name}</strong> <span class="student-id">ID: ${s.studentId}</span><div class="student-actions"><button onclick="editStudent('${s.id}')">✏️</button><button onclick="deleteStudent('${s.id}')">🗑️</button></div></div>
-      <div>${s.email || 'No email'} | ${s.phone || 'No phone'} | Gender: ${s.gender || 'N/A'}</div>
-      <div>💰 Rate: $${parseFloat(s.rate || 25).toFixed(2)}/hour</div>
+      <div class="student-card-header">
+        <strong>${escapeHtml(s.name)}</strong>
+        <span class="student-id">ID: ${escapeHtml(s.studentId)}</span>
+        <div class="student-actions">
+          <button class="btn-icon" onclick="deleteStudent('${s.id}')">🗑️</button>
+        </div>
+      </div>
+      <div class="student-details">${s.email || 'No email'} | ${s.phone || 'No phone'} | ${s.gender || 'N/A'}</div>
+      <div class="student-rate">💰 $${parseFloat(s.rate || 25).toFixed(2)}/hour</div>
     </div>
   `).join('');
 }
@@ -290,40 +638,61 @@ function addStudent() {
   const studentId = document.getElementById('studentId').value;
   if (!name || !studentId) { alert('Please enter name and student ID'); return; }
   
-  const students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS) || '[]');
+  const students = JSON.parse(localStorage.getItem(STORAGE.STUDENTS) || '[]');
   students.push({
-    id: Date.now().toString(),
-    name, studentId, gender: document.getElementById('studentGender').value,
+    id: Date.now().toString(), name, studentId,
+    gender: document.getElementById('studentGender').value,
     email: document.getElementById('studentEmail').value,
     phone: document.getElementById('studentPhone').value,
-    rate: parseFloat(document.getElementById('studentRate').value) || parseFloat(localStorage.getItem(STORAGE_KEYS.DEFAULT_RATE) || '25')
+    rate: parseFloat(document.getElementById('studentRate').value) || parseFloat(localStorage.getItem(STORAGE.DEFAULT_RATE) || '25')
   });
-  localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
+  localStorage.setItem(STORAGE.STUDENTS, JSON.stringify(students));
   clearStudentForm();
   loadStudents();
   updateStats();
+  alert('Student added!');
 }
 
 function deleteStudent(id) {
   if (!confirm('Delete this student?')) return;
-  let students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS) || '[]');
+  let students = JSON.parse(localStorage.getItem(STORAGE.STUDENTS) || '[]');
   students = students.filter(s => s.id !== id);
-  localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
+  localStorage.setItem(STORAGE.STUDENTS, JSON.stringify(students));
   loadStudents();
   updateStats();
 }
 
-function editStudent(id) { alert('Edit feature - implement as needed'); }
-function filterStudents() { loadStudents(); }
-function clearStudentForm() { document.getElementById('studentForm')?.reset(); }
-function saveDefaultRate() { const rate = document.getElementById('defaultRate').value; localStorage.setItem(STORAGE_KEYS.DEFAULT_RATE, rate); alert(`Default rate set to $${rate}`); }
-function applyRateToAll() { const rate = parseFloat(document.getElementById('defaultRate').value); let students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS) || '[]'); students = students.map(s => ({ ...s, rate })); localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students)); loadStudents(); alert(`Applied $${rate} to all students`); }
+function clearStudentForm() {
+  document.getElementById('studentName').value = '';
+  document.getElementById('studentId').value = '';
+  document.getElementById('studentEmail').value = '';
+  document.getElementById('studentPhone').value = '';
+  document.getElementById('studentRate').value = localStorage.getItem(STORAGE.DEFAULT_RATE) || '25';
+}
+
+function saveDefaultRate() {
+  const rate = document.getElementById('defaultRate').value;
+  localStorage.setItem(STORAGE.DEFAULT_RATE, rate);
+  document.getElementById('currentDefaultRate').innerText = rate;
+  document.getElementById('studentRate').value = rate;
+  document.getElementById('workRate').value = rate;
+  alert(`Default rate set to $${rate}`);
+}
+
+function applyRateToAll() {
+  const rate = parseFloat(document.getElementById('defaultRate').value);
+  let students = JSON.parse(localStorage.getItem(STORAGE.STUDENTS) || '[]');
+  students = students.map(s => ({ ...s, rate }));
+  localStorage.setItem(STORAGE.STUDENTS, JSON.stringify(students));
+  loadStudents();
+  alert(`Applied $${rate} to all students`);
+}
 
 // ============ WORKLOG FUNCTIONS ============
-function loadStudentsDropdown() {
-  const students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS) || '[]');
+function loadStudentDropdown() {
+  const students = JSON.parse(localStorage.getItem(STORAGE.STUDENTS) || '[]');
   const select = document.getElementById('workStudent');
-  select.innerHTML = '<option value="">Select Student</option>' + students.map(s => `<option value="${s.id}">${s.name} (${s.studentId})</option>`).join('');
+  select.innerHTML = '<option value="">Select Student</option>' + students.map(s => `<option value="${s.id}">${escapeHtml(s.name)} (${s.studentId})</option>`).join('');
 }
 
 function toggleWorkType() {
@@ -335,39 +704,38 @@ function toggleWorkType() {
 function addWorklog() {
   const type = document.getElementById('workType').value;
   const studentId = document.getElementById('workStudent').value;
-  const studentName = type === 'student' ? document.getElementById('workStudent').selectedOptions[0]?.text.split('(')[0].trim() : '';
   const institution = document.getElementById('workInstitution').value;
   const date = document.getElementById('workDate').value || new Date().toISOString().split('T')[0];
   const subject = document.getElementById('workSubject').value;
-  const topic = document.getElementById('workTopic').value;
   const hours = parseFloat(document.getElementById('workHours').value);
   const rate = parseFloat(document.getElementById('workRate').value);
-  const description = document.getElementById('workDesc').value;
-  const outcomes = document.getElementById('workOutcomes').value;
+  const desc = document.getElementById('workDesc').value;
   
   if (!subject || !hours) { alert('Please fill subject and duration'); return; }
   if (type === 'student' && !studentId) { alert('Please select a student'); return; }
   if (type === 'institution' && !institution) { alert('Please enter institution name'); return; }
   
-  const worklogs = JSON.parse(localStorage.getItem(STORAGE_KEYS.WORKLOGS) || '[]');
+  const worklogs = JSON.parse(localStorage.getItem(STORAGE.WORKLOGS) || '[]');
   worklogs.unshift({
-    id: Date.now().toString(), type, studentId, studentName, institution,
-    date, subject, topic, hours, rate, description, outcomes,
-    total: hours * rate, createdAt: new Date().toISOString()
+    id: Date.now().toString(), type, studentId,
+    studentName: type === 'student' ? document.getElementById('workStudent').selectedOptions[0]?.text.split('(')[0].trim() : '',
+    institution, date, subject, topic: document.getElementById('workTopic').value,
+    hours, rate, description: desc, total: hours * rate
   });
-  localStorage.setItem(STORAGE_KEYS.WORKLOGS, JSON.stringify(worklogs));
+  localStorage.setItem(STORAGE.WORKLOGS, JSON.stringify(worklogs));
   clearWorklogForm();
   loadWorklogs();
   updateStats();
+  alert('Worklog saved!');
 }
 
 function loadWorklogs() {
-  let worklogs = JSON.parse(localStorage.getItem(STORAGE_KEYS.WORKLOGS) || '[]');
+  let worklogs = JSON.parse(localStorage.getItem(STORAGE.WORKLOGS) || '[]');
   const filterType = document.getElementById('filterType')?.value || '';
-  const searchTerm = document.getElementById('searchWorklog')?.value.toLowerCase() || '';
+  const search = document.getElementById('searchWorklog')?.value.toLowerCase() || '';
   
   if (filterType) worklogs = worklogs.filter(w => w.type === filterType);
-  if (searchTerm) worklogs = worklogs.filter(w => (w.subject || '').toLowerCase().includes(searchTerm) || (w.studentName || '').toLowerCase().includes(searchTerm) || (w.institution || '').toLowerCase().includes(searchTerm));
+  if (search) worklogs = worklogs.filter(w => (w.subject || '').toLowerCase().includes(search) || (w.studentName || '').toLowerCase().includes(search));
   
   document.getElementById('worklogCount').innerText = worklogs.length;
   if (worklogs.length) document.getElementById('lastWorklogDate').innerText = worklogs[0].date;
@@ -376,20 +744,19 @@ function loadWorklogs() {
   if (!worklogs.length) { container.innerHTML = '<p class="empty-message">No worklog entries yet.</p>'; return; }
   
   container.innerHTML = worklogs.map(w => `
-    <div class="worklog-card">
-      <div><strong>${w.type === 'student' ? w.studentName : w.institution}</strong> - ${w.subject}</div>
-      <div>📅 ${w.date} | ⏱️ ${w.hours}h | 💰 $${(w.hours * w.rate).toFixed(2)}</div>
-      <div>📝 ${w.description || 'No description'}</div>
-      ${w.outcomes ? `<div>🎯 ${w.outcomes}</div>` : ''}
-      <button onclick="deleteWorklog('${w.id}')" style="margin-top:10px; background:#ef4444;">Delete</button>
+    <div class="worklog-card ${w.type}">
+      <strong>${w.type === 'student' ? w.studentName : w.institution}</strong> - ${w.subject}<br>
+      📅 ${w.date} | ⏱️ ${w.hours}h | 💰 $${(w.hours * w.rate).toFixed(2)}<br>
+      📝 ${w.description || 'No description'}<br>
+      <button class="button small danger" onclick="deleteWorklog('${w.id}')" style="margin-top:10px;">Delete</button>
     </div>
   `).join('');
 }
 
 function deleteWorklog(id) {
-  let worklogs = JSON.parse(localStorage.getItem(STORAGE_KEYS.WORKLOGS) || '[]');
+  let worklogs = JSON.parse(localStorage.getItem(STORAGE.WORKLOGS) || '[]');
   worklogs = worklogs.filter(w => w.id !== id);
-  localStorage.setItem(STORAGE_KEYS.WORKLOGS, JSON.stringify(worklogs));
+  localStorage.setItem(STORAGE.WORKLOGS, JSON.stringify(worklogs));
   loadWorklogs();
   updateStats();
 }
@@ -401,105 +768,101 @@ function clearWorklogForm() {
   document.getElementById('workTopic').value = '';
   document.getElementById('workHours').value = '';
   document.getElementById('workDesc').value = '';
-  document.getElementById('workOutcomes').value = '';
   document.getElementById('workDate').value = new Date().toISOString().split('T')[0];
 }
 
 // ============ MARKS FUNCTIONS ============
-function loadStudentsDropdownForMarks() {
-  const students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS) || '[]');
+function loadMarkStudentDropdown() {
+  const students = JSON.parse(localStorage.getItem(STORAGE.STUDENTS) || '[]');
   const select = document.getElementById('markStudent');
-  select.innerHTML = '<option value="">Select Student</option>' + students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  select.innerHTML = '<option value="">Select Student</option>' + students.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
 }
 
-function calculatePercentage() {
+function calcPercentage() {
   const score = parseFloat(document.getElementById('markScore').value) || 0;
   const max = parseFloat(document.getElementById('markMax').value) || 1;
-  const percentage = (score / max) * 100;
-  document.getElementById('markPercentage').value = percentage.toFixed(1) + '%';
-  const grade = percentage >= 90 ? 'A' : percentage >= 80 ? 'B' : percentage >= 70 ? 'C' : percentage >= 60 ? 'D' : 'F';
+  const pct = (score / max) * 100;
+  document.getElementById('markPercentage').value = pct.toFixed(1) + '%';
+  const grade = pct >= 90 ? 'A' : pct >= 80 ? 'B' : pct >= 70 ? 'C' : pct >= 60 ? 'D' : 'F';
   document.getElementById('markGrade').value = grade;
 }
 
 function addMark() {
   const studentId = document.getElementById('markStudent').value;
   if (!studentId) { alert('Select a student'); return; }
-  const marks = JSON.parse(localStorage.getItem(STORAGE_KEYS.MARKS) || '[]');
+  const marks = JSON.parse(localStorage.getItem(STORAGE.MARKS) || '[]');
   marks.push({
-    id: Date.now().toString(), studentId, studentName: document.getElementById('markStudent').selectedOptions[0]?.text,
-    subject: document.getElementById('markSubject').value, topic: document.getElementById('markTopic').value,
+    id: Date.now().toString(), studentId,
+    studentName: document.getElementById('markStudent').selectedOptions[0]?.text,
+    subject: document.getElementById('markSubject').value,
+    topic: document.getElementById('markTopic').value,
     date: document.getElementById('markDate').value || new Date().toISOString().split('T')[0],
-    score: parseFloat(document.getElementById('markScore').value), max: parseFloat(document.getElementById('markMax').value) || 100,
-    percentage: parseFloat(document.getElementById('markPercentage').value), grade: document.getElementById('markGrade').value,
+    score: parseFloat(document.getElementById('markScore').value),
+    max: parseFloat(document.getElementById('markMax').value) || 100,
+    percentage: parseFloat(document.getElementById('markPercentage').value),
+    grade: document.getElementById('markGrade').value,
     notes: document.getElementById('markNotes').value
   });
-  localStorage.setItem(STORAGE_KEYS.MARKS, JSON.stringify(marks));
+  localStorage.setItem(STORAGE.MARKS, JSON.stringify(marks));
   loadMarks();
-  clearMarkForm();
+  alert('Mark added!');
 }
 
 function loadMarks() {
-  const marks = JSON.parse(localStorage.getItem(STORAGE_KEYS.MARKS) || '[]');
+  const marks = JSON.parse(localStorage.getItem(STORAGE.MARKS) || '[]');
   document.getElementById('marksCount').innerText = marks.length;
-  const avg = marks.length ? marks.reduce((sum, m) => sum + (parseFloat(m.percentage) || 0), 0) / marks.length : 0;
+  const avg = marks.length ? marks.reduce((s, m) => s + (parseFloat(m.percentage) || 0), 0) / marks.length : 0;
   document.getElementById('avgMarks').innerText = avg.toFixed(1);
   const container = document.getElementById('marksList');
   if (!marks.length) { container.innerHTML = '<p class="empty-message">No marks recorded yet.</p>'; return; }
-  container.innerHTML = marks.slice(0, 20).map(m => `<div class="mark-entry"><strong>${m.studentName}</strong> - ${m.subject}<br>📅 ${m.date} | Score: ${m.score}/${m.max} (${m.percentage}% - Grade ${m.grade})<br>${m.notes || ''}</div>`).join('');
-}
-
-function clearMarkForm() {
-  document.getElementById('markSubject').value = '';
-  document.getElementById('markTopic').value = '';
-  document.getElementById('markScore').value = '';
-  document.getElementById('markNotes').value = '';
+  container.innerHTML = marks.slice(0, 20).map(m => `<div class="student-card"><strong>${m.studentName}</strong> - ${m.subject}<br>📅 ${m.date} | Score: ${m.score}/${m.max} (${m.percentage}% - ${m.grade})<br>${m.notes || ''}</div>`).join('');
 }
 
 // ============ ATTENDANCE FUNCTIONS ============
 function loadAttendanceCheckboxes() {
-  const students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS) || '[]');
+  const students = JSON.parse(localStorage.getItem(STORAGE.STUDENTS) || '[]');
   const container = document.getElementById('attendanceCheckboxes');
   if (!students.length) { container.innerHTML = '<p class="empty-message">No students registered.</p>'; return; }
-  container.innerHTML = students.map(s => `<label style="display:block; margin:5px 0;"><input type="checkbox" value="${s.id}"> ${s.name}</label>`).join('');
+  container.innerHTML = students.map(s => `<label style="display:block; margin:8px 0;"><input type="checkbox" value="${s.id}"> ${escapeHtml(s.name)}</label>`).join('');
 }
 
 function saveAttendance() {
   const checkboxes = document.querySelectorAll('#attendanceCheckboxes input:checked');
-  const presentStudents = Array.from(checkboxes).map(cb => cb.value);
-  const attendance = JSON.parse(localStorage.getItem(STORAGE_KEYS.ATTENDANCE) || '[]');
+  const present = Array.from(checkboxes).map(cb => cb.value);
+  const attendance = JSON.parse(localStorage.getItem(STORAGE.ATTENDANCE) || '[]');
   attendance.unshift({
     id: Date.now().toString(),
     date: document.getElementById('attendanceDate').value || new Date().toISOString().split('T')[0],
     subject: document.getElementById('attendanceSubject').value,
     topic: document.getElementById('attendanceTopic').value,
-    presentStudents,
+    presentStudents: present,
     notes: document.getElementById('attendanceNotes').value
   });
-  localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(attendance));
+  localStorage.setItem(STORAGE.ATTENDANCE, JSON.stringify(attendance));
   loadAttendance();
   alert('Attendance saved!');
 }
 
 function loadAttendance() {
-  const attendance = JSON.parse(localStorage.getItem(STORAGE_KEYS.ATTENDANCE) || '[]');
+  const attendance = JSON.parse(localStorage.getItem(STORAGE.ATTENDANCE) || '[]');
   document.getElementById('attendanceCount').innerText = attendance.length;
   if (attendance.length) document.getElementById('lastSessionDate').innerText = attendance[0].date;
   const container = document.getElementById('attendanceList');
   if (!attendance.length) { container.innerHTML = '<p class="empty-message">No attendance records yet.</p>'; return; }
-  container.innerHTML = attendance.slice(0, 20).map(a => `<div class="attendance-entry"><strong>${a.subject}</strong> - ${a.topic}<br>📅 ${a.date} | ${a.presentStudents.length} students present<br>${a.notes || ''}</div>`).join('');
+  container.innerHTML = attendance.slice(0, 20).map(a => `<div class="student-card"><strong>${a.subject}</strong> - ${a.topic}<br>📅 ${a.date} | ${a.presentStudents.length} students present<br>${a.notes || ''}</div>`).join('');
 }
 
 // ============ PAYMENTS FUNCTIONS ============
-function loadStudentsDropdownForPayments() {
-  const students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS) || '[]');
+function loadPaymentStudentDropdown() {
+  const students = JSON.parse(localStorage.getItem(STORAGE.STUDENTS) || '[]');
   const select = document.getElementById('paymentStudent');
-  select.innerHTML = '<option value="">Select Student</option>' + students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  select.innerHTML = '<option value="">Select Student</option>' + students.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
 }
 
 function addPayment() {
   const studentId = document.getElementById('paymentStudent').value;
   if (!studentId) { alert('Select a student'); return; }
-  const payments = JSON.parse(localStorage.getItem(STORAGE_KEYS.PAYMENTS) || '[]');
+  const payments = JSON.parse(localStorage.getItem(STORAGE.PAYMENTS) || '[]');
   payments.unshift({
     id: Date.now().toString(), studentId,
     studentName: document.getElementById('paymentStudent').selectedOptions[0]?.text,
@@ -508,78 +871,100 @@ function addPayment() {
     method: document.getElementById('paymentMethod').value,
     notes: document.getElementById('paymentNotes').value
   });
-  localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(payments));
+  localStorage.setItem(STORAGE.PAYMENTS, JSON.stringify(payments));
   loadPayments();
   updateBalances();
   alert('Payment recorded!');
 }
 
 function loadPayments() {
-  const payments = JSON.parse(localStorage.getItem(STORAGE_KEYS.PAYMENTS) || '[]');
+  const payments = JSON.parse(localStorage.getItem(STORAGE.PAYMENTS) || '[]');
   const container = document.getElementById('paymentsList');
   if (!payments.length) { container.innerHTML = '<p class="empty-message">No payments yet.</p>'; return; }
-  container.innerHTML = payments.slice(0, 20).map(p => `<div class="payment-item"><strong>${p.studentName}</strong> - $${p.amount}<br>📅 ${p.date} | ${p.method}<br>${p.notes || ''}</div>`).join('');
+  container.innerHTML = payments.slice(0, 20).map(p => `<div class="student-card"><strong>${p.studentName}</strong> - $${p.amount}<br>📅 ${p.date} | ${p.method}<br>${p.notes || ''}</div>`).join('');
 }
 
 function updateBalances() {
-  const students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS) || '[]');
-  const worklogs = JSON.parse(localStorage.getItem(STORAGE_KEYS.WORKLOGS) || '[]');
-  const payments = JSON.parse(localStorage.getItem(STORAGE_KEYS.PAYMENTS) || '[]');
-  let totalOwed = 0;
+  const students = JSON.parse(localStorage.getItem(STORAGE.STUDENTS) || '[]');
+  const worklogs = JSON.parse(localStorage.getItem(STORAGE.WORKLOGS) || '[]');
+  const payments = JSON.parse(localStorage.getItem(STORAGE.PAYMENTS) || '[]');
+  let total = 0;
   students.forEach(s => {
     const earned = worklogs.filter(w => w.studentId === s.id).reduce((sum, w) => sum + (w.hours * w.rate), 0);
     const paid = payments.filter(p => p.studentId === s.id).reduce((sum, p) => sum + p.amount, 0);
-    totalOwed += Math.max(0, earned - paid);
+    total += Math.max(0, earned - paid);
   });
-  document.getElementById('totalOwed').innerText = totalOwed.toFixed(2);
+  document.getElementById('totalOwed').innerText = total.toFixed(2);
 }
 
-// ============ REPORTS FUNCTIONS ============
+// ============ REPORTS ============
 function generateReport() {
-  const students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS) || '[]');
-  const worklogs = JSON.parse(localStorage.getItem(STORAGE_KEYS.WORKLOGS) || '[]');
-  const totalHours = worklogs.reduce((sum, w) => sum + w.hours, 0);
-  const totalEarnings = worklogs.reduce((sum, w) => sum + (w.hours * w.rate), 0);
-  const preview = document.getElementById('reportPreview');
-  preview.innerHTML = `<div class="section-card"><h3>Summary Report</h3><p>📊 Total Students: ${students.length}</p><p>⏱️ Total Hours: ${totalHours.toFixed(1)}</p><p>💰 Total Earnings: $${totalEarnings.toFixed(2)}</p><p>📝 Total Worklog Entries: ${worklogs.length}</p></div>`;
+  const students = JSON.parse(localStorage.getItem(STORAGE.STUDENTS) || '[]');
+  const worklogs = JSON.parse(localStorage.getItem(STORAGE.WORKLOGS) || '[]');
+  const totalHours = worklogs.reduce((s, w) => s + w.hours, 0);
+  const totalEarnings = worklogs.reduce((s, w) => s + (w.hours * w.rate), 0);
+  document.getElementById('reportPreview').innerHTML = `
+    <div class="student-card">
+      <strong>📊 Summary Report</strong><br>
+      👥 Total Students: ${students.length}<br>
+      ⏱️ Total Hours: ${totalHours.toFixed(1)}<br>
+      💰 Total Earnings: $${totalEarnings.toFixed(2)}<br>
+      📝 Worklog Entries: ${worklogs.length}
+    </div>
+  `;
 }
 
-// ============ UTILITY FUNCTIONS ============
+// ============ UTILITIES ============
+function updateProfileModal() {
+  const students = JSON.parse(localStorage.getItem(STORAGE.STUDENTS) || '[]');
+  const worklogs = JSON.parse(localStorage.getItem(STORAGE.WORKLOGS) || '[]');
+  const totalHours = worklogs.reduce((s, w) => s + w.hours, 0);
+  const totalEarnings = worklogs.reduce((s, w) => s + (w.hours * w.rate), 0);
+  document.getElementById('modalStatStudents').innerText = students.length;
+  document.getElementById('modalStatHours').innerText = totalHours.toFixed(1);
+  document.getElementById('modalStatEarnings').innerText = '$' + totalEarnings.toFixed(2);
+}
+
 function updateStats() {
-  const students = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDENTS) || '[]');
-  const worklogs = JSON.parse(localStorage.getItem(STORAGE_KEYS.WORKLOGS) || '[]');
-  const totalHours = worklogs.reduce((sum, w) => sum + w.hours, 0);
+  const students = JSON.parse(localStorage.getItem(STORAGE.STUDENTS) || '[]');
+  const worklogs = JSON.parse(localStorage.getItem(STORAGE.WORKLOGS) || '[]');
+  const totalHours = worklogs.reduce((s, w) => s + w.hours, 0);
   document.getElementById('statStudents').innerText = students.length;
   document.getElementById('statHours').innerText = totalHours.toFixed(1);
 }
 
-function toggleTheme() { document.body.style.background = document.body.style.background === 'rgb(245, 245, 245)' ? '#1a1a2e' : '#f5f5f5'; document.body.style.color = document.body.style.background === '#1a1a2e' ? 'white' : 'black'; }
-function showProfile() { alert('User Profile - Logged in as Guest'); }
-function syncData() { alert('Sync feature - would sync to cloud'); }
-function exportData() { const data = {}; Object.values(STORAGE_KEYS).forEach(k => data[k] = JSON.parse(localStorage.getItem(k) || '[]')); const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `worklog_backup_${new Date().toISOString().split('T')[0]}.json`; a.click(); }
-function importData() { const input = document.createElement('input'); input.type = 'file'; input.accept = '.json'; input.onchange = e => { const file = e.target.files[0]; const reader = new FileReader(); reader.onload = ev => { const data = JSON.parse(ev.target.result); Object.keys(data).forEach(k => { if (Object.values(STORAGE_KEYS).includes(k)) localStorage.setItem(k, JSON.stringify(data[k])); }); location.reload(); }; reader.readAsText(file); }; input.click(); }
-function clearAllData() { if (confirm('DELETE ALL DATA? This cannot be undone!')) { Object.values(STORAGE_KEYS).forEach(k => localStorage.removeItem(k)); location.reload(); } }
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const newTheme = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('theme', newTheme);
+}
+
+function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, function(m) { if (m === '&') return '&amp;'; if (m === '<') return '&lt;'; if (m === '>') return '&gt;'; return m; }); }
+
+// Export/Import
+document.getElementById('exportDataBtn')?.addEventListener('click', () => {
+  const data = {}; Object.values(STORAGE).forEach(k => data[k] = JSON.parse(localStorage.getItem(k) || '[]'));
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)])); a.download = `worklog_backup_${new Date().toISOString().split('T')[0]}.json`; a.click();
+});
+document.getElementById('importDataBtn')?.addEventListener('click', () => {
+  const input = document.createElement('input'); input.type = 'file'; input.accept = '.json'; input.onchange = e => { const f = e.target.files[0]; const r = new FileReader(); r.onload = ev => { const data = JSON.parse(ev.target.result); Object.keys(data).forEach(k => { if (Object.values(STORAGE).includes(k)) localStorage.setItem(k, JSON.stringify(data[k])); }); location.reload(); }; r.readAsText(f); }; input.click();
+});
+document.getElementById('clearDataBtn')?.addEventListener('click', () => { if (confirm('DELETE ALL DATA? Cannot be undone!')) { Object.values(STORAGE).forEach(k => localStorage.removeItem(k)); location.reload(); } });
+document.getElementById('syncBtn')?.addEventListener('click', () => alert('Cloud sync would happen here'));
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('workDate').value = new Date().toISOString().split('T')[0];
-  document.getElementById('attendanceDate').value = new Date().toISOString().split('T')[0];
-  document.getElementById('paymentDate').value = new Date().toISOString().split('T')[0];
-  document.getElementById('markDate').value = new Date().toISOString().split('T')[0];
-  const defaultRate = localStorage.getItem(STORAGE_KEYS.DEFAULT_RATE) || '25';
+  const theme = localStorage.getItem('theme') || 'light';
+  document.documentElement.setAttribute('data-theme', theme);
+  const today = new Date().toISOString().split('T')[0];
+  ['workDate', 'attendanceDate', 'paymentDate', 'markDate'].forEach(id => { const el = document.getElementById(id); if (el) el.value = today; });
+  const defaultRate = localStorage.getItem(STORAGE.DEFAULT_RATE) || '25';
   document.getElementById('defaultRate').value = defaultRate;
+  document.getElementById('currentDefaultRate').innerText = defaultRate;
+  document.getElementById('studentRate').value = defaultRate;
   document.getElementById('workRate').value = defaultRate;
   loadStudents();
-  loadStudentsDropdown();
-  loadWorklogs();
-  loadStudentsDropdownForMarks();
-  loadMarks();
-  loadAttendanceCheckboxes();
-  loadAttendance();
-  loadStudentsDropdownForPayments();
-  loadPayments();
-  updateBalances();
-  generateReport();
   updateStats();
 });
 </script>
