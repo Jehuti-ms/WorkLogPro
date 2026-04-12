@@ -661,7 +661,7 @@ window.changeStudentSort = function(method) {
 };
 
 // ==================== INIT TABS ====================
-function initTabs() {
+/*function initTabs() {
   console.log('📋 Initializing tabs...');
   
   const tabButtons = document.querySelectorAll('.tab');
@@ -721,7 +721,7 @@ function initTabs() {
   window.switchTab = switchTab;
   
   console.log('✅ Tabs initialized, found:', tabButtons.length, 'tabs');
-}
+} */
 
 function loadTabData(tabName) {
   console.log(`📊 Loading data for ${tabName} tab...`);
