@@ -736,34 +736,34 @@ function initTabs() {
 function loadTabData(tabName) {
   console.log(`📊 Loading data for ${tabName} tab...`);
   
+  // Just load data, don't switch tabs here
   setTimeout(() => {
     switch(tabName) {
       case 'students':
         if (typeof loadStudents === 'function') loadStudents();
         break;
       case 'worklog':
-        if (window.worklogManager) {
+        if (window.worklogManager && typeof window.worklogManager.loadData === 'function') {
           window.worklogManager.loadData();
-          window.worklogManager.populateDropdowns();
-          window.worklogManager.updateUI();
-          window.worklogManager.updateStats();
         }
+        if (typeof loadWorklogEntries === 'function') loadWorklogEntries();
         break;
       case 'marks':
         if (typeof loadMarks === 'function') loadMarks();
-        populateMarksStudentDropdown();
+        if (typeof populateMarksStudentDropdown === 'function') populateMarksStudentDropdown();
         break;
       case 'attendance':
         if (typeof loadAttendance === 'function') loadAttendance();
-        populateAttendanceStudents();
+        if (typeof populateAttendanceStudents === 'function') populateAttendanceStudents();
         break;
       case 'payments':
         if (typeof loadPayments === 'function') loadPayments();
-        populatePaymentStudentDropdown();
+        if (typeof populatePaymentStudentDropdown === 'function') populatePaymentStudentDropdown();
         if (typeof updatePaymentBalances === 'function') updatePaymentBalances();
         break;
       case 'reports':
         if (typeof loadReports === 'function') loadReports();
+        if (typeof generateReport === 'function') generateReport();
         break;
     }
   }, 100);
