@@ -152,5 +152,85 @@
   });
 })();
 </script>
+
+  <script>
+// FINAL TAB FIX - OVERRIDE EVERYTHING
+(function() {
+  // Wait for everything to load
+  window.addEventListener('load', function() {
+    console.log('🏁 FINAL TAB FIX RUNNING');
+    
+    // Get all tabs and contents
+    const tabs = document.querySelectorAll('.tab');
+    const contents = document.querySelectorAll('.tabcontent');
+    
+    console.log('Found tabs:', tabs.length);
+    console.log('Found contents:', contents.length);
+    
+    // FORCE hide all contents
+    contents.forEach(content => {
+      content.style.display = 'none';
+      content.classList.remove('active');
+    });
+    
+    // FORCE show students tab only
+    const studentsTab = document.getElementById('students');
+    if (studentsTab) {
+      studentsTab.style.display = 'block';
+      studentsTab.classList.add('active');
+      console.log('Students tab forced visible');
+    }
+    
+    // Remove all existing click listeners and add new ones
+    tabs.forEach(tab => {
+      // Clone and replace to remove old listeners
+      const newTab = tab.cloneNode(true);
+      tab.parentNode.replaceChild(newTab, tab);
+      
+      newTab.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const tabName = this.getAttribute('data-tab');
+        console.log('🔘 Tab clicked:', tabName);
+        
+        // Hide ALL contents
+        document.querySelectorAll('.tabcontent').forEach(content => {
+          content.style.display = 'none';
+          content.classList.remove('active');
+        });
+        
+        // Remove active class from all tabs
+        document.querySelectorAll('.tab').forEach(t => {
+          t.classList.remove('active');
+        });
+        
+        // Show selected content
+        const selected = document.getElementById(tabName);
+        if (selected) {
+          selected.style.display = 'block';
+          selected.classList.add('active');
+          console.log('✅ Showing:', tabName);
+        } else {
+          console.error('❌ Content not found:', tabName);
+        }
+        
+        // Mark this tab as active
+        this.classList.add('active');
+      });
+    });
+    
+    // Also fix FAB buttons if they use switchTab
+    if (window.switchTab) {
+      window.switchTab = function(tabName) {
+        const tab = document.querySelector(`.tab[data-tab="${tabName}"]`);
+        if (tab) tab.click();
+      };
+    }
+    
+    console.log('✅ FINAL TAB FIX COMPLETE');
+  });
+})();
+</script>
 </body>
 </html>
