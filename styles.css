@@ -6694,3 +6694,13 @@ button:focus:not(:focus-visible) {
   min-height: 400px !important;
   padding: 20px !important;
 }
+
+/* Force tab content visibility - overrides any inline styles */
+.tabcontent[style*="display: block"] {
+  display: block !important;
+}
+
+.tabcontent.active {
+  display: block !important;
+}
+
