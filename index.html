@@ -158,5 +158,116 @@
   <script src="rate-manager.js"></script>
   <script src="backup-manager.js"></script>
 
+  <script>
+// ==================== COMPLETE TAB SYSTEM ====================
+(async function() {
+  console.log('🚀 STARTING TAB SYSTEM...');
+  
+  // List of all tabs
+  const tabs = ['students', 'worklog', 'marks', 'attendance', 'payments', 'reports'];
+  const loadedTabs = {};
+  
+  // Function to load tab content
+  async function loadTab(tabName) {
+    if (loadedTabs[tabName]) {
+      console.log(`📁 ${tabName} already loaded`);
+      return true;
+    }
+    
+    const tabDiv = document.getElementById(tabName);
+    if (!tabDiv) {
+      console.error(`❌ Tab container not found: ${tabName}`);
+      return false;
+    }
+    
+    console.log(`📥 Loading ${tabName}.html...`);
+    try {
+      const response = await fetch(`tabs/${tabName}.html`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const html = await response.text();
+      tabDiv.innerHTML = html;
+      loadedTabs[tabName] = true;
+      console.log(`✅ Loaded ${tabName} (${html.length} bytes)`);
+      return true;
+    } catch (error) {
+      console.error(`❌ Error loading ${tabName}:`, error);
+      tabDiv.innerHTML = `<p class="empty-message">Error loading ${tabName} content</p>`;
+      return false;
+    }
+  }
+  
+  // Function to show a tab
+  function showTab(tabName) {
+    console.log(`👁️ Showing tab: ${tabName}`);
+    
+    // Hide all tabs
+    tabs.forEach(name => {
+      const tab = document.getElementById(name);
+      if (tab) {
+        tab.style.display = 'none';
+        tab.classList.remove('active');
+      }
+    });
+    
+    // Remove active class from all buttons
+    document.querySelectorAll('.tab').forEach(btn => {
+      btn.classList.remove('active');
+    });
+    
+    // Show selected tab
+    const selectedTab = document.getElementById(tabName);
+    if (selectedTab) {
+      selectedTab.style.display = 'block';
+      selectedTab.classList.add('active');
+    }
+    
+    // Activate button
+    const activeBtn = document.querySelector(`.tab[data-tab="${tabName}"]`);
+    if (activeBtn) {
+      activeBtn.classList.add('active');
+    }
+  }
+  
+  // Function to switch to a tab (load then show)
+  async function switchToTab(tabName) {
+    console.log(`🔄 Switching to: ${tabName}`);
+    await loadTab(tabName);
+    showTab(tabName);
+  }
+  
+  // Pre-load all tabs in the background
+  async function preloadAllTabs() {
+    console.log('📦 Preloading all tabs in background...');
+    const promises = tabs.map(tab => loadTab(tab));
+    await Promise.all(promises);
+    console.log('✅ All tabs preloaded!');
+  }
+  
+  // Attach click handlers to tab buttons
+  document.querySelectorAll('.tab').forEach(tab => {
+    const newTab = tab.cloneNode(true);
+    tab.parentNode.replaceChild(newTab, tab);
+    
+    newTab.addEventListener('click', async function(e) {
+      e.preventDefault();
+      const tabName = this.getAttribute('data-tab');
+      console.log(`🖱️ Clicked: ${tabName}`);
+      await switchToTab(tabName);
+    });
+  });
+  
+  // Determine initial tab
+  const activeButton = document.querySelector('.tab.active');
+  const initialTab = activeButton ? activeButton.getAttribute('data-tab') : 'students';
+  console.log(`🎯 Initial tab: ${initialTab}`);
+  
+  // Preload all tabs, then show initial tab
+  await preloadAllTabs();
+  await switchToTab(initialTab);
+  
+  console.log('✅ TAB SYSTEM READY - All tabs preloaded!');
+})();
+</script>
+  
  </body>
 </html>
