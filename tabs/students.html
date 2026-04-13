@@ -1,1 +1,77 @@
+ <!-- ==================== STUDENTS TAB ==================== -->
+    <div id="students" class="tabcontent active">
+      <div class="section-header">
+        <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+          <h2>📚 Student Management</h2>
+          <div class="sort-controls" id="sortControlsContainer">
+            <select id="studentSortSelect" class="sort-select" onchange="changeStudentSort(this.value)">
+              <option value="id">Sort by ID 🔢</option>
+              <option value="name">Sort by Name 📝</option>
+              <option value="date">Sort by Date 📅</option>
+              <option value="rate">Sort by Rate 💰</option>
+            </select>
+          </div>
+        </div>
+        <div class="student-stats">
+          <span class="stat-badge" id="studentCount">0</span>
+          <span class="stat-divider">|</span>
+          <span class="stat-text">Avg Rate: $<span id="averageRate">0.00</span>/session</span>
+        </div>
+      </div>
+  
+      <div class="default-rate-panel">
+        <h4>💰 Default Rate Settings</h4>
+        <div class="form-group">
+          <label for="defaultBaseRate">Set Default Rate ($/session)</label>
+          <div class="rate-input-wrapper">
+            <span class="currency-symbol">$</span>
+            <input type="number" id="defaultBaseRate" step="0.01" min="0" placeholder="25.00">
+            <span class="rate-suffix">/ session</span>
+          </div>
+          <div class="help-text">This rate will be automatically filled for new students</div>
+        </div>
+        <div class="current-rate-display">
+          <span class="current-label">Current Default Rate:</span>
+          <span class="current-value">$<span id="currentDefaultRate">0.00</span>/session</span>
+        </div>
+        <div class="rate-actions">
+          <button type="button" class="button success" id="saveDefaultRateBtn">💾 Save Default Rate</button>
+          <button type="button" class="button warning" id="applyRateToAllBtn">🔄 Apply to All Students</button>
+          <button type="button" class="button secondary" id="useDefaultRateBtn">📝 Use in Student Form</button>
+        </div>
+        <div class="user-context">
+          <div class="user-email-badge"><span>👤</span><span><strong id="currentUserEmail">Loading...</strong></span></div>
+          <div class="rate-badge"><span>💰</span><span>Rate: <span id="ratePreview">$25.00/hour</span></span></div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <h3>👤 Student Registration</h3>
+        <form id="studentForm">
+          <div class="form-grid">
+            <div class="form-group"><label for="studentName">Full Name *</label><input type="text" id="studentName" required></div>
+            <div class="form-group"><label for="studentId">Student ID *</label><input type="text" id="studentId" required></div>
+            <div class="form-group"><label for="studentGender">Gender *</label><select id="studentGender" required><option value="">Select gender</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+            <div class="form-group"><label for="studentEmail">Email</label><input type="email" id="studentEmail"></div>
+            <div class="form-group"><label for="studentPhone">Phone</label><input type="tel" id="studentPhone"></div>
+            <div class="form-group"><label for="studentRate">Base Rate ($/session)</label><input type="number" id="studentRate" step="0.01" min="0"></div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="button primary" id="studentSubmitBtn">➕ Add Student</button>
+            <button type="button" class="button secondary" onclick="clearStudentForm()">🗑️ Clear Form</button>
+            <button type="button" class="button warning" id="studentCancelBtn" style="display: none;">❌ Cancel Edit</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="section-card">
+        <div class="section-header">
+          <h3>📋 Registered Students</h3>
+          <div class="list-controls"><input type="text" id="studentSearch" placeholder="🔍 Search students..."></div>
+        </div>
+        <div class="students-container" id="studentsContainer"><p class="empty-message">No students registered yet.</p></div>
+      </div>
+    </div>
+
+    <!-- ==================== END STUDENTS TAB ==================== -->
 
