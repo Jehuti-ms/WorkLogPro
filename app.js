@@ -156,6 +156,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ========= Make sure saveDefaultRate is globally available ==========
+// Single saveDefaultRate function - KEEP ONLY THIS ONE
 window.saveDefaultRate = function() {
   console.log('💾 Saving default rate...');
   
@@ -172,12 +173,15 @@ window.saveDefaultRate = function() {
   }
   
   const formattedRate = rate.toFixed(2);
+  
+  // Save to localStorage
   localStorage.setItem('defaultHourlyRate', formattedRate);
   
+  // Update display
   const display = document.getElementById('currentDefaultRate');
   if (display) display.textContent = formattedRate;
   
-  // Also update rate preview if exists
+  // Update rate preview
   const ratePreview = document.getElementById('ratePreview');
   if (ratePreview) ratePreview.textContent = `$${formattedRate}/hour`;
   
@@ -185,21 +189,13 @@ window.saveDefaultRate = function() {
   const studentRate = document.getElementById('studentRate');
   if (studentRate) studentRate.placeholder = `Default: $${formattedRate}`;
   
+  // Update worklog rate field if exists
+  const worklogRate = document.getElementById('worklogRate');
+  if (worklogRate) worklogRate.value = formattedRate;
+  
   alert(`Default rate set to $${formattedRate}/hour`);
   console.log(`✅ Rate saved: ${formattedRate}`);
 };
-
-// Re-attach button handler after DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-  const saveBtn = document.getElementById('saveDefaultRateBtn');
-  if (saveBtn) {
-    // Remove any existing listeners and add new one
-    const newBtn = saveBtn.cloneNode(true);
-    saveBtn.parentNode.replaceChild(newBtn, saveBtn);
-    newBtn.addEventListener('click', window.saveDefaultRate);
-    console.log('✅ Save button handler attached');
-  }
-});
 
 // ==================== SIMPLE RATE MANAGER ====================
 const SimpleRateManager = {
@@ -447,26 +443,6 @@ function initDefaultRate() {
     SimpleRateManager.updateUI();
 }
 
-// ==================== SAVE DEFAULT RATE ====================
-window.saveDefaultRate = function() {
-    const input = document.getElementById('defaultBaseRate');
-    if (!input) return;
-    
-    const rate = parseFloat(input.value);
-    if (isNaN(rate) || rate <= 0) {
-        showNotification('Please enter a valid rate', 'error');
-        return;
-    }
-    
-    // Save and update UI
-    const saved = SimpleRateManager.set(rate);
-    showNotification(`Default rate set to $${saved}`, 'success');
-    
-    // Simple cloud sync if available
-    if (window.syncService && firebase.auth().currentUser) {
-        setTimeout(() => window.syncService.sync(false, false), 500);
-    }
-};
 
 // ==================== APPLY DEFAULT RATE TO FORM ====================
 window.useDefaultRate = function() {
