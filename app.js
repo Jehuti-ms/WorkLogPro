@@ -9,38 +9,40 @@ const TabManager = {
   loadedTabs: {},
   
   async loadTab(tabName) {
-    // Don't reload if already loaded
-    if (this.loadedTabs[tabName]) {
-      console.log(`Tab ${tabName} already loaded`);
-      // Still need to show it and init functions
-      this.showTab(tabName);
-      this.initTabFunctions(tabName);
-      return;
+  if (this.loadedTabs[tabName]) {
+    console.log(`Tab ${tabName} already loaded`);
+    // Still need to show it
+    const tabContainer = document.getElementById(tabName);
+    if (tabContainer) {
+      tabContainer.classList.add('active');
+      tabContainer.style.display = 'block';
     }
+    return;
+  }
+  
+  try {
+    console.log(`Loading tab: ${tabName}`);
+    const response = await fetch(`tabs/${tabName}.html`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const html = await response.text();
     
-    try {
-      console.log(`Loading tab: ${tabName}`);
-      const response = await fetch(`tabs/${tabName}.html`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const html = await response.text();
+    const tabContainer = document.getElementById(tabName);
+    if (tabContainer) {
+      tabContainer.innerHTML = html;
+      this.loadedTabs[tabName] = true;
+      console.log(`Tab ${tabName} loaded successfully`);
       
-      const tabContainer = document.getElementById(tabName);
-      if (tabContainer) {
-        tabContainer.innerHTML = html;
-        this.loadedTabs[tabName] = true;
-        console.log(`Tab ${tabName} loaded successfully`);
-        
-        // Initialize tab-specific functionality
-        this.initTabFunctions(tabName);
-      }
-    } catch (error) {
-      console.error(`Error loading tab ${tabName}:`, error);
-      const tabContainer = document.getElementById(tabName);
-      if (tabContainer) {
-        tabContainer.innerHTML = `<p class="empty-message">Error loading ${tabName} content. Please refresh.</p>`;
-      }
+      // Initialize tab-specific functions after content is loaded
+      this.initTabFunctions(tabName);
     }
-  },
+  } catch (error) {
+    console.error(`Error loading tab ${tabName}:`, error);
+    const tabContainer = document.getElementById(tabName);
+    if (tabContainer) {
+      tabContainer.innerHTML = `<p class="empty-message">Error loading ${tabName} content. Please refresh.</p>`;
+    }
+  }
+},
   
   showTab(tabName) {
     const tabContainer = document.getElementById(tabName);
