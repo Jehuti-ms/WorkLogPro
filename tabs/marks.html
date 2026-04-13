@@ -1,0 +1,70 @@
+ <!-- ==================== MARKS TAB ==================== -->
+    <div id="marks" class="tabcontent">
+      <div class="section-header">
+        <h2>📊 Marks & Assessments</h2>
+        <div class="student-stats">
+          <span class="stat-badge" id="marksCount">0</span>
+          <span class="stat-divider">|</span>
+          <span class="stat-text">Avg Score: <span id="avgMarks">0%</span></span>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="section-card">
+          <h3>➕ Add New Mark</h3>
+          <form id="marksForm">
+            <div class="form-group">
+              <label for="marksStudent">Student *</label>
+              <select id="marksStudent" required>
+                <option value="">Select Student</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="marksSubject">Subject *</label>
+              <input type="text" id="marksSubject" required>
+            </div>
+            <div class="form-group">
+              <label for="marksTopic">Topic *</label>
+              <input type="text" id="marksTopic" required>
+            </div>
+            <div class="form-group">
+              <label for="marksDate">Date *</label>
+              <input type="date" id="marksDate" required>
+            </div>
+            <div class="form-group">
+              <label for="marksScore">Score *</label>
+              <input type="number" id="marksScore" step="0.1" required oninput="updateMarksPercentage()">
+            </div>
+            <div class="form-group">
+              <label for="marksMax">Max Score *</label>
+              <input type="number" id="marksMax" step="0.1" required oninput="updateMarksPercentage()">
+            </div>
+            <div class="form-group">
+              <label for="percentage">Percentage</label>
+              <input type="text" id="percentage" readonly>
+            </div>
+            <div class="form-group">
+              <label for="grade">Grade</label>
+              <input type="text" id="grade" readonly>
+            </div>
+            <div class="form-group">
+              <label for="marksNotes">Notes</label>
+              <textarea id="marksNotes"></textarea>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="button primary" id="marksSubmitBtn">➕ Add Mark</button>
+              <button type="button" class="button secondary" onclick="resetMarksForm()">🗑️ Clear Form</button>
+              <button type="button" class="button warning" id="cancelMarkBtn" style="display: none;">❌ Cancel Edit</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="section-card">
+          <h3>📋 Recent Marks</h3>
+          <div id="marksContainer">
+            <p class="empty-message">No marks recorded yet.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- ==================== END MARKS TAB ==================== -->
