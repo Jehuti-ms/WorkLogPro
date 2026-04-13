@@ -433,16 +433,7 @@ body {
 /* =========================== */
 /* TAB CONTENT - CRITICAL FIX */
 /* =========================== */
-.tabcontent {
-  display: none !important;  /* Force hide when not active */
-  padding: 24px 20px;
-  animation: fadeIn 0.3s ease;
-  contain: layout style paint;
-}
 
-.tabcontent.active {
-  display: block !important;  /* Force show when active */
-}
 
 /* Mobile Grid Layout - Keep visual only, don't interfere with display */
 @media (max-width: 768px) {
@@ -519,16 +510,7 @@ body {
 /* =========================== */
 /* TAB CONTENT */
 /* =========================== */
-.tabcontent {
-  display: none;
-  padding: 24px 20px;
-  animation: fadeIn 0.3s ease;
-  contain: layout style paint;
-}
 
-.tabcontent.active {
-  display: block;
-}
 
 @keyframes fadeIn {
   from { 
@@ -6689,26 +6671,20 @@ button:focus:not(:focus-visible) {
   display: block !important;
 }
 
-/* Make sure all tab content is visible */
-.tabcontent {
-  min-height: 400px !important;
-  padding: 20px !important;
-}
-
-/* Force tab content visibility - overrides any inline styles */
-.tabcontent[style*="display: block"] {
-  display: block !important;
-}
-
-.tabcontent.active {
-  display: block !important;
-}
-
-/* FORCE TAB VISIBILITY - CRITICAL */
+/* ========== FINAL TAB OVERRIDE - DO NOT REMOVE ========== */
 .tabcontent {
   display: none !important;
 }
 
 .tabcontent.active {
+  display: block !important;
+}
+
+/* Force students tab to be visible on load */
+#students.tabcontent {
+  display: block !important;
+}
+
+#students.tabcontent.active {
   display: block !important;
 }
