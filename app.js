@@ -381,7 +381,7 @@ function initAppUI() {
   try {
     initDefaultRate();
     updateProfileInfo();
-    initTabs(); 
+ //   initTabs(); 
     initForms();
     initFAB();
     initProfileModal();
@@ -812,7 +812,7 @@ window.changeStudentSort = function(method) {
 };
 
 // ==================== INIT TABS - FIXED VERSION ====================
-function initTabs() {
+/*function initTabs() {
   console.log('📋 Initializing tabs...');
   
   const tabButtons = document.querySelectorAll('.tab');
@@ -883,6 +883,7 @@ function initTabs() {
   
   console.log("✅ Tabs initialized successfully");
 }
+*/
 
 function loadTabData(tabName) {
   console.log(`📊 Loading data for ${tabName} tab...`);
