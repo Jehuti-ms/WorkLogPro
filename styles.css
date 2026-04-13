@@ -6704,3 +6704,11 @@ button:focus:not(:focus-visible) {
   display: block !important;
 }
 
+/* FORCE TAB VISIBILITY - CRITICAL */
+.tabcontent {
+  display: none !important;
+}
+
+.tabcontent.active {
+  display: block !important;
+}
