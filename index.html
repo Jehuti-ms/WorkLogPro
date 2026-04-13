@@ -161,86 +161,124 @@
 <script>
 // ==================== FINAL TAB SYSTEM - OVERRIDES EVERYTHING ====================
 (function() {
-  console.log('🔥🔥🔥 FINAL TAB SYSTEM OVERRIDE 🔥🔥🔥');
+  console.log('🔥🔥🔥 FINAL TAB SYSTEM - RUNNING LAST 🔥🔥🔥');
   
-  const tabs = ['students', 'worklog', 'marks', 'attendance', 'payments', 'reports'];
-  const loaded = {};
+  // List of all tabs
+  const allTabs = ['students', 'worklog', 'marks', 'attendance', 'payments', 'reports'];
+  const loadedContent = {};
   
-  async function loadTab(tabName) {
-    if (loaded[tabName]) return true;
-    
-    const container = document.getElementById(tabName);
-    if (!container) return false;
-    
-    console.log(`📥 Loading: tabs/${tabName}.html`);
-    try {
-      const res = await fetch(`tabs/${tabName}.html`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const html = await res.text();
-      container.innerHTML = html;
-      loaded[tabName] = true;
-      console.log(`✅ Loaded: ${tabName} (${html.length} bytes)`);
+  // Function to load tab content
+  async function loadTabContent(tabName) {
+    if (loadedContent[tabName]) {
+      console.log(`📁 ${tabName} already loaded`);
       return true;
-    } catch(e) {
-      console.error(`❌ Failed: ${tabName}`, e);
-      container.innerHTML = `<p class="empty-message">Failed to load ${tabName}</p>`;
+    }
+    
+    const tabDiv = document.getElementById(tabName);
+    if (!tabDiv) {
+      console.error(`❌ Tab container not found: ${tabName}`);
+      return false;
+    }
+    
+    console.log(`📥 Loading tabs/${tabName}.html...`);
+    try {
+      const response = await fetch(`tabs/${tabName}.html`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const html = await response.text();
+      tabDiv.innerHTML = html;
+      loadedContent[tabName] = true;
+      console.log(`✅ Loaded ${tabName} (${html.length} bytes)`);
+      return true;
+    } catch (error) {
+      console.error(`❌ Error loading ${tabName}:`, error);
+      tabDiv.innerHTML = `<p class="empty-message">Error loading ${tabName} content</p>`;
       return false;
     }
   }
   
+  // Function to show a tab
   function showTab(tabName) {
-    console.log(`👁️ Show: ${tabName}`);
-    tabs.forEach(name => {
-      const el = document.getElementById(name);
-      if (el) {
-        el.style.display = 'none';
-        el.classList.remove('active');
-      }
-    });
-    document.querySelectorAll('.tab').forEach(btn => btn.classList.remove('active'));
+    console.log(`👁️ Showing tab: ${tabName}`);
     
-    const selected = document.getElementById(tabName);
-    if (selected) {
-      selected.style.display = 'block';
-      selected.classList.add('active');
+    // Hide ALL tabs
+    for (const tab of allTabs) {
+      const element = document.getElementById(tab);
+      if (element) {
+        element.style.display = 'none';
+        element.classList.remove('active');
+      }
     }
-    const btn = document.querySelector(`.tab[data-tab="${tabName}"]`);
-    if (btn) btn.classList.add('active');
+    
+    // Remove active class from all buttons
+    const allButtons = document.querySelectorAll('.tab');
+    for (const btn of allButtons) {
+      btn.classList.remove('active');
+    }
+    
+    // Show selected tab
+    const selectedTab = document.getElementById(tabName);
+    if (selectedTab) {
+      selectedTab.style.display = 'block';
+      selectedTab.classList.add('active');
+      console.log(`✅ Now showing: ${tabName}`);
+    }
+    
+    // Activate the clicked button
+    const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
+    if (activeButton) {
+      activeButton.classList.add('active');
+    }
   }
   
-  async function switchTab(tabName) {
-    console.log(`🔄 Switch: ${tabName}`);
-    await loadTab(tabName);
+  // Function to switch to a tab
+  async function switchToTab(tabName) {
+    console.log(`🔄 Switching to: ${tabName}`);
+    await loadTabContent(tabName);
     showTab(tabName);
   }
   
-  // Remove all existing tab listeners and add new ones
-  document.querySelectorAll('.tab').forEach(btn => {
-    const newBtn = btn.cloneNode(true);
-    btn.parentNode.replaceChild(newBtn, btn);
-    newBtn.addEventListener('click', async (e) => {
-      e.preventDefault();
-      const name = newBtn.getAttribute('data-tab');
-      console.log(`🖱️ Clicked: ${name}`);
-      await switchTab(name);
-    });
-  });
+  // Remove ALL existing click handlers and attach new ones
+  const tabButtons = document.querySelectorAll('.tab');
+  console.log(`Found ${tabButtons.length} tab buttons`);
   
-  // Preload all tabs
-  (async () => {
+  for (const oldBtn of tabButtons) {
+    // Clone and replace to remove all existing listeners
+    const newBtn = oldBtn.cloneNode(true);
+    oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+    
+    // Add new click handler
+    newBtn.addEventListener('click', async function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const tabName = this.getAttribute('data-tab');
+      console.log(`🖱️ Tab clicked: ${tabName}`);
+      await switchToTab(tabName);
+    });
+  }
+  
+  // Load all tabs in background and show the initial one
+  async function init() {
     console.log('📦 Preloading all tabs...');
-    for (const tab of tabs) {
-      await loadTab(tab);
-    }
+    
+    // Load all tabs in parallel
+    const promises = allTabs.map(tab => loadTabContent(tab));
+    await Promise.all(promises);
+    
     console.log('✅ All tabs preloaded!');
     
-    // Show initial tab
-    const active = document.querySelector('.tab.active');
-    const initial = active ? active.getAttribute('data-tab') : 'students';
-    await switchTab(initial);
-  })();
+    // Find the active tab button
+    const activeBtn = document.querySelector('.tab.active');
+    const initialTab = activeBtn ? activeBtn.getAttribute('data-tab') : 'students';
+    console.log(`🎯 Initial tab: ${initialTab}`);
+    
+    // Show the initial tab
+    await switchToTab(initialTab);
+    
+    console.log('🔥🔥🔥 FINAL TAB SYSTEM READY 🔥🔥🔥');
+  }
   
-  console.log('🔥🔥🔥 FINAL TAB SYSTEM ACTIVE 🔥🔥🔥');
+  // Start the system
+  init();
 })();
 </script>
   
