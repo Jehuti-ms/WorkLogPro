@@ -281,6 +281,100 @@
   init();
 })();
 </script>
+
+  <script>
+// FIX FOR DEFAULT RATE BUTTONS - Runs after everything else
+(function() {
+  console.log('🔧 Fixing rate buttons...');
+  
+  function fixSaveRateButton() {
+    const saveBtn = document.getElementById('saveDefaultRateBtn');
+    if (!saveBtn) return;
+    
+    // Remove any existing listeners
+    const newSaveBtn = saveBtn.cloneNode(true);
+    saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+    
+    newSaveBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      const input = document.getElementById('defaultBaseRate');
+      if (!input) return;
+      
+      const rate = parseFloat(input.value);
+      if (isNaN(rate) || rate <= 0) {
+        alert('Please enter a valid rate');
+        return;
+      }
+      
+      const formattedRate = rate.toFixed(2);
+      localStorage.setItem('defaultHourlyRate', formattedRate);
+      
+      const display = document.getElementById('currentDefaultRate');
+      if (display) display.textContent = formattedRate;
+      
+      const ratePreview = document.getElementById('ratePreview');
+      if (ratePreview) ratePreview.textContent = `$${formattedRate}/hour`;
+      
+      alert(`Default rate set to $${formattedRate}/hour`);
+      console.log(`✅ Rate saved: ${formattedRate}`);
+    });
+    console.log('✅ Save rate button fixed');
+  }
+  
+  function fixApplyToAllButton() {
+    const applyBtn = document.getElementById('applyRateToAllBtn');
+    if (!applyBtn) return;
+    
+    const newApplyBtn = applyBtn.cloneNode(true);
+    applyBtn.parentNode.replaceChild(newApplyBtn, applyBtn);
+    
+    newApplyBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      const rate = localStorage.getItem('defaultHourlyRate') || '25.00';
+      if (confirm(`Apply $${rate}/hour to ALL students?`)) {
+        let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+        students = students.map(s => ({ ...s, rate: parseFloat(rate), hourlyRate: parseFloat(rate) }));
+        localStorage.setItem('worklog_students', JSON.stringify(students));
+        if (typeof loadStudents === 'function') loadStudents();
+        alert(`Updated ${students.length} students to $${rate}/hour`);
+      }
+    });
+    console.log('✅ Apply to all button fixed');
+  }
+  
+  function fixUseDefaultRateButton() {
+    const useBtn = document.getElementById('useDefaultRateBtn');
+    if (!useBtn) return;
+    
+    const newUseBtn = useBtn.cloneNode(true);
+    useBtn.parentNode.replaceChild(newUseBtn, useBtn);
+    
+    newUseBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      const rate = localStorage.getItem('defaultHourlyRate') || '25.00';
+      const studentRate = document.getElementById('studentRate');
+      if (studentRate) {
+        studentRate.value = rate;
+        alert(`Default rate $${rate} applied to form`);
+      }
+    });
+    console.log('✅ Use default rate button fixed');
+  }
+  
+  // Run after DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      fixSaveRateButton();
+      fixApplyToAllButton();
+      fixUseDefaultRateButton();
+    });
+  } else {
+    fixSaveRateButton();
+    fixApplyToAllButton();
+    fixUseDefaultRateButton();
+  }
+})();
+</script>
   
  </body>
 </html>
