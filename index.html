@@ -117,75 +117,7 @@
       
 
         
-       <!-- ==================== PAYMENTS TAB ==================== -->
-    <div id="payments" class="tabcontent">
-      <div class="section-header">
-        <h2>💰 Payment Management</h2>
-        <div class="student-stats">
-          <span class="stat-text">Total Students: <span id="totalStudentsCount">0</span></span>
-          <span class="stat-divider">|</span>
-          <span class="stat-text">Total Owed: <span id="totalOwed">$0</span></span>
-          <span class="stat-divider">|</span>
-          <span class="stat-text">This Month: <span id="monthlyPayments">$0</span></span>
-        </div>
-      </div>
-
-      <div class="form-grid">
-        <div class="section-card">
-          <h3>💳 Record Payment</h3>
-          <form id="paymentForm">
-            <div class="form-group">
-              <label for="paymentStudent">Student *</label>
-              <select id="paymentStudent" required>
-                <option value="">Select Student</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="paymentAmount">Amount ($) *</label>
-              <input type="number" id="paymentAmount" step="0.01" min="0.01" required>
-            </div>
-            <div class="form-group">
-              <label for="paymentDate">Date *</label>
-              <input type="date" id="paymentDate" required>
-            </div>
-            <div class="form-group">
-              <label for="paymentMethod">Method</label>
-              <select id="paymentMethod">
-                <option>Cash</option>
-                <option>Bank Transfer</option>
-                <option>Credit Card</option>
-                <option>PayPal</option>
-                <option>Other</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="paymentNotes">Notes</label>
-              <textarea id="paymentNotes"></textarea>
-            </div>
-            <div class="form-actions">
-              <button type="submit" class="button primary" id="paymentSubmitBtn">💾 Record Payment</button>
-              <button type="button" class="button secondary" onclick="resetPaymentForm()">🗑️ Clear Form</button>
-              <button type="button" class="button warning" id="cancelPaymentBtn" style="display: none;">❌ Cancel Edit</button>
-            </div>
-          </form>
-        </div>
-
-        <div class="section-card">
-          <h3>👥 Student Balances</h3>
-          <div id="studentBalancesContainer">
-            <p class="empty-message">No payment data yet.</p>
-          </div>
-        </div>
-
-        <div class="section-card">
-          <h3>📜 Payment Activity</h3>
-          <div id="paymentActivityLog">
-            <p class="empty-message">No recent payment activity.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-    <!-- ==================== END PAYMENTS TAB ==================== -->
+       
   
        <!-- ==================== REPORTS TAB ==================== -->
     <div id="reports" class="tabcontent">
