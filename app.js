@@ -4,96 +4,103 @@ let redirectInProgress = false;
 let currentEditId = null;
 let autoSyncInterval = null;
 
-// ==================== TAB MANAGER - DYNAMIC TAB LOADING ====================
+// ==================== TAB MANAGER ====================
 const TabManager = {
   loadedTabs: {},
   
   async loadTab(tabName) {
-  if (this.loadedTabs[tabName]) {
-    console.log(`Tab ${tabName} already loaded`);
-    // Still need to show it
-    const tabContainer = document.getElementById(tabName);
-    if (tabContainer) {
-      tabContainer.classList.add('active');
-      tabContainer.style.display = 'block';
-    }
-    return;
-  }
-  
-  try {
-    console.log(`Loading tab: ${tabName}`);
-    const response = await fetch(`tabs/${tabName}.html`);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const html = await response.text();
+    console.log(`[TabManager] loadTab called for: ${tabName}`);
     
-    const tabContainer = document.getElementById(tabName);
-    if (tabContainer) {
-      tabContainer.innerHTML = html;
-      this.loadedTabs[tabName] = true;
-      console.log(`Tab ${tabName} loaded successfully`);
+    // Check if already loaded
+    if (this.loadedTabs[tabName]) {
+      console.log(`Tab ${tabName} already loaded, just showing it`);
+      this.showTab(tabName);
+      return true;
+    }
+    
+    try {
+      console.log(`[TabManager] Fetching tabs/${tabName}.html...`);
+      const response = await fetch(`tabs/${tabName}.html`);
       
-      // Initialize tab-specific functions after content is loaded
-      this.initTabFunctions(tabName);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const html = await response.text();
+      console.log(`[TabManager] Received ${html.length} bytes for ${tabName}`);
+      
+      const tabContainer = document.getElementById(tabName);
+      if (tabContainer) {
+        tabContainer.innerHTML = html;
+        this.loadedTabs[tabName] = true;
+        console.log(`✅ Tab ${tabName} loaded successfully`);
+        
+        // Initialize tab-specific functions
+        setTimeout(() => {
+          this.initTabFunctions(tabName);
+        }, 100);
+        
+        return true;
+      } else {
+        console.error(`Container for ${tabName} not found`);
+        return false;
+      }
+    } catch (error) {
+      console.error(`❌ Error loading tab ${tabName}:`, error);
+      const tabContainer = document.getElementById(tabName);
+      if (tabContainer) {
+        tabContainer.innerHTML = `<p class="empty-message">Error loading ${tabName} content. Please refresh.</p>`;
+      }
+      return false;
     }
-  } catch (error) {
-    console.error(`Error loading tab ${tabName}:`, error);
-    const tabContainer = document.getElementById(tabName);
-    if (tabContainer) {
-      tabContainer.innerHTML = `<p class="empty-message">Error loading ${tabName} content. Please refresh.</p>`;
-    }
-  }
-},
+  },
   
   showTab(tabName) {
-    const tabContainer = document.getElementById(tabName);
-    if (tabContainer && !this.loadedTabs[tabName]) {
-      // Content not loaded yet, but container exists
-      return;
+    const tab = document.getElementById(tabName);
+    if (tab && tab.innerHTML.length > 0) {
+      console.log(`Showing existing content for ${tabName}`);
+      this.initTabFunctions(tabName);
     }
   },
   
   initTabFunctions(tabName) {
     console.log(`Initializing functions for ${tabName} tab`);
     
-    // Small delay to ensure DOM is ready
-    setTimeout(() => {
-      switch(tabName) {
-        case 'students':
-          if (typeof loadStudents === 'function') loadStudents();
-          if (typeof updateStudentStats === 'function') updateStudentStats();
-          break;
-        case 'worklog':
-          if (typeof loadWorklogStudentDropdown === 'function') loadWorklogStudentDropdown();
-          if (typeof loadWorklogEntries === 'function') loadWorklogEntries();
-          if (typeof setupWorklogFilters === 'function') setupWorklogFilters();
-          break;
-        case 'marks':
-          if (typeof loadMarksStudentDropdown === 'function') loadMarksStudentDropdown();
-          if (typeof loadMarks === 'function') loadMarks();
-          break;
-        case 'attendance':
-          if (typeof loadAttendanceStudents === 'function') loadAttendanceStudents();
-          if (typeof loadAttendance === 'function') loadAttendance();
-          break;
-        case 'payments':
-          if (typeof loadPaymentStudentDropdown === 'function') loadPaymentStudentDropdown();
-          if (typeof loadPayments === 'function') loadPayments();
-          if (typeof updatePaymentBalances === 'function') updatePaymentBalances();
-          break;
-        case 'reports':
-          if (typeof loadReports === 'function') loadReports();
-          if (typeof generateReportStats === 'function') generateReportStats();
-          break;
-      }
-    }, 100);
+    switch(tabName) {
+      case 'students':
+        if (typeof loadStudents === 'function') loadStudents();
+        break;
+      case 'worklog':
+        if (typeof loadWorklogStudentDropdown === 'function') loadWorklogStudentDropdown();
+        if (typeof loadWorklogEntries === 'function') loadWorklogEntries();
+        break;
+      case 'marks':
+        if (typeof populateMarksStudentDropdown === 'function') populateMarksStudentDropdown();
+        if (typeof loadMarks === 'function') loadMarks();
+        break;
+      case 'attendance':
+        if (typeof populateAttendanceStudents === 'function') populateAttendanceStudents();
+        if (typeof loadAttendance === 'function') loadAttendance();
+        break;
+      case 'payments':
+        if (typeof populatePaymentStudentDropdown === 'function') populatePaymentStudentDropdown();
+        if (typeof loadPayments === 'function') loadPayments();
+        if (typeof updatePaymentBalances === 'function') updatePaymentBalances();
+        break;
+      case 'reports':
+        if (typeof loadReports === 'function') loadReports();
+        if (typeof generateReport === 'function') generateReport();
+        break;
+    }
   },
   
   async switchTab(tabName) {
-    console.log(`Switching to tab: ${tabName}`);
+    console.log(`[TabManager] switchTab called for: ${tabName}`);
     
     // Hide all tab contents
     document.querySelectorAll('.tabcontent').forEach(content => {
       content.classList.remove('active');
+      content.style.display = 'none';
     });
     
     // Remove active class from all tab buttons
@@ -101,19 +108,25 @@ const TabManager = {
       btn.classList.remove('active');
     });
     
-    // Load tab content if not loaded
-    await this.loadTab(tabName);
+    // Load the tab content
+    const success = await this.loadTab(tabName);
     
-    // Show selected tab
-    const selectedTab = document.getElementById(tabName);
-    if (selectedTab) {
-      selectedTab.classList.add('active');
-    }
-    
-    // Activate button
-    const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
-    if (activeButton) {
-      activeButton.classList.add('active');
+    if (success) {
+      // Show selected tab
+      const selectedTab = document.getElementById(tabName);
+      if (selectedTab) {
+        selectedTab.classList.add('active');
+        selectedTab.style.display = 'block';
+        console.log(`✅ Now showing tab: ${tabName}`);
+      }
+      
+      // Activate button
+      const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
+      if (activeButton) {
+        activeButton.classList.add('active');
+      }
+    } else {
+      console.error(`Failed to load tab: ${tabName}`);
     }
   }
 };
@@ -124,13 +137,13 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Add click handlers to all tabs
   document.querySelectorAll('.tab').forEach(tab => {
-    // Remove any existing listeners by cloning
     const newTab = tab.cloneNode(true);
     tab.parentNode.replaceChild(newTab, tab);
     
     newTab.addEventListener('click', function(e) {
       e.preventDefault();
       const tabName = this.getAttribute('data-tab');
+      console.log(`Tab clicked: ${tabName}`);
       TabManager.switchTab(tabName);
     });
   });
@@ -138,9 +151,9 @@ document.addEventListener('DOMContentLoaded', function() {
   // Load the initial active tab
   const activeTab = document.querySelector('.tab.active');
   const initialTab = activeTab ? activeTab.getAttribute('data-tab') : 'students';
+  console.log(`Loading initial tab: ${initialTab}`);
   TabManager.switchTab(initialTab);
 });
-
 
 // ==================== SIMPLE RATE MANAGER ====================
 const SimpleRateManager = {
