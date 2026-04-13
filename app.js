@@ -155,6 +155,52 @@ document.addEventListener('DOMContentLoaded', function() {
   TabManager.switchTab(initialTab);
 });
 
+// ========= Make sure saveDefaultRate is globally available ==========
+window.saveDefaultRate = function() {
+  console.log('💾 Saving default rate...');
+  
+  const input = document.getElementById('defaultBaseRate');
+  if (!input) {
+    console.error('Rate input not found');
+    return;
+  }
+  
+  const rate = parseFloat(input.value);
+  if (isNaN(rate) || rate <= 0) {
+    alert('Please enter a valid rate');
+    return;
+  }
+  
+  const formattedRate = rate.toFixed(2);
+  localStorage.setItem('defaultHourlyRate', formattedRate);
+  
+  const display = document.getElementById('currentDefaultRate');
+  if (display) display.textContent = formattedRate;
+  
+  // Also update rate preview if exists
+  const ratePreview = document.getElementById('ratePreview');
+  if (ratePreview) ratePreview.textContent = `$${formattedRate}/hour`;
+  
+  // Update student form rate field
+  const studentRate = document.getElementById('studentRate');
+  if (studentRate) studentRate.placeholder = `Default: $${formattedRate}`;
+  
+  alert(`Default rate set to $${formattedRate}/hour`);
+  console.log(`✅ Rate saved: ${formattedRate}`);
+};
+
+// Re-attach button handler after DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+  const saveBtn = document.getElementById('saveDefaultRateBtn');
+  if (saveBtn) {
+    // Remove any existing listeners and add new one
+    const newBtn = saveBtn.cloneNode(true);
+    saveBtn.parentNode.replaceChild(newBtn, saveBtn);
+    newBtn.addEventListener('click', window.saveDefaultRate);
+    console.log('✅ Save button handler attached');
+  }
+});
+
 // ==================== SIMPLE RATE MANAGER ====================
 const SimpleRateManager = {
     // Get the current default rate
