@@ -1,11 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Meta tags for mobile -->
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
-  
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="mobile-web-app-capable" content="yes">
@@ -14,16 +9,17 @@
   <meta name="theme-color" content="#4361ee">
   <title>WorkLog - Student Tracker & Hours Management</title>
     
-  <!-- Font Awesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
   <link rel="manifest" href="app.webmanifest">
   <link rel="icon" type="image/svg+xml" href="icons/favicon_cogs32x32.svg">
   <link rel="stylesheet" href="styles.css">
+  
 </head>
 
 <body>
-  <!-- PROFILE MODAL -->
+  <!-- PROFILE MODAL - MOVED TO TOP -->
   <div id="profileModal" class="modal" style="display: none;">
     <div class="modal-content profile-modal">
       <div class="modal-header">
@@ -31,26 +27,56 @@
         <button id="closeProfileModal" class="close">&times;</button>
       </div>
       <div class="modal-body">
+       
+        <!-- User Info Section -->
         <div class="profile-section">
           <h3>Account Information</h3>
           <div class="info-grid">
-            <div class="info-item"><label>Email:</label><span id="profileUserEmail">user@example.com</span></div>
-            <div class="info-item"><label>Member Since:</label><span id="profileUserSince">Loading...</span></div>
-            <div class="info-item"><label>Default Rate:</label><span id="profileDefaultRate">$0.00/hour</span></div>
+            <div class="info-item">
+              <label>Email:</label>
+              <span id="profileUserEmail">user@example.com</span>
+            </div>
+            <div class="info-item">
+              <label>Member Since:</label>
+              <span id="profileUserSince">Loading...</span>
+            </div>
+            <div class="info-item">
+              <label>Default Rate:</label>
+              <span id="profileDefaultRate">$0.00/hour</span>
+            </div>
           </div>
         </div>
+
+        <!-- Usage Stats Section -->
         <div class="profile-section">
           <h3>📊 Usage Statistics</h3>
           <div class="stats-grid">
-            <div class="stat-card"><div class="stat-value" id="modalStatStudents">0</div><div class="stat-label">Students</div></div>
-            <div class="stat-card"><div class="stat-value" id="modalStatHours">0</div><div class="stat-label">Hours Worked</div></div>
-            <div class="stat-card"><div class="stat-value"><span id="modalStatEarnings">0.00</span></div><div class="stat-label">Money Earned</div></div>
+            <div class="stat-card">
+              <div class="stat-value" id="modalStatStudents">0</div>
+              <div class="stat-label">Students</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="modalStatHours">0</div>
+              <div class="stat-label">Hours Worked</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value"><span id="modalStatEarnings">0.00</span></div>
+              <div class="stat-label">Money Earned</div>
+            </div>
           </div>
-          <div class="last-updated">Last updated: <span id="modalStatUpdated">Never</span></div>
+          <div class="last-updated">
+            Last updated: <span id="modalStatUpdated">Never</span>
+          </div>
         </div>
+
+        <!-- Actions Section -->
         <div class="profile-section">
           <h3>Actions</h3>
-          <div class="actions-grid"><button id="logoutBtn" class="btn btn-danger btn-full">🚪 Logout</button></div>
+          <div class="actions-grid">
+            <button id="logoutBtn" class="btn btn-danger btn-full">
+              🚪 Logout
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -62,46 +88,58 @@
         <img src="icons/worklog_cogs.svg" alt="WorkLog Logo" class="logo">
         <h1>WorkLog</h1>
       </div>
+      
       <div class="header-main">
         <p class="subtitle">Student Tracker & Hours Management System</p>
+        
         <div class="stats-row">
           <div class="storage-status">
             <span id="localStatus">💾 Local Storage: Active</span>
             <span id="syncStatus">☁️ Cloud Sync: Ready</span>
             <span id="dataStatus">📊 Data: <span id="statStudents">0</span> Students, <span id="statHours">0</span> Hours</span>   
           </div>
+          
           <div class="header-controls">
-            <div class="theme-toggle"><button>🌓</button></div>
-            <div class="auth-section"><button id="profileBtn" class="btn btn-secondary">👤 <span id="userName">Loading...</span></button></div>
+            <div class="theme-toggle">
+              <button>🌓</button>
+            </div>
+            <div class="auth-section">
+              <button id="profileBtn" class="btn btn-secondary">
+                👤 <span id="userName">Loading...</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </header>
      
-    <!-- Cloud Sync Bar -->
+  <!-- Cloud Sync Bar - Responsive -->
     <div class="sync-toolbar">
-      <div class="sync-status-row">
-        <div id="syncIndicator" class="sync-indicator online">Online</div>
-        <label class="auto-sync-label" title="Auto-sync every 30 seconds">
-          <input type="checkbox" id="autoSyncCheckbox">
-          <span class="auto-sync-text">Auto</span>
-        </label>
-      </div>     
-      <button id="syncBtn" class="button primary" title="Sync Now">🔄 Sync</button>
-      <button id="exportCloudBtn" class="button success" title="Export to Cloud">☁️ Export</button>
-      <button id="importCloudBtn" class="button info" title="Import from Cloud">☁️ Import</button>
-      <button id="syncStatsBtn" class="button warning" title="Fix Statistics">🔧 Fix</button>
-      <button id="exportDataBtn" class="button primary" title="Export Data to File">📤 Export</button>
-      <button id="importDataBtn" class="button primary" title="Import Data from File">📥 Import</button>
-      <button id="recoverBackupBtn" class="button warning">🔄 Recover Backup</button>
-      <button id="listBackupsBtn" class="button info">📋 List Backups</button>
-      <button id="forceRefreshBtn" class="button warning">📱 Force Refresh</button>
-      <button id="clearDataBtn" class="button danger" title="Clear All Data">🗑️ Clear</button>
+        <!-- Status row - always visible -->
+        <div class="sync-status-row">
+            <div id="syncIndicator" class="sync-indicator online">Online</div>
+            
+            <label class="auto-sync-label" title="Auto-sync every 30 seconds">
+                <input type="checkbox" id="autoSyncCheckbox">
+                <span class="auto-sync-text">Auto</span>
+            </label>
+        </div>     
+        
+        <!-- Action buttons - grid on mobile, row on desktop -->
+        <button id="syncBtn" class="button primary" title="Sync Now">🔄 Sync</button>
+        <button id="exportCloudBtn" class="button success" title="Export to Cloud">☁️ Export</button>
+        <button id="importCloudBtn" class="button info" title="Import from Cloud">☁️ Import</button>
+        <button id="syncStatsBtn" class="button warning" title="Fix Statistics">🔧 Fix</button>
+        <button id="exportDataBtn" class="button primary" title="Export Data to File">📤 Export</button>
+        <button id="importDataBtn" class="button primary" title="Import Data from File">📥 Import</button>
+        <button id="recoverBackupBtn" class="button warning" onclick="BackupManager.restoreLatestBackup()">🔄 Recover Backup</button>
+        <button id="listBackupsBtn" class="button info" onclick="console.log(BackupManager.listBackups())"> 📋 List Backups</button>
+        <button id="clearDataBtn" class="button danger" title="Clear All Data">🗑️ Clear</button>
     </div>
 
     <!-- Tabs -->
     <div class="tabs-container">
-      <div class="tabs">
+     <div class="tabs">
         <button class="tab active" data-tab="students">👥 Students</button>
         <button class="tab" data-tab="worklog">📝 Worklog</button> 
         <button class="tab" data-tab="marks">📊 Marks</button>
@@ -111,357 +149,1267 @@
       </div>
     </div>
 
-   <!-- Tab Contents - Will be loaded dynamically -->
-    <div id="students" class="tabcontent active"></div>
-    <div id="worklog" class="tabcontent"></div>
-    <div id="marks" class="tabcontent"></div>
-    <div id="attendance" class="tabcontent"></div>
-    <div id="payments" class="tabcontent"></div>
-    <div id="reports" class="tabcontent"></div>  
+    <!-- Tab Contents -->
+   <!-- Students Tab -->
+    <div id="students" class="tabcontent active">
+      <div class="section-header">
+        <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+          <h2>📚 Student Management</h2>
+          <div class="sort-controls" id="sortControlsContainer">
+            <select id="studentSortSelect" class="sort-select" onchange="changeStudentSort(this.value)">
+              <option value="id">Sort by ID 🔢</option>
+              <option value="name">Sort by Name 📝</option>
+              <option value="date">Sort by Date 📅</option>
+              <option value="rate">Sort by Rate 💰</option>
+            </select>
+          </div>
+        </div>
+        <div class="student-stats">
+          <span class="stat-badge" id="studentCount">0</span>
+          <span class="stat-divider">|</span>
+          <span class="stat-text">Avg Rate: $<span id="averageRate">0.00</span>/session</span>
+        </div>
+      </div>
   
-        <!-- Sync Stats Modal -->
+      <!-- Default Rate Settings -->
+      <div class="default-rate-panel">
+        <h4>💰 Default Rate Settings</h4>
+        <div class="form-group">
+          <label for="defaultBaseRate">Set Default Rate ($/session)</label>
+          <div class="rate-input-wrapper">
+            <span class="currency-symbol">$</span>
+            <input type="number" id="defaultBaseRate" step="0.01" min="0" placeholder="25.00">
+            <span class="rate-suffix">/ session</span>
+          </div>
+          <div class="help-text">This rate will be automatically filled for new students</div>
+        </div>
+        <div class="current-rate-display">
+          <span class="current-label">Current Default Rate:</span>
+          <span class="current-value">$<span id="currentDefaultRate">0.00</span>/session</span>
+        </div>
+       <div class="rate-actions">
+            <button type="button" class="button success" id="saveDefaultRateBtn">💾 Save Default Rate</button>
+            <button type="button" class="button warning" id="applyRateToAllBtn">🔄 Apply to All Students</button>
+            <button type="button" class="button secondary" id="useDefaultRateBtn">📝 Use in Student Form</button>
+        </div>
+        
+        <!-- Add user context display -->
+        <div class="user-context" style="margin-top: 10px; padding: 8px; background: #f0f0f0; border-radius: 4px; font-size: 0.9em;">
+            <span>👤 Current User: <strong id="currentUserEmail">Loading...</strong></span>
+            <span style="margin-left: 15px;">💰 Rate: <span id="ratePreview">$25.00/hour</span></span>
+        </div>
+      </div>
+
+      <!-- Student Registration Form -->
+      <div class="section-card">
+        <h3>👤 Student Registration</h3>
+        <form id="studentForm">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="studentName">Full Name *</label>
+              <input type="text" id="studentName" required>
+            </div>
+            <div class="form-group">
+              <label for="studentId">Student ID *</label>
+              <input type="text" id="studentId" required>
+            </div>
+            <div class="form-group">
+              <label for="studentGender">Gender *</label>
+              <select id="studentGender" required>
+                <option value="">Select gender</option>
+                <option>Male</option><option>Female</option><option>Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="studentEmail">Email</label>
+              <input type="email" id="studentEmail">
+            </div>
+            <div class="form-group">
+              <label for="studentPhone">Phone</label>
+              <input type="tel" id="studentPhone">
+            </div>
+            
+            <!-- CHANGED FROM studentBaseRate TO studentRate -->
+            <div class="form-group">
+              <label for="studentRate">Base Rate ($/session)</label>
+              <input type="number" id="studentRate" step="0.01" min="0">
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="button primary" id="studentSubmitBtn">➕ Add Student</button>
+            <button type="button" class="button secondary" onclick="clearStudentForm()">🗑️ Clear Form</button>
+            <button type="button" class="button warning" id="studentCancelBtn" style="display: none;">❌ Cancel Edit</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Student List -->
+      <div class="section-card">
+        <div class="section-header">
+          <h3>📋 Registered Students</h3>
+          <div class="list-controls">
+            <input type="text" id="studentSearch" placeholder="🔍 Search students...">
+          </div>
+        </div>
+        <div class="students-container" id="studentsContainer">
+          <p class="empty-message">No students registered yet.</p>
+        </div>
+      </div>
+    </div>
+
+  <!-- Marks Tab -->
+    <div id="marks" class="tabcontent">
+      <div class="section-header">
+        <h2>📊 Marks & Assessments</h2>
+        <div class="student-stats">
+          <span class="stat-badge" id="marksCount">0</span>
+          <span class="stat-divider">|</span>
+          <span class="stat-text">Avg Score: <span id="avgMarks">0%</span></span>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="section-card">
+          <h3>➕ Add New Mark</h3>
+          <form id="marksForm">
+            <div class="form-group">
+              <label for="marksStudent">Student *</label>
+              <select id="marksStudent" required>
+                <option value="">Select Student</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="marksSubject">Subject *</label>
+              <input type="text" id="marksSubject" required>
+            </div>
+            <div class="form-group">
+              <label for="marksTopic">Topic *</label>
+              <input type="text" id="marksTopic" required>
+            </div>
+            <div class="form-group">
+              <label for="marksDate">Date *</label>
+              <input type="date" id="marksDate" required>
+            </div>
+            <div class="form-group">
+              <label for="marksScore">Score *</label>
+              <input type="number" id="marksScore" step="0.1" required oninput="updateMarksPercentage()">
+            </div>
+            <div class="form-group">
+              <label for="marksMax">Max Score *</label>
+              <input type="number" id="marksMax" step="0.1" required oninput="updateMarksPercentage()">
+            </div>
+            <div class="form-group">
+              <label for="percentage">Percentage</label>
+              <input type="text" id="percentage" readonly>
+            </div>
+            <div class="form-group">
+              <label for="grade">Grade</label>
+              <input type="text" id="grade" readonly>
+            </div>
+            <div class="form-group">
+              <label for="marksNotes">Notes</label>
+              <textarea id="marksNotes"></textarea>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="button primary" id="marksSubmitBtn">➕ Add Mark</button>
+              <button type="button" class="button secondary" onclick="resetMarksForm()">🗑️ Clear Form</button>
+              <button type="button" class="button warning" id="cancelMarkBtn" style="display: none;">❌ Cancel Edit</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="section-card">
+          <h3>📋 Recent Marks</h3>
+          <div id="marksContainer">
+            <p class="empty-message">No marks recorded yet.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Attendance Tab -->
+    <div id="attendance" class="tabcontent">
+      <div class="section-header">
+        <h2>✅ Attendance Tracking</h2>
+        <div class="student-stats">
+          <span class="stat-badge" id="attendanceCount">0</span>
+          <span class="stat-divider">|</span>
+          <span class="stat-text">Last Session: <span id="lastSessionDate">Never</span></span>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="section-card">
+          <h3>📅 Quick Attendance</h3>
+          <form id="attendanceForm">
+            <div class="form-group">
+              <label for="attendanceDate">Date *</label>
+              <input type="date" id="attendanceDate" name="attendanceDate" required>
+            </div>
+            <div class="form-group">
+              <label for="attendanceSubject">Subject *</label>
+              <input type="text" id="attendanceSubject" name="attendanceSubject" required>
+            </div>
+            <div class="form-group">
+              <label for="attendanceTopic">Topic</label>
+              <input type="text" id="attendanceTopic" name="attendanceTopic">
+            </div>
+            
+            <!-- Attendance Students Section -->
+            <div class="form-group">
+              <label>Mark Students Present:</label>
+              <button type="button" id="selectAllStudentsBtn" class="btn btn-secondary" onclick="selectAllStudents()">
+                Select All
+              </button>
+              <div id="attendanceStudents" class="attendance-students-container">
+                <!-- Student checkboxes will be populated here -->
+                <p class="empty-message">No students registered. Add students first.</p>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="attendanceNotes">Notes</label>
+              <textarea id="attendanceNotes" name="attendanceNotes"></textarea>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="button primary" id="attendanceSubmitBtn">💾 Save Attendance</button>
+              <button type="button" class="button secondary" onclick="clearAttendanceForm()">🗑️ Clear Form</button>
+              <button type="button" class="button warning" id="cancelAttendanceBtn" style="display: none;">❌ Cancel Edit</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="section-card">
+          <h3>📋 Recent Attendance</h3>
+          <div id="attendanceContainer">
+            <p class="empty-message">No attendance records yet.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payments Tab -->
+    <div id="payments" class="tabcontent">
+      <div class="section-header">
+        <h2>💰 Payment Management</h2>
+        <div class="student-stats">
+          <span class="stat-text">Total Students: <span id="totalStudentsCount">0</span></span>
+          <span class="stat-divider">|</span>
+          <span class="stat-text">Total Owed: <span id="totalOwed">$0</span></span>
+          <span class="stat-divider">|</span>
+          <span class="stat-text">This Month: <span id="monthlyPayments">$0</span></span>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="section-card">
+          <h3>💳 Record Payment</h3>
+          <form id="paymentForm">
+            <div class="form-group">
+              <label for="paymentStudent">Student *</label>
+              <select id="paymentStudent" required>
+                <option value="">Select Student</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="paymentAmount">Amount ($) *</label>
+              <input type="number" id="paymentAmount" step="0.01" min="0.01" required>
+            </div>
+            <div class="form-group">
+              <label for="paymentDate">Date *</label>
+              <input type="date" id="paymentDate" required>
+            </div>
+            <div class="form-group">
+              <label for="paymentMethod">Method</label>
+              <select id="paymentMethod">
+                <option>Cash</option>
+                <option>Bank Transfer</option>
+                <option>Credit Card</option>
+                <option>PayPal</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="paymentNotes">Notes</label>
+              <textarea id="paymentNotes"></textarea>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="button primary" id="paymentSubmitBtn">💾 Record Payment</button>
+              <button type="button" class="button secondary" onclick="resetPaymentForm()">🗑️ Clear Form</button>
+              <button type="button" class="button warning" id="cancelPaymentBtn" style="display: none;">❌ Cancel Edit</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="section-card">
+          <h3>👥 Student Balances</h3>
+          <div id="studentBalancesContainer">
+            <p class="empty-message">No payment data yet.</p>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <h3>📜 Payment Activity</h3>
+          <div id="paymentActivityLog">
+            <p class="empty-message">No recent payment activity.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+   <!-- Reports Tab -->
+<div id="reports" class="tabcontent">
+  <div class="section-header">
+    <h2>📈 Reports & Documents</h2>
+    <p>Summaries of students, hours, marks, payments, and generate official BVTB forms.</p>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="summary-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 25px;">
+    <div class="summary-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px;">
+      <div style="font-size: 0.9rem; opacity: 0.9;">Total Hours</div>
+      <div style="font-size: 1.8rem; font-weight: bold;" id="reportTotalHours">0</div>
+    </div>
+    <div class="summary-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 20px; border-radius: 10px;">
+      <div style="font-size: 0.9rem; opacity: 0.9;">Total Earnings</div>
+      <div style="font-size: 1.8rem; font-weight: bold;" id="reportTotalEarnings">$0</div>
+    </div>
+    <div class="summary-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 20px; border-radius: 10px;">
+      <div style="font-size: 0.9rem; opacity: 0.9;">This Month</div>
+      <div style="font-size: 1.8rem; font-weight: bold;" id="reportMonthEarnings">$0</div>
+    </div>
+    <div class="summary-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white; padding: 20px; border-radius: 10px;">
+      <div style="font-size: 0.9rem; opacity: 0.9;">Outstanding</div>
+      <div style="font-size: 1.8rem; font-weight: bold;" id="outstandingBalance">$0</div>
+    </div>
+  </div>
+
+  <!-- Main Content Grid -->
+  <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+    <!-- Left Column - Overview & BVTB Forms -->
+    <div>
+      <!-- Overview Card -->
+      <div class="section-card" style="margin-bottom: 20px;">
+        <h3>📊 Overview</h3>
+        <ul style="list-style: none; padding: 0;">
+          <li style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-light);">
+            <span>Total Students:</span>
+            <span style="font-weight: bold;" id="totalStudentsReport">0</span>
+          </li>
+          <li style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-light);">
+            <span>Total Hours:</span>
+            <span style="font-weight: bold;" id="totalHoursReport">0</span>
+          </li>
+          <li style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-light);">
+            <span>Total Earnings:</span>
+            <span style="font-weight: bold;" id="totalEarningsReport">$0</span>
+          </li>
+          <li style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-light);">
+            <span>Average Mark:</span>
+            <span style="font-weight: bold;" id="avgMarkReport">0%</span>
+          </li>
+          <li style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-light);">
+            <span>Total Payments:</span>
+            <span style="font-weight: bold;" id="totalPaymentsReport">$0</span>
+          </li>
+        </ul>
+        
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 15px;">
+          <button id="weeklyReportBtn" class="button small">📅 Weekly</button>
+          <button id="biWeeklyReportBtn" class="button small">📅 Bi-Weekly</button>
+          <button id="monthlyReportBtn" class="button small">📅 Monthly</button>
+          <button id="subjectReportBtn" class="button small">📚 By Subject</button>
+          <button id="claimFormBtn" class="button small warning">💰 Claim</button>
+          <button id="invoiceBtn" class="button small warning">🧾 Invoice</button>
+          <button id="pdfReportBtn" class="button small success">📄 PDF</button>
+          <button id="emailReportBtn" class="button small info">📧 Email</button>
+        </div>
+      </div>
+
+      <!-- BVTB Claim Form Card -->
+      <div class="section-card">
+        <h3>📋 Claim Form</h3>
+        <p style="color: var(--text-light); font-size: 0.9rem; margin-bottom: 15px;">Generate official claim forms from worklog data</p>
+
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+          <button id="fillClaimFromWorklogBtn" class="button small info">
+            📋 Fill from Latest Worklog
+          </button>
+        </div>
+        
+        <div class="form-group">
+          <label for="claimName">Your Name</label>
+          <input type="text" id="claimName" value="David Moseley" placeholder="Enter your full name">
+        </div>
+        
+        <div class="form-group">
+          <label for="claimAddress">Address</label>
+          <input type="text" id="claimAddress" value="142 Coles Terrace, St.Philip" placeholder="Your address">
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="form-group">
+            <label for="claimHomePhone">Home Telephone</label>
+            <input type="text" id="claimHomePhone" value="572-8040" placeholder="Home phone">
+          </div>
+          <div class="form-group">
+            <label for="claimWorkPhone">Work Telephone</label>
+            <input type="text" id="claimWorkPhone" value="1367-8221" placeholder="Work phone">
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="claimProgramme">Programme</label>
+          <input type="text" id="claimProgramme" value="Cosmetology" placeholder="e.g., Cosmetology">
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="form-group">
+            <label for="claimStartDate">Start Date</label>
+            <input type="date" id="claimStartDate">
+          </div>
+          <div class="form-group">
+            <label for="claimEndDate">End Date</label>
+            <input type="date" id="claimEndDate">
+          </div>
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button id="generateClaimBtn" class="button primary" style="flex: 2;">📄 Generate Claim Form</button>
+          <button id="printClaimBtn" class="button secondary" style="flex: 1;">🖨️ Print</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column - Invoice & Preview -->
+    <div>
+      <!-- BVTB Invoice Card -->
+      <div class="section-card" style="margin-bottom: 20px;">
+        <h3>🧾 Invoice</h3>
+        <p style="color: var(--text-light); font-size: 0.9rem; margin-bottom: 15px;">Generate official invoices from worklog data</p>
+
+        <!-- NEW: Logo/Business Name Field -->
+        <div class="form-group">
+            <label for="invoiceLogo">Business Logo/Name</label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="text" id="invoiceBusinessName" placeholder="Your Business Name" value="Your Business Name">
+                <button id="uploadLogoBtn" class="button small">🖼️ Upload Logo</button>
+            </div>
+            <small class="help-text">This will appear at the top of your invoices</small>
+            <div id="logoPreview" style="margin-top: 10px; display: none;">
+                <img id="logoImage" src="" alt="Logo preview" style="max-height: 60px; border: 1px solid var(--border); border-radius: 4px; padding: 4px;">
+                <button id="removeLogoBtn" class="button small" style="margin-left: 10px;">❌ Remove</button>
+            </div>
+        </div>
+
+        <!-- Business Name Styling Options -->
+          <div class="form-group" style="margin-top: 15px; padding: 15px; background: var(--background); border-radius: 8px; border: 1px solid var(--border);">
+              <label style="font-weight: 600; margin-bottom: 10px; display: block;">🎨 Business Name Styling</label>
+              
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                  <!-- Font Family -->
+                  <div>
+                      <label style="font-size: 0.9rem; color: var(--text-light);">Font</label>
+                      <select id="invoiceFont" class="form-input" style="width: 100%;">
+                          <option value="'Courier New', monospace">Courier New (Classic)</option>
+                          <option value="'Arial', sans-serif">Arial (Clean)</option>
+                          <option value="'Times New Roman', serif">Times New Roman (Traditional)</option>
+                          <option value="'Georgia', serif">Georgia (Elegant)</option>
+                          <option value="'Verdana', sans-serif">Verdana (Modern)</option>
+                          <option value="'Comic Sans MS', cursive">Comic Sans (Casual)</option>
+                          <option value="'Impact', sans-serif">Impact (Bold)</option>
+                      </select>
+                  </div>
+                  
+                  <!-- Font Size -->
+                  <div>
+                      <label style="font-size: 0.9rem; color: var(--text-light);">Size</label>
+                      <select id="invoiceFontSize" class="form-input" style="width: 100%;">
+                          <option value="20px">Small (20px)</option>
+                          <option value="24px" selected>Medium (24px)</option>
+                          <option value="28px">Large (28px)</option>
+                          <option value="32px">Extra Large (32px)</option>
+                          <option value="36px">Huge (36px)</option>
+                      </select>
+                  </div>
+                  
+                  <!-- Font Color -->
+                  <div>
+                      <label style="font-size: 0.9rem; color: var(--text-light);">Color</label>
+                      <input type="color" id="invoiceFontColor" value="#000000" style="width: 100%; height: 38px; padding: 2px;">
+                  </div>
+                  
+                  <!-- Bold/Italic Toggle -->
+                  <div>
+                      <label style="font-size: 0.9rem; color: var(--text-light);">Style</label>
+                      <div style="display: flex; gap: 10px; margin-top: 5px;">
+                          <label style="display: flex; align-items: center; gap: 4px;">
+                              <input type="checkbox" id="invoiceFontBold" checked> <span>Bold</span>
+                          </label>
+                          <label style="display: flex; align-items: center; gap: 4px;">
+                              <input type="checkbox" id="invoiceFontItalic"> <span>Italic</span>
+                          </label>
+                      </div>
+                  </div>
+              </div>
+          
+                <!-- Live Preview -->
+                <div style="margin-top: 15px; padding: 15px; background: white; border-radius: 8px; border: 1px solid #ddd; text-align: center;">
+                    <div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">Preview:</div>
+                    <div id="businessNamePreview" style="padding: 10px; min-height: 50px; display: flex; align-items: center; justify-content: center;">
+                        Your Business Name
+                    </div>
+                </div>
+            </div>
+
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+          <button id="fillInvoiceFromWorklogBtn" class="button small info">
+            📋 Fill from Latest Worklog
+          </button>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="form-group">
+            <label for="invoiceNumber">Invoice Number</label>
+            <input type="text" id="invoiceNumber" value="003" placeholder="Invoice #">
+          </div>
+          <div class="form-group">
+            <label for="invoiceDate">Invoice Date</label>
+            <input type="date" id="invoiceDate">
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="invoiceTo">Issued To</label>
+          <textarea id="invoiceTo" rows="3">Barbados Vocational Board
+Lawrence Green House
+Culloden Road, St. Michael</textarea>
+        </div>
+        
+        <div class="form-group">
+          <label for="invoiceItem">Item Description</label>
+          <input type="text" id="invoiceItem" value="Cosmetology" placeholder="e.g., Cosmetology">
+        </div>
+        
+        <div class="form-group">
+          <label for="invoiceRate">Hourly Rate ($)</label>
+          <input type="number" id="invoiceRate" step="0.01" value="82.97">
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="form-group">
+            <label for="invoiceStartDate">Start Date</label>
+            <input type="date" id="invoiceStartDate">
+          </div>
+          <div class="form-group">
+            <label for="invoiceEndDate">End Date</label>
+            <input type="date" id="invoiceEndDate">
+          </div>
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button id="generateInvoiceBtn" class="button primary" style="flex: 2;">💰 Generate Invoice</button>
+          <button id="printInvoiceBtn" class="button secondary" style="flex: 1;">🖨️ Print</button>
+        </div>
+      </div>
+
+      <!-- Quick Stats Card -->
+      <div class="section-card">
+        <h3>📊 Quick Stats</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+          <div style="text-align: center; padding: 15px; background: var(--background); border-radius: 8px;">
+            <div style="font-size: 0.8rem; color: var(--text-light);">Worklog Entries</div>
+            <div style="font-size: 1.8rem; font-weight: bold;" id="worklogStatsCount">0</div>
+          </div>
+          <div style="text-align: center; padding: 15px; background: var(--background); border-radius: 8px;">
+            <div style="font-size: 0.8rem; color: var(--text-light);">Avg Session</div>
+            <div style="font-size: 1.8rem; font-weight: bold;" id="worklogAvgDuration">0h</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Document Preview Section -->
+  <div class="section-card" id="documentPreview" style="display: none; margin-top: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <h3>📄 Document Preview</h3>
+      <button onclick="document.getElementById('documentPreview').style.display='none'" class="button small">✕ Close</button>
+    </div>
+    <div id="previewContent" style="background: white; color: black; padding: 30px; border-radius: 8px; font-family: 'Courier New', monospace; max-height: 500px; overflow-y: auto; border: 1px solid #ccc; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+      <!-- Preview will be injected here -->
+    </div>
+  </div>
+
+  <!-- Breakdown Section -->
+  <div class="section-card" style="margin-top: 20px;">
+    <h3>📅 Detailed Breakdown</h3>
+    
+    <!-- Report Content Container -->
+    <div id="report-content" style="min-height: 200px; padding: 20px; background: var(--background); border-radius: 8px; margin-bottom: 20px;">
+      <p class="empty-message">Select a report type to generate.</p>
+    </div>
+    
+    <!-- Weekly Breakdown Table -->
+    <h4>Weekly Breakdown</h4>
+    <div style="overflow-x: auto; margin-bottom: 30px;">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Period</th>
+            <th>Hours</th>
+            <th>Earnings</th>
+            <th>Subjects</th>
+            <th>Net (80%)</th>
+          </tr>
+        </thead>
+        <tbody id="weeklyBody">
+          <tr><td colspan="5" class="empty-message">No data available</td></tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- Subject Breakdown Table -->
+    <h4>Subject Breakdown</h4>
+    <div style="overflow-x: auto;">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Subject</th>
+            <th>Avg Mark</th>
+            <th>Hours</th>
+            <th>Earnings</th>
+            <th>Sessions</th>
+          </tr>
+        </thead>
+        <tbody id="subjectBody">
+          <tr><td colspan="5" class="empty-message">No data available</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+ <!-- Worklog Tab -->
+<div id="worklog" class="tabcontent">
+  <div class="section-header">
+    <h2>📝 Worklog</h2>
+    <div class="student-stats">
+      <span class="stat-badge" id="worklogCount">0</span>
+      <span class="stat-divider">|</span>
+      <span class="stat-text">Last Entry: <span id="lastWorklogDate">Never</span></span>
+    </div>
+  </div>
+
+  <!-- Main Content Grid - Fixed height columns with scrolling -->
+  <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 20px; align-items: stretch;">
+    
+    <!-- LEFT COLUMN - Worklog Form (Fixed height with internal scroll) -->
+    <div class="section-card" style="display: flex; flex-direction: column; height: 650px; max-height: 650px; overflow: hidden;">
+      <h3 style="flex-shrink: 0; margin-bottom: 15px;">➕ Log Work</h3>
+      
+      <!-- Scrollable Form Container -->
+      <div style="flex: 1; overflow-y: auto; padding-right: 5px; min-height: 0;">
+        <form id="worklogForm">
+          <!-- Work Type Toggle -->
+          <div class="form-group">
+            <label>Work Type *</label>
+            <div style="display: flex; gap: 20px; margin-top: 5px;">
+              <label style="display: flex; align-items: center; gap: 5px;">
+                <input type="radio" name="workType" value="student" checked onchange="toggleWorkType('student')"> 👤 Student
+              </label>
+              <label style="display: flex; align-items: center; gap: 5px;">
+                <input type="radio" name="workType" value="institution" onchange="toggleWorkType('institution')"> 🏢 Institution
+              </label>
+            </div>
+          </div>
+
+          <!-- Student Selection -->
+          <div id="studentSection" class="work-section">
+            <div class="form-group">
+              <label for="worklogStudent">Select Student *</label>
+              <select id="worklogStudent" required>
+                <option value="">Select Student</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Institution Section -->
+          <div id="institutionSection" class="work-section" style="display: none;">
+            <div class="form-group">
+              <label for="worklogInstitution">Institution Name *</label>
+              <input type="text" id="worklogInstitution" placeholder="e.g., ABC Tutoring Center, XYZ School">
+            </div>
+            <div class="form-group">
+              <label for="worklogContactPerson">Contact Person</label>
+              <input type="text" id="worklogContactPerson" placeholder="e.g., Mr. Smith">
+            </div>
+          </div>
+
+          <!-- Payment Type Dropdown -->
+          <div class="form-group">
+            <label for="worklogPaymentType">Payment Type</label>
+            <select id="worklogPaymentType" class="form-control">
+              <option value="hourly">Hourly</option>
+              <option value="session">Per-Session</option>
+              <option value="contract">Contract Work</option>
+              <option value="project">Project Based</option>
+              <option value="consultation">Consultation</option>
+              <option value="other">One-off Job</option>
+            </select>
+          </div>
+
+          <!-- Common Fields -->
+          <div class="form-group">
+            <label for="worklogDate">Date *</label>
+            <input type="date" id="worklogDate" required>
+          </div>
+
+          <div class="form-group">
+            <label for="worklogSubject">Subject/Area *</label>
+            <input type="text" id="worklogSubject" placeholder="e.g., Mathematics, Curriculum Development" required>
+          </div>
+
+          <div class="form-group">
+            <label for="worklogTopic">Topic/Project *</label>
+            <input type="text" id="worklogTopic" placeholder="e.g., Algebra, Lesson Planning" required>
+          </div>
+
+          <div class="form-group">
+            <label for="worklogDuration">Duration (hours) *</label>
+            <input type="number" id="worklogDuration" step="0.5" min="0.5" required>
+          </div>
+
+          <div class="form-group">
+            <label for="worklogSessions">Number of Sessions *</label>
+            <input type="number" id="worklogSessions" min="1" value="1" required>
+            <small class="help-text">How many separate sessions/classes on this date</small>
+          </div>
+
+          <div class="form-group">
+            <label for="worklogRate">Hourly Rate ($) *</label>
+            <input type="number" id="worklogRate" step="0.01" min="0" value="25.00" required>
+          </div>
+
+          <div class="form-group">
+            <label for="worklogDescription">Work Description *</label>
+            <textarea id="worklogDescription" rows="4" placeholder="Detailed description of work done..." required></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="worklogOutcomes">Outcomes/Achievements</label>
+            <textarea id="worklogOutcomes" rows="2" placeholder="What was achieved, progress made..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="worklogNextSteps">Next Steps/Follow-up</label>
+            <textarea id="worklogNextSteps" rows="2" placeholder="What needs to be done next..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="worklogNotes">Additional Notes</label>
+            <textarea id="worklogNotes" rows="2" placeholder="Any other observations..."></textarea>
+          </div>
+        </form>
+      </div>
+      
+      <!-- Fixed Form Actions at Bottom -->
+      <div class="form-actions" style="flex-shrink: 0; padding-top: 15px; margin-top: 0; background: var(--surface); border-top: 1px solid var(--border-light);">
+        <button type="submit" form="worklogForm" class="button primary" id="worklogSubmitBtn">💾 Save Worklog</button>
+        <button type="button" class="button secondary" onclick="clearWorklogForm()">🗑️ Clear Form</button>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN - Worklog History (Fixed height with scrolling) -->
+    <div class="section-card worklog-history-container" style="display: flex; flex-direction: column; height: 650px; max-height: 650px; overflow: hidden;">
+      <h3 style="flex-shrink: 0; margin-bottom: 15px;">📋 Worklog History</h3>
+      
+      <!-- Filter Bar - Fixed at top -->
+      <div class="worklog-filters" style="flex-shrink: 0; display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap;">
+        <select id="worklogFilterType" style="flex: 1; min-width: 100px; padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
+          <option value="">All Types</option>
+          <option value="student">👤 Students</option>
+          <option value="institution">🏢 Institutions</option>
+        </select>
+        
+        <select id="worklogFilterEntity" style="flex: 1.5; padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
+          <option value="">All</option>
+        </select>
+        
+        <input type="text" id="worklogSearch" placeholder="🔍 Search..." style="flex: 2; padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
+        
+        <!-- Sort Order Dropdown -->
+        <select id="worklogSortOrder" style="flex: 0.8; padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
+          <option value="newest">Newest First</option>
+          <option value="oldest">Oldest First</option>
+        </select>
+      </div>
+      
+      <!-- Scrollable Worklog Container - THIS scrolls -->
+      <div id="worklogContainer" class="worklog-container" style="flex: 1; overflow-y: auto; min-height: 0; padding-right: 8px;">
+        <!-- Worklog cards will be injected here -->
+      </div>
+    </div>
+  </div>
+</div>
+    
+    <!-- Sync Stats Modal -->
     <div id="syncStatsModal" class="modal">
       <div class="modal-content">
         <span class="close" onclick="closeSyncStats()">&times;</span>
         <h3>☁️ Cloud Sync Statistics</h3>
-        <div id="syncStatsContent"><p>Loading...</p></div>
+        <div id="syncStatsContent">
+          <p>Loading...</p>
+        </div>
       </div>
     </div>
   </div> <!-- End of container -->
 
-  <!-- Floating Action Button -->
-  <div class="fab-container">
-    <button id="floatingAddBtn" class="fab">+</button>
-    <div id="fabMenu" class="fab-menu">
-      <button id="fabAddStudent" class="fab-item"><span class="icon">👤</span>Add Student</button>
-      <button id="fabAddWorklog" class="fab-item"><span class="icon">📝</span>Log Work</button>
-      <button id="fabAddMark" class="fab-item"><span class="icon">📊</span>Add Mark</button>
-      <button id="fabAddAttendance" class="fab-item"><span class="icon">✅</span>Take Attendance</button>
-      <button id="fabAddPayment" class="fab-item"><span class="icon">💰</span>Record Payment</button>
-    </div>
-    <div id="fabOverlay" class="fab-overlay"></div>
+<!-- Floating Action Button - Updated with Worklog only -->
+<div class="fab-container">
+  <button id="floatingAddBtn" class="fab">+</button>
+  <div id="fabMenu" class="fab-menu">
+    <button id="fabAddStudent" class="fab-item">
+      <span class="icon">👤</span>Add Student
+    </button>
+    <button id="fabAddWorklog" class="fab-item">
+      <span class="icon">📝</span>Log Work
+    </button>
+    <button id="fabAddMark" class="fab-item">
+      <span class="icon">📊</span>Add Mark
+    </button>
+    <button id="fabAddAttendance" class="fab-item">
+      <span class="icon">✅</span>Take Attendance
+    </button>
+    <button id="fabAddPayment" class="fab-item">
+      <span class="icon">💰</span>Record Payment
+    </button>
   </div>
+  <div id="fabOverlay" class="fab-overlay"></div>
+</div>
   
-  <!-- Scripts -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-  <script src="firebase-config.js"></script>
-  <script src="sync-service.js"></script>
-  <script src="firebase-manager.js"></script>
-  <script src="data-manager.js"></script>
-  <script src="reports.js"></script>
-  <script src="form-handler.js"></script>
-  <script src="worklog.js"></script>  
-  <script src="app.js"></script>
-  <script src="rate-manager.js"></script> 
-  <script src="backup-manager.js"></script>
+ <!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-<script>
-// ==================== FINAL TAB SYSTEM - OVERRIDES EVERYTHING ====================
-(function() {
-  console.log('🔥🔥🔥 FINAL TAB SYSTEM - RUNNING LAST 🔥🔥🔥');
-  
-  // List of all tabs
-  const allTabs = ['students', 'worklog', 'marks', 'attendance', 'payments', 'reports'];
-  const loadedContent = {};
-  
-  // Function to load tab content
-  async function loadTabContent(tabName) {
-    if (loadedContent[tabName]) {
-      console.log(`📁 ${tabName} already loaded`);
-      return true;
-    }
-    
-    const tabDiv = document.getElementById(tabName);
-    if (!tabDiv) {
-      console.error(`❌ Tab container not found: ${tabName}`);
-      return false;
-    }
-    
-    console.log(`📥 Loading tabs/${tabName}.html...`);
-    try {
-      const response = await fetch(`tabs/${tabName}.html`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const html = await response.text();
-      tabDiv.innerHTML = html;
-      loadedContent[tabName] = true;
-      console.log(`✅ Loaded ${tabName} (${html.length} bytes)`);
-      return true;
-    } catch (error) {
-      console.error(`❌ Error loading ${tabName}:`, error);
-      tabDiv.innerHTML = `<p class="empty-message">Error loading ${tabName} content</p>`;
-      return false;
-    }
-  }
-  
-  // Function to show a tab
-  function showTab(tabName) {
-    console.log(`👁️ Showing tab: ${tabName}`);
-    
-    // Hide ALL tabs
-    for (const tab of allTabs) {
-      const element = document.getElementById(tab);
-      if (element) {
-        element.style.display = 'none';
-        element.classList.remove('active');
-      }
-    }
-    
-    // Remove active class from all buttons
-    const allButtons = document.querySelectorAll('.tab');
-    for (const btn of allButtons) {
-      btn.classList.remove('active');
-    }
-    
-    // Show selected tab
-    const selectedTab = document.getElementById(tabName);
-    if (selectedTab) {
-      selectedTab.style.display = 'block';
-      selectedTab.classList.add('active');
-      console.log(`✅ Now showing: ${tabName}`);
-    }
-    
-    // Activate the clicked button
-    const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
-    if (activeButton) {
-      activeButton.classList.add('active');
-    }
-  }
-  
-  // Function to switch to a tab
-  async function switchToTab(tabName) {
-    console.log(`🔄 Switching to: ${tabName}`);
-    await loadTabContent(tabName);
-    showTab(tabName);
-  }
-  
-  // Remove ALL existing click handlers and attach new ones
-  const tabButtons = document.querySelectorAll('.tab');
-  console.log(`Found ${tabButtons.length} tab buttons`);
-  
-  for (const oldBtn of tabButtons) {
-    // Clone and replace to remove all existing listeners
-    const newBtn = oldBtn.cloneNode(true);
-    oldBtn.parentNode.replaceChild(newBtn, oldBtn);
-    
-    // Add new click handler
-    newBtn.addEventListener('click', async function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      const tabName = this.getAttribute('data-tab');
-      console.log(`🖱️ Tab clicked: ${tabName}`);
-      await switchToTab(tabName);
-    });
-  }
-  
-  // Load all tabs in background and show the initial one
-  async function init() {
-    console.log('📦 Preloading all tabs...');
-    
-    // Load all tabs in parallel
-    const promises = allTabs.map(tab => loadTabContent(tab));
-    await Promise.all(promises);
-    
-    console.log('✅ All tabs preloaded!');
-    
-    // Find the active tab button
-    const activeBtn = document.querySelector('.tab.active');
-    const initialTab = activeBtn ? activeBtn.getAttribute('data-tab') : 'students';
-    console.log(`🎯 Initial tab: ${initialTab}`);
-    
-    // Show the initial tab
-    await switchToTab(initialTab);
-    
-    console.log('🔥🔥🔥 FINAL TAB SYSTEM READY 🔥🔥🔥');
-  }
-  
-  // Start the system
-  init();
-})();
-</script>
+<!-- Update the script section in index.html -->
 
-<script>
-// ==================== COMPLETE BUTTON FIX ====================
-(function() {
-  console.log('🔧 FIXING ALL BUTTONS...');
+<!-- 1. Firebase CDN first (ALWAYS FIRST) -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+<!-- 2. Your config (sets persistence) -->
+<script src="firebase-config.js"></script>
+
+<!-- 3. Sync service (new) -->
+<script src="sync-service.js"></script>
+
+<!-- 4. Other scripts -->
+<script src="firebase-manager.js"></script>
+<script src="data-manager.js"></script>
+<script src="reports.js"></script>
+<script src="form-handler.js"></script>
+<script src="worklog.js"></script>  
+<script src="app.js"></script>
+<script src="rate-manager.js"></script>
+<script src="backup-manager.js"></script>
   
-  // ========== 1. FIX RATE BUTTONS ==========
-  // Save Default Rate
-  const saveBtn = document.getElementById('saveDefaultRateBtn');
-  if (saveBtn) {
-    const newBtn = saveBtn.cloneNode(true);
-    saveBtn.parentNode.replaceChild(newBtn, saveBtn);
-    newBtn.onclick = function(e) {
-      e.preventDefault();
-      const input = document.getElementById('defaultBaseRate');
-      if (!input) return;
-      const rate = parseFloat(input.value);
-      if (isNaN(rate) || rate <= 0) {
-        alert('Please enter a valid rate');
-        return;
-      }
-      localStorage.setItem('defaultHourlyRate', rate.toFixed(2));
-      const display = document.getElementById('currentDefaultRate');
-      if (display) display.textContent = rate.toFixed(2);
-      alert(`✅ Default rate set to $${rate.toFixed(2)}/hour`);
-    };
-    console.log('✅ Save button fixed');
-  }
-  
-  // Use in Student Form
-  const useBtn = document.getElementById('useDefaultRateBtn');
-  if (useBtn) {
-    const newBtn = useBtn.cloneNode(true);
-    useBtn.parentNode.replaceChild(newBtn, useBtn);
-    newBtn.onclick = function(e) {
-      e.preventDefault();
-      const rate = localStorage.getItem('defaultHourlyRate') || '25.00';
-      const studentRate = document.getElementById('studentRate');
-      if (studentRate) {
-        studentRate.value = rate;
-        alert(`✅ Rate $${rate} applied to student form`);
-      } else {
-        alert('Please go to Students tab first');
-      }
-    };
-    console.log('✅ Use button fixed');
-  }
-  
-  // Apply to All Students
-  const applyBtn = document.getElementById('applyRateToAllBtn');
-  if (applyBtn) {
-    const newBtn = applyBtn.cloneNode(true);
-    applyBtn.parentNode.replaceChild(newBtn, applyBtn);
-    newBtn.onclick = function(e) {
-      e.preventDefault();
-      const rate = localStorage.getItem('defaultHourlyRate') || '25.00';
-      let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-      if (students.length === 0) {
-        alert('No students to update');
-        return;
-      }
-      if (confirm(`Apply $${rate}/hour to ALL ${students.length} students?`)) {
-        students = students.map(s => ({ ...s, rate: parseFloat(rate) }));
-        localStorage.setItem('worklog_students', JSON.stringify(students));
-        if (typeof loadStudents === 'function') loadStudents();
-        alert(`✅ Updated ${students.length} students to $${rate}/hour`);
-      }
-    };
-    console.log('✅ Apply button fixed');
-  }
-  
-  // ========== 2. FIX FAB BUTTON ==========
-  const fabBtn = document.getElementById('floatingAddBtn');
-  const fabMenu = document.getElementById('fabMenu');
-  const fabOverlay = document.getElementById('fabOverlay');
-  
-  if (fabBtn && fabMenu && fabOverlay) {
-    const newFab = fabBtn.cloneNode(true);
-    fabBtn.parentNode.replaceChild(newFab, fabBtn);
-    newFab.onclick = function(e) {
-      e.stopPropagation();
-      fabMenu.classList.toggle('active');
-      fabOverlay.classList.toggle('active');
-    };
-    
-    fabOverlay.onclick = function() {
-      fabMenu.classList.remove('active');
-      fabOverlay.classList.remove('active');
-    };
-    console.log('✅ FAB main button fixed');
-  }
-  
-  // ========== 3. FIX FAB MENU ITEMS ==========
-  const fabItems = {
-    'fabAddStudent': 'students',
-    'fabAddWorklog': 'worklog',
-    'fabAddMark': 'marks',
-    'fabAddAttendance': 'attendance',
-    'fabAddPayment': 'payments'
-  };
-  
-  Object.entries(fabItems).forEach(([id, tabName]) => {
-    const item = document.getElementById(id);
-    if (item) {
-      const newItem = item.cloneNode(true);
-      item.parentNode.replaceChild(newItem, item);
-      newItem.onclick = function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        // Close FAB menu
-        const menu = document.getElementById('fabMenu');
-        const overlay = document.getElementById('fabOverlay');
-        if (menu) menu.classList.remove('active');
-        if (overlay) overlay.classList.remove('active');
-        // Find and click the tab
-        const tab = document.querySelector(`.tab[data-tab="${tabName}"]`);
-        if (tab) {
-          tab.click();
-        } else {
-          console.log(`Tab not found: ${tabName}`);
-        }
-      };
-      console.log(`✅ FAB item ${id} fixed -> ${tabName}`);
-    }
-  });
-  
-  // ========== 4. FIX ANY OTHER BUTTONS ==========
-  // Fix any buttons with onclick attributes that might not work
-  document.querySelectorAll('button[onclick]').forEach(btn => {
-    const onclickAttr = btn.getAttribute('onclick');
-    if (onclickAttr && (onclickAttr.includes('clearStudentForm') || 
-        onclickAttr.includes('clearAttendanceForm') ||
-        onclickAttr.includes('resetMarksForm') ||
-        onclickAttr.includes('resetPaymentForm') ||
-        onclickAttr.includes('selectAllStudents'))) {
+  <script>
+    // DOM elements - WAIT FOR DOM TO BE READY
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log("📋 Initializing tabs and UI...");
       
-      const newBtn = btn.cloneNode(true);
-      btn.parentNode.replaceChild(newBtn, btn);
-      // Keep the original onclick functionality
-      newBtn.setAttribute('onclick', onclickAttr);
-      console.log(`✅ Fixed button with onclick: ${onclickAttr.substring(0, 30)}`);
+      // ==================== PROFILE MODAL ====================
+      const profileBtn = document.getElementById('profileBtn');
+      const profileModal = document.getElementById('profileModal');
+      const closeProfileModal = document.getElementById('closeProfileModal');
+      const logoutBtn = document.getElementById('logoutBtn');
+      
+      // Profile modal functionality
+     if (profileBtn && profileModal) {
+      profileBtn.addEventListener('click', function() {
+        // updateProfileInfo will be defined by app.js
+        if (typeof updateProfileInfo === 'function') {
+          updateProfileInfo();
+        }
+        profileModal.style.display = 'block';
+      });
     }
-  });
-  
-  // ========== 5. FIX STUDENT FORM SUBMIT ==========
-  const studentForm = document.getElementById('studentForm');
-  if (studentForm) {
-    const newForm = studentForm.cloneNode(true);
-    studentForm.parentNode.replaceChild(newForm, studentForm);
-    newForm.addEventListener('submit', function(e) {
-      e.preventDefault();
-      const name = document.getElementById('studentName')?.value;
-      const studentId = document.getElementById('studentId')?.value;
-      if (!name || !studentId) {
-        alert('Please enter name and student ID');
-        return;
+      
+      if (closeProfileModal) {
+        closeProfileModal.addEventListener('click', function() {
+          profileModal.style.display = 'none';
+        });
       }
-      const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-      const newStudent = {
-        id: 'student_' + Date.now(),
-        name: name,
-        studentId: studentId,
-        gender: document.getElementById('studentGender')?.value || '',
-        email: document.getElementById('studentEmail')?.value || '',
-        phone: document.getElementById('studentPhone')?.value || '',
-        rate: parseFloat(document.getElementById('studentRate')?.value) || parseFloat(localStorage.getItem('defaultHourlyRate') || '25'),
-        createdAt: new Date().toISOString()
-      };
-      students.push(newStudent);
-      localStorage.setItem('worklog_students', JSON.stringify(students));
-      alert('Student added!');
-      if (typeof loadStudents === 'function') loadStudents();
-      newForm.reset();
+      
+      // Close modal when clicking outside
+      window.addEventListener('click', function(event) {
+        if (event.target === profileModal) {
+          profileModal.style.display = 'none';
+        }
+      });
+      
+      // Logout functionality
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', function() {
+          if (confirm('Are you sure you want to logout?')) {
+            // Clear localStorage
+            localStorage.clear();
+            
+            // If using Firebase auth, sign out
+            if (typeof firebase !== 'undefined' && firebase.auth()) {
+              firebase.auth().signOut().then(() => {
+                window.location.href = 'auth.html';
+              }).catch(error => {
+                console.error('Logout error:', error);
+                window.location.href = 'auth.html';
+              });
+            } else {
+              window.location.href = 'auth.html';
+            }
+          }
+        });
+      }
+      
+      // ==================== SYNC & DATA BUTTONS ====================
+      const syncBtn = document.getElementById('syncBtn');
+      const exportCloudBtn = document.getElementById('exportCloudBtn');
+      const importCloudBtn = document.getElementById('importCloudBtn');
+      const syncStatsBtn = document.getElementById('syncStatsBtn');
+      const exportDataBtn = document.getElementById('exportDataBtn');
+      const importDataBtn = document.getElementById('importDataBtn');
+      const clearDataBtn = document.getElementById('clearDataBtn');
+      
+      // Sync button
+      if (syncBtn) {
+        syncBtn.addEventListener('click', function() {
+          console.log('Sync button clicked');
+        });
+      }
+      
+      // Export Cloud button
+      if (exportCloudBtn) {
+        exportCloudBtn.addEventListener('click', function() {
+          console.log('Export Cloud button clicked');
+        });
+      }
+      
+      // Import Cloud button
+      if (importCloudBtn) {
+        importCloudBtn.addEventListener('click', function() {
+          console.log('Import Cloud button clicked');
+        });
+      }
+      
+      // Sync Stats button
+      if (syncStatsBtn) {
+        syncStatsBtn.addEventListener('click', function() {
+          console.log('Sync Stats button clicked');
+        });
+      }
+      
+      // Export Data button
+      if (exportDataBtn) {
+        exportDataBtn.addEventListener('click', function() {
+          console.log('Export Data button clicked');
+        });
+      }
+      
+      // Import Data button
+      if (importDataBtn) {
+        importDataBtn.addEventListener('click', function() {
+          console.log('Import Data button clicked');
+        });
+      }
+      
+      // Clear Data button
+      if (clearDataBtn) {
+        clearDataBtn.addEventListener('click', function() {
+          console.log('Clear Data button clicked');
+        });
+      }
+      
+      // ==================== TAB SWITCHING ====================
+      const tabButtons = document.querySelectorAll('.tab');
+      const tabContents = document.querySelectorAll('.tabcontent');
+      
+      if (tabButtons.length > 0 && tabContents.length > 0) {
+        console.log("📋 Initializing tabs...");
+        
+        function switchTab(tabName) {
+          console.log("Switching to tab:", tabName);
+          
+          // Hide all tab contents
+          tabContents.forEach(content => {
+            content.classList.remove('active');
+          });
+          
+          // Remove active class from all tab buttons
+          tabButtons.forEach(button => {
+            button.classList.remove('active');
+          });
+          
+          // Show the selected tab content
+          const selectedTab = document.getElementById(tabName);
+          if (selectedTab) {
+            selectedTab.classList.add('active');
+          }
+          
+          // Activate the clicked tab button
+          const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
+          if (activeButton) {
+            activeButton.classList.add('active');
+          }
+        }
+        
+        // Add click event to all tab buttons
+        tabButtons.forEach(button => {
+          button.addEventListener('click', function() {
+            const tabName = this.getAttribute('data-tab');
+            switchTab(tabName);
+          });
+        });
+        
+        // Initialize with Students tab active
+        switchTab('students');
+        
+        console.log("✅ Tabs initialized");
+      }
+      
+      // ==================== FLOATING ACTION BUTTON ====================
+      const fab = document.getElementById('floatingAddBtn');
+      const fabMenu = document.getElementById('fabMenu');
+      const fabOverlay = document.getElementById('fabOverlay');
+      
+      if (fab && fabMenu && fabOverlay) {
+        fab.addEventListener('click', function() {
+          const isActive = fabMenu.classList.contains('active');
+          
+          if (isActive) {
+            fabMenu.classList.remove('active');
+            fabOverlay.style.display = 'none';
+          } else {
+            fabMenu.classList.add('active');
+            fabOverlay.style.display = 'block';
+          }
+        });
+        
+        fabOverlay.addEventListener('click', function() {
+          fabMenu.classList.remove('active');
+          fabOverlay.style.display = 'none';
+        });
+        
+        // FAB menu items
+        const fabAddStudent = document.getElementById('fabAddStudent');
+        const fabAddHours = document.getElementById('fabAddHours');
+        const fabAddMark = document.getElementById('fabAddMark');
+        const fabAddAttendance = document.getElementById('fabAddAttendance');
+        
+        if (fabAddStudent) {
+          fabAddStudent.addEventListener('click', function() {
+            switchTab('students');
+            document.getElementById('studentName')?.focus();
+            fabMenu.classList.remove('active');
+            fabOverlay.style.display = 'none';
+          });
+        }
+        
+        if (fabAddHours) {
+          fabAddHours.addEventListener('click', function() {
+            switchTab('hours');
+            document.getElementById('organization')?.focus();
+            fabMenu.classList.remove('active');
+            fabOverlay.style.display = 'none';
+          });
+        }
+        
+        if (fabAddMark) {
+          fabAddMark.addEventListener('click', function() {
+            switchTab('marks');
+            document.getElementById('marksStudent')?.focus();
+            fabMenu.classList.remove('active');
+            fabOverlay.style.display = 'none';
+          });
+        }
+        
+        if (fabAddAttendance) {
+          fabAddAttendance.addEventListener('click', function() {
+            switchTab('attendance');
+            document.getElementById('attendanceDate')?.focus();
+            fabMenu.classList.remove('active');
+            fabOverlay.style.display = 'none';
+          });
+        }
+      }
+      
+      // ==================== THEME TOGGLE ====================
+      const themeToggle = document.querySelector('.theme-toggle button');
+      if (themeToggle) {
+        // Set initial theme
+        const savedTheme = localStorage.getItem('worklog-theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        document.body.className = savedTheme;
+        themeToggle.textContent = savedTheme === 'dark' ? '🌓' : '🌞';
+        
+        themeToggle.addEventListener('click', function() {
+          const currentTheme = document.documentElement.getAttribute('data-theme');
+          const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+          
+          document.documentElement.setAttribute('data-theme', newTheme);
+          document.body.className = newTheme;
+          localStorage.setItem('worklog-theme', newTheme);
+          
+          themeToggle.textContent = newTheme === 'dark' ? '🌓' : '🌞';
+        });
+      }
+      
+      // ==================== AUTO-FILL DATES ====================
+      const today = new Date().toISOString().split('T')[0];
+      ['workDate', 'marksDate', 'attendanceDate', 'paymentDate'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+          element.setAttribute('value', today);
+          element.value = today;
+        }
+      });
+      
+      console.log("✅ UI initialization complete");
     });
-    console.log('✅ Student form fixed');
-  }
-  
-  console.log('✅ ALL BUTTONS FIXED COMPLETE!');
-})();
-</script>
- 
-  
- </body>
+    
+    // ==================== HELPER FUNCTIONS ====================
+    
+    // Report button handlers
+    function showWeeklyBreakdown() {
+      console.log('Weekly breakdown requested');
+      if (window.weeklyReportBtn && typeof window.weeklyReportBtn.click === 'function') {
+        window.weeklyReportBtn.click();
+      }
+    }
+    
+    function showBiWeeklyBreakdown() {
+      console.log('Bi-weekly breakdown requested');
+      if (window.biWeeklyReportBtn && typeof window.biWeeklyReportBtn.click === 'function') {
+        window.biWeeklyReportBtn.click();
+      }
+    }
+    
+    function showMonthlyBreakdown() {
+      console.log('Monthly breakdown requested');
+      if (window.monthlyReportBtn && typeof window.monthlyReportBtn.click === 'function') {
+        window.monthlyReportBtn.click();
+      }
+    }
+    
+    function showSubjectBreakdown() {
+      console.log('Subject breakdown requested');
+      if (window.subjectReportBtn && typeof window.subjectReportBtn.click === 'function') {
+        window.subjectReportBtn.click();
+      }
+    }
+    
+    // Student rate functions
+    function useDefaultRate() {
+      console.log('Use default rate in student form');
+      const studentRateField = document.getElementById('studentRate');
+      const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+      
+      if (studentRateField && defaultBaseRateInput) {
+        studentRateField.value = defaultBaseRateInput.value;
+      }
+    }
+    
+    function useDefaultRateInHours() {
+      console.log('Use default rate in hours form');
+      const baseRateInput = document.getElementById('baseRate');
+      const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+      
+      if (baseRateInput && defaultBaseRateInput) {
+        baseRateInput.value = defaultBaseRateInput.value;
+      }
+    }
+    
+    function selectAllStudents() {
+      console.log('Select all students for attendance');
+      const checkboxes = document.querySelectorAll('#attendanceStudents input[type="checkbox"]');
+      checkboxes.forEach(cb => cb.checked = true);
+    }
+    
+    // Form clearing functions
+    function clearStudentForm() {
+      const form = document.getElementById('studentForm');
+      if (form) form.reset();
+    }
+    
+    function clearAttendanceForm() {
+      const form = document.getElementById('attendanceForm');
+      if (form) {
+        form.reset();
+        const checkboxes = document.querySelectorAll('#attendanceStudents input[type="checkbox"]');
+        checkboxes.forEach(cb => cb.checked = false);
+      }
+    }
+    
+    function resetHoursForm() {
+      const form = document.getElementById('hoursForm');
+      if (form) form.reset();
+    }
+    
+    function resetMarksForm() {
+      const form = document.getElementById('marksForm');
+      if (form) form.reset();
+    }
+    
+    function resetPaymentForm() {
+      const form = document.getElementById('paymentForm');
+      if (form) form.reset();
+    }
+    
+    // Update marks percentage (optional helper)
+    function updateMarksPercentage() {
+      const scoreField = document.getElementById('marksScore');
+      const maxField = document.getElementById('marksMax');
+      const percentageField = document.getElementById('percentage');
+      const gradeField = document.getElementById('grade');
+      
+      if (scoreField && maxField && percentageField && gradeField) {
+        const score = parseFloat(scoreField.value) || 0;
+        const max = parseFloat(maxField.value) || 1;
+        const percentage = max > 0 ? (score / max) * 100 : 0;
+        
+        percentageField.value = percentage.toFixed(1) + '%';
+        
+        // Calculate grade
+        let grade = 'F';
+        if (percentage >= 90) grade = 'A';
+        else if (percentage >= 80) grade = 'B';
+        else if (percentage >= 70) grade = 'C';
+        else if (percentage >= 60) grade = 'D';
+        
+        gradeField.value = grade;
+      }
+    }
+    
+    // Save default rate
+    function saveDefaultRate() {
+      const defaultBaseRateInput = document.getElementById('defaultBaseRate');
+      const currentDefaultRateDisplay = document.getElementById('currentDefaultRateDisplay');
+      const currentDefaultRate = document.getElementById('currentDefaultRate');
+      
+      if (defaultBaseRateInput && currentDefaultRateDisplay && currentDefaultRate) {
+        const rate = parseFloat(defaultBaseRateInput.value) || 0;
+        localStorage.setItem('defaultHourlyRate', rate.toString());
+        currentDefaultRateDisplay.textContent = rate.toFixed(2);
+        currentDefaultRate.textContent = rate.toFixed(2);
+        alert('Default rate saved!');
+      }
+    }
+    
+    // Apply default rate to all students (placeholder)
+    function applyDefaultRateToAll() {
+      console.log('Apply default rate to all students');
+      alert('This feature would update all student rates to the default rate');
+    }
+  </script>
+</body>
 </html>
