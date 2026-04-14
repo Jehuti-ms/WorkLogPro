@@ -375,6 +375,165 @@
   }
 })();
 </script>
+
+  <script>
+// ==================== FIX ALL BUTTONS AND FAB ====================
+(function() {
+  console.log('🔧 FIXING ALL BUTTONS AND FAB...');
+  
+  // ========== FIX RATE BUTTONS ==========
+  function fixRateButtons() {
+    // Save Default Rate button
+    const saveBtn = document.getElementById('saveDefaultRateBtn');
+    if (saveBtn) {
+      const newBtn = saveBtn.cloneNode(true);
+      saveBtn.parentNode.replaceChild(newBtn, saveBtn);
+      newBtn.onclick = function(e) {
+        e.preventDefault();
+        const input = document.getElementById('defaultBaseRate');
+        if (!input) return;
+        const rate = parseFloat(input.value);
+        if (isNaN(rate) || rate <= 0) {
+          alert('Please enter a valid rate');
+          return;
+        }
+        localStorage.setItem('defaultHourlyRate', rate.toFixed(2));
+        const display = document.getElementById('currentDefaultRate');
+        if (display) display.textContent = rate.toFixed(2);
+        const preview = document.getElementById('ratePreview');
+        if (preview) preview.textContent = `$${rate.toFixed(2)}/hour`;
+        alert(`Default rate set to $${rate.toFixed(2)}/hour`);
+      };
+      console.log('✅ Save button fixed');
+    }
+    
+    // Use in Student Form button
+    const useBtn = document.getElementById('useDefaultRateBtn');
+    if (useBtn) {
+      const newBtn = useBtn.cloneNode(true);
+      useBtn.parentNode.replaceChild(newBtn, useBtn);
+      newBtn.onclick = function(e) {
+        e.preventDefault();
+        const rate = localStorage.getItem('defaultHourlyRate') || '25.00';
+        const studentRate = document.getElementById('studentRate');
+        if (studentRate) {
+          studentRate.value = rate;
+          alert(`Rate $${rate} applied to student form`);
+        } else {
+          alert('Please go to Students tab first');
+        }
+      };
+      console.log('✅ Use button fixed');
+    }
+    
+    // Apply to All Students button
+    const applyBtn = document.getElementById('applyRateToAllBtn');
+    if (applyBtn) {
+      const newBtn = applyBtn.cloneNode(true);
+      applyBtn.parentNode.replaceChild(newBtn, applyBtn);
+      newBtn.onclick = function(e) {
+        e.preventDefault();
+        const rate = localStorage.getItem('defaultHourlyRate') || '25.00';
+        let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+        if (students.length === 0) {
+          alert('No students to update');
+          return;
+        }
+        if (confirm(`Apply $${rate}/hour to ALL ${students.length} students?`)) {
+          students = students.map(s => ({ ...s, rate: parseFloat(rate), hourlyRate: parseFloat(rate) }));
+          localStorage.setItem('worklog_students', JSON.stringify(students));
+          if (typeof loadStudents === 'function') loadStudents();
+          alert(`Updated ${students.length} students to $${rate}/hour`);
+        }
+      };
+      console.log('✅ Apply button fixed');
+    }
+  }
+  
+  // ========== FIX FAB BUTTONS ==========
+  function fixFAB() {
+    const fabBtn = document.getElementById('floatingAddBtn');
+    const fabMenu = document.getElementById('fabMenu');
+    const fabOverlay = document.getElementById('fabOverlay');
+    
+    if (fabBtn && fabMenu && fabOverlay) {
+      // Fix main FAB button
+      const newFab = fabBtn.cloneNode(true);
+      fabBtn.parentNode.replaceChild(newFab, fabBtn);
+      newFab.onclick = function() {
+        fabMenu.classList.toggle('active');
+        fabOverlay.classList.toggle('active');
+      };
+      
+      fabOverlay.onclick = function() {
+        fabMenu.classList.remove('active');
+        fabOverlay.classList.remove('active');
+      };
+      
+      // Fix FAB menu items
+      const fabMap = {
+        'fabAddStudent': 'students',
+        'fabAddWorklog': 'worklog',
+        'fabAddMark': 'marks',
+        'fabAddAttendance': 'attendance',
+        'fabAddPayment': 'payments'
+      };
+      
+      Object.entries(fabMap).forEach(([id, tabName]) => {
+        const item = document.getElementById(id);
+        if (item) {
+          const newItem = item.cloneNode(true);
+          item.parentNode.replaceChild(newItem, item);
+          newItem.onclick = function() {
+            fabMenu.classList.remove('active');
+            fabOverlay.classList.remove('active');
+            // Switch to tab
+            const tab = document.querySelector(`.tab[data-tab="${tabName}"]`);
+            if (tab) tab.click();
+          };
+        }
+      });
+      console.log('✅ FAB buttons fixed');
+    }
+  }
+  
+  // Run fixes
+  fixRateButtons();
+  fixFAB();
+  
+  // Also fix any missing global functions
+  window.saveDefaultRate = function() {
+    const input = document.getElementById('defaultBaseRate');
+    if (!input) return;
+    const rate = parseFloat(input.value);
+    if (!isNaN(rate) && rate > 0) {
+      localStorage.setItem('defaultHourlyRate', rate.toFixed(2));
+      const display = document.getElementById('currentDefaultRate');
+      if (display) display.textContent = rate.toFixed(2);
+      alert(`Rate saved: $${rate.toFixed(2)}`);
+    }
+  };
+  
+  window.useDefaultRate = function() {
+    const rate = localStorage.getItem('defaultHourlyRate') || '25.00';
+    const studentRate = document.getElementById('studentRate');
+    if (studentRate) studentRate.value = rate;
+  };
+  
+  window.applyDefaultRateToAll = function() {
+    const rate = localStorage.getItem('defaultHourlyRate') || '25.00';
+    let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    if (students.length > 0 && confirm(`Apply $${rate}/hour to all students?`)) {
+      students = students.map(s => ({ ...s, rate: parseFloat(rate) }));
+      localStorage.setItem('worklog_students', JSON.stringify(students));
+      if (typeof loadStudents === 'function') loadStudents();
+      alert(`Updated ${students.length} students`);
+    }
+  };
+  
+  console.log('✅ ALL FIXES APPLIED');
+})();
+</script>
   
  </body>
 </html>
