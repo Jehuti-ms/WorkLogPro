@@ -236,6 +236,7 @@ function initAppUI() {
     initProfileModal();
     initSyncControls();
     initReportButtons();
+    initSyncPanel();
     loadInitialData();
     
     console.log('✅ App UI initialized');
@@ -848,30 +849,51 @@ function handleLogout() {
   window.location.href = 'auth.html';
 }
 
-// ==================== SYNC PANEL =======================
-// Slide-out Sync Panel
+// ==================== SYNC PANEL TOGGLE ====================
 function initSyncPanel() {
+  console.log('🔧 Initializing sync panel...');
+  
+  // Create overlay if not exists
+  if (!document.querySelector('.sync-overlay')) {
+    const overlay = document.createElement('div');
+    overlay.className = 'sync-overlay';
+    document.body.appendChild(overlay);
+    console.log('✅ Created sync overlay');
+  }
+  
   const toggleBtn = document.getElementById('toggleSyncBtn');
   const syncBar = document.querySelector('.sync-toolbar');
-  const overlay = document.createElement('div');
-  overlay.className = 'sync-overlay';
-  document.body.appendChild(overlay);
+  const overlayEl = document.querySelector('.sync-overlay');
   
-  if (!toggleBtn || !syncBar) return;
+  if (!toggleBtn) {
+    console.log('⚠️ Toggle button not found - make sure <button id="toggleSyncBtn"> exists');
+    return;
+  }
+  
+  if (!syncBar) {
+    console.log('⚠️ Sync bar not found');
+    return;
+  }
   
   function openSyncPanel() {
     syncBar.classList.add('visible');
-    overlay.classList.add('visible');
+    if (overlayEl) overlayEl.classList.add('visible');
     toggleBtn.classList.add('active');
+    console.log('📂 Sync panel opened');
   }
   
   function closeSyncPanel() {
     syncBar.classList.remove('visible');
-    overlay.classList.remove('visible');
+    if (overlayEl) overlayEl.classList.remove('visible');
     toggleBtn.classList.remove('active');
+    console.log('📁 Sync panel closed');
   }
   
-  toggleBtn.addEventListener('click', function(e) {
+  // Remove any existing listener to prevent duplicates
+  const newToggleBtn = toggleBtn.cloneNode(true);
+  toggleBtn.parentNode.replaceChild(newToggleBtn, toggleBtn);
+  
+  newToggleBtn.addEventListener('click', function(e) {
     e.stopPropagation();
     if (syncBar.classList.contains('visible')) {
       closeSyncPanel();
@@ -880,7 +902,11 @@ function initSyncPanel() {
     }
   });
   
-  overlay.addEventListener('click', closeSyncPanel);
+  if (overlayEl) {
+    const newOverlay = overlayEl.cloneNode(true);
+    overlayEl.parentNode.replaceChild(newOverlay, overlayEl);
+    newOverlay.addEventListener('click', closeSyncPanel);
+  }
   
   // Close on Escape key
   document.addEventListener('keydown', function(e) {
@@ -888,10 +914,16 @@ function initSyncPanel() {
       closeSyncPanel();
     }
   });
+  
+  console.log('✅ Sync panel ready - click the 🔄 button to toggle');
 }
 
-// Initialize
-document.addEventListener('DOMContentLoaded', initSyncPanel);
+// Make sure it's called after DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initSyncPanel);
+} else {
+  initSyncPanel();
+}
 
 // ==================== INIT SYNC CONTROLS ====================
 function initSyncControls() {
