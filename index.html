@@ -283,11 +283,12 @@
 </script>
 
 <script>
-// ==================== SIMPLE WORKING BUTTONS ====================
+// ==================== COMPLETE BUTTON FIX ====================
 (function() {
-  console.log('🔧 FIXING ALL BUTTONS - SIMPLE VERSION');
+  console.log('🔧 FIXING ALL BUTTONS...');
   
-  // Fix Save Default Rate button
+  // ========== 1. FIX RATE BUTTONS ==========
+  // Save Default Rate
   const saveBtn = document.getElementById('saveDefaultRateBtn');
   if (saveBtn) {
     const newBtn = saveBtn.cloneNode(true);
@@ -309,7 +310,7 @@
     console.log('✅ Save button fixed');
   }
   
-  // Fix Use in Student Form button
+  // Use in Student Form
   const useBtn = document.getElementById('useDefaultRateBtn');
   if (useBtn) {
     const newBtn = useBtn.cloneNode(true);
@@ -328,7 +329,7 @@
     console.log('✅ Use button fixed');
   }
   
-  // Fix Apply to All Students button
+  // Apply to All Students
   const applyBtn = document.getElementById('applyRateToAllBtn');
   if (applyBtn) {
     const newBtn = applyBtn.cloneNode(true);
@@ -351,7 +352,7 @@
     console.log('✅ Apply button fixed');
   }
   
-  // Fix FAB buttons
+  // ========== 2. FIX FAB BUTTON ==========
   const fabBtn = document.getElementById('floatingAddBtn');
   const fabMenu = document.getElementById('fabMenu');
   const fabOverlay = document.getElementById('fabOverlay');
@@ -359,7 +360,8 @@
   if (fabBtn && fabMenu && fabOverlay) {
     const newFab = fabBtn.cloneNode(true);
     fabBtn.parentNode.replaceChild(newFab, fabBtn);
-    newFab.onclick = function() {
+    newFab.onclick = function(e) {
+      e.stopPropagation();
       fabMenu.classList.toggle('active');
       fabOverlay.classList.toggle('active');
     };
@@ -368,34 +370,95 @@
       fabMenu.classList.remove('active');
       fabOverlay.classList.remove('active');
     };
-    
-    // Fix each FAB menu item
-    const fabItems = {
-      'fabAddStudent': 'students',
-      'fabAddWorklog': 'worklog',
-      'fabAddMark': 'marks',
-      'fabAddAttendance': 'attendance',
-      'fabAddPayment': 'payments'
-    };
-    
-    Object.entries(fabItems).forEach(([id, tabName]) => {
-      const item = document.getElementById(id);
-      if (item) {
-        const newItem = item.cloneNode(true);
-        item.parentNode.replaceChild(newItem, item);
-        newItem.onclick = function() {
-          fabMenu.classList.remove('active');
-          fabOverlay.classList.remove('active');
-          // Find and click the tab
-          const tab = document.querySelector(`.tab[data-tab="${tabName}"]`);
-          if (tab) tab.click();
-        };
-      }
-    });
-    console.log('✅ FAB buttons fixed');
+    console.log('✅ FAB main button fixed');
   }
   
-  console.log('✅ ALL BUTTONS FIXED - Test them now!');
+  // ========== 3. FIX FAB MENU ITEMS ==========
+  const fabItems = {
+    'fabAddStudent': 'students',
+    'fabAddWorklog': 'worklog',
+    'fabAddMark': 'marks',
+    'fabAddAttendance': 'attendance',
+    'fabAddPayment': 'payments'
+  };
+  
+  Object.entries(fabItems).forEach(([id, tabName]) => {
+    const item = document.getElementById(id);
+    if (item) {
+      const newItem = item.cloneNode(true);
+      item.parentNode.replaceChild(newItem, item);
+      newItem.onclick = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        // Close FAB menu
+        const menu = document.getElementById('fabMenu');
+        const overlay = document.getElementById('fabOverlay');
+        if (menu) menu.classList.remove('active');
+        if (overlay) overlay.classList.remove('active');
+        // Find and click the tab
+        const tab = document.querySelector(`.tab[data-tab="${tabName}"]`);
+        if (tab) {
+          tab.click();
+        } else {
+          console.log(`Tab not found: ${tabName}`);
+        }
+      };
+      console.log(`✅ FAB item ${id} fixed -> ${tabName}`);
+    }
+  });
+  
+  // ========== 4. FIX ANY OTHER BUTTONS ==========
+  // Fix any buttons with onclick attributes that might not work
+  document.querySelectorAll('button[onclick]').forEach(btn => {
+    const onclickAttr = btn.getAttribute('onclick');
+    if (onclickAttr && (onclickAttr.includes('clearStudentForm') || 
+        onclickAttr.includes('clearAttendanceForm') ||
+        onclickAttr.includes('resetMarksForm') ||
+        onclickAttr.includes('resetPaymentForm') ||
+        onclickAttr.includes('selectAllStudents'))) {
+      
+      const newBtn = btn.cloneNode(true);
+      btn.parentNode.replaceChild(newBtn, btn);
+      // Keep the original onclick functionality
+      newBtn.setAttribute('onclick', onclickAttr);
+      console.log(`✅ Fixed button with onclick: ${onclickAttr.substring(0, 30)}`);
+    }
+  });
+  
+  // ========== 5. FIX STUDENT FORM SUBMIT ==========
+  const studentForm = document.getElementById('studentForm');
+  if (studentForm) {
+    const newForm = studentForm.cloneNode(true);
+    studentForm.parentNode.replaceChild(newForm, studentForm);
+    newForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const name = document.getElementById('studentName')?.value;
+      const studentId = document.getElementById('studentId')?.value;
+      if (!name || !studentId) {
+        alert('Please enter name and student ID');
+        return;
+      }
+      const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+      const newStudent = {
+        id: 'student_' + Date.now(),
+        name: name,
+        studentId: studentId,
+        gender: document.getElementById('studentGender')?.value || '',
+        email: document.getElementById('studentEmail')?.value || '',
+        phone: document.getElementById('studentPhone')?.value || '',
+        rate: parseFloat(document.getElementById('studentRate')?.value) || parseFloat(localStorage.getItem('defaultHourlyRate') || '25'),
+        createdAt: new Date().toISOString()
+      };
+      students.push(newStudent);
+      localStorage.setItem('worklog_students', JSON.stringify(students));
+      alert('Student added!');
+      if (typeof loadStudents === 'function') loadStudents();
+      newForm.reset();
+    });
+    console.log('✅ Student form fixed');
+  }
+  
+  console.log('✅ ALL BUTTONS FIXED COMPLETE!');
 })();
 </script>
  
