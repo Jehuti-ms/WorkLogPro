@@ -6658,7 +6658,7 @@ button:focus:not(:focus-visible) {
   display: none !important;
 }
 
-/* Make header more compact */
+/* Make header more compact - NO margin/padding at bottom */
 .header {
   padding: 8px 16px !important;
   position: sticky;
@@ -6666,6 +6666,7 @@ button:focus:not(:focus-visible) {
   z-index: 101;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  margin-bottom: 0 !important;
 }
 
 .logo-title {
@@ -6713,21 +6714,31 @@ button:focus:not(:focus-visible) {
   font-size: 0.75rem !important;
 }
 
-/* STICKY TABS - Right under header */
+/* STICKY TABS - Right at the bottom of header */
 .tabs-container {
   position: sticky;
-  top: 68px; /* Matches header height */
+  top: 0;
   z-index: 100;
   background: var(--background);
-  padding: 8px 0;
+  padding: 0;
+  margin: 0;
 }
 
+/* This creates a gap that matches the header height */
+.tabs-container::before {
+  content: '';
+  display: block;
+  height: 0;
+}
+
+/* The actual tabs */
 .tabs {
   background: var(--surface);
-  border-radius: 30px;
-  padding: 4px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  border: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 16px;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 
 .tab {
@@ -6735,7 +6746,14 @@ button:focus:not(:focus-visible) {
   font-size: 13px !important;
   min-height: 36px !important;
   border-radius: 30px !important;
-  margin: 0 2px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab:hover {
+  background: var(--border-light);
 }
 
 .tab.active {
@@ -6745,10 +6763,6 @@ button:focus:not(:focus-visible) {
 
 /* Mobile adjustments */
 @media (max-width: 768px) {
-  .tabs-container {
-    top: 58px;
-  }
-  
   .tab {
     padding: 6px 10px !important;
     font-size: 11px !important;
@@ -6763,10 +6777,6 @@ button:focus:not(:focus-visible) {
 @media (max-width: 480px) {
   .subtitle {
     display: none;
-  }
-  
-  .tabs-container {
-    top: 52px;
   }
 }
 
