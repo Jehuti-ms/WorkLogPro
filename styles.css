@@ -6863,24 +6863,38 @@ button:focus:not(:focus-visible) {
 
 /* ================= MAKE SYNC PANEL SHOW ==================== */
 /* ==================== SYNC PANEL - FORCED VISIBILITY ==================== */
+/* Slide-out Sync Panel - CORRECTED POSITIONING */
 .sync-toolbar {
   position: fixed !important;
   top: 80px !important;
   right: 20px !important;
+  left: auto !important;
+  bottom: auto !important;
   width: 300px !important;
+  max-width: calc(100% - 40px) !important;
   background: var(--surface) !important;
   border-radius: 12px !important;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2) !important;
   border: 1px solid var(--border) !important;
+  display: none !important;
   flex-direction: column !important;
   padding: 12px !important;
-  z-index: 10000 !important;
-  /* CRITICAL: Hidden by default */
-  display: none !important;
+  z-index: 1000 !important;
 }
 
 .sync-toolbar.visible {
   display: flex !important;
+}
+
+/* Mobile adjustment */
+@media (max-width: 768px) {
+  .sync-toolbar {
+    top: 60px !important;
+    right: 10px !important;
+    left: auto !important;
+    width: calc(100% - 20px) !important;
+    max-width: none !important;
+  }
 }
 
 .sync-overlay {
