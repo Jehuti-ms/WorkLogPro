@@ -6821,57 +6821,46 @@ button:focus:not(:focus-visible) {
   display: block;
 }
 
-/* Sync Panel - Working Version */
+/* Sync panel structure */
 .sync-toolbar {
   position: fixed !important;
   top: 80px !important;
   right: 20px !important;
-  width: 280px !important;
+  width: 300px !important;
   background: var(--surface) !important;
   border-radius: 12px !important;
   box-shadow: 0 4px 20px rgba(0,0,0,0.2) !important;
   border: 1px solid var(--border) !important;
-  padding: 0 !important;
-  z-index: 1000 !important;
   display: none !important;
   flex-direction: column !important;
-  overflow: hidden !important;
+  z-index: 1000 !important;
+  max-height: 500px !important;
 }
 
 .sync-toolbar.active {
   display: flex !important;
 }
 
-/* Status row - fixed at top */
+/* Status row - fixed top */
 .sync-toolbar .sync-status-row {
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
+  flex-shrink: 0 !important;
   padding: 12px !important;
   border-bottom: 1px solid var(--border) !important;
-  background: var(--surface) !important;
-  flex-shrink: 0 !important;
 }
 
-/* Scrollable buttons container */
+/* Scrollable buttons area */
 .sync-buttons {
-  max-height: 400px !important;
+  flex: 1 !important;
   overflow-y: auto !important;
-  overflow-x: hidden !important;
   padding: 8px 12px 12px 12px !important;
 }
 
-/* Button styling */
+/* Buttons */
 .sync-toolbar .button {
   width: 100% !important;
   margin: 4px 0 !important;
   justify-content: flex-start !important;
-  text-align: left !important;
   padding: 10px 12px !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-  white-space: nowrap !important;
 }
 
 /* Overlay */
