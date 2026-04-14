@@ -854,33 +854,54 @@ function initSyncToggle() {
   const toggleBtn = document.getElementById('toggleSyncBtn');
   const syncPanel = document.querySelector('.sync-toolbar');
   
+  // Create overlay if not exists (like FAB)
+  let overlay = document.querySelector('.sync-fab-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'sync-fab-overlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.3);
+      z-index: 999;
+      display: none;
+    `;
+    document.body.appendChild(overlay);
+  }
+  
   if (!toggleBtn || !syncPanel) return;
   
-  // Remove existing listener
   const newBtn = toggleBtn.cloneNode(true);
   toggleBtn.parentNode.replaceChild(newBtn, toggleBtn);
   
+  function openPanel() {
+    syncPanel.classList.add('active');
+    overlay.style.display = 'block';
+    newBtn.classList.add('active');
+  }
+  
+  function closePanel() {
+    syncPanel.classList.remove('active');
+    overlay.style.display = 'none';
+    newBtn.classList.remove('active');
+  }
+  
   newBtn.addEventListener('click', function(e) {
     e.stopPropagation();
-    syncPanel.classList.toggle('active');
-    this.classList.toggle('active');
-  });
-  
-  // Close when clicking outside (like FAB overlay)
-  document.addEventListener('click', function(e) {
-    if (!syncPanel.contains(e.target) && !newBtn.contains(e.target)) {
-      syncPanel.classList.remove('active');
-      newBtn.classList.remove('active');
+    if (syncPanel.classList.contains('active')) {
+      closePanel();
+    } else {
+      openPanel();
     }
   });
   
-  console.log('✅ Sync toggle ready');
+  overlay.addEventListener('click', closePanel);
+  
+  console.log('✅ Sync toggle with overlay ready');
 }
-
-// Call this in your initAppUI
-// initSyncToggle();
-
-
 
 // ==================== INIT SYNC CONTROLS ====================
 function initSyncControls() {
