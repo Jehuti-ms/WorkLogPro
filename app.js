@@ -848,6 +848,51 @@ function handleLogout() {
   window.location.href = 'auth.html';
 }
 
+// ==================== SYNC PANEL =======================
+// Slide-out Sync Panel
+function initSyncPanel() {
+  const toggleBtn = document.getElementById('toggleSyncBtn');
+  const syncBar = document.querySelector('.sync-toolbar');
+  const overlay = document.createElement('div');
+  overlay.className = 'sync-overlay';
+  document.body.appendChild(overlay);
+  
+  if (!toggleBtn || !syncBar) return;
+  
+  function openSyncPanel() {
+    syncBar.classList.add('visible');
+    overlay.classList.add('visible');
+    toggleBtn.classList.add('active');
+  }
+  
+  function closeSyncPanel() {
+    syncBar.classList.remove('visible');
+    overlay.classList.remove('visible');
+    toggleBtn.classList.remove('active');
+  }
+  
+  toggleBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (syncBar.classList.contains('visible')) {
+      closeSyncPanel();
+    } else {
+      openSyncPanel();
+    }
+  });
+  
+  overlay.addEventListener('click', closeSyncPanel);
+  
+  // Close on Escape key
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && syncBar.classList.contains('visible')) {
+      closeSyncPanel();
+    }
+  });
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', initSyncPanel);
+
 // ==================== INIT SYNC CONTROLS ====================
 function initSyncControls() {
   console.log('☁️ Initializing sync controls...');
