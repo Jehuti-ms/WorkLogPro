@@ -308,12 +308,6 @@ function initAppUI() {
   }
 }
 
-// ==================== INIT DEFAULT RATE ====================
-function initDefaultRate() {
-    console.log('💰 Initializing default rate...');
-    SimpleRateManager.updateUI();
-}
-
 // ==================== HELPER FUNCTIONS ====================
 function isAuthPage() {
   return window.location.pathname.includes('auth.html') || 
@@ -438,7 +432,7 @@ function updateProfileInfo() {
     let memberSince = 'Unknown';
     
     // Get current default rate
-    const defaultRate = SimpleRateManager.get();
+    const defaultRate = RateManager.get();
     
     // Get user email from various sources
     const storedEmail = localStorage.getItem('userEmail');
@@ -569,7 +563,7 @@ function updateProfileStats() {
     }
     
     // Get default rate
-    const defaultRate = SimpleRateManager.get();
+    const defaultRate = RateManager.get();
     
     console.log(`📊 Stats calculated:`, {
       students: students.length,
@@ -1342,7 +1336,7 @@ function exportAllData() {
     attendance: JSON.parse(localStorage.getItem('worklog_attendance') || '[]'),
     payments: JSON.parse(localStorage.getItem('worklog_payments') || '[]'),
     settings: {
-      defaultHourlyRate: SimpleRateManager.get(),
+      defaultHourlyRate: RateManager.get(),
       autoSyncEnabled: localStorage.getItem('autoSyncEnabled') === 'true',
       theme: localStorage.getItem('worklog-theme') || 'dark'
     },
@@ -1425,7 +1419,7 @@ function clearAllData() {
     return;
   }
   
-  const defaultRate = SimpleRateManager.get();
+  const defaultRate = RateManager.get();
   const theme = localStorage.getItem('worklog-theme') || 'dark';
   const autoSync = localStorage.getItem('autoSyncEnabled');
   
@@ -1458,7 +1452,7 @@ function initForms() {
         gender: document.getElementById('studentGender').value,
         email: document.getElementById('studentEmail').value.trim(),
         phone: document.getElementById('studentPhone').value.trim(),
-        rate: parseFloat(document.getElementById('studentRate').value) || parseFloat(SimpleRateManager.get())
+        rate: parseFloat(document.getElementById('studentRate').value) || parseFloat(RateManager.get())
       };
       
       if (!studentData.name || !studentData.studentId) {
@@ -1592,7 +1586,7 @@ function loadStudents() {
     
     if (needsRateFix) {
       studentsFixed = true;
-      const correctRate = rateValue || SimpleRateManager.get();
+      const correctRate = rateValue || RateManager.get();
       student.rate = correctRate;
       student.hourlyRate = correctRate;
     }
@@ -1677,7 +1671,7 @@ function loadStudents() {
   if (sortSelect) sortSelect.value = sortMethod;
   
   // Get default rate
-  const defaultRate = SimpleRateManager.get();
+  const defaultRate = RateManager.get();
   
   // Display students with SAFE date formatting
   if (!students.length) {
