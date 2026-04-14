@@ -6895,6 +6895,50 @@ button:focus:not(:focus-visible) {
     width: calc(100% - 20px) !important;
     max-width: 300px !important;
   }
+
+  /* Fix horizontal scroll and button sizes */
+body {
+  overflow-x: hidden !important;
+  max-width: 100% !important;
+}
+
+.container {
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+/* Fix sync panel buttons - make them all the same size */
+.sync-toolbar .button {
+  width: 100% !important;
+  margin: 4px 0 !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+  padding: 10px 12px !important;
+  font-size: 0.85rem !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Make sync panel buttons stack vertically and not overflow */
+.sync-toolbar {
+  overflow-x: hidden !important;
+}
+
+.sync-toolbar .sync-status-row {
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+}
+
+/* Fix any wide elements */
+.sync-indicator {
+  min-width: 60px !important;
+  width: auto !important;
+}
+
+.auto-sync-label {
+  white-space: nowrap !important;
+}
 }
 
 .sync-overlay {
