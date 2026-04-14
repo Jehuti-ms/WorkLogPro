@@ -6788,23 +6788,25 @@ button:focus:not(:focus-visible) {
 }
 
 /* Sync Panel */
+/* Panel - higher z-index */
 .sync-toolbar {
   position: fixed !important;
   top: 80px !important;
   right: 20px !important;
-  left: auto !important;
-  bottom: auto !important;
   width: 320px !important;
-  max-width: calc(100% - 40px) !important;
   background: var(--surface) !important;
   border-radius: 12px !important;
   box-shadow: 0 4px 20px rgba(0,0,0,0.2) !important;
   border: 1px solid var(--border) !important;
   display: none !important;
   flex-direction: column !important;
-  z-index: 10000 !important;
+  z-index: 9999 !important;  /* Higher than overlay */
   max-height: 500px !important;
   overflow-y: auto !important;
+}
+
+.sync-overlay.visible {
+  display: block !important;
 }
 
 .sync-toolbar.visible {
@@ -6840,7 +6842,7 @@ button:focus:not(:focus-visible) {
   overflow-y: auto !important;
 }
 
-/* Overlay */
+/* Overlay - lower z-index */
 .sync-overlay {
   position: fixed !important;
   top: 0 !important;
@@ -6848,7 +6850,7 @@ button:focus:not(:focus-visible) {
   right: 0 !important;
   bottom: 0 !important;
   background: rgba(0, 0, 0, 0.5) !important;
-  z-index: 9999 !important;
+  z-index: 9998 !important;  /* Lower than panel */
   display: none !important;
   cursor: pointer !important;
 }
