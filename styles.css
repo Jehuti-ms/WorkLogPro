@@ -6821,46 +6821,41 @@ button:focus:not(:focus-visible) {
   display: block;
 }
 
-/* Sync panel structure */
+/* Simple working sync panel - no extra divs needed */
 .sync-toolbar {
   position: fixed !important;
   top: 80px !important;
   right: 20px !important;
-  width: 300px !important;
+  width: 280px !important;
   background: var(--surface) !important;
   border-radius: 12px !important;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.2) !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
   border: 1px solid var(--border) !important;
+  padding: 12px !important;
+  z-index: 1000 !important;
   display: none !important;
   flex-direction: column !important;
-  z-index: 1000 !important;
+  gap: 8px !important;
   max-height: 500px !important;
+  overflow-y: auto !important;
 }
 
 .sync-toolbar.active {
   display: flex !important;
 }
 
-/* Status row - fixed top */
-.sync-toolbar .sync-status-row {
-  flex-shrink: 0 !important;
-  padding: 12px !important;
-  border-bottom: 1px solid var(--border) !important;
-}
-
-/* Scrollable buttons area */
-.sync-buttons {
-  flex: 1 !important;
-  overflow-y: auto !important;
-  padding: 8px 12px 12px 12px !important;
-}
-
-/* Buttons */
 .sync-toolbar .button {
   width: 100% !important;
-  margin: 4px 0 !important;
-  justify-content: flex-start !important;
-  padding: 10px 12px !important;
+  margin: 0 !important;
+}
+
+.sync-toolbar .sync-status-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  margin-bottom: 8px !important;
+  padding-bottom: 8px !important;
+  border-bottom: 1px solid var(--border) !important;
+  flex-shrink: 0 !important;
 }
 
 /* Overlay */
