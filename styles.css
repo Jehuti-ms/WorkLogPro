@@ -6846,9 +6846,11 @@ button:focus:not(:focus-visible) {
   flex-direction: column !important;
 }
 
-/* Make all buttons uniform - no wrapping */
+/* Make all buttons uniform */
 .sync-toolbar .button {
   width: 100% !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
@@ -6860,27 +6862,20 @@ button:focus:not(:focus-visible) {
   box-sizing: border-box !important;
 }
 
-/* Make the panel wide enough for the longest button */
-.sync-toolbar {
-  width: 320px !important;
-  min-width: 300px !important;
+/* For the longer buttons that might overflow */
+.sync-toolbar .button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* For the long buttons, show full text on hover if needed */
-.sync-toolbar .button:hover {
-  overflow: visible !important;
-  position: relative !important;
-  z-index: 1001 !important;
+/* On very small screens, allow text to wrap */
+@media (max-width: 380px) {
+  .sync-toolbar .button {
+    white-space: normal !important;
+    word-break: break-word !important;
+    text-align: left !important;
+  }
 }
-
-/* Or shorten the text on those specific buttons */
-#listBackupsBtn span, 
-#recoverBackupBtn span,
-#clearDataBtn span {
-  display: none;
-}
-
-/* Or change the button text to be shorter */
 
 /* Remove any grid or flex row styles */
 .sync-toolbar {
