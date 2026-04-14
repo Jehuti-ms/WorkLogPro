@@ -6840,10 +6840,9 @@ button:focus:not(:focus-visible) {
   overflow-y: auto !important;
 }
 
-/* Force vertical stacking */
- .sync-toolbar {
+/* Active state - show the panel */
+.sync-toolbar.active {
   display: flex !important;
-  flex-direction: column !important;
 }
 
 /* Make all buttons uniform */
@@ -6868,25 +6867,7 @@ button:focus:not(:focus-visible) {
   text-overflow: ellipsis;
 }
 
-/* On very small screens, allow text to wrap */
-@media (max-width: 380px) {
-  .sync-toolbar .button {
-    white-space: normal !important;
-    word-break: break-word !important;
-    text-align: left !important;
-  }
-}
-
-/* Remove any grid or flex row styles */
-.sync-toolbar {
-  flex-direction: column !important;
-}
-
-.sync-toolbar .button {
-  float: none !important;
-  clear: both !important;
-}
-
+/* Status row styling */
 .sync-toolbar .sync-status-row {
   display: flex !important;
   justify-content: space-between !important;
@@ -6894,6 +6875,15 @@ button:focus:not(:focus-visible) {
   padding-bottom: 8px !important;
   border-bottom: 1px solid var(--border) !important;
   flex-shrink: 0 !important;
+}
+
+/* On very small screens, allow text to wrap */
+@media (max-width: 380px) {
+  .sync-toolbar .button {
+    white-space: normal !important;
+    word-break: break-word !important;
+    text-align: left !important;
+  }
 }
 
 /* Overlay */
@@ -6911,4 +6901,3 @@ button:focus:not(:focus-visible) {
 .sync-overlay.active {
   display: block !important;
 }
-
