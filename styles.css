@@ -7009,3 +7009,63 @@ button:focus:not(:focus-visible) {
   font-size: 1rem !important;
 }
 */
+
+/* ========== SYNC TOGGLE BUTTON =========== */
+/* Style sync toggle button to match theme and profile buttons */
+#toggleSyncBtn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  padding: 8px 16px !important;
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  cursor: pointer !important;
+  font-size: 0.9rem !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+  min-height: 44px !important;
+  min-width: 44px !important;
+}
+
+#toggleSyncBtn:hover {
+  background: var(--border-light) !important;
+  border-color: var(--border-dark) !important;
+  transform: translateY(-1px);
+}
+
+#toggleSyncBtn.active {
+  background: var(--primary) !important;
+  color: white !important;
+  border-color: var(--primary) !important;
+}
+
+/* Make sure it matches the layout */
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Ensure consistent sizing with theme toggle */
+.theme-toggle button,
+#toggleSyncBtn,
+.auth-section .btn {
+  padding: 8px 12px !important;
+  font-size: 0.9rem !important;
+  min-height: 44px !important;
+}
+
+/* For mobile */
+@media (max-width: 480px) {
+  .theme-toggle button,
+  #toggleSyncBtn,
+  .auth-section .btn {
+    padding: 6px 10px !important;
+    font-size: 0.8rem !important;
+    min-height: 38px !important;
+  }
+}
+
