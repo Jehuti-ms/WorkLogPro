@@ -850,7 +850,7 @@ function handleLogout() {
 }
 
 // ===============Sync Panel Toggle - Same pattern as FAB ==============
-function initSyncToggle() {
+/*function initSyncToggle() {
   const toggleBtn = document.getElementById('toggleSyncBtn');
   const syncPanel = document.querySelector('.sync-toolbar');
   
@@ -901,6 +901,48 @@ function initSyncToggle() {
   overlay.addEventListener('click', closePanel);
   
   console.log('✅ Sync toggle with overlay ready');
+} */
+
+function initSyncToggle() {
+  const toggleBtn = document.getElementById('toggleSyncBtn');
+  const syncPanel = document.querySelector('.sync-toolbar');
+  let overlay = document.querySelector('.sync-overlay');
+  
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'sync-overlay';
+    document.body.appendChild(overlay);
+  }
+  
+  if (!toggleBtn || !syncPanel) return;
+  
+  function openPanel() {
+    syncPanel.classList.add('active');
+    overlay.classList.add('active');
+    toggleBtn.classList.add('active');
+  }
+  
+  function closePanel() {
+    syncPanel.classList.remove('active');
+    overlay.classList.remove('active');
+    toggleBtn.classList.remove('active');
+  }
+  
+  const newBtn = toggleBtn.cloneNode(true);
+  toggleBtn.parentNode.replaceChild(newBtn, toggleBtn);
+  
+  newBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (syncPanel.classList.contains('active')) {
+      closePanel();
+    } else {
+      openPanel();
+    }
+  });
+  
+  overlay.addEventListener('click', closePanel);
+  
+  console.log('✅ Sync panel ready');
 }
 
 // ==================== INIT SYNC CONTROLS ====================
