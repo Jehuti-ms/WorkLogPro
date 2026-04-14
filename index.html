@@ -1420,5 +1420,79 @@ Culloden Road, St. Michael</textarea>
       alert('This feature would update all student rates to the default rate');
     }
   </script>
+
+  <script>
+// ==================== SYNC PANEL TOGGLE ====================
+(function() {
+  console.log('🔧 Setting up sync panel...');
+  
+  // Create overlay if not exists
+  if (!document.querySelector('.sync-overlay')) {
+    const overlay = document.createElement('div');
+    overlay.className = 'sync-overlay';
+    document.body.appendChild(overlay);
+    console.log('✅ Created sync overlay');
+  }
+  
+  const toggleBtn = document.getElementById('toggleSyncBtn');
+  const syncBar = document.querySelector('.sync-toolbar');
+  const overlayEl = document.querySelector('.sync-overlay');
+  
+  if (!toggleBtn) {
+    console.error('❌ Toggle button #toggleSyncBtn not found!');
+    return;
+  }
+  
+  if (!syncBar) {
+    console.error('❌ Sync bar .sync-toolbar not found!');
+    return;
+  }
+  
+  console.log('✅ Found toggle button and sync bar');
+  
+  function openSyncPanel() {
+    syncBar.classList.add('visible');
+    if (overlayEl) overlayEl.classList.add('visible');
+    toggleBtn.classList.add('active');
+    console.log('📂 Sync panel opened');
+  }
+  
+  function closeSyncPanel() {
+    syncBar.classList.remove('visible');
+    if (overlayEl) overlayEl.classList.remove('visible');
+    toggleBtn.classList.remove('active');
+    console.log('📁 Sync panel closed');
+  }
+  
+  // Remove existing listener and add new one
+  const newToggleBtn = toggleBtn.cloneNode(true);
+  toggleBtn.parentNode.replaceChild(newToggleBtn, toggleBtn);
+  
+  newToggleBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    console.log('🔄 Toggle button clicked');
+    if (syncBar.classList.contains('visible')) {
+      closeSyncPanel();
+    } else {
+      openSyncPanel();
+    }
+  });
+  
+  if (overlayEl) {
+    const newOverlay = overlayEl.cloneNode(true);
+    overlayEl.parentNode.replaceChild(newOverlay, overlayEl);
+    newOverlay.addEventListener('click', closeSyncPanel);
+  }
+  
+  // Close on Escape key
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && syncBar.classList.contains('visible')) {
+      closeSyncPanel();
+    }
+  });
+  
+  console.log('✅ Sync panel ready - click the 🔄 button to test');
+})();
+</script>
 </body>
 </html>
