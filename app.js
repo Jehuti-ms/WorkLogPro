@@ -854,8 +854,9 @@ function initSyncPanel() {
   console.log('🔧 Initializing sync panel...');
   
   // Create overlay if not exists
-  if (!document.querySelector('.sync-overlay')) {
-    const overlay = document.createElement('div');
+  let overlay = document.querySelector('.sync-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
     overlay.className = 'sync-overlay';
     document.body.appendChild(overlay);
     console.log('✅ Created sync overlay');
@@ -863,67 +864,60 @@ function initSyncPanel() {
   
   const toggleBtn = document.getElementById('toggleSyncBtn');
   const syncBar = document.querySelector('.sync-toolbar');
-  const overlayEl = document.querySelector('.sync-overlay');
   
   if (!toggleBtn) {
-    console.log('⚠️ Toggle button not found - make sure <button id="toggleSyncBtn"> exists');
+    console.error('❌ Toggle button not found');
     return;
   }
   
   if (!syncBar) {
-    console.log('⚠️ Sync bar not found');
+    console.error('❌ Sync bar not found');
     return;
   }
   
-  function openSyncPanel() {
+  function openPanel() {
     syncBar.classList.add('visible');
-    if (overlayEl) overlayEl.classList.add('visible');
+    overlay.classList.add('visible');
     toggleBtn.classList.add('active');
-    console.log('📂 Sync panel opened');
+    console.log('📂 Panel opened');
   }
   
-  function closeSyncPanel() {
+  function closePanel() {
     syncBar.classList.remove('visible');
-    if (overlayEl) overlayEl.classList.remove('visible');
+    overlay.classList.remove('visible');
     toggleBtn.classList.remove('active');
-    console.log('📁 Sync panel closed');
+    console.log('📁 Panel closed');
   }
   
-  // Remove any existing listener to prevent duplicates
+  // Toggle button click
   const newToggleBtn = toggleBtn.cloneNode(true);
   toggleBtn.parentNode.replaceChild(newToggleBtn, toggleBtn);
-  
   newToggleBtn.addEventListener('click', function(e) {
     e.stopPropagation();
     if (syncBar.classList.contains('visible')) {
-      closeSyncPanel();
+      closePanel();
     } else {
-      openSyncPanel();
+      openPanel();
     }
   });
   
-  if (overlayEl) {
-    const newOverlay = overlayEl.cloneNode(true);
-    overlayEl.parentNode.replaceChild(newOverlay, overlayEl);
-    newOverlay.addEventListener('click', closeSyncPanel);
-  }
+  // Overlay click to close
+  const newOverlay = overlay.cloneNode(true);
+  overlay.parentNode.replaceChild(newOverlay, overlay);
+  newOverlay.addEventListener('click', closePanel);
   
-  // Close on Escape key
+  // Escape key to close
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape' && syncBar.classList.contains('visible')) {
-      closeSyncPanel();
+      closePanel();
     }
   });
   
-  console.log('✅ Sync panel ready - click the 🔄 button to toggle');
+  console.log('✅ Sync panel ready');
 }
 
-// Make sure it's called after DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initSyncPanel);
-} else {
-  initSyncPanel();
-}
+// Initialize
+initSyncPanel();
 
 // ==================== INIT SYNC CONTROLS ====================
 function initSyncControls() {
