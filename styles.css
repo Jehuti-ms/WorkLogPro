@@ -6864,3 +6864,14 @@ button:focus:not(:focus-visible) {
   box-sizing: border-box !important;
 }
 
+/* Simple sync panel fix */
+.sync-toolbar {
+  max-height: 500px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+.sync-toolbar .button {
+  white-space: normal !important;
+  word-break: break-word !important;
+}
