@@ -6775,39 +6775,83 @@ button:focus:not(:focus-visible) {
   }
 }
 
-/* ==================== SYNC PANEL ==================== */
-/* Sync Toggle Button */
-.sync-toggle {
+/* ==================== SYNC PANEL - WORKING VERSION ==================== */
+
+/* Toggle Button */
+#toggleSyncBtn {
   transition: all 0.3s ease;
 }
 
-.sync-toggle.active {
+#toggleSyncBtn.active {
   background: var(--primary);
   color: white;
 }
 
-/* Slide-out Sync Panel */
+/* Sync Panel - Hidden by default */
 .sync-toolbar {
-  position: fixed;
-  top: 70px;
-  right: 20px;
-  width: 280px;
-  background: var(--surface);
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-  border: 1px solid var(--border);
-  display: none;
-  flex-direction: column;
-  padding: 12px;
-  z-index: 1000;
-  backdrop-filter: blur(10px);
+  position: fixed !important;
+  top: 80px !important;
+  right: 20px !important;
+  left: auto !important;
+  bottom: auto !important;
+  width: 300px !important;
+  background: var(--surface) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2) !important;
+  border: 1px solid var(--border) !important;
+  display: none !important;
+  flex-direction: column !important;
+  padding: 12px !important;
+  z-index: 10000 !important;
+  max-height: 80vh !important;
+  overflow-y: auto !important;
 }
 
+/* Sync Panel - Visible state */
 .sync-toolbar.visible {
-  display: flex;
-  animation: slideInRight 0.25s ease;
+  display: flex !important;
 }
 
+/* Panel content styling */
+.sync-toolbar .sync-status-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 12px !important;
+  padding-bottom: 12px !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+.sync-toolbar .button {
+  width: 100% !important;
+  margin: 4px 0 !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+  padding: 10px 12px !important;
+  font-size: 0.85rem !important;
+}
+
+/* Overlay - covers the whole screen */
+.sync-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  z-index: 9999 !important;
+  display: none !important;
+  cursor: pointer !important;
+}
+
+/* Overlay - Visible state */
+.sync-overlay.visible {
+  display: block !important;
+}
+
+/* Animation */
 @keyframes slideInRight {
   from {
     opacity: 0;
@@ -6819,72 +6863,8 @@ button:focus:not(:focus-visible) {
   }
 }
 
-.sync-toolbar .sync-status-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-.sync-toolbar .button {
-  width: 100%;
-  margin: 4px 0;
-  justify-content: flex-start;
-  text-align: left;
-}
-
-/* Close on outside click */
-.sync-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0,0,0,0.3);
-  z-index: 999;
-  display: none;
-}
-
-.sync-overlay.visible {
-  display: block;
-}
-
-/* Mobile adjustment */
-@media (max-width: 768px) {
-  .sync-toolbar {
-    top: 60px;
-    right: 10px;
-    left: 10px;
-    width: auto;
-  }
-}
-
-/* ================= MAKE SYNC PANEL SHOW ==================== */
-/* ==================== SYNC PANEL - FORCED VISIBILITY ==================== */
-/* Slide-out Sync Panel - Only adjust vertical position */
-.sync-toolbar {
-  position: fixed !important;
-  top: 80px !important;  /* This moves it down from top */
-  right: 20px !important;
-  left: auto !important;
-  bottom: auto !important;  /* Don't stretch to bottom */
-  width: 300px !important;
-  background: var(--surface) !important;
-  border-radius: 12px !important;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.2) !important;
-  border: 1px solid var(--border) !important;
-  display: none !important;
-  flex-direction: column !important;
-  padding: 12px !important;
-  z-index: 1000 !important;
-  max-height: 80vh !important;  /* Limit height, enable scrolling if needed */
-  overflow-y: auto !important;  /* Scroll if too many buttons */
-}
-
 .sync-toolbar.visible {
-  display: flex !important;
+  animation: slideInRight 0.25s ease !important;
 }
 
 /* Mobile adjustment */
@@ -6895,64 +6875,15 @@ button:focus:not(:focus-visible) {
     width: calc(100% - 20px) !important;
     max-width: 300px !important;
   }
+}
 
-  /* Fix horizontal scroll and button sizes */
-body {
+/* Prevent horizontal scroll */
+body, html {
   overflow-x: hidden !important;
   max-width: 100% !important;
 }
 
 .container {
+  overflow-x: hidden !important;
   max-width: 100% !important;
-  overflow-x: hidden !important;
 }
-
-/* Fix sync panel buttons - make them all the same size */
-.sync-toolbar .button {
-  width: 100% !important;
-  margin: 4px 0 !important;
-  justify-content: flex-start !important;
-  text-align: left !important;
-  padding: 10px 12px !important;
-  font-size: 0.85rem !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-}
-
-/* Make sync panel buttons stack vertically and not overflow */
-.sync-toolbar {
-  overflow-x: hidden !important;
-}
-
-.sync-toolbar .sync-status-row {
-  flex-wrap: wrap !important;
-  gap: 8px !important;
-}
-
-/* Fix any wide elements */
-.sync-indicator {
-  min-width: 60px !important;
-  width: auto !important;
-}
-
-.auto-sync-label {
-  white-space: nowrap !important;
-}
-
-/* Force overlay to be visible when it has display:block */
-.sync-overlay[style*="display: block"] {
-  display: block !important;
-}
-
-.sync-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 9999;
-  cursor: pointer;
-}
-
