@@ -6863,15 +6863,14 @@ button:focus:not(:focus-visible) {
 
 /* ================= MAKE SYNC PANEL SHOW ==================== */
 /* ==================== SYNC PANEL - FORCED VISIBILITY ==================== */
-/* Slide-out Sync Panel - CORRECTED POSITIONING */
+/* Slide-out Sync Panel - Only adjust vertical position */
 .sync-toolbar {
   position: fixed !important;
-  top: 80px !important;
+  top: 80px !important;  /* This moves it down from top */
   right: 20px !important;
   left: auto !important;
-  bottom: auto !important;
+  bottom: auto !important;  /* Don't stretch to bottom */
   width: 300px !important;
-  max-width: calc(100% - 40px) !important;
   background: var(--surface) !important;
   border-radius: 12px !important;
   box-shadow: 0 4px 20px rgba(0,0,0,0.2) !important;
@@ -6880,6 +6879,8 @@ button:focus:not(:focus-visible) {
   flex-direction: column !important;
   padding: 12px !important;
   z-index: 1000 !important;
+  max-height: 80vh !important;  /* Limit height, enable scrolling if needed */
+  overflow-y: auto !important;  /* Scroll if too many buttons */
 }
 
 .sync-toolbar.visible {
@@ -6891,9 +6892,8 @@ button:focus:not(:focus-visible) {
   .sync-toolbar {
     top: 60px !important;
     right: 10px !important;
-    left: auto !important;
     width: calc(100% - 20px) !important;
-    max-width: none !important;
+    max-width: 300px !important;
   }
 }
 
