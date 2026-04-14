@@ -780,6 +780,7 @@ function initFAB() {
       'fabAddMark': 'marks',
       'fabAddAttendance': 'attendance',
       'fabAddPayment': 'payments'
+      'fabAddReports': 'reports'
     };
   
   Object.entries(fabActions).forEach(([id, tab]) => {
