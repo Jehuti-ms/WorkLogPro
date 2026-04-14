@@ -694,6 +694,30 @@ function initTabs() {
   switchTab(hash && document.getElementById(hash) ? hash : 'students');
   
   window.switchTab = switchTab;
+    
+    // Add this at the end of your DOMContentLoaded or initApp function
+    window.addEventListener('load', function() {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    });
+}
+
+function switchTab(tabName) {
+  console.log('Switching to tab:', tabName);
+  
+  tabContents.forEach(tab => tab.classList.remove('active'));
+  tabButtons.forEach(btn => btn.classList.remove('active'));
+  
+  const selectedTab = document.getElementById(tabName);
+  if (selectedTab) selectedTab.classList.add('active');
+  
+  const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
+  if (activeButton) activeButton.classList.add('active');
+  
+  // ADD THIS LINE - Scroll to top smoothly
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  
+  window.location.hash = tabName;
+  loadTabData(tabName);
 }
 
 function loadTabData(tabName) {
