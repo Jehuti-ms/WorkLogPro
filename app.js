@@ -779,7 +779,7 @@ function initFAB() {
       'fabAddWorklog': 'worklog',  
       'fabAddMark': 'marks',
       'fabAddAttendance': 'attendance',
-      'fabAddPayment': 'payments'
+      'fabAddPayment': 'payments',
       'fabAddReports': 'reports'
     };
   
