@@ -6775,9 +6775,28 @@ button:focus:not(:focus-visible) {
   }
 }
 
-/* ==================== SYNC PANEL - COMPLETE FIX ==================== */
+/* Sync Panel - Following FAB pattern */
+.sync-toolbar {
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  border: 1px solid var(--border);
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 1000;
+  min-width: 200px;
+}
 
-/* Toggle Button */
+.sync-toolbar.active {
+  display: flex;
+}
+
+/* Sync toggle button */
 #toggleSyncBtn {
   transition: all 0.3s ease;
 }
@@ -6787,100 +6806,4 @@ button:focus:not(:focus-visible) {
   color: white;
 }
 
-/* Sync Panel */
-/* Panel - higher z-index */
-.sync-toolbar {
-  position: fixed !important;
-  top: 80px !important;
-  right: 20px !important;
-  width: 320px !important;
-  background: var(--surface) !important;
-  border-radius: 12px !important;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.2) !important;
-  border: 1px solid var(--border) !important;
-  display: none !important;
-  flex-direction: column !important;
-  z-index: 9999 !important;  /* Higher than overlay */
-  max-height: 500px !important;
-  overflow-y: auto !important;
-}
-
-.sync-overlay.visible {
-  display: block !important;
-}
-
-.sync-toolbar.visible {
-  display: flex !important;
-}
-
-/* Make all buttons the same size */
-.sync-toolbar .button {
-  width: 100% !important;
-  margin: 4px 0 !important;
-  justify-content: flex-start !important;
-  text-align: left !important;
-  padding: 10px 12px !important;
-  font-size: 0.85rem !important;
-  min-height: 40px !important;
-  white-space: nowrap !important;
-}
-
-/* Status row styling */
-.sync-toolbar .sync-status-row {
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  margin-bottom: 12px !important;
-  padding-bottom: 12px !important;
-  border-bottom: 1px solid var(--border) !important;
-  flex-shrink: 0 !important;
-}
-
-/* Inner content wrapper for scrolling */
-.sync-toolbar .sync-buttons-wrapper {
-  flex: 1 !important;
-  overflow-y: auto !important;
-}
-
-/* Overlay - lower z-index */
-.sync-overlay {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  background: rgba(0, 0, 0, 0.5) !important;
-  z-index: 9998 !important;  /* Lower than panel */
-  display: none !important;
-  cursor: pointer !important;
-}
-
-.sync-overlay.visible {
-  display: block !important;
-}
-
-/* Animation */
-@keyframes slideInRight {
-  from {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.sync-toolbar.visible {
-  animation: slideInRight 0.25s ease !important;
-}
-
-/* Mobile */
-@media (max-width: 768px) {
-  .sync-toolbar {
-    top: 60px !important;
-    right: 10px !important;
-    width: calc(100% - 20px) !important;
-    max-width: 320px !important;
-  }
-}
+/* No overlay - just like FAB */
