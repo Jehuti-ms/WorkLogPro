@@ -6649,4 +6649,143 @@ button:focus:not(:focus-visible) {
       
     }
 }
+/*============================================*/
+
+/* ==================== COMPACT + STICKY DESIGN ==================== */
+
+/* Compact Header */
+.header {
+  padding: 8px 16px !important;
+  position: sticky;
+  top: 0;
+  z-index: 101;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.logo-title {
+  gap: 8px !important;
+  margin-bottom: 4px !important;
+}
+
+.logo {
+  width: 28px !important;
+  height: 28px !important;
+}
+
+.header h1 {
+  font-size: 1.2rem !important;
+}
+
+.subtitle {
+  font-size: 0.7rem !important;
+  margin-bottom: 4px !important;
+  display: inline-block !important;
+}
+
+/* Compact stats - horizontal row */
+.stats-row {
+  gap: 12px !important;
+  justify-content: space-between !important;
+}
+
+.storage-status {
+  font-size: 0.7rem !important;
+  gap: 8px !important;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.storage-status span {
+  white-space: nowrap;
+}
+
+/* Compact buttons */
+.theme-toggle button, 
+.auth-section .btn {
+  padding: 4px 10px !important;
+  min-height: 32px !important;
+  font-size: 0.75rem !important;
+}
+
+/* Compact Sync Toolbar */
+.sync-toolbar {
+  padding: 6px 12px !important;
+  gap: 6px !important;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.sync-toolbar .button {
+  padding: 4px 8px !important;
+  font-size: 0.7rem !important;
+  min-height: 32px !important;
+}
+
+#syncIndicator {
+  width: 50px !important;
+  height: 22px !important;
+  font-size: 9px !important;
+}
+
+/* STICKY TABS - FLOATING EFFECT */
+.tabs-container {
+  position: sticky;
+  top: 68px;
+  z-index: 100;
+  background: var(--background);
+  padding: 6px 0;
+}
+
+.tabs {
+  background: var(--surface);
+  border-radius: 30px;
+  padding: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border: 1px solid var(--border);
+}
+
+.tab {
+  padding: 8px 14px !important;
+  font-size: 13px !important;
+  min-height: 36px !important;
+  border-radius: 30px !important;
+  margin: 0 2px;
+}
+
+.tab.active {
+  background: var(--primary);
+  color: white;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .tabs-container {
+    top: 58px;
+  }
+  
+  .tab {
+    padding: 6px 8px !important;
+    font-size: 11px !important;
+  }
+  
+  .storage-status span {
+    font-size: 0.65rem;
+  }
+  
+  .sync-toolbar {
+    flex-wrap: wrap;
+  }
+}
+
+/* Hide less important items on very small screens */
+@media (max-width: 480px) {
+  .storage-status span:first-child {
+    display: none;
+  }
+  
+  .subtitle {
+    display: none;
+  }
+}
 
