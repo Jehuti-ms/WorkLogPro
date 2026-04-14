@@ -6821,52 +6821,72 @@ button:focus:not(:focus-visible) {
   display: block;
 }
 
-/* Make panel wider to contain all buttons */
+/* Sync Panel - Working Version */
 .sync-toolbar {
-  width: 320px !important;
-  min-width: 280px !important;
-  max-width: 90vw !important;
+  position: fixed !important;
+  top: 80px !important;
   right: 20px !important;
-  left: auto !important;
-}
-
-/* Ensure buttons stay inside the panel */
-.sync-toolbar .button {
-  width: 100% !important;
-  display: flex !important;
-  justify-content: flex-start !important;
-  padding: 10px 12px !important;
-  margin: 4px 0 !important;
-  white-space: nowrap !important;
+  width: 280px !important;
+  background: var(--surface) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2) !important;
+  border: 1px solid var(--border) !important;
+  padding: 0 !important;
+  z-index: 1000 !important;
+  display: none !important;
+  flex-direction: column !important;
   overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  box-sizing: border-box !important;
 }
 
-/* Make the panel scroll if content is too tall */
-.sync-toolbar {
-  max-height: 80vh !important;
-  overflow-y: auto !important;
+.sync-toolbar.active {
+  display: flex !important;
 }
 
-/* Fix status row to not overflow */
+/* Status row - fixed at top */
 .sync-toolbar .sync-status-row {
   display: flex !important;
   justify-content: space-between !important;
-  flex-wrap: wrap !important;
-  gap: 8px !important;
+  align-items: center !important;
+  padding: 12px !important;
+  border-bottom: 1px solid var(--border) !important;
+  background: var(--surface) !important;
+  flex-shrink: 0 !important;
 }
 
-/* Mobile adjustment */
-@media (max-width: 480px) {
-  .sync-toolbar {
-    width: calc(100% - 20px) !important;
-    right: 10px !important;
-    left: 10px !important;
-  }
-  
-  .sync-toolbar .button {
-    white-space: normal !important;
-    text-align: left !important;
-  }
+/* Scrollable buttons container */
+.sync-buttons {
+  max-height: 400px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 8px 12px 12px 12px !important;
 }
+
+/* Button styling */
+.sync-toolbar .button {
+  width: 100% !important;
+  margin: 4px 0 !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+  padding: 10px 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  white-space: nowrap !important;
+}
+
+/* Overlay */
+.sync-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: rgba(0, 0, 0, 0.3) !important;
+  z-index: 999 !important;
+  display: none !important;
+}
+
+.sync-overlay.active {
+  display: block !important;
+}
+
