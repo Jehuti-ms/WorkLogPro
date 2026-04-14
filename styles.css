@@ -6844,8 +6844,6 @@ button:focus:not(:focus-visible) {
  .sync-toolbar {
   display: flex !important;
   flex-direction: column !important;
-  width: 320px !important;
-  min-width: 300px !important;
 }
 
 /* Make all buttons uniform - no wrapping */
@@ -6860,6 +6858,12 @@ button:focus:not(:focus-visible) {
   padding: 10px 12px !important;
   margin: 4px 0 !important;
   box-sizing: border-box !important;
+}
+
+/* Make the panel wide enough for the longest button */
+.sync-toolbar {
+  width: 320px !important;
+  min-width: 300px !important;
 }
 
 /* For the long buttons, show full text on hover if needed */
