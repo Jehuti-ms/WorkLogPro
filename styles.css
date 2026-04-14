@@ -6775,7 +6775,7 @@ button:focus:not(:focus-visible) {
   }
 }
 
-/* ==================== SYNC PANEL - WORKING VERSION ==================== */
+/* ==================== SYNC PANEL - COMPLETE FIX ==================== */
 
 /* Toggle Button */
 #toggleSyncBtn {
@@ -6787,41 +6787,31 @@ button:focus:not(:focus-visible) {
   color: white;
 }
 
-/* Sync Panel - Hidden by default */
+/* Sync Panel */
 .sync-toolbar {
   position: fixed !important;
   top: 80px !important;
   right: 20px !important;
   left: auto !important;
   bottom: auto !important;
-  width: 300px !important;
+  width: 320px !important;
+  max-width: calc(100% - 40px) !important;
   background: var(--surface) !important;
   border-radius: 12px !important;
   box-shadow: 0 4px 20px rgba(0,0,0,0.2) !important;
   border: 1px solid var(--border) !important;
   display: none !important;
   flex-direction: column !important;
-  padding: 12px !important;
   z-index: 10000 !important;
-  max-height: 80vh !important;
+  max-height: 500px !important;
   overflow-y: auto !important;
 }
 
-/* Sync Panel - Visible state */
 .sync-toolbar.visible {
   display: flex !important;
 }
 
-/* Panel content styling */
-.sync-toolbar .sync-status-row {
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  margin-bottom: 12px !important;
-  padding-bottom: 12px !important;
-  border-bottom: 1px solid var(--border) !important;
-}
-
+/* Make all buttons the same size */
 .sync-toolbar .button {
   width: 100% !important;
   margin: 4px 0 !important;
@@ -6829,24 +6819,40 @@ button:focus:not(:focus-visible) {
   text-align: left !important;
   padding: 10px 12px !important;
   font-size: 0.85rem !important;
+  min-height: 40px !important;
+  white-space: nowrap !important;
 }
 
-/* Overlay - covers the whole screen */
+/* Status row styling */
+.sync-toolbar .sync-status-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 12px !important;
+  padding-bottom: 12px !important;
+  border-bottom: 1px solid var(--border) !important;
+  flex-shrink: 0 !important;
+}
+
+/* Inner content wrapper for scrolling */
+.sync-toolbar .sync-buttons-wrapper {
+  flex: 1 !important;
+  overflow-y: auto !important;
+}
+
+/* Overlay */
 .sync-overlay {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
   right: 0 !important;
   bottom: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
   background: rgba(0, 0, 0, 0.5) !important;
   z-index: 9999 !important;
   display: none !important;
   cursor: pointer !important;
 }
 
-/* Overlay - Visible state */
 .sync-overlay.visible {
   display: block !important;
 }
@@ -6867,23 +6873,12 @@ button:focus:not(:focus-visible) {
   animation: slideInRight 0.25s ease !important;
 }
 
-/* Mobile adjustment */
+/* Mobile */
 @media (max-width: 768px) {
   .sync-toolbar {
     top: 60px !important;
     right: 10px !important;
     width: calc(100% - 20px) !important;
-    max-width: 300px !important;
+    max-width: 320px !important;
   }
-}
-
-/* Prevent horizontal scroll */
-body, html {
-  overflow-x: hidden !important;
-  max-width: 100% !important;
-}
-
-.container {
-  overflow-x: hidden !important;
-  max-width: 100% !important;
 }
