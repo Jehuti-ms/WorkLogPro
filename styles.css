@@ -6961,3 +6961,34 @@ button:focus:not(:focus-visible) {
   flex: 0 0 auto !important;
   width: 100% !important;
 }
+
+/* ======== SUMMARY CARDS ============*/
+/* Reduce summary card sizes in reports tab */
+#reports .summary-card {
+  padding: 10px 12px !important;  /* Reduced from 20px */
+  border-radius: 8px !important;
+}
+
+#reports .summary-card div:first-child {
+  font-size: 0.7rem !important;  /* Smaller label */
+  margin-bottom: 2px !important;
+}
+
+#reports .summary-card div:last-child,
+#reports .summary-card div:nth-child(2) {
+  font-size: 1.2rem !important;  /* Smaller value */
+  font-weight: bold !important;
+}
+
+/* Adjust the grid layout */
+#reports .summary-cards {
+  gap: 10px !important;  /* Reduced gap between cards */
+  margin-bottom: 20px !important;
+}
+
+/* Make the cards more compact on desktop */
+@media (min-width: 768px) {
+  #reports .summary-cards {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+}
