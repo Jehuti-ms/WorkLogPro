@@ -6820,3 +6820,26 @@ button:focus:not(:focus-visible) {
 .sync-fab-overlay.active {
   display: block;
 }
+
+/* Make buttons take full width of the panel */
+.sync-toolbar {
+  width: 280px !important;
+  min-width: 260px !important;
+}
+
+.sync-toolbar .button {
+  width: 100% !important;
+  display: flex !important;
+  justify-content: flex-start !important;
+  padding: 10px 12px !important;
+  box-sizing: border-box !important;
+}
+
+/* Make sure the panel is wide enough */
+@media (max-width: 768px) {
+  .sync-toolbar {
+    width: 260px !important;
+    right: 10px !important;
+  }
+}
+
