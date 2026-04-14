@@ -6840,13 +6840,26 @@ button:focus:not(:focus-visible) {
   overflow-y: auto !important;
 }
 
-.sync-toolbar.active {
+/* Force vertical stacking */
+.sync-toolbar {
   display: flex !important;
+  flex-direction: column !important;
 }
 
 .sync-toolbar .button {
+  display: block !important;
   width: 100% !important;
-  margin: 0 !important;
+  margin: 4px 0 !important;
+}
+
+/* Remove any grid or flex row styles */
+.sync-toolbar {
+  flex-direction: column !important;
+}
+
+.sync-toolbar .button {
+  float: none !important;
+  clear: both !important;
 }
 
 .sync-toolbar .sync-status-row {
