@@ -6821,16 +6821,17 @@ button:focus:not(:focus-visible) {
   display: block;
 }
 
-/* Make panel wider to contain all buttons */
+/* Fix scrolling - vertical only */
 .sync-toolbar {
   width: 320px !important;
-  min-width: 280px !important;
   max-width: 90vw !important;
+  max-height: 500px !important;
+  overflow-y: auto !important;  /* Vertical scroll */
+  overflow-x: hidden !important; /* NO horizontal scroll */
   right: 20px !important;
-  left: auto !important;
 }
 
-/* Ensure buttons stay inside the panel */
+/* Ensure buttons don't cause horizontal scroll */
 .sync-toolbar .button {
   width: 100% !important;
   display: flex !important;
@@ -6838,36 +6839,26 @@ button:focus:not(:focus-visible) {
   padding: 10px 12px !important;
   margin: 4px 0 !important;
   white-space: nowrap !important;
-  overflow: hidden !important;
+  overflow-x: hidden !important;
   text-overflow: ellipsis !important;
   box-sizing: border-box !important;
 }
 
-/* Make the panel scroll if content is too tall */
-.sync-toolbar {
-  max-height: 80vh !important;
-  overflow-y: auto !important;
+/* Allow text to wrap on small screens instead of horizontal scroll */
+@media (max-width: 480px) {
+  .sync-toolbar .button {
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
 }
 
-/* Fix status row to not overflow */
+/* Status row - prevent overflow */
 .sync-toolbar .sync-status-row {
   display: flex !important;
   justify-content: space-between !important;
   flex-wrap: wrap !important;
   gap: 8px !important;
+  overflow-x: hidden !important;
 }
 
-/* Mobile adjustment */
-@media (max-width: 480px) {
-  .sync-toolbar {
-    width: calc(100% - 20px) !important;
-    right: 10px !important;
-    left: 10px !important;
-  }
-  
-  .sync-toolbar .button {
-    white-space: normal !important;
-    text-align: left !important;
-  }
-}
 
