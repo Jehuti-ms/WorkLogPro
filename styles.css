@@ -6780,3 +6780,89 @@ button:focus:not(:focus-visible) {
   }
 }
 
+/* ==================== SYNC PANEL ==================== */
+/* Sync Toggle Button */
+.sync-toggle {
+  transition: all 0.3s ease;
+}
+
+.sync-toggle.active {
+  background: var(--primary);
+  color: white;
+}
+
+/* Slide-out Sync Panel */
+.sync-toolbar {
+  position: fixed;
+  top: 70px;
+  right: 20px;
+  width: 280px;
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  border: 1px solid var(--border);
+  display: none;
+  flex-direction: column;
+  padding: 12px;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+}
+
+.sync-toolbar.visible {
+  display: flex;
+  animation: slideInRight 0.25s ease;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.sync-toolbar .sync-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sync-toolbar .button {
+  width: 100%;
+  margin: 4px 0;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+/* Close on outside click */
+.sync-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.3);
+  z-index: 999;
+  display: none;
+}
+
+.sync-overlay.visible {
+  display: block;
+}
+
+/* Mobile adjustment */
+@media (max-width: 768px) {
+  .sync-toolbar {
+    top: 60px;
+    right: 10px;
+    left: 10px;
+    width: auto;
+  }
+}
+
