@@ -6821,44 +6821,46 @@ button:focus:not(:focus-visible) {
   display: block;
 }
 
-/* Fix scrolling - vertical only */
+/* Sync panel - fixed structure */
 .sync-toolbar {
   width: 320px !important;
   max-width: 90vw !important;
-  max-height: 500px !important;
-  overflow-y: auto !important;  /* Vertical scroll */
-  overflow-x: hidden !important; /* NO horizontal scroll */
+  background: var(--surface) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2) !important;
+  border: 1px solid var(--border) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  position: fixed !important;
+  top: 80px !important;
   right: 20px !important;
+  z-index: 1000 !important;
+  overflow: hidden !important;
 }
 
-/* Ensure buttons don't cause horizontal scroll */
+/* Status row - fixed at top */
+.sync-toolbar .sync-status-row {
+  flex-shrink: 0 !important;
+  padding: 12px !important;
+  border-bottom: 1px solid var(--border) !important;
+  background: var(--surface) !important;
+}
+
+/* Buttons container - scrollable */
+.sync-toolbar .buttons-container {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  max-height: 400px !important;
+  padding: 8px 12px 12px 12px !important;
+}
+
+/* Buttons styling */
 .sync-toolbar .button {
   width: 100% !important;
-  display: flex !important;
+  margin: 4px 0 !important;
   justify-content: flex-start !important;
   padding: 10px 12px !important;
-  margin: 4px 0 !important;
-  white-space: nowrap !important;
-  overflow-x: hidden !important;
-  text-overflow: ellipsis !important;
   box-sizing: border-box !important;
 }
-
-/* Allow text to wrap on small screens instead of horizontal scroll */
-@media (max-width: 480px) {
-  .sync-toolbar .button {
-    white-space: normal !important;
-    word-break: break-word !important;
-  }
-}
-
-/* Status row - prevent overflow */
-.sync-toolbar .sync-status-row {
-  display: flex !important;
-  justify-content: space-between !important;
-  flex-wrap: wrap !important;
-  gap: 8px !important;
-  overflow-x: hidden !important;
-}
-
 
