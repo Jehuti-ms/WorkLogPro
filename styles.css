@@ -6956,11 +6956,3 @@ body {
   cursor: pointer;
 }
 
-/* Make sure the overlay isn't hidden by other rules */
-.sync-overlay {
-  display: none !important;
-}
-
-.sync-overlay[style*="display: block"] {
-  display: block !important;
-}
