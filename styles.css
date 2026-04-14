@@ -6841,16 +6841,42 @@ button:focus:not(:focus-visible) {
 }
 
 /* Force vertical stacking */
-.sync-toolbar {
+ .sync-toolbar {
   display: flex !important;
   flex-direction: column !important;
+  width: 320px !important;
+  min-width: 300px !important;
 }
 
+/* Make all buttons uniform - no wrapping */
 .sync-toolbar .button {
-  display: block !important;
   width: 100% !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 10px 12px !important;
   margin: 4px 0 !important;
+  box-sizing: border-box !important;
 }
+
+/* For the long buttons, show full text on hover if needed */
+.sync-toolbar .button:hover {
+  overflow: visible !important;
+  position: relative !important;
+  z-index: 1001 !important;
+}
+
+/* Or shorten the text on those specific buttons */
+#listBackupsBtn span, 
+#recoverBackupBtn span,
+#clearDataBtn span {
+  display: none;
+}
+
+/* Or change the button text to be shorter */
 
 /* Remove any grid or flex row styles */
 .sync-toolbar {
