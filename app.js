@@ -292,7 +292,7 @@ function initAppUI() {
   console.log('🎨 Initializing app UI...');
   
   try {
-    initDefaultRate();
+  //  initDefaultRate();
     updateProfileInfo();
  //   initTabs(); 
     initForms();
