@@ -4,156 +4,92 @@ let redirectInProgress = false;
 let currentEditId = null;
 let autoSyncInterval = null;
 
-// ==================== TAB MANAGER ====================
-const TabManager = {
-  loadedTabs: {},
-  
-  async loadTab(tabName) {
-    console.log(`[TabManager] loadTab called for: ${tabName}`);
+// ==================== SIMPLE RATE MANAGER ====================
+const SimpleRateManager = {
+    // Get the current default rate
+    get: function() {
+        return localStorage.getItem('defaultHourlyRate') || '25.00';
+    },
     
-    // Check if already loaded
-    if (this.loadedTabs[tabName]) {
-      console.log(`Tab ${tabName} already loaded, just showing it`);
-      this.showTab(tabName);
-      return true;
-    }
+    // Set the default rate
+    set: function(rate) {
+        const formattedRate = parseFloat(rate).toFixed(2);
+        localStorage.setItem('defaultHourlyRate', formattedRate);
+        this.updateUI(formattedRate);
+        return formattedRate;
+    },
     
-    try {
-      console.log(`[TabManager] Fetching tabs/${tabName}.html...`);
-      const response = await fetch(`tabs/${tabName}.html`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const html = await response.text();
-      console.log(`[TabManager] Received ${html.length} bytes for ${tabName}`);
-      
-      const tabContainer = document.getElementById(tabName);
-      if (tabContainer) {
-        tabContainer.innerHTML = html;
-        this.loadedTabs[tabName] = true;
-        console.log(`✅ Tab ${tabName} loaded successfully`);
+    // Update all UI elements
+    updateUI: function(rate) {
+        rate = rate || this.get();
         
-        // Initialize tab-specific functions
-        setTimeout(() => {
-          this.initTabFunctions(tabName);
-        }, 100);
+        // Update all rate displays
+        const displays = {
+            'currentDefaultRate': rate,
+            'currentDefaultRateDisplay': rate,
+            'defaultRateDisplay': rate,
+            'profileDefaultRate': `$${rate}/hour`
+        };
         
-        return true;
-      } else {
-        console.error(`Container for ${tabName} not found`);
-        return false;
-      }
-    } catch (error) {
-      console.error(`❌ Error loading tab ${tabName}:`, error);
-      const tabContainer = document.getElementById(tabName);
-      if (tabContainer) {
-        tabContainer.innerHTML = `<p class="empty-message">Error loading ${tabName} content. Please refresh.</p>`;
-      }
-      return false;
-    }
-  },
-  
-  showTab(tabName) {
-    const tab = document.getElementById(tabName);
-    if (tab && tab.innerHTML.length > 0) {
-      console.log(`Showing existing content for ${tabName}`);
-      this.initTabFunctions(tabName);
-    }
-  },
-  
-  initTabFunctions(tabName) {
-    console.log(`Initializing functions for ${tabName} tab`);
+        Object.entries(displays).forEach(([id, value]) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        });
+        
+        // Update input field
+        const rateInput = document.getElementById('defaultBaseRate');
+        if (rateInput) {
+            rateInput.value = rate;
+            rateInput.placeholder = rate;
+        }
+        
+        // Update form placeholders
+        const studentRate = document.getElementById('studentRate');
+        if (studentRate) studentRate.placeholder = `Default: $${rate}`;
+        
+        const baseRate = document.getElementById('baseRate');
+        if (baseRate) baseRate.placeholder = `Default: $${rate}`;
+    },
     
-    switch(tabName) {
-      case 'students':
+    // Apply to current form
+    applyToForm: function() {
+        const rate = this.get();
+        const studentRate = document.getElementById('studentRate');
+        const baseRate = document.getElementById('baseRate');
+        
+        if (studentRate) studentRate.value = rate;
+        if (baseRate) baseRate.value = rate;
+        
+        showNotification(`Default rate $${rate} applied to form`, 'info');
+    },
+    
+    // Apply to all students
+    applyToAllStudents: function() {
+        const rate = this.get();
+        const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+        
+        if (students.length === 0) {
+            showNotification('No students to update', 'warning');
+            return;
+        }
+        
+        const updated = students.map(s => ({
+            ...s,
+            rate: parseFloat(rate),
+            hourlyRate: parseFloat(rate)
+        }));
+        
+        localStorage.setItem('worklog_students', JSON.stringify(updated));
+        
+        // Refresh display
+        if (window.dataManager) window.dataManager.syncUI();
         if (typeof loadStudents === 'function') loadStudents();
-        break;
-      case 'worklog':
-        if (typeof loadWorklogStudentDropdown === 'function') loadWorklogStudentDropdown();
-        if (typeof loadWorklogEntries === 'function') loadWorklogEntries();
-        break;
-      case 'marks':
-        if (typeof populateMarksStudentDropdown === 'function') populateMarksStudentDropdown();
-        if (typeof loadMarks === 'function') loadMarks();
-        break;
-      case 'attendance':
-        if (typeof populateAttendanceStudents === 'function') populateAttendanceStudents();
-        if (typeof loadAttendance === 'function') loadAttendance();
-        break;
-      case 'payments':
-        if (typeof populatePaymentStudentDropdown === 'function') populatePaymentStudentDropdown();
-        if (typeof loadPayments === 'function') loadPayments();
-        if (typeof updatePaymentBalances === 'function') updatePaymentBalances();
-        break;
-      case 'reports':
-        if (typeof loadReports === 'function') loadReports();
-        if (typeof generateReport === 'function') generateReport();
-        break;
+        
+        showNotification(`Updated ${students.length} students to $${rate}/hour`, 'success');
     }
-  },
-  
-  async switchTab(tabName) {
-    console.log(`[TabManager] switchTab called for: ${tabName}`);
-    
-    // Hide all tab contents
-    document.querySelectorAll('.tabcontent').forEach(content => {
-      content.classList.remove('active');
-      content.style.display = 'none';
-    });
-    
-    // Remove active class from all tab buttons
-    document.querySelectorAll('.tab').forEach(btn => {
-      btn.classList.remove('active');
-    });
-    
-    // Load the tab content
-    const success = await this.loadTab(tabName);
-    
-    if (success) {
-      // Show selected tab
-      const selectedTab = document.getElementById(tabName);
-      if (selectedTab) {
-        selectedTab.classList.add('active');
-        selectedTab.style.display = 'block';
-        console.log(`✅ Now showing tab: ${tabName}`);
-      }
-      
-      // Activate button
-      const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
-      if (activeButton) {
-        activeButton.classList.add('active');
-      }
-    } else {
-      console.error(`Failed to load tab: ${tabName}`);
-    }
-  }
 };
 
-// Initialize tab switching after DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('Setting up tab switching...');
-  
-  // Add click handlers to all tabs
-  document.querySelectorAll('.tab').forEach(tab => {
-    const newTab = tab.cloneNode(true);
-    tab.parentNode.replaceChild(newTab, tab);
-    
-    newTab.addEventListener('click', function(e) {
-      e.preventDefault();
-      const tabName = this.getAttribute('data-tab');
-      console.log(`Tab clicked: ${tabName}`);
-      TabManager.switchTab(tabName);
-    });
-  });
-  
-  // Load the initial active tab
-  const activeTab = document.querySelector('.tab.active');
-  const initialTab = activeTab ? activeTab.getAttribute('data-tab') : 'students';
-  console.log(`Loading initial tab: ${initialTab}`);
-  TabManager.switchTab(initialTab);
-});
+window.SimpleRateManager = SimpleRateManager;
 
 // ==================== IMPROVED AUTH CHECK ====================
 async function checkAuthentication() {
@@ -292,9 +228,9 @@ function initAppUI() {
   console.log('🎨 Initializing app UI...');
   
   try {
-  //  initDefaultRate();
+    initDefaultRate();
     updateProfileInfo();
- //   initTabs(); 
+    initTabs();
     initForms();
     initFAB();
     initProfileModal();
@@ -307,6 +243,43 @@ function initAppUI() {
     console.error('❌ UI init error:', error);
   }
 }
+
+// ==================== INIT DEFAULT RATE ====================
+function initDefaultRate() {
+    console.log('💰 Initializing default rate...');
+    SimpleRateManager.updateUI();
+}
+
+// ==================== SAVE DEFAULT RATE ====================
+window.saveDefaultRate = function() {
+    const input = document.getElementById('defaultBaseRate');
+    if (!input) return;
+    
+    const rate = parseFloat(input.value);
+    if (isNaN(rate) || rate <= 0) {
+        showNotification('Please enter a valid rate', 'error');
+        return;
+    }
+    
+    // Save and update UI
+    const saved = SimpleRateManager.set(rate);
+    showNotification(`Default rate set to $${saved}`, 'success');
+    
+    // Simple cloud sync if available
+    if (window.syncService && firebase.auth().currentUser) {
+        setTimeout(() => window.syncService.sync(false, false), 500);
+    }
+};
+
+// ==================== APPLY DEFAULT RATE TO FORM ====================
+window.useDefaultRate = function() {
+    SimpleRateManager.applyToForm();
+};
+
+// ==================== APPLY DEFAULT RATE TO ALL STUDENTS ====================
+window.applyDefaultRateToAll = function() {
+    SimpleRateManager.applyToAllStudents();
+};
 
 // ==================== HELPER FUNCTIONS ====================
 function isAuthPage() {
@@ -432,7 +405,7 @@ function updateProfileInfo() {
     let memberSince = 'Unknown';
     
     // Get current default rate
-    const defaultRate = RateManager.get();
+    const defaultRate = SimpleRateManager.get();
     
     // Get user email from various sources
     const storedEmail = localStorage.getItem('userEmail');
@@ -563,7 +536,7 @@ function updateProfileStats() {
     }
     
     // Get default rate
-    const defaultRate = RateManager.get();
+    const defaultRate = SimpleRateManager.get();
     
     console.log(`📊 Stats calculated:`, {
       students: students.length,
@@ -687,269 +660,75 @@ window.changeStudentSort = function(method) {
   }
 };
 
-// ==================== INIT TABS - FIXED VERSION ====================
-/*function initTabs() {
+// ==================== INIT TABS ====================
+function initTabs() {
   console.log('📋 Initializing tabs...');
   
   const tabButtons = document.querySelectorAll('.tab');
   const tabContents = document.querySelectorAll('.tabcontent');
   
-  if (tabButtons.length === 0 || tabContents.length === 0) {
-    console.error('Tabs not found in DOM');
-    return;
-  }
-  
-  console.log(`Found ${tabButtons.length} tabs and ${tabContents.length} contents`);
-  
   function switchTab(tabName) {
-    console.log("Switching to tab:", tabName);
+    console.log('Switching to tab:', tabName);
     
-    // Hide all tab contents using classes
-    tabContents.forEach(content => {
-      content.classList.remove('active');
-    });
+    tabContents.forEach(tab => tab.classList.remove('active'));
+    tabButtons.forEach(btn => btn.classList.remove('active'));
     
-    // Remove active class from all tab buttons
-    tabButtons.forEach(button => {
-      button.classList.remove('active');
-    });
-    
-    // Show the selected tab content
     const selectedTab = document.getElementById(tabName);
-    if (selectedTab) {
-      selectedTab.classList.add('active');
-    } else {
-      console.error(`Tab content not found: ${tabName}`);
-      return;
-    }
+    if (selectedTab) selectedTab.classList.add('active');
     
-    // Activate the clicked tab button
     const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
-    if (activeButton) {
-      activeButton.classList.add('active');
-    }
+    if (activeButton) activeButton.classList.add('active');
     
-    // Load tab-specific data
+    window.location.hash = tabName;
     loadTabData(tabName);
   }
   
-  // Remove all existing listeners by cloning and replacing
   tabButtons.forEach(button => {
-    const newButton = button.cloneNode(true);
-    button.parentNode.replaceChild(newButton, button);
-    
-    newButton.addEventListener('click', function(e) {
-      e.preventDefault();
-      const tabName = this.getAttribute('data-tab');
-      if (tabName) {
-        switchTab(tabName);
-      }
+    button.addEventListener('click', function() {
+      switchTab(this.getAttribute('data-tab'));
     });
   });
   
-  // Re-query tab buttons after replacement
-  const newTabButtons = document.querySelectorAll('.tab');
+  const hash = window.location.hash.replace('#', '');
+  switchTab(hash && document.getElementById(hash) ? hash : 'students');
   
-  // IMPORTANT: Default to 'students' tab - NOT from URL hash
-  // This ensures the Students tab is shown first
-  const defaultTab = 'students';
-  
-  // Initialize with students tab (not marks!)
-  switchTab(defaultTab);
-  
-  console.log("✅ Tabs initialized successfully");
+  window.switchTab = switchTab;
 }
-*/
 
 function loadTabData(tabName) {
   console.log(`📊 Loading data for ${tabName} tab...`);
   
-  // Just load data, don't switch tabs here
   setTimeout(() => {
     switch(tabName) {
       case 'students':
-        if (typeof loadStudents === 'function') loadStudents();
+        loadStudents();
         break;
-      case 'worklog':
-        if (window.worklogManager && typeof window.worklogManager.loadData === 'function') {
-          window.worklogManager.loadData();
-        }
-        if (typeof loadWorklogEntries === 'function') loadWorklogEntries();
+      case 'hours':
+        loadHours();
         break;
       case 'marks':
-        if (typeof loadMarks === 'function') loadMarks();
-        if (typeof populateMarksStudentDropdown === 'function') populateMarksStudentDropdown();
+        loadMarks();
         break;
       case 'attendance':
-        if (typeof loadAttendance === 'function') loadAttendance();
-        if (typeof populateAttendanceStudents === 'function') populateAttendanceStudents();
+        loadAttendance();
         break;
       case 'payments':
-        if (typeof loadPayments === 'function') loadPayments();
-        if (typeof populatePaymentStudentDropdown === 'function') populatePaymentStudentDropdown();
-        if (typeof updatePaymentBalances === 'function') updatePaymentBalances();
+        loadPayments();
         break;
       case 'reports':
-        if (typeof loadReports === 'function') loadReports();
-        if (typeof generateReport === 'function') generateReport();
+        loadReports();
+        break;
+      case 'worklog':
+        if (window.worklogManager) {
+          window.worklogManager.loadData();
+          window.worklogManager.populateDropdowns();
+          window.worklogManager.updateUI();
+          window.worklogManager.updateStats();
+        }
         break;
     }
   }, 100);
 }
-
-// ==================== MISSING DROPDOWN FUNCTIONS ====================
-
-// Populate marks student dropdown
-function populateMarksStudentDropdown() {
-  console.log('📊 Populating marks student dropdown...');
-  const select = document.getElementById('marksStudent');
-  if (!select) {
-    console.log('marksStudent dropdown not found');
-    return;
-  }
-  
-  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-  select.innerHTML = '<option value="">Select Student</option>';
-  
-  students.forEach(student => {
-    const option = document.createElement('option');
-    option.value = student.id;
-    option.textContent = `${student.name} (${student.studentId || 'No ID'})`;
-    select.appendChild(option);
-  });
-  
-  console.log(`✅ Populated marks dropdown with ${students.length} students`);
-}
-
-// Populate payment student dropdown
-function populatePaymentStudentDropdown() {
-  console.log('💰 Populating payment student dropdown...');
-  const select = document.getElementById('paymentStudent');
-  if (!select) {
-    console.log('paymentStudent dropdown not found');
-    return;
-  }
-  
-  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-  select.innerHTML = '<option value="">Select Student</option>';
-  
-  students.forEach(student => {
-    const option = document.createElement('option');
-    option.value = student.id;
-    option.textContent = `${student.name} (${student.studentId || 'No ID'})`;
-    select.appendChild(option);
-  });
-  
-  console.log(`✅ Populated payment dropdown with ${students.length} students`);
-}
-
-// Populate attendance students
-function populateAttendanceStudents() {
-  console.log('✅ Populating attendance students...');
-  const container = document.getElementById('attendanceStudents');
-  if (!container) {
-    console.log('attendanceStudents container not found');
-    return;
-  }
-  
-  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-  
-  if (students.length === 0) {
-    container.innerHTML = '<p class="empty-message">No students registered. Add students first.</p>';
-    return;
-  }
-  
-  container.innerHTML = students.map(student => `
-    <div class="attendance-student-item">
-      <input type="checkbox" id="attendance_${student.id}" value="${student.id}">
-      <label for="attendance_${student.id}">${student.name} (${student.studentId || 'No ID'})</label>
-    </div>
-  `).join('');
-  
-  // Add select all button functionality
-  const selectAllBtn = document.getElementById('selectAllStudentsBtn');
-  if (selectAllBtn && !selectAllBtn.hasAttribute('data-listener')) {
-    selectAllBtn.setAttribute('data-listener', 'true');
-    selectAllBtn.addEventListener('click', function() {
-      const checkboxes = container.querySelectorAll('input[type="checkbox"]');
-      checkboxes.forEach(cb => cb.checked = true);
-    });
-  }
-  
-  console.log(`✅ Populated attendance with ${students.length} students`);
-}
-
-// Update payment balances
-function updatePaymentBalances() {
-  console.log('💰 Updating payment balances...');
-  
-  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-  const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
-  const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
-  const worklogs = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
-  
-  const balancesContainer = document.getElementById('studentBalancesContainer');
-  if (!balancesContainer) return;
-  
-  if (students.length === 0) {
-    balancesContainer.innerHTML = '<p class="empty-message">No students yet</p>';
-    return;
-  }
-  
-  // Calculate balances for each student
-  const balances = students.map(student => {
-    const hoursEarnings = hours
-      .filter(h => h.hoursStudent === student.id)
-      .reduce((sum, h) => sum + (parseFloat(h.hoursWorked) || 0) * (parseFloat(h.baseRate) || 0), 0);
-    
-    const worklogEarnings = worklogs
-      .filter(w => w.studentId === student.id)
-      .reduce((sum, w) => sum + (parseFloat(w.totalEarnings) || 0), 0);
-    
-    const totalPayments = payments
-      .filter(p => p.paymentStudent === student.id)
-      .reduce((sum, p) => sum + (parseFloat(p.paymentAmount) || 0), 0);
-    
-    const totalEarnings = hoursEarnings + worklogEarnings;
-    const balance = totalEarnings - totalPayments;
-    
-    return {
-      name: student.name,
-      earnings: totalEarnings,
-      payments: totalPayments,
-      balance: balance
-    };
-  });
-  
-  // Display balances
-  balancesContainer.innerHTML = balances.map(b => {
-    const statusClass = b.balance > 0 ? 'warning' : (b.balance < 0 ? 'info' : 'success');
-    const statusText = b.balance > 0 ? 'Owes' : (b.balance < 0 ? 'Credit' : 'Paid');
-    
-    return `
-      <div class="balance-item">
-        <div class="balance-header">
-          <strong>${b.name}</strong>
-          <span class="balance-amount ${statusClass}">
-            $${Math.abs(b.balance).toFixed(2)} ${statusText}
-          </span>
-        </div>
-        <div class="balance-details">
-          <span>Earned: $${b.earnings.toFixed(2)}</span>
-          <span>Paid: $${b.payments.toFixed(2)}</span>
-        </div>
-      </div>
-    `;
-  }).join('');
-  
-  // Calculate total owed
-  const totalOwed = balances.reduce((sum, b) => sum + Math.max(0, b.balance), 0);
-  const totalOwedElem = document.getElementById('totalOwed');
-  if (totalOwedElem) totalOwedElem.textContent = `$${totalOwed.toFixed(2)}`;
-  
-  console.log(`✅ Updated payment balances for ${students.length} students`);
-}
-
 
 // ==================== INIT FAB ====================
 function initFAB() {
@@ -1336,7 +1115,7 @@ function exportAllData() {
     attendance: JSON.parse(localStorage.getItem('worklog_attendance') || '[]'),
     payments: JSON.parse(localStorage.getItem('worklog_payments') || '[]'),
     settings: {
-      defaultHourlyRate: RateManager.get(),
+      defaultHourlyRate: SimpleRateManager.get(),
       autoSyncEnabled: localStorage.getItem('autoSyncEnabled') === 'true',
       theme: localStorage.getItem('worklog-theme') || 'dark'
     },
@@ -1419,7 +1198,7 @@ function clearAllData() {
     return;
   }
   
-  const defaultRate = RateManager.get();
+  const defaultRate = SimpleRateManager.get();
   const theme = localStorage.getItem('worklog-theme') || 'dark';
   const autoSync = localStorage.getItem('autoSyncEnabled');
   
@@ -1452,7 +1231,7 @@ function initForms() {
         gender: document.getElementById('studentGender').value,
         email: document.getElementById('studentEmail').value.trim(),
         phone: document.getElementById('studentPhone').value.trim(),
-        rate: parseFloat(document.getElementById('studentRate').value) || parseFloat(RateManager.get())
+        rate: parseFloat(document.getElementById('studentRate').value) || parseFloat(SimpleRateManager.get())
       };
       
       if (!studentData.name || !studentData.studentId) {
@@ -1586,7 +1365,7 @@ function loadStudents() {
     
     if (needsRateFix) {
       studentsFixed = true;
-      const correctRate = rateValue || RateManager.get();
+      const correctRate = rateValue || SimpleRateManager.get();
       student.rate = correctRate;
       student.hourlyRate = correctRate;
     }
@@ -1671,7 +1450,7 @@ function loadStudents() {
   if (sortSelect) sortSelect.value = sortMethod;
   
   // Get default rate
-  const defaultRate = RateManager.get();
+  const defaultRate = SimpleRateManager.get();
   
   // Display students with SAFE date formatting
   if (!students.length) {
