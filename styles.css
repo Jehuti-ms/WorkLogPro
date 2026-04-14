@@ -6651,9 +6651,14 @@ button:focus:not(:focus-visible) {
 }
 /*============================================*/
 
-/* ==================== COMPACT + STICKY DESIGN ==================== */
+/* ==================== CLEAN HEADER WITH STICKY TABS ==================== */
 
-/* Compact Header */
+/* Hide the sync toolbar completely */
+.sync-toolbar {
+  display: none !important;
+}
+
+/* Make header more compact */
 .header {
   padding: 8px 16px !important;
   position: sticky;
@@ -6680,13 +6685,13 @@ button:focus:not(:focus-visible) {
 .subtitle {
   font-size: 0.7rem !important;
   margin-bottom: 4px !important;
-  display: inline-block !important;
 }
 
-/* Compact stats - horizontal row */
+/* Compact stats row */
 .stats-row {
   gap: 12px !important;
   justify-content: space-between !important;
+  align-items: center !important;
 }
 
 .storage-status {
@@ -6708,33 +6713,13 @@ button:focus:not(:focus-visible) {
   font-size: 0.75rem !important;
 }
 
-/* Compact Sync Toolbar */
-.sync-toolbar {
-  padding: 6px 12px !important;
-  gap: 6px !important;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-}
-
-.sync-toolbar .button {
-  padding: 4px 8px !important;
-  font-size: 0.7rem !important;
-  min-height: 32px !important;
-}
-
-#syncIndicator {
-  width: 50px !important;
-  height: 22px !important;
-  font-size: 9px !important;
-}
-
-/* STICKY TABS - FLOATING EFFECT */
+/* STICKY TABS - Right under header */
 .tabs-container {
   position: sticky;
-  top: 68px;
+  top: 68px; /* Matches header height */
   z-index: 100;
   background: var(--background);
-  padding: 6px 0;
+  padding: 8px 0;
 }
 
 .tabs {
@@ -6765,27 +6750,23 @@ button:focus:not(:focus-visible) {
   }
   
   .tab {
-    padding: 6px 8px !important;
+    padding: 6px 10px !important;
     font-size: 11px !important;
   }
   
-  .storage-status span {
-    font-size: 0.65rem;
-  }
-  
-  .sync-toolbar {
-    flex-wrap: wrap;
-  }
-}
-
-/* Hide less important items on very small screens */
-@media (max-width: 480px) {
   .storage-status span:first-child {
     display: none;
   }
-  
+}
+
+/* Very small screens - hide subtitle */
+@media (max-width: 480px) {
   .subtitle {
     display: none;
+  }
+  
+  .tabs-container {
+    top: 52px;
   }
 }
 
