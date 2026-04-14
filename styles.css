@@ -6653,11 +6653,6 @@ button:focus:not(:focus-visible) {
 
 /* ==================== CLEAN HEADER WITH STICKY TABS ==================== */
 
-/* Hide the sync toolbar completely */
-.sync-toolbar {
-  display: none !important;
-}
-
 /* Make header more compact - NO margin/padding at bottom */
 .header {
   padding: 8px 16px !important;
