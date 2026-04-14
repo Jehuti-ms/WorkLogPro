@@ -421,6 +421,11 @@ function handleUserLogout() {
             setTimeout(() => notification.remove(), 300);
         }, 3000);
     }
+
+    // Add this function before the return statement
+        function get() {
+            return localStorage.getItem('defaultHourlyRate') || '25.00';
+        }
     
     // Public API
 return {
