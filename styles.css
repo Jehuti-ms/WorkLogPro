@@ -6992,3 +6992,20 @@ button:focus:not(:focus-visible) {
     grid-template-columns: repeat(4, 1fr) !important;
   }
 }
+/* ======== ULTRA COMPACT SUMMARY CARDS ============= */
+/* Ultra compact summary cards */
+/*#reports .summary-card {
+  padding: 6px 10px !important;
+  border-radius: 6px !important;
+}
+
+#reports .summary-card div:first-child {
+  font-size: 0.6rem !important;
+  opacity: 0.8 !important;
+}
+
+#reports .summary-card div:last-child,
+#reports .summary-card div:nth-child(2) {
+  font-size: 1rem !important;
+}
+*/
