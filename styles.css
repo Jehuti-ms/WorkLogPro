@@ -6951,3 +6951,13 @@ button:focus:not(:focus-visible) {
 .sync-overlay.active {
   display: block !important;
 }
+
+/* FORCE OVERRIDE - Put at the very end of your CSS file */
+.sync-toolbar {
+  flex-wrap: nowrap !important;
+}
+
+.sync-toolbar .button {
+  flex: 0 0 auto !important;
+  width: 100% !important;
+}
