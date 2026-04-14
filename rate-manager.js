@@ -425,6 +425,7 @@ function handleUserLogout() {
     // Public API
 return {
     init: init,
+    get: get,  
     saveDefaultRate: saveDefaultRate,
     useInStudentForm: useInStudentForm,
     applyToAllStudents: applyToAllStudents,
