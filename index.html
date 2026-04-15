@@ -1665,5 +1665,65 @@ Culloden Road, St. Michael</textarea>
   }
 })();
 </script>
+
+  <script>
+// EMERGENCY FIX - Add this to your HTML
+(function() {
+  console.log('🔥 EMERGENCY WORKLOG FIX RUNNING');
+  
+  // Add edit function directly to window
+  window.editWorklogEntry = function(id) {
+    console.log('✏️ EMERGENCY EDIT called for:', id);
+    
+    const entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+    const entry = entries.find(e => e.id === id);
+    
+    if (!entry) {
+      alert('Entry not found');
+      return;
+    }
+    
+    if (entry.type === 'student') {
+      document.querySelector('input[name="workType"][value="student"]').checked = true;
+      if (typeof toggleWorkType === 'function') toggleWorkType('student');
+      const studentSelect = document.getElementById('worklogStudent');
+      if (studentSelect) studentSelect.value = entry.studentId;
+    } else {
+      document.querySelector('input[name="workType"][value="institution"]').checked = true;
+      if (typeof toggleWorkType === 'function') toggleWorkType('institution');
+      const institutionInput = document.getElementById('worklogInstitution');
+      if (institutionInput) institutionInput.value = entry.institution;
+    }
+    
+    document.getElementById('worklogDate').value = entry.date;
+    document.getElementById('worklogSubject').value = entry.subject;
+    document.getElementById('worklogTopic').value = entry.topic || '';
+    document.getElementById('worklogDuration').value = entry.hours;
+    document.getElementById('worklogRate').value = entry.rate;
+    document.getElementById('worklogDescription').value = entry.description || '';
+    document.getElementById('worklogOutcomes').value = entry.outcomes || '';
+    document.getElementById('worklogNextSteps').value = entry.nextSteps || '';
+    document.getElementById('worklogNotes').value = entry.notes || '';
+    
+    window.editingWorklogId = id;
+    
+    const saveBtn = document.getElementById('worklogSubmitBtn');
+    if (saveBtn) {
+      saveBtn.textContent = '✏️ Update Worklog';
+      saveBtn.style.backgroundColor = '#f59e0b';
+    }
+    
+    alert('Edit mode activated! Make changes and click Update.');
+  };
+  
+  // Refresh display to ensure Edit buttons work
+  if (typeof loadWorklogEntries === 'function') {
+    loadWorklogEntries();
+    console.log('✅ Display refreshed with emergency fix');
+  }
+  
+  console.log('✅ Emergency fix applied - Edit buttons should work now');
+})();
+</script>
 </body>
 </html>
