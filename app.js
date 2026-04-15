@@ -407,7 +407,8 @@ function updateProfileInfo() {
     let memberSince = 'Unknown';
     
     // Get current default rate
-    const defaultRate = SimpleRateManager.get();
+  //const defaultRate = SimpleRateManager.get();
+    const defaultRate = RateManager.get();
     
     // Get user email from various sources
     const storedEmail = localStorage.getItem('userEmail');
