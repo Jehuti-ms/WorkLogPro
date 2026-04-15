@@ -171,6 +171,7 @@ function initWorklogTab() {
   
   populateWorklogStudentDropdown();
   loadWorklogEntries();
+  fixSaveButtonPermanently();
   
   // Setup filter listeners
   const filterType = document.getElementById('worklogFilterType');
@@ -259,26 +260,85 @@ function deleteWorklogEntry(id) {
   if (typeof updateStats === 'function') updateStats();
 }
 
-// Make functions global
+// ============= Make functions global ==============
 window.toggleWorkType = toggleWorkType;
 window.deleteWorklogEntry = deleteWorklogEntry;
 window.clearWorklogForm = clearWorklogForm;
-window.saveWorklogEntry = saveWorklogEntry;
 
-// Listen for tab changes
+// PERMANENT FIX FOR SAVE BUTTON
+function fixSaveButtonPermanently() {
+  const saveBtn = document.getElementById('worklogSubmitBtn');
+  if (!saveBtn) {
+    console.log('Save button not found yet, will retry...');
+    setTimeout(fixSaveButtonPermanently, 500);
+    return;
+  }
+  
+  console.log('🔧 Permanently fixing save button...');
+  
+  const newBtn = saveBtn.cloneNode(true);
+  saveBtn.parentNode.replaceChild(newBtn, saveBtn);
+  
+  newBtn.onclick = function(e) {
+    e.preventDefault();
+    
+    const type = document.querySelector('input[name="workType"]:checked')?.value || 'student';
+    const studentId = document.getElementById('worklogStudent')?.value;
+    const institution = document.getElementById('worklogInstitution')?.value;
+    const date = document.getElementById('worklogDate')?.value;
+    const subject = document.getElementById('worklogSubject')?.value;
+    const hours = parseFloat(document.getElementById('worklogDuration')?.value);
+    const rate = parseFloat(document.getElementById('worklogRate')?.value) || 25;
+    const description = document.getElementById('worklogDescription')?.value;
+    
+    if (!date) { alert('Date required'); return; }
+    if (!subject) { alert('Subject required'); return; }
+    if (!hours || hours <= 0) { alert('Valid hours required'); return; }
+    if (type === 'student' && !studentId) { alert('Select a student'); return; }
+    if (type === 'institution' && !institution) { alert('Enter institution name'); return; }
+    
+    let entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+    entries.unshift({
+      id: Date.now().toString(),
+      type,
+      studentId: studentId || null,
+      institution: institution || null,
+      date,
+      subject,
+      hours,
+      rate,
+      description: description || '',
+      total: hours * rate,
+      createdAt: new Date().toISOString()
+    });
+    
+    localStorage.setItem('worklog_entries', JSON.stringify(entries));
+    if (typeof loadWorklogEntries === 'function') loadWorklogEntries();
+    
+    document.getElementById('worklogForm')?.reset();
+    const dateInput = document.getElementById('worklogDate');
+    if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+    
+    alert('Worklog saved!');
+  };
+  
+  console.log('✅ Save button permanently fixed!');
+}
+
+// Initialize on page load if worklog is active
+if (document.getElementById('worklog')?.classList.contains('active')) {
+  setTimeout(fixSaveButtonPermanently, 500);
+}
+
+// Also fix when tab becomes active
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', function() {
     setTimeout(() => {
       if (this.getAttribute('data-tab') === 'worklog') {
-        initWorklogTab();
+        fixSaveButtonPermanently();
       }
     }, 200);
   });
 });
 
-// Initialize on page load
-if (document.getElementById('worklog')?.classList.contains('active')) {
-  initWorklogTab();
-}
-
-console.log('✅ Working worklog.js loaded');
+console.log('✅ Fixed worklog.js loaded');
