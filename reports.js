@@ -427,12 +427,12 @@ setupBusinessNameStyling() {
     const updatePreview = () => {
         if (!preview) return;
         
-        const businessName = businessNameInput?.value || 'Your Business Name';
-        const font = fontSelect?.value || "'Courier New', monospace";
-        const size = fontSizeSelect?.value || '24px';
-        const color = fontColorInput?.value || '#000000';
-        const bold = fontBoldCheck?.checked ? 'bold' : 'normal';
-        const italic = fontItalicCheck?.checked ? 'italic' : 'normal';
+        const businessName = businessNameInput && businessNameInput.value || 'Your Business Name';
+        const font = fontSelect && fontSelect.value || "'Courier New', monospace";
+        const size = fontSizeSelect && fontSizeSelect.value || '24px';
+        const color = fontColorInput && fontColorInput.value|| '#000000';
+        const bold = fontBoldCheck && fontBoldCheck.checked ? 'bold' : 'normal';
+        const italic = fontItalicCheck && fontItalicCheck.checked ? 'italic' : 'normal';
         
         preview.textContent = businessName || 'Your Business Name';
         preview.style.fontFamily = font;
@@ -443,7 +443,7 @@ setupBusinessNameStyling() {
         
         // Save preferences
         this.saveBusinessNameStyles({
-            font, size, color, bold: fontBoldCheck?.checked, italic: fontItalicCheck?.checked
+            font, size, color, bold: fontBoldCheck && fontBoldCheck.checked, italic: fontItalicCheck?.checked
         });
     };
     
@@ -1275,7 +1275,7 @@ printDocument(type) {
         const totalHours = logs.reduce((sum, log) => sum + parseFloat(log.duration || 0), 0);
         const totalEarnings = logs.reduce((sum, log) => {
             const student = students.find(s => s.name === log.studentName);
-            const rate = student?.hourlyRate || 0;
+            const rate = student && student.hourlyRate || 0;
             return sum + (parseFloat(log.duration || 0) * rate);
         }, 0);
         
