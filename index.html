@@ -1559,5 +1559,111 @@ Culloden Road, St. Michael</textarea>
   });
 })();
 </script>
+
+  <script>
+// PERMANENT WORKLOG SAVE BUTTON FIX - Runs after everything
+(function() {
+  function fixWorklogButton() {
+    const saveBtn = document.getElementById('worklogSubmitBtn');
+    if (!saveBtn) {
+      console.log('Worklog save button not found, retrying...');
+      setTimeout(fixWorklogButton, 500);
+      return;
+    }
+    
+    console.log('🔧 Permanently fixing worklog save button...');
+    
+    // Remove all existing handlers
+    const newBtn = saveBtn.cloneNode(true);
+    saveBtn.parentNode.replaceChild(newBtn, saveBtn);
+    
+    // Direct click handler
+    newBtn.onclick = function(e) {
+      e.preventDefault();
+      console.log('🔴 WORKLOG SAVE CLICKED');
+      
+      const type = document.querySelector('input[name="workType"]:checked')?.value || 'institution';
+      const studentId = document.getElementById('worklogStudent')?.value;
+      const institution = document.getElementById('worklogInstitution')?.value;
+      const date = document.getElementById('worklogDate')?.value;
+      const subject = document.getElementById('worklogSubject')?.value;
+      const hours = parseFloat(document.getElementById('worklogDuration')?.value);
+      const rate = parseFloat(document.getElementById('worklogRate')?.value) || 25;
+      const description = document.getElementById('worklogDescription')?.value;
+      
+      console.log('Form data:', {type, studentId, institution, date, subject, hours});
+      
+      if (!date) { alert('Date required'); return; }
+      if (!subject) { alert('Subject required'); return; }
+      if (!hours || hours <= 0) { alert('Valid hours required'); return; }
+      if (type === 'student' && !studentId) { alert('Select a student'); return; }
+      if (type === 'institution' && !institution) { alert('Enter institution name'); return; }
+      
+      let entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+      
+      // Get student name if needed
+      let studentName = '';
+      if (type === 'student' && studentId) {
+        const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+        const student = students.find(s => s.id === studentId);
+        studentName = student ? student.name : '';
+      }
+      
+      entries.unshift({
+        id: Date.now().toString(),
+        type,
+        studentId: studentId || null,
+        studentName: studentName,
+        institution: institution || null,
+        date,
+        subject,
+        hours,
+        rate,
+        description: description || '',
+        total: hours * rate,
+        createdAt: new Date().toISOString()
+      });
+      
+      localStorage.setItem('worklog_entries', JSON.stringify(entries));
+      console.log('✅ Saved! Total entries:', entries.length);
+      
+      // Refresh display
+      if (typeof loadWorklogEntries === 'function') {
+        loadWorklogEntries();
+      } else {
+        // Manual refresh
+        const container = document.getElementById('worklogContainer');
+        if (container) {
+          container.innerHTML = entries.map(entry => `
+            <div class="worklog-card ${entry.type}">
+              <strong>${entry.type === 'student' ? (entry.studentName || 'Unknown') : (entry.institution || 'Unknown')}</strong><br>
+              📅 ${entry.date} | ⏱️ ${entry.hours}h | 💰 $${(entry.hours * entry.rate).toFixed(2)}<br>
+              📝 ${entry.description || 'No description'}<br>
+              <button class="button small danger" onclick="deleteWorklogEntry('${entry.id}')">Delete</button>
+            </div>
+          `).join('');
+        }
+      }
+      
+      // Clear form
+      const form = document.getElementById('worklogForm');
+      if (form) form.reset();
+      const dateInput = document.getElementById('worklogDate');
+      if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+      
+      alert('Worklog saved!');
+    };
+    
+    console.log('✅ Worklog save button permanently fixed!');
+  }
+  
+  // Run when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fixWorklogButton);
+  } else {
+    fixWorklogButton();
+  }
+})();
+</script>
 </body>
 </html>
