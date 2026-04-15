@@ -204,8 +204,24 @@ function filterWorklogs() {
   `).join('');
 }
 
+// Make sure the save button is properly connected
+function setupWorklogForm() {
+  const saveBtn = document.getElementById('worklogSubmitBtn');
+  if (!saveBtn) return;
+  
+  // Remove any existing listeners
+  const newBtn = saveBtn.cloneNode(true);
+  saveBtn.parentNode.replaceChild(newBtn, saveBtn);
+  
+  newBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    saveWorklogEntry();
+  });
+}
+
 // Initialize worklog tab
 function initWorklogTab() {
+   setupWorklogForm();
   if (!isWorklogActive()) return;
   
   console.log('Initializing worklog tab...');
