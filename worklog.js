@@ -26,7 +26,7 @@ function loadWorklogEntries() {
     return;
   }
   
-    container.innerHTML = entries.map(entry => `
+  container.innerHTML = entries.map(entry => `
     <div class="worklog-card ${entry.type || 'student'}">
       <strong>${entry.type === 'student' ? (entry.studentName || 'Unknown') : (entry.institution || 'Unknown')}</strong><br>
       📅 ${entry.date} | ⏱️ ${entry.hours}h | 💰 $${(entry.hours * entry.rate).toFixed(2)}<br>
@@ -45,105 +45,6 @@ function loadWorklogEntries() {
   if (lastDateEl && entries.length) lastDateEl.innerText = entries[0].date;
 }
 
-
-// Edit worklog entry
-function editWorklogEntry(id) {
-  console.log('✏️ Editing worklog entry:', id);
-  
-  // Get the entry from localStorage
-  const entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
-  const entry = entries.find(e => e.id === id);
-  
-  if (!entry) {
-    alert('Entry not found');
-    return;
-  }
-  
-  console.log('Entry to edit:', entry);
-  
-  // Fill the form with entry data
-  if (entry.type === 'student') {
-    // Select student radio
-    document.querySelector('input[name="workType"][value="student"]').checked = true;
-    toggleWorkType('student');
-    
-    // Set student dropdown
-    const studentSelect = document.getElementById('worklogStudent');
-    if (studentSelect) {
-      studentSelect.value = entry.studentId;
-    }
-  } else {
-    // Select institution radio
-    document.querySelector('input[name="workType"][value="institution"]').checked = true;
-    toggleWorkType('institution');
-    
-    // Set institution field
-    const institutionInput = document.getElementById('worklogInstitution');
-    if (institutionInput) institutionInput.value = entry.institution;
-  }
-  
-  // Fill common fields
-  const dateInput = document.getElementById('worklogDate');
-  if (dateInput) dateInput.value = entry.date;
-  
-  const subjectInput = document.getElementById('worklogSubject');
-  if (subjectInput) subjectInput.value = entry.subject;
-  
-  const topicInput = document.getElementById('worklogTopic');
-  if (topicInput) topicInput.value = entry.topic || '';
-  
-  const durationInput = document.getElementById('worklogDuration');
-  if (durationInput) durationInput.value = entry.hours;
-  
-  const rateInput = document.getElementById('worklogRate');
-  if (rateInput) rateInput.value = entry.rate;
-  
-  const descInput = document.getElementById('worklogDescription');
-  if (descInput) descInput.value = entry.description || '';
-  
-  const outcomesInput = document.getElementById('worklogOutcomes');
-  if (outcomesInput) outcomesInput.value = entry.outcomes || '';
-  
-  const nextStepsInput = document.getElementById('worklogNextSteps');
-  if (nextStepsInput) nextStepsInput.value = entry.nextSteps || '';
-  
-  const notesInput = document.getElementById('worklogNotes');
-  if (notesInput) notesInput.value = entry.notes || '';
-  
-  // Store the ID being edited
-  window.editingWorklogId = id;
-  
-  // Change save button text
-  const saveBtn = document.getElementById('worklogSubmitBtn');
-  if (saveBtn) {
-    saveBtn.textContent = '✏️ Update Worklog';
-    saveBtn.style.backgroundColor = '#f59e0b';
-  }
-  
-  // Add cancel edit button if not exists
-  let cancelBtn = document.getElementById('cancelWorklogEditBtn');
-  if (!cancelBtn) {
-    cancelBtn = document.createElement('button');
-    cancelBtn.id = 'cancelWorklogEditBtn';
-    cancelBtn.className = 'button secondary';
-    cancelBtn.textContent = '❌ Cancel Edit';
-    cancelBtn.style.marginLeft = '10px';
-    cancelBtn.onclick = cancelWorklogEdit;
-    
-    const formActions = document.querySelector('#worklogForm .form-actions');
-    if (formActions) {
-      formActions.appendChild(cancelBtn);
-    }
-  } else {
-    cancelBtn.style.display = 'inline-block';
-  }
-  
-  // Scroll to form
-  document.getElementById('worklogForm').scrollIntoView({ behavior: 'smooth' });
-  
-  alert('Edit mode activated. Make changes and click Update.');
-}
-
 // Clear form
 function clearWorklogForm() {
   const form = document.getElementById('worklogForm');
@@ -156,22 +57,18 @@ function clearWorklogForm() {
 function cancelWorklogEdit() {
   window.editingWorklogId = null;
   
-  // Reset save button
   const saveBtn = document.getElementById('worklogSubmitBtn');
   if (saveBtn) {
     saveBtn.textContent = '💾 Save Worklog';
     saveBtn.style.backgroundColor = '';
   }
   
-  // Hide cancel button
   const cancelBtn = document.getElementById('cancelWorklogEditBtn');
   if (cancelBtn) {
     cancelBtn.style.display = 'none';
   }
   
-  // Clear form
   clearWorklogForm();
-  
   console.log('Edit cancelled');
 }
 
@@ -258,17 +155,73 @@ function saveWorklogEntry() {
   }
 }
 
+// Edit worklog entry
+function editWorklogEntry(id) {
+  console.log('✏️ Editing worklog entry:', id);
+  
+  const entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+  const entry = entries.find(e => e.id === id);
+  
+  if (!entry) {
+    alert('Entry not found');
+    return;
+  }
+  
+  if (entry.type === 'student') {
+    document.querySelector('input[name="workType"][value="student"]').checked = true;
+    toggleWorkType('student');
+    const studentSelect = document.getElementById('worklogStudent');
+    if (studentSelect) studentSelect.value = entry.studentId;
+  } else {
+    document.querySelector('input[name="workType"][value="institution"]').checked = true;
+    toggleWorkType('institution');
+    const institutionInput = document.getElementById('worklogInstitution');
+    if (institutionInput) institutionInput.value = entry.institution;
+  }
+  
+  document.getElementById('worklogDate').value = entry.date;
+  document.getElementById('worklogSubject').value = entry.subject;
+  document.getElementById('worklogTopic').value = entry.topic || '';
+  document.getElementById('worklogDuration').value = entry.hours;
+  document.getElementById('worklogRate').value = entry.rate;
+  document.getElementById('worklogDescription').value = entry.description || '';
+  document.getElementById('worklogOutcomes').value = entry.outcomes || '';
+  document.getElementById('worklogNextSteps').value = entry.nextSteps || '';
+  document.getElementById('worklogNotes').value = entry.notes || '';
+  
+  window.editingWorklogId = id;
+  
+  const saveBtn = document.getElementById('worklogSubmitBtn');
+  if (saveBtn) {
+    saveBtn.textContent = '✏️ Update Worklog';
+    saveBtn.style.backgroundColor = '#f59e0b';
+  }
+  
+  let cancelBtn = document.getElementById('cancelWorklogEditBtn');
+  if (!cancelBtn) {
+    cancelBtn = document.createElement('button');
+    cancelBtn.id = 'cancelWorklogEditBtn';
+    cancelBtn.className = 'button secondary';
+    cancelBtn.textContent = '❌ Cancel Edit';
+    cancelBtn.style.marginLeft = '10px';
+    cancelBtn.onclick = cancelWorklogEdit;
+    const formActions = document.querySelector('#worklogForm .form-actions');
+    if (formActions) formActions.appendChild(cancelBtn);
+  } else {
+    cancelBtn.style.display = 'inline-block';
+  }
+  
+  document.getElementById('worklogForm').scrollIntoView({ behavior: 'smooth' });
+  alert('Edit mode activated. Make changes and click Update.');
+}
 
 // Fix save button
 function fixSaveButtonPermanently() {
   const saveBtn = document.getElementById('worklogSubmitBtn');
   if (!saveBtn) {
-    console.log('Save button not found yet, will retry...');
     setTimeout(fixSaveButtonPermanently, 500);
     return;
   }
-  
-  console.log('🔧 Fixing save button...');
   
   const newBtn = saveBtn.cloneNode(true);
   saveBtn.parentNode.replaceChild(newBtn, saveBtn);
@@ -312,7 +265,10 @@ function filterWorklogs() {
       <strong>${entry.type === 'student' ? (entry.studentName || 'Unknown') : (entry.institution || 'Unknown')}</strong><br>
       📅 ${entry.date} | ⏱️ ${entry.hours}h | 💰 $${(entry.hours * entry.rate).toFixed(2)}<br>
       📝 ${entry.description || 'No description'}<br>
-      <button class="button small danger" onclick="deleteWorklogEntry('${entry.id}')">Delete</button>
+      <div style="margin-top: 10px;">
+        <button class="button small info" onclick="editWorklogEntry('${entry.id}')" style="margin-right: 5px;">✏️ Edit</button>
+        <button class="button small danger" onclick="deleteWorklogEntry('${entry.id}')">Delete</button>
+      </div>
     </div>
   `).join('');
 }
