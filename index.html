@@ -1496,5 +1496,68 @@ Culloden Road, St. Michael</textarea>
   console.log('✅ Sync panel ready - click the 🔄 button to test');
 })();
 </script>
+
+  <script>
+// FORCE WORKLOG DISPLAY ON EVERY PAGE LOAD
+(function() {
+  function displayWorklogs() {
+    const container = document.getElementById('worklogContainer');
+    if (!container) {
+      console.log('Container not ready, retrying...');
+      setTimeout(displayWorklogs, 200);
+      return;
+    }
+    
+    const entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+    console.log('Loading worklogs on page load:', entries.length);
+    
+    if (entries.length === 0) {
+      container.innerHTML = '<p class="empty-message">No worklog entries yet.</p>';
+      return;
+    }
+    
+    container.innerHTML = entries.map(entry => {
+      let displayName = 'Unknown';
+      if (entry.type === 'student') {
+        displayName = entry.studentName || 'Unknown Student';
+      } else if (entry.type === 'institution') {
+        displayName = entry.institution || 'Unknown Institution';
+      }
+      
+      return `
+        <div class="worklog-card ${entry.type || 'student'}">
+          <strong>${displayName}</strong><br>
+          📅 ${entry.date} | ⏱️ ${entry.hours}h | 💰 $${(entry.hours * entry.rate).toFixed(2)}<br>
+          📝 ${entry.description || 'No description'}<br>
+          <button class="button small danger" onclick="deleteWorklogEntry('${entry.id}')">Delete</button>
+        </div>
+      `;
+    }).join('');
+    
+    // Update stats
+    const countEl = document.getElementById('worklogCount');
+    if (countEl) countEl.innerText = entries.length;
+    
+    const lastDateEl = document.getElementById('lastWorklogDate');
+    if (lastDateEl && entries.length) lastDateEl.innerText = entries[0].date;
+  }
+  
+  // Run when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', displayWorklogs);
+  } else {
+    displayWorklogs();
+  }
+  
+  // Also run when switching to worklog tab
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', function() {
+      if (this.getAttribute('data-tab') === 'worklog') {
+        setTimeout(displayWorklogs, 100);
+      }
+    });
+  });
+})();
+</script>
 </body>
 </html>
