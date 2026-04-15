@@ -4,156 +4,92 @@ let redirectInProgress = false;
 let currentEditId = null;
 let autoSyncInterval = null;
 
-// ==================== TAB MANAGER ====================
-const TabManager = {
-  loadedTabs: {},
-  
-  async loadTab(tabName) {
-    console.log(`[TabManager] loadTab called for: ${tabName}`);
+// ==================== SIMPLE RATE MANAGER ====================
+const SimpleRateManager = {
+    // Get the current default rate
+    get: function() {
+        return localStorage.getItem('defaultHourlyRate') || '25.00';
+    },
     
-    // Check if already loaded
-    if (this.loadedTabs[tabName]) {
-      console.log(`Tab ${tabName} already loaded, just showing it`);
-      this.showTab(tabName);
-      return true;
-    }
+    // Set the default rate
+    set: function(rate) {
+        const formattedRate = parseFloat(rate).toFixed(2);
+        localStorage.setItem('defaultHourlyRate', formattedRate);
+        this.updateUI(formattedRate);
+        return formattedRate;
+    },
     
-    try {
-      console.log(`[TabManager] Fetching tabs/${tabName}.html...`);
-      const response = await fetch(`tabs/${tabName}.html`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const html = await response.text();
-      console.log(`[TabManager] Received ${html.length} bytes for ${tabName}`);
-      
-      const tabContainer = document.getElementById(tabName);
-      if (tabContainer) {
-        tabContainer.innerHTML = html;
-        this.loadedTabs[tabName] = true;
-        console.log(`✅ Tab ${tabName} loaded successfully`);
+    // Update all UI elements
+    updateUI: function(rate) {
+        rate = rate || this.get();
         
-        // Initialize tab-specific functions
-        setTimeout(() => {
-          this.initTabFunctions(tabName);
-        }, 100);
+        // Update all rate displays
+        const displays = {
+            'currentDefaultRate': rate,
+            'currentDefaultRateDisplay': rate,
+            'defaultRateDisplay': rate,
+            'profileDefaultRate': `$${rate}/hour`
+        };
         
-        return true;
-      } else {
-        console.error(`Container for ${tabName} not found`);
-        return false;
-      }
-    } catch (error) {
-      console.error(`❌ Error loading tab ${tabName}:`, error);
-      const tabContainer = document.getElementById(tabName);
-      if (tabContainer) {
-        tabContainer.innerHTML = `<p class="empty-message">Error loading ${tabName} content. Please refresh.</p>`;
-      }
-      return false;
-    }
-  },
-  
-  showTab(tabName) {
-    const tab = document.getElementById(tabName);
-    if (tab && tab.innerHTML.length > 0) {
-      console.log(`Showing existing content for ${tabName}`);
-      this.initTabFunctions(tabName);
-    }
-  },
-  
-  initTabFunctions(tabName) {
-    console.log(`Initializing functions for ${tabName} tab`);
+        Object.entries(displays).forEach(([id, value]) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        });
+        
+        // Update input field
+        const rateInput = document.getElementById('defaultBaseRate');
+        if (rateInput) {
+            rateInput.value = rate;
+            rateInput.placeholder = rate;
+        }
+        
+        // Update form placeholders
+        const studentRate = document.getElementById('studentRate');
+        if (studentRate) studentRate.placeholder = `Default: $${rate}`;
+        
+        const baseRate = document.getElementById('baseRate');
+        if (baseRate) baseRate.placeholder = `Default: $${rate}`;
+    },
     
-    switch(tabName) {
-      case 'students':
+    // Apply to current form
+    applyToForm: function() {
+        const rate = this.get();
+        const studentRate = document.getElementById('studentRate');
+        const baseRate = document.getElementById('baseRate');
+        
+        if (studentRate) studentRate.value = rate;
+        if (baseRate) baseRate.value = rate;
+        
+        showNotification(`Default rate $${rate} applied to form`, 'info');
+    },
+    
+    // Apply to all students
+    applyToAllStudents: function() {
+        const rate = this.get();
+        const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+        
+        if (students.length === 0) {
+            showNotification('No students to update', 'warning');
+            return;
+        }
+        
+        const updated = students.map(s => ({
+            ...s,
+            rate: parseFloat(rate),
+            hourlyRate: parseFloat(rate)
+        }));
+        
+        localStorage.setItem('worklog_students', JSON.stringify(updated));
+        
+        // Refresh display
+        if (window.dataManager) window.dataManager.syncUI();
         if (typeof loadStudents === 'function') loadStudents();
-        break;
-      case 'worklog':
-        if (typeof loadWorklogStudentDropdown === 'function') loadWorklogStudentDropdown();
-        if (typeof loadWorklogEntries === 'function') loadWorklogEntries();
-        break;
-      case 'marks':
-        if (typeof populateMarksStudentDropdown === 'function') populateMarksStudentDropdown();
-        if (typeof loadMarks === 'function') loadMarks();
-        break;
-      case 'attendance':
-        if (typeof populateAttendanceStudents === 'function') populateAttendanceStudents();
-        if (typeof loadAttendance === 'function') loadAttendance();
-        break;
-      case 'payments':
-        if (typeof populatePaymentStudentDropdown === 'function') populatePaymentStudentDropdown();
-        if (typeof loadPayments === 'function') loadPayments();
-        if (typeof updatePaymentBalances === 'function') updatePaymentBalances();
-        break;
-      case 'reports':
-        if (typeof loadReports === 'function') loadReports();
-        if (typeof generateReport === 'function') generateReport();
-        break;
+        
+        showNotification(`Updated ${students.length} students to $${rate}/hour`, 'success');
     }
-  },
-  
-  async switchTab(tabName) {
-    console.log(`[TabManager] switchTab called for: ${tabName}`);
-    
-    // Hide all tab contents
-    document.querySelectorAll('.tabcontent').forEach(content => {
-      content.classList.remove('active');
-      content.style.display = 'none';
-    });
-    
-    // Remove active class from all tab buttons
-    document.querySelectorAll('.tab').forEach(btn => {
-      btn.classList.remove('active');
-    });
-    
-    // Load the tab content
-    const success = await this.loadTab(tabName);
-    
-    if (success) {
-      // Show selected tab
-      const selectedTab = document.getElementById(tabName);
-      if (selectedTab) {
-        selectedTab.classList.add('active');
-        selectedTab.style.display = 'block';
-        console.log(`✅ Now showing tab: ${tabName}`);
-      }
-      
-      // Activate button
-      const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
-      if (activeButton) {
-        activeButton.classList.add('active');
-      }
-    } else {
-      console.error(`Failed to load tab: ${tabName}`);
-    }
-  }
 };
 
-// Initialize tab switching after DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('Setting up tab switching...');
-  
-  // Add click handlers to all tabs
-  document.querySelectorAll('.tab').forEach(tab => {
-    const newTab = tab.cloneNode(true);
-    tab.parentNode.replaceChild(newTab, tab);
-    
-    newTab.addEventListener('click', function(e) {
-      e.preventDefault();
-      const tabName = this.getAttribute('data-tab');
-      console.log(`Tab clicked: ${tabName}`);
-      TabManager.switchTab(tabName);
-    });
-  });
-  
-  // Load the initial active tab
-  const activeTab = document.querySelector('.tab.active');
-  const initialTab = activeTab ? activeTab.getAttribute('data-tab') : 'students';
-  console.log(`Loading initial tab: ${initialTab}`);
-  TabManager.switchTab(initialTab);
-});
+window.SimpleRateManager = SimpleRateManager;
 
 // ==================== IMPROVED AUTH CHECK ====================
 async function checkAuthentication() {
@@ -292,14 +228,16 @@ function initAppUI() {
   console.log('🎨 Initializing app UI...');
   
   try {
-  //  initDefaultRate();
+    initDefaultRate();
     updateProfileInfo();
- //   initTabs(); 
+    initTabs();
     initForms();
     initFAB();
     initProfileModal();
     initSyncControls();
     initReportButtons();
+    initSyncToggle();
+    initSync();
     loadInitialData();
     
     console.log('✅ App UI initialized');
@@ -307,6 +245,43 @@ function initAppUI() {
     console.error('❌ UI init error:', error);
   }
 }
+
+// ==================== INIT DEFAULT RATE ====================
+function initDefaultRate() {
+    console.log('💰 Initializing default rate...');
+    SimpleRateManager.updateUI();
+}
+
+// ==================== SAVE DEFAULT RATE ====================
+window.saveDefaultRate = function() {
+    const input = document.getElementById('defaultBaseRate');
+    if (!input) return;
+    
+    const rate = parseFloat(input.value);
+    if (isNaN(rate) || rate <= 0) {
+        showNotification('Please enter a valid rate', 'error');
+        return;
+    }
+    
+    // Save and update UI
+    const saved = SimpleRateManager.set(rate);
+    showNotification(`Default rate set to $${saved}`, 'success');
+    
+    // Simple cloud sync if available
+    if (window.syncService && firebase.auth().currentUser) {
+        setTimeout(() => window.syncService.sync(false, false), 500);
+    }
+};
+
+// ==================== APPLY DEFAULT RATE TO FORM ====================
+window.useDefaultRate = function() {
+    SimpleRateManager.applyToForm();
+};
+
+// ==================== APPLY DEFAULT RATE TO ALL STUDENTS ====================
+window.applyDefaultRateToAll = function() {
+    SimpleRateManager.applyToAllStudents();
+};
 
 // ==================== HELPER FUNCTIONS ====================
 function isAuthPage() {
@@ -432,6 +407,7 @@ function updateProfileInfo() {
     let memberSince = 'Unknown';
     
     // Get current default rate
+  //const defaultRate = SimpleRateManager.get();
     const defaultRate = RateManager.get();
     
     // Get user email from various sources
@@ -563,7 +539,7 @@ function updateProfileStats() {
     }
     
     // Get default rate
-    const defaultRate = RateManager.get();
+    const defaultRate = SimpleRateManager.get();
     
     console.log(`📊 Stats calculated:`, {
       students: students.length,
@@ -687,269 +663,99 @@ window.changeStudentSort = function(method) {
   }
 };
 
-// ==================== INIT TABS - FIXED VERSION ====================
-/*function initTabs() {
+// ==================== INIT TABS ====================
+function initTabs() {
   console.log('📋 Initializing tabs...');
   
   const tabButtons = document.querySelectorAll('.tab');
   const tabContents = document.querySelectorAll('.tabcontent');
   
-  if (tabButtons.length === 0 || tabContents.length === 0) {
-    console.error('Tabs not found in DOM');
-    return;
-  }
-  
-  console.log(`Found ${tabButtons.length} tabs and ${tabContents.length} contents`);
-  
   function switchTab(tabName) {
-    console.log("Switching to tab:", tabName);
+    console.log('Switching to tab:', tabName);
     
-    // Hide all tab contents using classes
-    tabContents.forEach(content => {
-      content.classList.remove('active');
-    });
+    tabContents.forEach(tab => tab.classList.remove('active'));
+    tabButtons.forEach(btn => btn.classList.remove('active'));
     
-    // Remove active class from all tab buttons
-    tabButtons.forEach(button => {
-      button.classList.remove('active');
-    });
-    
-    // Show the selected tab content
     const selectedTab = document.getElementById(tabName);
-    if (selectedTab) {
-      selectedTab.classList.add('active');
-    } else {
-      console.error(`Tab content not found: ${tabName}`);
-      return;
-    }
+    if (selectedTab) selectedTab.classList.add('active');
     
-    // Activate the clicked tab button
     const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
-    if (activeButton) {
-      activeButton.classList.add('active');
-    }
+    if (activeButton) activeButton.classList.add('active');
     
-    // Load tab-specific data
+    window.location.hash = tabName;
     loadTabData(tabName);
   }
   
-  // Remove all existing listeners by cloning and replacing
   tabButtons.forEach(button => {
-    const newButton = button.cloneNode(true);
-    button.parentNode.replaceChild(newButton, button);
-    
-    newButton.addEventListener('click', function(e) {
-      e.preventDefault();
-      const tabName = this.getAttribute('data-tab');
-      if (tabName) {
-        switchTab(tabName);
-      }
+    button.addEventListener('click', function() {
+      switchTab(this.getAttribute('data-tab'));
     });
   });
   
-  // Re-query tab buttons after replacement
-  const newTabButtons = document.querySelectorAll('.tab');
+  const hash = window.location.hash.replace('#', '');
+  switchTab(hash && document.getElementById(hash) ? hash : 'students');
   
-  // IMPORTANT: Default to 'students' tab - NOT from URL hash
-  // This ensures the Students tab is shown first
-  const defaultTab = 'students';
-  
-  // Initialize with students tab (not marks!)
-  switchTab(defaultTab);
-  
-  console.log("✅ Tabs initialized successfully");
+  window.switchTab = switchTab;
+    
+    // Add this at the end of your DOMContentLoaded or initApp function
+    window.addEventListener('load', function() {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    });
 }
-*/
+
+function switchTab(tabName) {
+  console.log('Switching to tab:', tabName);
+  
+  tabContents.forEach(tab => tab.classList.remove('active'));
+  tabButtons.forEach(btn => btn.classList.remove('active'));
+  
+  const selectedTab = document.getElementById(tabName);
+  if (selectedTab) selectedTab.classList.add('active');
+  
+  const activeButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
+  if (activeButton) activeButton.classList.add('active');
+  
+  // ADD THIS LINE - Scroll to top smoothly
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  
+  window.location.hash = tabName;
+  loadTabData(tabName);
+}
 
 function loadTabData(tabName) {
   console.log(`📊 Loading data for ${tabName} tab...`);
   
-  // Just load data, don't switch tabs here
   setTimeout(() => {
     switch(tabName) {
       case 'students':
-        if (typeof loadStudents === 'function') loadStudents();
+        loadStudents();
         break;
-      case 'worklog':
-        if (window.worklogManager && typeof window.worklogManager.loadData === 'function') {
-          window.worklogManager.loadData();
-        }
-        if (typeof loadWorklogEntries === 'function') loadWorklogEntries();
+      case 'hours':
+        loadHours();
         break;
       case 'marks':
-        if (typeof loadMarks === 'function') loadMarks();
-        if (typeof populateMarksStudentDropdown === 'function') populateMarksStudentDropdown();
+        loadMarks();
         break;
       case 'attendance':
-        if (typeof loadAttendance === 'function') loadAttendance();
-        if (typeof populateAttendanceStudents === 'function') populateAttendanceStudents();
+        loadAttendance();
         break;
       case 'payments':
-        if (typeof loadPayments === 'function') loadPayments();
-        if (typeof populatePaymentStudentDropdown === 'function') populatePaymentStudentDropdown();
-        if (typeof updatePaymentBalances === 'function') updatePaymentBalances();
+        loadPayments();
         break;
       case 'reports':
-        if (typeof loadReports === 'function') loadReports();
-        if (typeof generateReport === 'function') generateReport();
+        loadReports();
+        break;
+      case 'worklog':
+        if (window.worklogManager) {
+          window.worklogManager.loadData();
+          window.worklogManager.populateDropdowns();
+          window.worklogManager.updateUI();
+          window.worklogManager.updateStats();
+        }
         break;
     }
   }, 100);
 }
-
-// ==================== MISSING DROPDOWN FUNCTIONS ====================
-
-// Populate marks student dropdown
-function populateMarksStudentDropdown() {
-  console.log('📊 Populating marks student dropdown...');
-  const select = document.getElementById('marksStudent');
-  if (!select) {
-    console.log('marksStudent dropdown not found');
-    return;
-  }
-  
-  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-  select.innerHTML = '<option value="">Select Student</option>';
-  
-  students.forEach(student => {
-    const option = document.createElement('option');
-    option.value = student.id;
-    option.textContent = `${student.name} (${student.studentId || 'No ID'})`;
-    select.appendChild(option);
-  });
-  
-  console.log(`✅ Populated marks dropdown with ${students.length} students`);
-}
-
-// Populate payment student dropdown
-function populatePaymentStudentDropdown() {
-  console.log('💰 Populating payment student dropdown...');
-  const select = document.getElementById('paymentStudent');
-  if (!select) {
-    console.log('paymentStudent dropdown not found');
-    return;
-  }
-  
-  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-  select.innerHTML = '<option value="">Select Student</option>';
-  
-  students.forEach(student => {
-    const option = document.createElement('option');
-    option.value = student.id;
-    option.textContent = `${student.name} (${student.studentId || 'No ID'})`;
-    select.appendChild(option);
-  });
-  
-  console.log(`✅ Populated payment dropdown with ${students.length} students`);
-}
-
-// Populate attendance students
-function populateAttendanceStudents() {
-  console.log('✅ Populating attendance students...');
-  const container = document.getElementById('attendanceStudents');
-  if (!container) {
-    console.log('attendanceStudents container not found');
-    return;
-  }
-  
-  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-  
-  if (students.length === 0) {
-    container.innerHTML = '<p class="empty-message">No students registered. Add students first.</p>';
-    return;
-  }
-  
-  container.innerHTML = students.map(student => `
-    <div class="attendance-student-item">
-      <input type="checkbox" id="attendance_${student.id}" value="${student.id}">
-      <label for="attendance_${student.id}">${student.name} (${student.studentId || 'No ID'})</label>
-    </div>
-  `).join('');
-  
-  // Add select all button functionality
-  const selectAllBtn = document.getElementById('selectAllStudentsBtn');
-  if (selectAllBtn && !selectAllBtn.hasAttribute('data-listener')) {
-    selectAllBtn.setAttribute('data-listener', 'true');
-    selectAllBtn.addEventListener('click', function() {
-      const checkboxes = container.querySelectorAll('input[type="checkbox"]');
-      checkboxes.forEach(cb => cb.checked = true);
-    });
-  }
-  
-  console.log(`✅ Populated attendance with ${students.length} students`);
-}
-
-// Update payment balances
-function updatePaymentBalances() {
-  console.log('💰 Updating payment balances...');
-  
-  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-  const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
-  const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
-  const worklogs = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
-  
-  const balancesContainer = document.getElementById('studentBalancesContainer');
-  if (!balancesContainer) return;
-  
-  if (students.length === 0) {
-    balancesContainer.innerHTML = '<p class="empty-message">No students yet</p>';
-    return;
-  }
-  
-  // Calculate balances for each student
-  const balances = students.map(student => {
-    const hoursEarnings = hours
-      .filter(h => h.hoursStudent === student.id)
-      .reduce((sum, h) => sum + (parseFloat(h.hoursWorked) || 0) * (parseFloat(h.baseRate) || 0), 0);
-    
-    const worklogEarnings = worklogs
-      .filter(w => w.studentId === student.id)
-      .reduce((sum, w) => sum + (parseFloat(w.totalEarnings) || 0), 0);
-    
-    const totalPayments = payments
-      .filter(p => p.paymentStudent === student.id)
-      .reduce((sum, p) => sum + (parseFloat(p.paymentAmount) || 0), 0);
-    
-    const totalEarnings = hoursEarnings + worklogEarnings;
-    const balance = totalEarnings - totalPayments;
-    
-    return {
-      name: student.name,
-      earnings: totalEarnings,
-      payments: totalPayments,
-      balance: balance
-    };
-  });
-  
-  // Display balances
-  balancesContainer.innerHTML = balances.map(b => {
-    const statusClass = b.balance > 0 ? 'warning' : (b.balance < 0 ? 'info' : 'success');
-    const statusText = b.balance > 0 ? 'Owes' : (b.balance < 0 ? 'Credit' : 'Paid');
-    
-    return `
-      <div class="balance-item">
-        <div class="balance-header">
-          <strong>${b.name}</strong>
-          <span class="balance-amount ${statusClass}">
-            $${Math.abs(b.balance).toFixed(2)} ${statusText}
-          </span>
-        </div>
-        <div class="balance-details">
-          <span>Earned: $${b.earnings.toFixed(2)}</span>
-          <span>Paid: $${b.payments.toFixed(2)}</span>
-        </div>
-      </div>
-    `;
-  }).join('');
-  
-  // Calculate total owed
-  const totalOwed = balances.reduce((sum, b) => sum + Math.max(0, b.balance), 0);
-  const totalOwedElem = document.getElementById('totalOwed');
-  if (totalOwedElem) totalOwedElem.textContent = `$${totalOwed.toFixed(2)}`;
-  
-  console.log(`✅ Updated payment balances for ${students.length} students`);
-}
-
 
 // ==================== INIT FAB ====================
 function initFAB() {
@@ -1000,7 +806,8 @@ function initFAB() {
       'fabAddWorklog': 'worklog',  
       'fabAddMark': 'marks',
       'fabAddAttendance': 'attendance',
-      'fabAddPayment': 'payments'
+      'fabAddPayment': 'payments',
+      'fabAddReports': 'reports'
     };
   
   Object.entries(fabActions).forEach(([id, tab]) => {
@@ -1067,6 +874,60 @@ function handleLogout() {
   
   window.location.href = 'auth.html';
 }
+
+// ===============Sync Panel Toggle - Same pattern as FAB ==============
+function initSyncToggle() {
+  const toggleBtn = document.getElementById('toggleSyncBtn');
+  const syncPanel = document.querySelector('.sync-toolbar');
+  
+  // Create overlay if not exists (like FAB)
+  let overlay = document.querySelector('.sync-fab-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'sync-fab-overlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.3);
+      z-index: 999;
+      display: none;
+    `;
+    document.body.appendChild(overlay);
+  }
+  
+  if (!toggleBtn || !syncPanel) return;
+  
+  const newBtn = toggleBtn.cloneNode(true);
+  toggleBtn.parentNode.replaceChild(newBtn, toggleBtn);
+  
+  function openPanel() {
+    syncPanel.classList.add('active');
+    overlay.style.display = 'block';
+    newBtn.classList.add('active');
+  }
+  
+  function closePanel() {
+    syncPanel.classList.remove('active');
+    overlay.style.display = 'none';
+    newBtn.classList.remove('active');
+  }
+  
+  newBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (syncPanel.classList.contains('active')) {
+      closePanel();
+    } else {
+      openPanel();
+    }
+  });
+  
+  overlay.addEventListener('click', closePanel);
+  
+  console.log('✅ Sync toggle with overlay ready');
+} 
 
 // ==================== INIT SYNC CONTROLS ====================
 function initSyncControls() {
@@ -1246,6 +1107,156 @@ function stopAutoSync() {
   }
 }
 
+// ==================== CROSS-DEVICE SYNC ====================
+let syncUnsubscribe = null;
+
+function initCrossDeviceSync() {
+  const user = firebase.auth().currentUser;
+  if (!user) return;
+  
+  console.log('🔄 Setting up cross-device sync for:', user.email);
+  
+  // Listen for real-time changes from Firestore
+  const db = firebase.firestore();
+  const userDocRef = db.collection('users').doc(user.uid).collection('data').doc('worklog');
+  
+  if (syncUnsubscribe) {
+    syncUnsubscribe();
+  }
+  
+  syncUnsubscribe = userDocRef.onSnapshot((doc) => {
+    if (doc.exists && doc.data()) {
+      const remoteData = doc.data();
+      console.log('📡 Real-time update received from cloud');
+      
+      // Check if remote data is different from local
+      const localData = {
+        students: JSON.parse(localStorage.getItem('worklog_students') || '[]'),
+        worklogs: JSON.parse(localStorage.getItem('worklog_entries') || '[]'),
+        marks: JSON.parse(localStorage.getItem('worklog_marks') || '[]'),
+        attendance: JSON.parse(localStorage.getItem('worklog_attendance') || '[]'),
+        payments: JSON.parse(localStorage.getItem('worklog_payments') || '[]')
+      };
+      
+      let hasChanges = false;
+      
+      // Compare and update if needed
+      if (JSON.stringify(remoteData.students) !== JSON.stringify(localData.students)) {
+        localStorage.setItem('worklog_students', JSON.stringify(remoteData.students || []));
+        hasChanges = true;
+        console.log('🔄 Students updated from cloud');
+      }
+      
+      if (JSON.stringify(remoteData.worklog_entries) !== JSON.stringify(localData.worklogs)) {
+        localStorage.setItem('worklog_entries', JSON.stringify(remoteData.worklog_entries || []));
+        hasChanges = true;
+        console.log('🔄 Worklogs updated from cloud');
+      }
+      
+      if (JSON.stringify(remoteData.marks) !== JSON.stringify(localData.marks)) {
+        localStorage.setItem('worklog_marks', JSON.stringify(remoteData.marks || []));
+        hasChanges = true;
+        console.log('🔄 Marks updated from cloud');
+      }
+      
+      if (JSON.stringify(remoteData.attendance) !== JSON.stringify(localData.attendance)) {
+        localStorage.setItem('worklog_attendance', JSON.stringify(remoteData.attendance || []));
+        hasChanges = true;
+        console.log('🔄 Attendance updated from cloud');
+      }
+      
+      if (JSON.stringify(remoteData.payments) !== JSON.stringify(localData.payments)) {
+        localStorage.setItem('worklog_payments', JSON.stringify(remoteData.payments || []));
+        hasChanges = true;
+        console.log('🔄 Payments updated from cloud');
+      }
+      
+      // Refresh UI if changes were made
+      if (hasChanges) {
+        console.log('🔄 Refreshing UI with cloud data');
+        refreshAllStats();
+        if (typeof loadStudents === 'function') loadStudents();
+        if (typeof loadWorklogEntries === 'function') loadWorklogEntries();
+        if (typeof loadMarks === 'function') loadMarks();
+        if (typeof loadAttendance === 'function') loadAttendance();
+        if (typeof loadPayments === 'function') loadPayments();
+        
+        // Show notification
+        showNotification('Data synced from cloud', 'info');
+      }
+    }
+  }, (error) => {
+    console.error('❌ Sync listener error:', error);
+  });
+}
+
+// Save to cloud whenever data changes
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+const saveToCloud = debounce(async () => {
+  const user = firebase.auth().currentUser;
+  if (!user) return;
+  
+  const db = firebase.firestore();
+  const data = {
+    students: JSON.parse(localStorage.getItem('worklog_students') || '[]'),
+    worklog_entries: JSON.parse(localStorage.getItem('worklog_entries') || '[]'),
+    marks: JSON.parse(localStorage.getItem('worklog_marks') || '[]'),
+    attendance: JSON.parse(localStorage.getItem('worklog_attendance') || '[]'),
+    payments: JSON.parse(localStorage.getItem('worklog_payments') || '[]'),
+    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  
+  try {
+    await db.collection('users').doc(user.uid).collection('data').doc('worklog').set(data, { merge: true });
+    console.log('☁️ Data saved to cloud');
+  } catch (error) {
+    console.error('❌ Error saving to cloud:', error);
+  }
+}, 1000);
+
+// Hook into existing save functions
+function hookDataSaving() {
+  // Override localStorage.setItem to detect changes
+  const originalSetItem = localStorage.setItem;
+  localStorage.setItem = function(key, value) {
+    originalSetItem.apply(this, arguments);
+    if (key.startsWith('worklog_') && !key.includes('backup')) {
+      saveToCloud();
+    }
+  };
+}
+
+// Initialize cross-device sync
+function initSync() {
+  hookDataSaving();
+  
+  firebase.auth().onAuthStateChanged((user) => {
+    if (user) {
+      console.log('👤 User logged in, starting cross-device sync');
+      initCrossDeviceSync();
+      // Initial load from cloud
+      setTimeout(() => saveToCloud(), 1000);
+    } else {
+      console.log('👤 No user, sync disabled');
+      if (syncUnsubscribe) {
+        syncUnsubscribe();
+        syncUnsubscribe = null;
+      }
+    }
+  });
+}
+
 // ==================== FILE INPUT ====================
 function createFileInput() {
   if (document.getElementById('importFileInput')) return;
@@ -1336,7 +1347,7 @@ function exportAllData() {
     attendance: JSON.parse(localStorage.getItem('worklog_attendance') || '[]'),
     payments: JSON.parse(localStorage.getItem('worklog_payments') || '[]'),
     settings: {
-      defaultHourlyRate: RateManager.get(),
+      defaultHourlyRate: SimpleRateManager.get(),
       autoSyncEnabled: localStorage.getItem('autoSyncEnabled') === 'true',
       theme: localStorage.getItem('worklog-theme') || 'dark'
     },
@@ -1419,7 +1430,7 @@ function clearAllData() {
     return;
   }
   
-  const defaultRate = RateManager.get();
+  const defaultRate = SimpleRateManager.get();
   const theme = localStorage.getItem('worklog-theme') || 'dark';
   const autoSync = localStorage.getItem('autoSyncEnabled');
   
@@ -1452,7 +1463,7 @@ function initForms() {
         gender: document.getElementById('studentGender').value,
         email: document.getElementById('studentEmail').value.trim(),
         phone: document.getElementById('studentPhone').value.trim(),
-        rate: parseFloat(document.getElementById('studentRate').value) || parseFloat(RateManager.get())
+        rate: parseFloat(document.getElementById('studentRate').value) || parseFloat(SimpleRateManager.get())
       };
       
       if (!studentData.name || !studentData.studentId) {
@@ -1586,7 +1597,7 @@ function loadStudents() {
     
     if (needsRateFix) {
       studentsFixed = true;
-      const correctRate = rateValue || RateManager.get();
+      const correctRate = rateValue || SimpleRateManager.get();
       student.rate = correctRate;
       student.hourlyRate = correctRate;
     }
@@ -1671,7 +1682,7 @@ function loadStudents() {
   if (sortSelect) sortSelect.value = sortMethod;
   
   // Get default rate
-  const defaultRate = RateManager.get();
+  const defaultRate = SimpleRateManager.get();
   
   // Display students with SAFE date formatting
   if (!students.length) {
@@ -1923,17 +1934,337 @@ function showNotification(message, type = 'info') {
   });
 }
 
-// ==================== GENERATE FUNCTIONS (placeholders) ====================
-function generateWeeklyBreakdown() { /* ... */ }
-function generateSubjectBreakdown() { /* ... */ }
-function getWeekStart(date) { /* ... */ }
-function formatDate(date) { /* ... */ }
-function generateWeeklyReport() { alert('Weekly report'); }
-function generateBiWeeklyReport() { alert('Bi-weekly report'); }
-function generateMonthlyReport() { alert('Monthly report'); }
-function generateSubjectReport() { alert('Subject report'); }
-function generatePDFReport() { alert('PDF report'); }
-function generateEmailReport() { alert('Email report'); }
+// ==================== REPORT GENERATION FUNCTIONS ====================
+// Helper: Get start of week (Monday)
+function getWeekStart(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = (day === 0 ? 6 : day - 1);
+  d.setDate(d.getDate() - diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+// Helper: Format date nicely
+function formatDate(date) {
+  return new Date(date).toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: 'short', 
+    day: 'numeric' 
+  });
+}
+
+// Helper: Get all data for reports
+function getReportData() {
+  return {
+    students: JSON.parse(localStorage.getItem('worklog_students') || '[]'),
+    worklogs: JSON.parse(localStorage.getItem('worklog_entries') || '[]'),
+    hours: JSON.parse(localStorage.getItem('worklog_hours') || '[]'),
+    marks: JSON.parse(localStorage.getItem('worklog_marks') || '[]'),
+    payments: JSON.parse(localStorage.getItem('worklog_payments') || '[]')
+  };
+}
+
+// Generate Weekly Breakdown
+function generateWeeklyBreakdown() {
+  const { worklogs, hours } = getReportData();
+  const allEntries = [...worklogs, ...hours];
+  
+  if (allEntries.length === 0) {
+    showNotification('No data available for weekly breakdown', 'warning');
+    return;
+  }
+  
+  // Group by week
+  const weeklyData = {};
+  allEntries.forEach(entry => {
+    const date = entry.date || entry.workDate;
+    if (!date) return;
+    
+    const weekStart = getWeekStart(date);
+    const weekKey = weekStart.toISOString().split('T')[0];
+    
+    if (!weeklyData[weekKey]) {
+      weeklyData[weekKey] = { hours: 0, earnings: 0, subjects: new Set(), weekStart };
+    }
+    
+    const hoursWorked = parseFloat(entry.duration || entry.hoursWorked || 0);
+    const rate = parseFloat(entry.rate || entry.baseRate || 0);
+    const earnings = hoursWorked * rate;
+    
+    weeklyData[weekKey].hours += hoursWorked;
+    weeklyData[weekKey].earnings += earnings;
+    if (entry.subject) weeklyData[weekKey].subjects.add(entry.subject);
+  });
+  
+  // Display in report-content container
+  const container = document.getElementById('report-content');
+  if (!container) return;
+  
+  const weeks = Object.keys(weeklyData).sort().reverse();
+  if (weeks.length === 0) {
+    container.innerHTML = '<p class="empty-message">No weekly data available</p>';
+    return;
+  }
+  
+  let html = '<div class="report-display"><h4>📅 Weekly Breakdown</h4><table class="table"><thead><tr><th>Week</th><th>Hours</th><th>Earnings</th><th>Subjects</th><th>Net (80%)</th></tr></thead><tbody>';
+  
+  weeks.slice(0, 10).forEach(weekKey => {
+    const week = weeklyData[weekKey];
+    const net = week.earnings * 0.8;
+    html += `<tr>
+      <td>${formatDate(week.weekStart)}</td>
+      <td>${week.hours.toFixed(1)}</td>
+      <td>$${week.earnings.toFixed(2)}</td>
+      <td>${week.subjects.size}</td>
+      <td>$${net.toFixed(2)}</td>
+    </tr>`;
+  });
+  
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+}
+
+// Generate Subject Breakdown
+function generateSubjectBreakdown() {
+  const { worklogs, hours, marks } = getReportData();
+  const allEntries = [...worklogs, ...hours];
+  
+  if (allEntries.length === 0) {
+    showNotification('No data available for subject breakdown', 'warning');
+    return;
+  }
+  
+  // Group by subject
+  const subjectData = {};
+  allEntries.forEach(entry => {
+    const subject = entry.subject || 'General';
+    if (!subjectData[subject]) {
+      subjectData[subject] = { hours: 0, earnings: 0, sessions: 0, marks: [] };
+    }
+    
+    const hoursWorked = parseFloat(entry.duration || entry.hoursWorked || 0);
+    const rate = parseFloat(entry.rate || entry.baseRate || 0);
+    
+    subjectData[subject].hours += hoursWorked;
+    subjectData[subject].earnings += hoursWorked * rate;
+    subjectData[subject].sessions += 1;
+  });
+  
+  // Add marks data
+  marks.forEach(mark => {
+    const subject = mark.marksSubject;
+    if (subjectData[subject]) {
+      subjectData[subject].marks.push(parseFloat(mark.percentage) || 0);
+    }
+  });
+  
+  // Calculate averages
+  Object.keys(subjectData).forEach(subject => {
+    if (subjectData[subject].marks.length > 0) {
+      const avgMark = subjectData[subject].marks.reduce((a, b) => a + b, 0) / subjectData[subject].marks.length;
+      subjectData[subject].avgMark = avgMark.toFixed(1);
+    } else {
+      subjectData[subject].avgMark = 'N/A';
+    }
+  });
+  
+  // Display
+  const container = document.getElementById('report-content');
+  if (!container) return;
+  
+  const subjects = Object.keys(subjectData).sort();
+  if (subjects.length === 0) {
+    container.innerHTML = '<p class="empty-message">No subject data available</p>';
+    return;
+  }
+  
+  let html = '<div class="report-display"><h4>📚 Subject Breakdown</h4><table class="table"><thead><tr><th>Subject</th><th>Hours</th><th>Earnings</th><th>Sessions</th><th>Avg Mark</th></tr></thead><tbody>';
+  
+  subjects.forEach(subject => {
+    const data = subjectData[subject];
+    html += `<tr>
+      <td><strong>${subject}</strong></td>
+      <td>${data.hours.toFixed(1)}</td>
+      <td>$${data.earnings.toFixed(2)}</td>
+      <td>${data.sessions}</td>
+      <td>${data.avgMark === 'N/A' ? '—' : data.avgMark + '%'}</td>
+    </tr>`;
+  });
+  
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+}
+
+// Generate Weekly Report
+function generateWeeklyReport() {
+  generateWeeklyBreakdown();
+  showNotification('Weekly report generated', 'success');
+}
+
+// Generate Bi-Weekly Report
+function generateBiWeeklyReport() {
+  const { worklogs, hours } = getReportData();
+  const allEntries = [...worklogs, ...hours];
+  
+  if (allEntries.length === 0) {
+    showNotification('No data available', 'warning');
+    return;
+  }
+  
+  // Group by 2-week periods
+  const biWeeklyData = {};
+  allEntries.forEach(entry => {
+    const date = entry.date || entry.workDate;
+    if (!date) return;
+    
+    const d = new Date(date);
+    const weekNum = Math.floor(d.getTime() / (1000 * 60 * 60 * 24 * 14));
+    const periodKey = weekNum.toString();
+    
+    if (!biWeeklyData[periodKey]) {
+      biWeeklyData[periodKey] = { hours: 0, earnings: 0, startDate: d };
+    }
+    
+    const hoursWorked = parseFloat(entry.duration || entry.hoursWorked || 0);
+    const rate = parseFloat(entry.rate || entry.baseRate || 0);
+    
+    biWeeklyData[periodKey].hours += hoursWorked;
+    biWeeklyData[periodKey].earnings += hoursWorked * rate;
+  });
+  
+  const container = document.getElementById('report-content');
+  if (!container) return;
+  
+  let html = '<div class="report-display"><h4>📅 Bi-Weekly Report</h4><table class="table"><thead><tr><th>Period Start</th><th>Hours</th><th>Earnings</th><th>Net (80%)</th></tr></thead><tbody>';
+  
+  Object.values(biWeeklyData).slice(0, 10).forEach(period => {
+    const net = period.earnings * 0.8;
+    html += `<tr>
+      <td>${formatDate(period.startDate)}</td>
+      <td>${period.hours.toFixed(1)}</td>
+      <td>$${period.earnings.toFixed(2)}</td>
+      <td>$${net.toFixed(2)}</td>
+    </tr>`;
+  });
+  
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+  showNotification('Bi-weekly report generated', 'success');
+}
+
+// Generate Monthly Report
+function generateMonthlyReport() {
+  const { worklogs, hours } = getReportData();
+  const allEntries = [...worklogs, ...hours];
+  
+  if (allEntries.length === 0) {
+    showNotification('No data available', 'warning');
+    return;
+  }
+  
+  // Group by month
+  const monthlyData = {};
+  allEntries.forEach(entry => {
+    const date = entry.date || entry.workDate;
+    if (!date) return;
+    
+    const d = new Date(date);
+    const monthKey = `${d.getFullYear()}-${d.getMonth() + 1}`;
+    
+    if (!monthlyData[monthKey]) {
+      monthlyData[monthKey] = { hours: 0, earnings: 0, month: d };
+    }
+    
+    const hoursWorked = parseFloat(entry.duration || entry.hoursWorked || 0);
+    const rate = parseFloat(entry.rate || entry.baseRate || 0);
+    
+    monthlyData[monthKey].hours += hoursWorked;
+    monthlyData[monthKey].earnings += hoursWorked * rate;
+  });
+  
+  const container = document.getElementById('report-content');
+  if (!container) return;
+  
+  let html = '<div class="report-display"><h4>📅 Monthly Report</h4><table class="table"><thead><tr><th>Month</th><th>Hours</th><th>Earnings</th><th>Net (80%)</th></tr></thead><tbody>';
+  
+  Object.values(monthlyData).slice(0, 12).forEach(month => {
+    const net = month.earnings * 0.8;
+    html += `<tr>
+      <td>${month.month.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}</td>
+      <td>${month.hours.toFixed(1)}</td>
+      <td>$${month.earnings.toFixed(2)}</td>
+      <td>$${net.toFixed(2)}</td>
+    </tr>`;
+  });
+  
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+  showNotification('Monthly report generated', 'success');
+}
+
+// Generate Subject Report
+function generateSubjectReport() {
+  generateSubjectBreakdown();
+  showNotification('Subject report generated', 'success');
+}
+
+// Generate PDF Report
+function generatePDFReport() {
+  const container = document.getElementById('report-content');
+  if (!container || container.innerHTML.includes('No data')) {
+    showNotification('Generate a report first before exporting to PDF', 'warning');
+    return;
+  }
+  
+  const printWindow = window.open('', '_blank');
+  const styles = document.querySelector('style').innerHTML;
+  
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>WorkLog Report</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        h1 { color: #2563eb; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #f5f5f5; }
+        @media print {
+          body { margin: 0; }
+          .no-print { display: none; }
+        }
+      </style>
+    </head>
+    <body>
+      <h1>WorkLog Report</h1>
+      <p>Generated: ${new Date().toLocaleString()}</p>
+      ${container.innerHTML}
+      <p class="no-print"><button onclick="window.print()">Print</button></p>
+    </body>
+    </html>
+  `);
+  
+  printWindow.document.close();
+  showNotification('PDF report opened', 'success');
+}
+
+// Generate Email Report
+function generateEmailReport() {
+  const container = document.getElementById('report-content');
+  if (!container || container.innerHTML.includes('No data')) {
+    showNotification('Generate a report first before emailing', 'warning');
+    return;
+  }
+  
+  const reportContent = container.innerText;
+  const subject = encodeURIComponent('WorkLog Report');
+  const body = encodeURIComponent(reportContent + '\n\nGenerated: ' + new Date().toLocaleString());
+  
+  window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  showNotification('Email client opened', 'success');
+}
 
 // ==================== INITIALIZE SORTING ====================
 document.addEventListener('DOMContentLoaded', function() {
