@@ -113,33 +113,30 @@ class ReportManager {
         }
     }
 
-   getEntriesInDateRange(startDate, endDate) {
+  getEntriesInDateRange(startDate, endDate) {
     console.log(`🔍 Date range check: ${startDate} to ${endDate}`);
     
-    // Create dates that cover the full range
     const start = new Date(startDate + 'T00:00:00');
     const end = new Date(endDate + 'T23:59:59.999');
     
-    console.log(`📅 Start: ${start.toLocaleString()}, End: ${end.toLocaleString()}`);
-    
     const filtered = this.worklogEntries.filter(entry => {
-        const entryDate = new Date(entry.date + 'T12:00:00'); // Use noon to avoid timezone issues
-        const isInRange = entryDate >= start && entryDate <= end;
-        
-        // Debug log for the date range you're checking (March 6-12)
-        if (entry.date >= '2026-03-06') {
-            console.log(`Entry ${entry.date}: ${isInRange ? '✅ INCLUDED' : '❌ EXCLUDED'}`);
-        }
-        
-        return isInRange;
+        const entryDate = new Date(entry.date + 'T12:00:00');
+        return entryDate >= start && entryDate <= end;
     });
     
-    console.log(`📊 Found ${filtered.length} entries in range:`, 
-        filtered.map(e => e.date).sort());
+    // NORMALIZE entries - add duration field for compatibility
+    const normalized = filtered.map(entry => ({
+        ...entry,
+        duration: entry.hours,        // Map hours to duration
+        hoursWorked: entry.hours,     // Map hours to hoursWorked
+        totalEarnings: entry.total,   // Map total to totalEarnings
+        activity: entry.subject       // Map subject to activity
+    }));
     
-    return filtered;
+    console.log(`📊 Found ${normalized.length} entries in range`);
+    return normalized;
 }
-
+    
     updateStudentDropdowns() {
         // Update any existing student dropdowns
         const studentSelects = document.querySelectorAll('select[id*="Student"], select[id*="student"]');
