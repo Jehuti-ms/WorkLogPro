@@ -1725,5 +1725,38 @@ Culloden Road, St. Michael</textarea>
   console.log('✅ Emergency fix applied - Edit buttons should work now');
 })();
 </script>
+
+  <script>
+// PERMANENT FIX - Make Edit buttons appear on every page load
+(function() {
+  console.log('🔥 INSTALLING PERMANENT WORKLOG FIX');
+  
+  function fixWorklogDisplay() {
+    if (typeof loadWorklogEntries === 'function') {
+      loadWorklogEntries();
+      console.log('✅ loadWorklogEntries called - Edit buttons should appear');
+    } else {
+      console.log('⚠️ loadWorklogEntries not found yet');
+    }
+  }
+  
+  // Run on page load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fixWorklogDisplay);
+  } else {
+    fixWorklogDisplay();
+  }
+  
+  // Also run when switching to worklog tab
+  const tabs = document.querySelectorAll('.tab');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', function() {
+      if (this.getAttribute('data-tab') === 'worklog') {
+        setTimeout(fixWorklogDisplay, 200);
+      }
+    });
+  });
+})();
+</script>
 </body>
 </html>
