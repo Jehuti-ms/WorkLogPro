@@ -1758,5 +1758,77 @@ Culloden Road, St. Michael</textarea>
   });
 })();
 </script>
+
+  <script>
+// FIX: Wait for worklog content to be loaded before displaying entries
+(function() {
+  console.log('🔥 Setting up worklog display with proper timing');
+  
+  function displayWorklogEntries() {
+    const container = document.getElementById('worklogContainer');
+    if (!container) {
+      console.log('Container not ready yet, waiting...');
+      return false;
+    }
+    
+    const entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+    console.log('Displaying', entries.length, 'worklog entries');
+    
+    if (entries.length === 0) {
+      container.innerHTML = '<p class="empty-message">No worklog entries yet.</p>';
+      return true;
+    }
+    
+    container.innerHTML = entries.map(entry => `
+      <div class="worklog-card ${entry.type || 'student'}">
+        <strong>${entry.type === 'student' ? (entry.studentName || 'Unknown') : (entry.institution || 'Unknown')}</strong><br>
+        📅 ${entry.date} | ⏱️ ${entry.hours}h | 💰 $${(entry.hours * entry.rate).toFixed(2)}<br>
+        📝 ${entry.description || 'No description'}<br>
+        <div style="margin-top: 10px;">
+          <button class="button small info" onclick="editWorklogEntry('${entry.id}')" style="margin-right: 5px;">✏️ Edit</button>
+          <button class="button small danger" onclick="deleteWorklogEntry('${entry.id}')">Delete</button>
+        </div>
+      </div>
+    `).join('');
+    
+    // Update stats
+    const countEl = document.getElementById('worklogCount');
+    if (countEl) countEl.innerText = entries.length;
+    
+    const lastDateEl = document.getElementById('lastWorklogDate');
+    if (lastDateEl && entries.length) lastDateEl.innerText = entries[0].date;
+    
+    return true;
+  }
+  
+  // Wait for container to exist, then display
+  function waitForContainerAndDisplay() {
+    if (displayWorklogEntries()) return;
+    
+    // Keep trying every 200ms until container exists
+    const interval = setInterval(() => {
+      if (displayWorklogEntries()) {
+        clearInterval(interval);
+        console.log('✅ Worklog display successful');
+      }
+    }, 200);
+    
+    // Stop after 10 seconds
+    setTimeout(() => clearInterval(interval), 10000);
+  }
+  
+  // Run on page load
+  waitForContainerAndDisplay();
+  
+  // Also run when switching to worklog tab
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', function() {
+      if (this.getAttribute('data-tab') === 'worklog') {
+        setTimeout(waitForContainerAndDisplay, 300);
+      }
+    });
+  });
+})();
+</script>
 </body>
 </html>
