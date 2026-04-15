@@ -1,7 +1,5 @@
-// worklog.js - FIXED VERSION
-// All DOM queries are scoped to ONLY the worklog tab
-
-console.log('📝 Loading fixed worklog.js...');
+// worklog.js - COMPLETE WORKING VERSION
+console.log('📝 Loading working worklog.js...');
 
 // Helper to get elements ONLY from worklog tab
 function getWorklogElement(selector) {
@@ -16,11 +14,9 @@ function isWorklogActive() {
   return worklogTab && worklogTab.classList.contains('active');
 }
 
-// Load worklog entries - ONLY in worklog tab
+// Load worklog entries
 function loadWorklogEntries() {
-  if (!isWorklogActive()) return;
-  
-  const container = getWorklogElement('#worklogContainer');
+  const container = document.getElementById('worklogContainer');
   if (!container) return;
   
   const entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
@@ -32,56 +28,77 @@ function loadWorklogEntries() {
   
   container.innerHTML = entries.map(entry => `
     <div class="worklog-card ${entry.type || 'student'}">
-      <strong>${entry.type === 'student' ? entry.studentName : entry.institution}</strong><br>
+      <strong>${entry.type === 'student' ? (entry.studentName || 'Unknown') : (entry.institution || 'Unknown')}</strong><br>
       📅 ${entry.date} | ⏱️ ${entry.hours}h | 💰 $${(entry.hours * entry.rate).toFixed(2)}<br>
       📝 ${entry.description || 'No description'}<br>
-      <button class="button small danger" onclick="deleteWorklogEntry('${entry.id}')">Delete</button>
+      <div style="margin-top: 10px;">
+        <button class="button small info" onclick="editWorklogEntry('${entry.id}')" style="margin-right: 5px;">✏️ Edit</button>
+        <button class="button small danger" onclick="deleteWorklogEntry('${entry.id}')">Delete</button>
+      </div>
     </div>
   `).join('');
   
-  // Update stats
-  const countEl = getWorklogElement('#worklogCount');
+  const countEl = document.getElementById('worklogCount');
   if (countEl) countEl.innerText = entries.length;
   
-  const lastDateEl = getWorklogElement('#lastWorklogDate');
+  const lastDateEl = document.getElementById('lastWorklogDate');
   if (lastDateEl && entries.length) lastDateEl.innerText = entries[0].date;
 }
 
-// Save worklog entry
+// Clear form
+function clearWorklogForm() {
+  const form = document.getElementById('worklogForm');
+  if (form) form.reset();
+  const dateInput = document.getElementById('worklogDate');
+  if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+}
+
+// Cancel worklog edit
+function cancelWorklogEdit() {
+  window.editingWorklogId = null;
+  
+  const saveBtn = document.getElementById('worklogSubmitBtn');
+  if (saveBtn) {
+    saveBtn.textContent = '💾 Save Worklog';
+    saveBtn.style.backgroundColor = '';
+  }
+  
+  const cancelBtn = document.getElementById('cancelWorklogEditBtn');
+  if (cancelBtn) {
+    cancelBtn.style.display = 'none';
+  }
+  
+  clearWorklogForm();
+  console.log('Edit cancelled');
+}
+
+// Save worklog entry - SINGLE VERSION with edit support
 function saveWorklogEntry() {
-  if (!isWorklogActive()) return;
+  console.log('💾 saveWorklogEntry called');
   
-  const type = getWorklogElement('input[name="workType"]:checked')?.value || 'student';
-  const studentId = getWorklogElement('#worklogStudent')?.value;
-  const institution = getWorklogElement('#worklogInstitution')?.value;
-  const date = getWorklogElement('#worklogDate')?.value;
-  const subject = getWorklogElement('#worklogSubject')?.value;
-  const topic = getWorklogElement('#worklogTopic')?.value;
-  const hours = parseFloat(getWorklogElement('#worklogDuration')?.value);
-  const rate = parseFloat(getWorklogElement('#worklogRate')?.value);
-  const description = getWorklogElement('#worklogDescription')?.value;
-  const outcomes = getWorklogElement('#worklogOutcomes')?.value;
-  const nextSteps = getWorklogElement('#worklogNextSteps')?.value;
-  const notes = getWorklogElement('#worklogNotes')?.value;
+  const type = document.querySelector('input[name="workType"]:checked')?.value || 'student';
+  const studentId = document.getElementById('worklogStudent')?.value;
+  const institution = document.getElementById('worklogInstitution')?.value;
+  const date = document.getElementById('worklogDate')?.value;
+  const subject = document.getElementById('worklogSubject')?.value;
+  const hours = parseFloat(document.getElementById('worklogDuration')?.value);
+  const rate = parseFloat(document.getElementById('worklogRate')?.value) || 25;
+  const description = document.getElementById('worklogDescription')?.value;
+  const topic = document.getElementById('worklogTopic')?.value;
+  const outcomes = document.getElementById('worklogOutcomes')?.value;
+  const nextSteps = document.getElementById('worklogNextSteps')?.value;
+  const notes = document.getElementById('worklogNotes')?.value;
   
-  if (!date || !subject || !hours) {
-    alert('Please fill required fields');
-    return;
-  }
+  console.log('Values:', {type, studentId, institution, date, subject, hours});
   
-  if (type === 'student' && !studentId) {
-    alert('Please select a student');
-    return;
-  }
+  if (!date) { alert('Date required'); return; }
+  if (!subject) { alert('Subject required'); return; }
+  if (!hours || hours <= 0) { alert('Valid hours required'); return; }
+  if (type === 'student' && !studentId) { alert('Select a student'); return; }
+  if (type === 'institution' && !institution) { alert('Enter institution name'); return; }
   
-  if (type === 'institution' && !institution) {
-    alert('Please enter institution name');
-    return;
-  }
+  let entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
   
-  const entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
-  
-  // Get student name if needed
   let studentName = '';
   if (type === 'student' && studentId) {
     const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
@@ -89,46 +106,187 @@ function saveWorklogEntry() {
     studentName = student ? student.name : '';
   }
   
-  entries.unshift({
+  const newEntry = {
     id: Date.now().toString(),
     type,
-    studentId: type === 'student' ? studentId : null,
-    studentName,
-    institution: type === 'institution' ? institution : null,
+    studentId: studentId || null,
+    studentName: studentName,
+    institution: institution || null,
     date,
     subject,
-    topic,
+    topic: topic || '',
     hours,
     rate,
-    description,
-    outcomes,
-    nextSteps,
-    notes,
+    description: description || '',
+    outcomes: outcomes || '',
+    nextSteps: nextSteps || '',
+    notes: notes || '',
     total: hours * rate,
     createdAt: new Date().toISOString()
-  });
+  };
+  
+  // Check if we're editing an existing entry
+  if (window.editingWorklogId) {
+    console.log('Updating existing entry:', window.editingWorklogId);
+    const index = entries.findIndex(e => e.id === window.editingWorklogId);
+    if (index !== -1) {
+      newEntry.id = window.editingWorklogId;
+      newEntry.createdAt = entries[index].createdAt;
+      entries[index] = newEntry;
+      alert('Worklog updated!');
+    }
+    window.editingWorklogId = null;
+    cancelWorklogEdit();
+  } else {
+    entries.unshift(newEntry);
+    alert('Worklog saved!');
+  }
   
   localStorage.setItem('worklog_entries', JSON.stringify(entries));
+  console.log('✅ Saved! Total entries:', entries.length);
+  
   loadWorklogEntries();
   clearWorklogForm();
-  alert('Worklog saved!');
   
-  // Update global stats
-  if (typeof updateStats === 'function') updateStats();
+  const saveBtn = document.getElementById('worklogSubmitBtn');
+  if (saveBtn) {
+    saveBtn.textContent = '💾 Save Worklog';
+    saveBtn.style.backgroundColor = '';
+  }
 }
 
-// Clear form
-function clearWorklogForm() {
-  const form = getWorklogElement('#worklogForm');
-  if (form) form.reset();
-  const dateInput = getWorklogElement('#worklogDate');
-  if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+// Edit worklog entry
+function editWorklogEntry(id) {
+  console.log('✏️ Editing worklog entry:', id);
+  
+  const entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+  const entry = entries.find(e => e.id === id);
+  
+  if (!entry) {
+    alert('Entry not found');
+    return;
+  }
+  
+  if (entry.type === 'student') {
+    document.querySelector('input[name="workType"][value="student"]').checked = true;
+    toggleWorkType('student');
+    const studentSelect = document.getElementById('worklogStudent');
+    if (studentSelect) studentSelect.value = entry.studentId;
+  } else {
+    document.querySelector('input[name="workType"][value="institution"]').checked = true;
+    toggleWorkType('institution');
+    const institutionInput = document.getElementById('worklogInstitution');
+    if (institutionInput) institutionInput.value = entry.institution;
+  }
+  
+  document.getElementById('worklogDate').value = entry.date;
+  document.getElementById('worklogSubject').value = entry.subject;
+  document.getElementById('worklogTopic').value = entry.topic || '';
+  document.getElementById('worklogDuration').value = entry.hours;
+  document.getElementById('worklogRate').value = entry.rate;
+  document.getElementById('worklogDescription').value = entry.description || '';
+  document.getElementById('worklogOutcomes').value = entry.outcomes || '';
+  document.getElementById('worklogNextSteps').value = entry.nextSteps || '';
+  document.getElementById('worklogNotes').value = entry.notes || '';
+  
+  window.editingWorklogId = id;
+  
+  const saveBtn = document.getElementById('worklogSubmitBtn');
+  if (saveBtn) {
+    saveBtn.textContent = '✏️ Update Worklog';
+    saveBtn.style.backgroundColor = '#f59e0b';
+  }
+  
+  let cancelBtn = document.getElementById('cancelWorklogEditBtn');
+  if (!cancelBtn) {
+    cancelBtn = document.createElement('button');
+    cancelBtn.id = 'cancelWorklogEditBtn';
+    cancelBtn.className = 'button secondary';
+    cancelBtn.textContent = '❌ Cancel Edit';
+    cancelBtn.style.marginLeft = '10px';
+    cancelBtn.onclick = cancelWorklogEdit;
+    const formActions = document.querySelector('#worklogForm .form-actions');
+    if (formActions) formActions.appendChild(cancelBtn);
+  } else {
+    cancelBtn.style.display = 'inline-block';
+  }
+  
+  document.getElementById('worklogForm').scrollIntoView({ behavior: 'smooth' });
+  alert('Edit mode activated. Make changes and click Update.');
+}
+
+// Fix save button
+function fixSaveButtonPermanently() {
+  const saveBtn = document.getElementById('worklogSubmitBtn');
+  if (!saveBtn) {
+    setTimeout(fixSaveButtonPermanently, 500);
+    return;
+  }
+  
+  const newBtn = saveBtn.cloneNode(true);
+  saveBtn.parentNode.replaceChild(newBtn, saveBtn);
+  
+  newBtn.onclick = function(e) {
+    e.preventDefault();
+    console.log('🔴 Save button clicked!');
+    saveWorklogEntry();
+  };
+  
+  console.log('✅ Save button fixed!');
+}
+
+// Filter worklogs
+function filterWorklogs() {
+  let entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+  const filterType = document.getElementById('worklogFilterType')?.value || '';
+  const searchTerm = document.getElementById('worklogSearch')?.value?.toLowerCase() || '';
+  const sortOrder = document.getElementById('worklogSortOrder')?.value || 'newest';
+  
+  if (filterType) entries = entries.filter(e => e.type === filterType);
+  if (searchTerm) entries = entries.filter(e => 
+    (e.subject || '').toLowerCase().includes(searchTerm) ||
+    (e.studentName || '').toLowerCase().includes(searchTerm) ||
+    (e.institution || '').toLowerCase().includes(searchTerm)
+  );
+  
+  if (sortOrder === 'newest') entries.sort((a, b) => new Date(b.date) - new Date(a.date));
+  else entries.sort((a, b) => new Date(a.date) - new Date(b.date));
+  
+  const container = document.getElementById('worklogContainer');
+  if (!container) return;
+  
+  if (entries.length === 0) {
+    container.innerHTML = '<p class="empty-message">No worklog entries found.</p>';
+    return;
+  }
+  
+  container.innerHTML = entries.map(entry => `
+    <div class="worklog-card ${entry.type || 'student'}">
+      <strong>${entry.type === 'student' ? (entry.studentName || 'Unknown') : (entry.institution || 'Unknown')}</strong><br>
+      📅 ${entry.date} | ⏱️ ${entry.hours}h | 💰 $${(entry.hours * entry.rate).toFixed(2)}<br>
+      📝 ${entry.description || 'No description'}<br>
+      <div style="margin-top: 10px;">
+        <button class="button small info" onclick="editWorklogEntry('${entry.id}')" style="margin-right: 5px;">✏️ Edit</button>
+        <button class="button small danger" onclick="deleteWorklogEntry('${entry.id}')">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Populate student dropdown
+function populateWorklogStudentDropdown() {
+  const select = document.getElementById('worklogStudent');
+  if (!select) return;
+  
+  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+  select.innerHTML = '<option value="">Select Student</option>' + 
+    students.map(s => `<option value="${s.id}">${s.name} (${s.studentId})</option>`).join('');
 }
 
 // Toggle work type
 function toggleWorkType(type) {
-  const studentSection = getWorklogElement('#studentSection');
-  const institutionSection = getWorklogElement('#institutionSection');
+  const studentSection = document.getElementById('studentSection');
+  const institutionSection = document.getElementById('institutionSection');
   
   if (type === 'student') {
     if (studentSection) studentSection.style.display = 'block';
@@ -146,114 +304,55 @@ function deleteWorklogEntry(id) {
   entries = entries.filter(e => e.id !== id);
   localStorage.setItem('worklog_entries', JSON.stringify(entries));
   loadWorklogEntries();
-  if (typeof updateStats === 'function') updateStats();
-}
-
-// Populate student dropdown
-function populateWorklogStudentDropdown() {
-  const select = getWorklogElement('#worklogStudent');
-  if (!select) return;
-  
-  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-  select.innerHTML = '<option value="">Select Student</option>' + 
-    students.map(s => `<option value="${s.id}">${s.name} (${s.studentId})</option>`).join('');
-}
-
-// Filter and sort worklogs
-function filterWorklogs() {
-  if (!isWorklogActive()) return;
-  
-  let entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
-  const filterType = getWorklogElement('#worklogFilterType')?.value || '';
-  const searchTerm = getWorklogElement('#worklogSearch')?.value?.toLowerCase() || '';
-  const sortOrder = getWorklogElement('#worklogSortOrder')?.value || 'newest';
-  
-  if (filterType) {
-    entries = entries.filter(e => e.type === filterType);
-  }
-  
-  if (searchTerm) {
-    entries = entries.filter(e => 
-      (e.subject || '').toLowerCase().includes(searchTerm) ||
-      (e.studentName || '').toLowerCase().includes(searchTerm) ||
-      (e.institution || '').toLowerCase().includes(searchTerm)
-    );
-  }
-  
-  if (sortOrder === 'newest') {
-    entries.sort((a, b) => new Date(b.date) - new Date(a.date));
-  } else {
-    entries.sort((a, b) => new Date(a.date) - new Date(b.date));
-  }
-  
-  const container = getWorklogElement('#worklogContainer');
-  if (!container) return;
-  
-  if (entries.length === 0) {
-    container.innerHTML = '<p class="empty-message">No worklog entries found.</p>';
-    return;
-  }
-  
-  container.innerHTML = entries.map(entry => `
-    <div class="worklog-card ${entry.type || 'student'}">
-      <strong>${entry.type === 'student' ? entry.studentName : entry.institution}</strong><br>
-      📅 ${entry.date} | ⏱️ ${entry.hours}h | 💰 $${(entry.hours * entry.rate).toFixed(2)}<br>
-      📝 ${entry.description || 'No description'}<br>
-      <button class="button small danger" onclick="deleteWorklogEntry('${entry.id}')">Delete</button>
-    </div>
-  `).join('');
 }
 
 // Initialize worklog tab
 function initWorklogTab() {
   if (!isWorklogActive()) return;
   
+  const form = document.getElementById('worklogForm');
+  if (form) {
+    form.onsubmit = function(e) {
+      e.preventDefault();
+      return false;
+    };
+  }
+  
   console.log('Initializing worklog tab...');
+  
   populateWorklogStudentDropdown();
   loadWorklogEntries();
+  fixSaveButtonPermanently();
   
-  // Set up filter listeners
-  const filterType = getWorklogElement('#worklogFilterType');
-  const filterEntity = getWorklogElement('#worklogFilterEntity');
-  const searchInput = getWorklogElement('#worklogSearch');
-  const sortOrder = getWorklogElement('#worklogSortOrder');
+  const filterType = document.getElementById('worklogFilterType');
+  const searchInput = document.getElementById('worklogSearch');
+  const sortOrder = document.getElementById('worklogSortOrder');
   
   if (filterType) filterType.onchange = () => filterWorklogs();
-  if (filterEntity) filterEntity.onchange = () => filterWorklogs();
   if (searchInput) searchInput.onkeyup = () => filterWorklogs();
   if (sortOrder) sortOrder.onchange = () => filterWorklogs();
-  
-  // Set up form submit
-  const form = getWorklogElement('#worklogForm');
-  if (form) {
-    const newForm = form.cloneNode(true);
-    form.parentNode.replaceChild(newForm, form);
-    newForm.addEventListener('submit', function(e) {
-      e.preventDefault();
-      saveWorklogEntry();
-    });
-  }
-}
-
-// Listen for tab changes
-document.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', function() {
-    setTimeout(() => {
-      if (this.getAttribute('data-tab') === 'worklog') {
-        initWorklogTab();
-      }
-    }, 100);
-  });
-});
-
-// Initialize on page load if worklog is active
-if (document.getElementById('worklog')?.classList.contains('active')) {
-  initWorklogTab();
 }
 
 // Make functions global
 window.toggleWorkType = toggleWorkType;
 window.deleteWorklogEntry = deleteWorklogEntry;
 window.clearWorklogForm = clearWorklogForm;
+window.saveWorklogEntry = saveWorklogEntry;
+window.editWorklogEntry = editWorklogEntry;
+window.cancelWorklogEdit = cancelWorklogEdit;
+
+// Initialize on page load if worklog is active
+if (document.getElementById('worklog')?.classList.contains('active')) {
+  setTimeout(initWorklogTab, 500);
+}
+
+// Handle tab switching
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', function() {
+    if (this.getAttribute('data-tab') === 'worklog') {
+      setTimeout(initWorklogTab, 200);
+    }
+  });
+});
 
 console.log('✅ Fixed worklog.js loaded');
