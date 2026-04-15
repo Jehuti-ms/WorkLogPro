@@ -1335,7 +1335,12 @@ window.generateSubjectReport = async function() {
     const select = document.getElementById('subjectSelect');
     const custom = document.getElementById('customSubject');
     
-    const subject = (select && select.value) || (custom && custom.value.trim());
+    let subject = '';
+    if (select && select.value) {
+        subject = select.value;
+    } else if (custom && custom.value) {
+        subject = custom.value.trim();
+    }
     
     if (!subject) {
         alert('Please select or enter a subject');
@@ -1347,11 +1352,11 @@ window.generateSubjectReport = async function() {
         
         try {
             const report = await window.reportManager.dataManager.generateSubjectReport(subject);
-            const content = `<pre style="white-space: pre-wrap; font-family: monospace; font-size: 12px; margin: 0;">${report}</pre>`;
-            const html = window.reportManager.createReportTemplate(`📚 ${subject} Report`, content, true);
+            const content = '<pre style="white-space: pre-wrap; font-family: monospace; font-size: 12px; margin: 0;">' + report + '</pre>';
+            const html = window.reportManager.createReportTemplate('📚 ' + subject + ' Report', content, true);
             window.reportManager.updateReportContent(html);
         } catch (error) {
-            window.reportManager.showError(`Error generating subject report: ${error.message}`);
+            window.reportManager.showError('Error generating subject report: ' + error.message);
         }
     }
 };
@@ -1369,61 +1374,63 @@ window.generatePDF = async function() {
         switch(selected.value) {
             case 'weekly':
                 report = await window.reportManager.dataManager.generateWeeklyReport();
-                filename = `Weekly_Report_${new Date().toISOString().slice(0,10)}`;
+                filename = 'Weekly_Report_' + new Date().toISOString().slice(0,10);
                 break;
             case 'biweekly':
                 report = await window.reportManager.dataManager.generateBiWeeklyReport();
-                filename = `BiWeekly_Report_${new Date().toISOString().slice(0,10)}`;
+                filename = 'BiWeekly_Report_' + new Date().toISOString().slice(0,10);
                 break;
             case 'monthly':
                 report = await window.reportManager.dataManager.generateMonthlyReport();
-                filename = `Monthly_Report_${new Date().toISOString().slice(0,10)}`;
+                filename = 'Monthly_Report_' + new Date().toISOString().slice(0,10);
                 break;
+            default:
+                report = '';
+                filename = 'Report';
         }
         
         if (typeof jspdf !== 'undefined') {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
+            var jsPDF = window.jspdf.jsPDF;
+            var doc = new jsPDF();
             doc.text(report, 10, 10);
-            doc.save(`${filename}.pdf`);
+            doc.save(filename + '.pdf');
             
-            const content = `
-                <div style="padding: 15px; background: #d1e7dd; border-radius: 5px;">
-                    <h4 style="margin-top: 0;">✅ PDF Generated</h4>
-                    <p>File <strong>${filename}.pdf</strong> has been downloaded.</p>
-                </div>
-            `;
-            const html = window.reportManager.createReportTemplate('PDF Export', content, false);
+            var content = '<div style="padding: 15px; background: #d1e7dd; border-radius: 5px;">' +
+                '<h4 style="margin-top: 0;">✅ PDF Generated</h4>' +
+                '<p>File <strong>' + filename + '.pdf</strong> has been downloaded.</p>' +
+                '</div>';
+            var html = window.reportManager.createReportTemplate('PDF Export', content, false);
             window.reportManager.updateReportContent(html);
         } else {
-            const blob = new Blob([report], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
+            var blob = new Blob([report], { type: 'text/plain' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
             a.href = url;
-            a.download = `${filename}.txt`;
+            a.download = filename + '.txt';
             a.click();
             URL.revokeObjectURL(url);
             
-            const content = `
-                <div style="padding: 15px; background: #fff3cd; border-radius: 5px;">
-                    <h4 style="margin-top: 0;">⚠️ Text File Downloaded</h4>
-                    <p>File <strong>${filename}.txt</strong> has been downloaded instead.</p>
-                </div>
-            `;
-            const html = window.reportManager.createReportTemplate('PDF Export', content, false);
+            var content = '<div style="padding: 15px; background: #fff3cd; border-radius: 5px;">' +
+                '<h4 style="margin-top: 0;">⚠️ Text File Downloaded</h4>' +
+                '<p>File <strong>' + filename + '.txt</strong> has been downloaded instead.</p>' +
+                '</div>';
+            var html = window.reportManager.createReportTemplate('PDF Export', content, false);
             window.reportManager.updateReportContent(html);
         }
         
     } catch (error) {
-        window.reportManager.showError(`Error generating PDF: ${error.message}`);
+        window.reportManager.showError('Error generating PDF: ' + error.message);
     }
 };
 
 window.sendEmail = async function() {
-    const to = document.getElementById('emailTo')?.value;
-    const type = document.getElementById('emailType')?.value;
+    var to = document.getElementById('emailTo');
+    var typeSelect = document.getElementById('emailType');
     
-    if (!to || !type || !window.reportManager) {
+    var toValue = to ? to.value : '';
+    var typeValue = typeSelect ? typeSelect.value : '';
+    
+    if (!toValue || !typeValue || !window.reportManager) {
         alert('Please fill all fields');
         return;
     }
@@ -1431,10 +1438,10 @@ window.sendEmail = async function() {
     window.reportManager.showLoading();
     
     try {
-        let report;
-        let subject;
+        var report;
+        var subject;
         
-        switch(type) {
+        switch(typeValue) {
             case 'weekly':
                 report = await window.reportManager.dataManager.generateWeeklyReport();
                 subject = 'Weekly Report';
@@ -1447,23 +1454,24 @@ window.sendEmail = async function() {
                 report = await window.reportManager.dataManager.generateMonthlyReport();
                 subject = 'Monthly Report';
                 break;
+            default:
+                report = '';
+                subject = 'Report';
         }
         
-        const body = `Hello,\n\nPlease find the attached report:\n\n${report}\n\nBest regards,\nWorkLogPro Team`;
+        var body = 'Hello,\n\nPlease find the attached report:\n\n' + report + '\n\nBest regards,\nWorkLogPro Team';
         
-        window.open(`mailto:${to}?subject=${encodeURIComponent(`WorkLogPro ${subject}`)}&body=${encodeURIComponent(body)}`, '_blank');
+        window.open('mailto:' + toValue + '?subject=' + encodeURIComponent('WorkLogPro ' + subject) + '&body=' + encodeURIComponent(body), '_blank');
         
-        const content = `
-            <div style="padding: 15px; background: #d1e7dd; border-radius: 5px;">
-                <h4 style="margin-top: 0;">✅ Email Ready</h4>
-                <p>Your email client has been opened with the report.</p>
-            </div>
-        `;
-        const html = window.reportManager.createReportTemplate('Email Report', content, false);
+        var content = '<div style="padding: 15px; background: #d1e7dd; border-radius: 5px;">' +
+            '<h4 style="margin-top: 0;">✅ Email Ready</h4>' +
+            '<p>Your email client has been opened with the report.</p>' +
+            '</div>';
+        var html = window.reportManager.createReportTemplate('Email Report', content, false);
         window.reportManager.updateReportContent(html);
         
     } catch (error) {
-        window.reportManager.showError(`Error sending email: ${error.message}`);
+        window.reportManager.showError('Error sending email: ' + error.message);
     }
 };
 
