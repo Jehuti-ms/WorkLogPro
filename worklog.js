@@ -58,7 +58,7 @@ function saveWorklogEntry() {
   const subject = getWorklogElement('#worklogSubject')?.value;
   const topic = getWorklogElement('#worklogTopic')?.value;
   const hours = parseFloat(getWorklogElement('#worklogDuration')?.value);
-  const rate = parseFloat(getWorklogElement('#worklogRate')?.value);
+  const rate = parseFloat(getWorklogElement('#worklogRate')?.value) || 25.00;
   const description = getWorklogElement('#worklogDescription')?.value;
   const outcomes = getWorklogElement('#worklogOutcomes')?.value;
   const nextSteps = getWorklogElement('#worklogNextSteps')?.value;
@@ -78,7 +78,7 @@ function saveWorklogEntry() {
     alert('Please enter institution name');
     return;
   }
-  
+
   const entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
   
   // Get student name if needed
