@@ -239,52 +239,104 @@ function setupWorklogSaveButton() {
 
 // Initialize worklog tab
 function initWorklogTab() {
-  setupWorklogForm();
-  setupWorklogSaveButton();
   if (!isWorklogActive()) return;
   
   console.log('Initializing worklog tab...');
-  populateWorklogStudentDropdown();
-  loadWorklogEntries();
   
-  // Set up filter listeners
-  const filterType = getWorklogElement('#worklogFilterType');
-  const filterEntity = getWorklogElement('#worklogFilterEntity');
-  const searchInput = getWorklogElement('#worklogSearch');
-  const sortOrder = getWorklogElement('#worklogSortOrder');
-  
-  if (filterType) filterType.onchange = () => filterWorklogs();
-  if (filterEntity) filterEntity.onchange = () => filterWorklogs();
-  if (searchInput) searchInput.onkeyup = () => filterWorklogs();
-  if (sortOrder) sortOrder.onchange = () => filterWorklogs();
-  
-  // Set up form submit
-  const form = getWorklogElement('#worklogForm');
-  if (form) {
-    const newForm = form.cloneNode(true);
-    form.parentNode.replaceChild(newForm, form);
-    newForm.addEventListener('submit', function(e) {
-      e.preventDefault();
-      saveWorklogEntry();
-    });
-  }
+  // Wait for content to be fully loaded
+  setTimeout(() => {
+    // Populate dropdowns
+    populateWorklogStudentDropdown();
+    loadWorklogEntries();
+    
+    // Set up filter listeners
+    const filterType = getWorklogElement('#worklogFilterType');
+    const filterEntity = getWorklogElement('#worklogFilterEntity');
+    const searchInput = getWorklogElement('#worklogSearch');
+    const sortOrder = getWorklogElement('#worklogSortOrder');
+    
+    if (filterType) filterType.onchange = () => filterWorklogs();
+    if (filterEntity) filterEntity.onchange = () => filterWorklogs();
+    if (searchInput) searchInput.onkeyup = () => filterWorklogs();
+    if (sortOrder) sortOrder.onchange = () => filterWorklogs();
+    
+    // Set up form submit
+    const form = getWorklogElement('#worklogForm');
+    if (form) {
+      const newForm = form.cloneNode(true);
+      form.parentNode.replaceChild(newForm, form);
+      newForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveWorklogEntry();
+      });
+    }
+    
+    // CRITICAL: Setup save button AFTER content is loaded
+   // setupWorklogSaveButton();
+    waitForSaveButton();
+    
+  }, 100);
 }
 
-// Listen for tab changes
+// Setup save button - call this after content is loaded
+function setupWorklogSaveButton() {
+  // Use getWorklogElement to find button within worklog tab
+  const saveBtn = getWorklogElement('#worklogSubmitBtn');
+  if (!saveBtn) {
+    console.log('⚠️ Save button not found yet, will retry');
+    return false;
+  }
+  
+  console.log('✅ Found save button, attaching handler');
+  
+  // Remove any existing listeners by cloning
+  const newBtn = saveBtn.cloneNode(true);
+  saveBtn.parentNode.replaceChild(newBtn, saveBtn);
+  
+  // Add the click handler
+  newBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    console.log('💾 Save button clicked!');
+    saveWorklogEntry();
+  });
+  
+  return true;
+}
+
+// Also call setup when tab becomes active
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', function() {
     setTimeout(() => {
       if (this.getAttribute('data-tab') === 'worklog') {
         initWorklogTab();
       }
-    }, 100);
+    }, 200); // Increased timeout to ensure content loads
   });
 });
 
-// Initialize on page load if worklog is active
-if (document.getElementById('worklog')?.classList.contains('active')) {
-  initWorklogTab();
+// Add this after your existing code
+function waitForSaveButton() {
+  if (setupWorklogSaveButton()) {
+    console.log('✅ Save button connected');
+    return;
+  }
+  
+  // Retry every 500ms until found
+  let retries = 0;
+  const interval = setInterval(() => {
+    retries++;
+    if (setupWorklogSaveButton()) {
+      clearInterval(interval);
+      console.log('✅ Save button connected after', retries, 'retries');
+    } else if (retries > 20) {
+      clearInterval(interval);
+      console.log('❌ Save button not found after 20 retries');
+    }
+  }, 500);
 }
+
+// Call this instead of setupWorklogSaveButton in initWorklogTab
+
 
 // Make functions global
 window.toggleWorkType = toggleWorkType;
