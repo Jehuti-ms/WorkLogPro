@@ -437,6 +437,8 @@ window.toggleWorkType = toggleWorkType;
 window.deleteWorklogEntry = deleteWorklogEntry;
 window.clearWorklogForm = clearWorklogForm;
 window.saveWorklogEntry = saveWorklogEntry;
+window.editWorklogEntry = editWorklogEntry;
+window.cancelWorklogEdit = cancelWorklogEdit;
 
 // Initialize on page load if worklog is active
 if (document.getElementById('worklog')?.classList.contains('active')) {
