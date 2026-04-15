@@ -16,9 +16,7 @@ function isWorklogActive() {
 
 // Load worklog entries
 function loadWorklogEntries() {
- // if (!isWorklogActive()) return;
-  
-  const container = getWorklogElement('#worklogContainer');
+  const container = document.getElementById('worklogContainer');
   if (!container) return;
   
   const entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
@@ -30,60 +28,43 @@ function loadWorklogEntries() {
   
   container.innerHTML = entries.map(entry => `
     <div class="worklog-card ${entry.type || 'student'}">
-      <strong>${entry.type === 'student' ? entry.studentName : entry.institution}</strong><br>
+      <strong>${entry.type === 'student' ? (entry.studentName || 'Unknown') : (entry.institution || 'Unknown')}</strong><br>
       📅 ${entry.date} | ⏱️ ${entry.hours}h | 💰 $${(entry.hours * entry.rate).toFixed(2)}<br>
       📝 ${entry.description || 'No description'}<br>
       <button class="button small danger" onclick="deleteWorklogEntry('${entry.id}')">Delete</button>
     </div>
   `).join('');
   
-  const countEl = getWorklogElement('#worklogCount');
+  const countEl = document.getElementById('worklogCount');
   if (countEl) countEl.innerText = entries.length;
   
-  const lastDateEl = getWorklogElement('#lastWorklogDate');
+  const lastDateEl = document.getElementById('lastWorklogDate');
   if (lastDateEl && entries.length) lastDateEl.innerText = entries[0].date;
 }
 
-// Save worklog entry - THE WORKING VERSION
+// Save worklog entry
 function saveWorklogEntry() {
   console.log('💾 saveWorklogEntry called');
   
-  // Get values directly from DOM (not using getWorklogElement for reliability)
   const type = document.querySelector('input[name="workType"]:checked')?.value || 'student';
   const studentId = document.getElementById('worklogStudent')?.value;
   const institution = document.getElementById('worklogInstitution')?.value;
   const date = document.getElementById('worklogDate')?.value;
   const subject = document.getElementById('worklogSubject')?.value;
-  const topic = document.getElementById('worklogTopic')?.value;
   const hours = parseFloat(document.getElementById('worklogDuration')?.value);
   const rate = parseFloat(document.getElementById('worklogRate')?.value) || 25;
   const description = document.getElementById('worklogDescription')?.value;
-  const outcomes = document.getElementById('worklogOutcomes')?.value;
-  const nextSteps = document.getElementById('worklogNextSteps')?.value;
-  const notes = document.getElementById('worklogNotes')?.value;
   
-  console.log('Values:', {type, studentId, institution, date, subject, hours, rate});
+  console.log('Values:', {type, studentId, institution, date, subject, hours});
   
-  // Validate
-  if (!date) { alert('Please select a date'); return; }
-  if (!subject) { alert('Please enter a subject'); return; }
-  if (!hours || hours <= 0) { alert('Please enter valid hours'); return; }
+  if (!date) { alert('Date required'); return; }
+  if (!subject) { alert('Subject required'); return; }
+  if (!hours || hours <= 0) { alert('Valid hours required'); return; }
+  if (type === 'student' && !studentId) { alert('Select a student'); return; }
+  if (type === 'institution' && !institution) { alert('Enter institution name'); return; }
   
-  if (type === 'student' && !studentId) {
-    alert('Please select a student');
-    return;
-  }
-  
-  if (type === 'institution' && !institution) {
-    alert('Please enter institution name');
-    return;
-  }
-  
-  // Get existing entries
   let entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
-  console.log('Existing entries:', entries.length);
   
-  // Get student name if needed
   let studentName = '';
   if (type === 'student' && studentId) {
     const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
@@ -91,44 +72,27 @@ function saveWorklogEntry() {
     studentName = student ? student.name : '';
   }
   
-  // Create new entry
-  const newEntry = {
+  entries.unshift({
     id: Date.now().toString(),
     type,
-    studentId: type === 'student' ? studentId : null,
-    studentName,
-    institution: type === 'institution' ? institution : null,
+    studentId: studentId || null,
+    studentName: studentName,
+    institution: institution || null,
     date,
     subject,
-    topic: topic || '',
     hours,
     rate,
     description: description || '',
-    outcomes: outcomes || '',
-    nextSteps: nextSteps || '',
-    notes: notes || '',
     total: hours * rate,
     createdAt: new Date().toISOString()
-  };
+  });
   
-  console.log('New entry:', newEntry);
-  
-  // Save
-  entries.unshift(newEntry);
   localStorage.setItem('worklog_entries', JSON.stringify(entries));
   console.log('✅ Saved! Total entries:', entries.length);
   
-  // Refresh display
   loadWorklogEntries();
-  
-  // Clear form
   clearWorklogForm();
-  
   alert('Worklog saved!');
-  
-  // Update stats
-  if (typeof updateStats === 'function') updateStats();
-  if (typeof refreshAllStats === 'function') refreshAllStats();
 }
 
 // Clear form
@@ -139,69 +103,31 @@ function clearWorklogForm() {
   if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
 }
 
-// Setup the save button - THE KEY FIX
-function setupSaveButton() {
+// Fix save button
+function fixSaveButtonPermanently() {
   const saveBtn = document.getElementById('worklogSubmitBtn');
   if (!saveBtn) {
-    console.log('Save button not found yet');
-    return false;
+    console.log('Save button not found yet, will retry...');
+    setTimeout(fixSaveButtonPermanently, 500);
+    return;
   }
   
-  console.log('Found save button, attaching DIRECT click handler');
+  console.log('🔧 Fixing save button...');
   
-  // Remove any existing handlers
   const newBtn = saveBtn.cloneNode(true);
   saveBtn.parentNode.replaceChild(newBtn, saveBtn);
   
-  // Attach the working handler directly
   newBtn.onclick = function(e) {
     e.preventDefault();
     console.log('🔴 Save button clicked!');
     saveWorklogEntry();
   };
   
-  return true;
-}
-
-// Initialize worklog tab
-function initWorklogTab() {
-  if (!isWorklogActive()) return;
-  
-  // PREVENT FORM SUBMISSION REFRESH
-  const form = document.getElementById('worklogForm');
-  if (form) {
-    form.onsubmit = function(e) {
-      e.preventDefault();
-      return false;
-    };
-  }
-  
-  console.log('Initializing worklog tab...');
-  
-  populateWorklogStudentDropdown();
-  loadWorklogEntries();
-  fixSaveButtonPermanently();
-    
-  // Setup filter listeners
-  const filterType = document.getElementById('worklogFilterType');
-  const searchInput = document.getElementById('worklogSearch');
-  const sortOrder = document.getElementById('worklogSortOrder');
-  
-  if (filterType) filterType.onchange = () => filterWorklogs();
-  if (searchInput) searchInput.onkeyup = () => filterWorklogs();
-  if (sortOrder) sortOrder.onchange = () => filterWorklogs();
-  
-  // Setup save button - retry if not found
-  if (!setupSaveButton()) {
-    setTimeout(setupSaveButton, 500);
-    setTimeout(setupSaveButton, 1000);
-  }
+  console.log('✅ Save button fixed!');
 }
 
 // Filter worklogs
 function filterWorklogs() {
-  if (!isWorklogActive()) return;
-  
   let entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
   const filterType = document.getElementById('worklogFilterType')?.value || '';
   const searchTerm = document.getElementById('worklogSearch')?.value?.toLowerCase() || '';
@@ -227,7 +153,7 @@ function filterWorklogs() {
   
   container.innerHTML = entries.map(entry => `
     <div class="worklog-card ${entry.type || 'student'}">
-      <strong>${entry.type === 'student' ? entry.studentName : entry.institution}</strong><br>
+      <strong>${entry.type === 'student' ? (entry.studentName || 'Unknown') : (entry.institution || 'Unknown')}</strong><br>
       📅 ${entry.date} | ⏱️ ${entry.hours}h | 💰 $${(entry.hours * entry.rate).toFixed(2)}<br>
       📝 ${entry.description || 'No description'}<br>
       <button class="button small danger" onclick="deleteWorklogEntry('${entry.id}')">Delete</button>
@@ -266,87 +192,52 @@ function deleteWorklogEntry(id) {
   entries = entries.filter(e => e.id !== id);
   localStorage.setItem('worklog_entries', JSON.stringify(entries));
   loadWorklogEntries();
-  if (typeof updateStats === 'function') updateStats();
 }
 
-// ============= Make functions global ==============
+// Initialize worklog tab
+function initWorklogTab() {
+  if (!isWorklogActive()) return;
+  
+  const form = document.getElementById('worklogForm');
+  if (form) {
+    form.onsubmit = function(e) {
+      e.preventDefault();
+      return false;
+    };
+  }
+  
+  console.log('Initializing worklog tab...');
+  
+  populateWorklogStudentDropdown();
+  loadWorklogEntries();
+  fixSaveButtonPermanently();
+  
+  const filterType = document.getElementById('worklogFilterType');
+  const searchInput = document.getElementById('worklogSearch');
+  const sortOrder = document.getElementById('worklogSortOrder');
+  
+  if (filterType) filterType.onchange = () => filterWorklogs();
+  if (searchInput) searchInput.onkeyup = () => filterWorklogs();
+  if (sortOrder) sortOrder.onchange = () => filterWorklogs();
+}
+
+// Make functions global
 window.toggleWorkType = toggleWorkType;
 window.deleteWorklogEntry = deleteWorklogEntry;
 window.clearWorklogForm = clearWorklogForm;
-
-// PERMANENT FIX FOR SAVE BUTTON
-function fixSaveButtonPermanently() {
-  const saveBtn = document.getElementById('worklogSubmitBtn');
-  if (!saveBtn) {
-    console.log('Save button not found yet, will retry...');
-    setTimeout(fixSaveButtonPermanently, 500);
-    return;
-  }
-  
-  console.log('🔧 Permanently fixing save button...');
-  
-  const newBtn = saveBtn.cloneNode(true);
-  saveBtn.parentNode.replaceChild(newBtn, saveBtn);
-  
-  newBtn.onclick = function(e) {
-    e.preventDefault();
-    
-    const type = document.querySelector('input[name="workType"]:checked')?.value || 'student';
-    const studentId = document.getElementById('worklogStudent')?.value;
-    const institution = document.getElementById('worklogInstitution')?.value;
-    const date = document.getElementById('worklogDate')?.value;
-    const subject = document.getElementById('worklogSubject')?.value;
-    const hours = parseFloat(document.getElementById('worklogDuration')?.value);
-    const rate = parseFloat(document.getElementById('worklogRate')?.value) || 25;
-    const description = document.getElementById('worklogDescription')?.value;
-    
-    if (!date) { alert('Date required'); return; }
-    if (!subject) { alert('Subject required'); return; }
-    if (!hours || hours <= 0) { alert('Valid hours required'); return; }
-    if (type === 'student' && !studentId) { alert('Select a student'); return; }
-    if (type === 'institution' && !institution) { alert('Enter institution name'); return; }
-    
-    let entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
-    entries.unshift({
-      id: Date.now().toString(),
-      type,
-      studentId: studentId || null,
-      institution: institution || null,
-      date,
-      subject,
-      hours,
-      rate,
-      description: description || '',
-      total: hours * rate,
-      createdAt: new Date().toISOString()
-    });
-    
-    localStorage.setItem('worklog_entries', JSON.stringify(entries));
-    if (typeof loadWorklogEntries === 'function') loadWorklogEntries();
-    
-    document.getElementById('worklogForm')?.reset();
-    const dateInput = document.getElementById('worklogDate');
-    if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
-    
-    alert('Worklog saved!');
-  };
-  
-  console.log('✅ Save button permanently fixed!');
-}
+window.saveWorklogEntry = saveWorklogEntry;
 
 // Initialize on page load if worklog is active
 if (document.getElementById('worklog')?.classList.contains('active')) {
-  setTimeout(fixSaveButtonPermanently, 500);
+  setTimeout(initWorklogTab, 500);
 }
 
-// Also fix when tab becomes active
+// Handle tab switching
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', function() {
-    setTimeout(() => {
-      if (this.getAttribute('data-tab') === 'worklog') {
-        fixSaveButtonPermanently();
-      }
-    }, 200);
+    if (this.getAttribute('data-tab') === 'worklog') {
+      setTimeout(initWorklogTab, 200);
+    }
   });
 });
 
