@@ -16,7 +16,7 @@ function isWorklogActive() {
 
 // Load worklog entries
 function loadWorklogEntries() {
-  if (!isWorklogActive()) return;
+ // if (!isWorklogActive()) return;
   
   const container = getWorklogElement('#worklogContainer');
   if (!container) return;
