@@ -124,13 +124,12 @@ class ReportManager {
         return entryDate >= start && entryDate <= end;
     });
     
-    // NORMALIZE entries - add duration field for compatibility
+    // Map your fields to what the report expects
     const normalized = filtered.map(entry => ({
         ...entry,
-        duration: entry.hours,        // Map hours to duration
-        hoursWorked: entry.hours,     // Map hours to hoursWorked
-        totalEarnings: entry.total,   // Map total to totalEarnings
-        activity: entry.subject       // Map subject to activity
+        duration: entry.hours,           // Map hours to duration
+        totalEarnings: entry.total,      // Map total to totalEarnings
+        activity: entry.subject          // Map subject to activity
     }));
     
     console.log(`📊 Found ${normalized.length} entries in range`);
@@ -1265,70 +1264,69 @@ printDocument(type) {
         }
     }
 
-    async updateOverviewStats() {
-        try {
-            // Update from dataManager
-            const logs = await this.dataManager.getAllLogs();
-            const students = await this.dataManager.getAllStudents();
-            const marks = await this.dataManager.getAllMarks();
-            const payments = await this.dataManager.getAllPayments();
+   async updateOverviewStats() {
+    try {
+        // Update from dataManager
+        const logs = await this.dataManager.getAllLogs();
+        const students = await this.dataManager.getAllStudents();
+        const marks = await this.dataManager.getAllMarks();
+        const payments = await this.dataManager.getAllPayments();
+        
+        const totalHours = logs.reduce((sum, log) => sum + parseFloat(log.duration || 0), 0);
+        const totalEarnings = logs.reduce((sum, log) => {
+            const student = students.find(s => s.name === log.studentName);
+            const rate = student?.hourlyRate || 0;
+            return sum + (parseFloat(log.duration || 0) * rate);
+        }, 0);
+        
+        const avgMark = marks.length > 0 
+            ? marks.reduce((sum, m) => sum + parseFloat(m.percentage || 0), 0) / marks.length 
+            : 0;
             
-            const totalHours = logs.reduce((sum, log) => sum + parseFloat(log.duration || 0), 0);
-            const totalEarnings = logs.reduce((sum, log) => {
-                const student = students.find(s => s.name === log.studentName);
-                const rate = student?.hourlyRate || 0;
-                return sum + (parseFloat(log.duration || 0) * rate);
-            }, 0);
-            
-            const avgMark = marks.length > 0 
-                ? marks.reduce((sum, m) => sum + parseFloat(m.percentage || 0), 0) / marks.length 
-                : 0;
-                
-            const totalPayments = payments.reduce((sum, p) => sum + parseFloat(p.paymentAmount || 0), 0);
-            const outstandingBalance = totalEarnings - totalPayments;
-            
-            // Update from worklog for summary cards
-            const worklogEntries = this.worklogEntries;
-            const worklogHours = worklogEntries.reduce((sum, e) => sum + (e.duration || 0), 0);
-            const worklogEarnings = worklogEntries.reduce((sum, e) => sum + (e.totalEarnings || 0), 0);
-            
-            // Get current month's earnings from worklog
-            const now = new Date();
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-            const monthEarnings = worklogEntries
-                .filter(e => new Date(e.date + 'T12:00:00') >= startOfMonth)
-                .reduce((sum, e) => sum + (e.totalEarnings || 0), 0);
-            
-            const updateElement = (id, value) => {
-                const el = document.getElementById(id);
-                if (el) el.textContent = value;
-            };
-            
-            // Update all stats displays
-            updateElement('totalStudentsReport', students.length);
-            updateElement('totalHoursReport', totalHours.toFixed(2));
-            updateElement('totalEarningsReport', `$${totalEarnings.toFixed(2)}`);
-            updateElement('avgMarkReport', `${avgMark.toFixed(1)}%`);
-            updateElement('totalPaymentsReport', `$${totalPayments.toFixed(2)}`);
-            updateElement('outstandingBalance', `$${outstandingBalance.toFixed(2)}`);
-            
-            // Update summary cards
-            updateElement('reportTotalHours', worklogHours.toFixed(1));
-            updateElement('reportTotalEarnings', `$${worklogEarnings.toFixed(2)}`);
-            updateElement('reportMonthEarnings', `$${monthEarnings.toFixed(2)}`);
-            
-            // Update quick stats
-            updateElement('worklogStatsCount', worklogEntries.length);
-            if (worklogEntries.length > 0) {
-                const avgDuration = worklogHours / worklogEntries.length;
-                updateElement('worklogAvgDuration', avgDuration.toFixed(1) + 'h');
-            } else {
-                updateElement('worklogAvgDuration', '0h');
-            }
-            
-        } catch (error) {
-            console.error('Error updating overview stats:', error);
+        const totalPayments = payments.reduce((sum, p) => sum + parseFloat(p.paymentAmount || 0), 0);
+        const outstandingBalance = totalEarnings - totalPayments;
+        
+        // FIX: Use hours and total (not duration and totalEarnings)
+        const worklogEntries = this.worklogEntries;
+        const worklogHours = worklogEntries.reduce((sum, e) => sum + (e.hours || 0), 0);        // CHANGED: e.hours
+        const worklogEarnings = worklogEntries.reduce((sum, e) => sum + (e.total || 0), 0);      // CHANGED: e.total
+        
+        // Get current month's earnings from worklog
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthEarnings = worklogEntries
+            .filter(e => new Date(e.date + 'T12:00:00') >= startOfMonth)
+            .reduce((sum, e) => sum + (e.total || 0), 0);                                         // CHANGED: e.total
+        
+        const updateElement = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        };
+        
+        // Update all stats displays
+        updateElement('totalStudentsReport', students.length);
+        updateElement('totalHoursReport', totalHours.toFixed(2));
+        updateElement('totalEarningsReport', `$${totalEarnings.toFixed(2)}`);
+        updateElement('avgMarkReport', `${avgMark.toFixed(1)}%`);
+        updateElement('totalPaymentsReport', `$${totalPayments.toFixed(2)}`);
+        updateElement('outstandingBalance', `$${outstandingBalance.toFixed(2)}`);
+        
+        // Update summary cards
+        updateElement('reportTotalHours', worklogHours.toFixed(1));
+        updateElement('reportTotalEarnings', `$${worklogEarnings.toFixed(2)}`);
+        updateElement('reportMonthEarnings', `$${monthEarnings.toFixed(2)}`);
+        
+        // Update quick stats
+        updateElement('worklogStatsCount', worklogEntries.length);
+        if (worklogEntries.length > 0) {
+            const avgDuration = worklogHours / worklogEntries.length;
+            updateElement('worklogAvgDuration', avgDuration.toFixed(1) + 'h');
+        } else {
+            updateElement('worklogAvgDuration', '0h');
         }
+        
+    } catch (error) {
+        console.error('Error updating overview stats:', error);
     }
 }
 
