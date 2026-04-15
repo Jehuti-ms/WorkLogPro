@@ -219,9 +219,28 @@ function setupWorklogForm() {
   });
 }
 
+// Add this function to worklog.js
+function setupWorklogSaveButton() {
+  const saveBtn = document.getElementById('worklogSubmitBtn');
+  if (!saveBtn) return;
+  
+  // Remove any existing listeners by cloning
+  const newBtn = saveBtn.cloneNode(true);
+  saveBtn.parentNode.replaceChild(newBtn, saveBtn);
+  
+  // Add the click handler
+  newBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    saveWorklogEntry();
+  });
+  
+  console.log('✅ Worklog save button connected');
+}
+
 // Initialize worklog tab
 function initWorklogTab() {
-   setupWorklogForm();
+  setupWorklogForm();
+  setupWorklogSaveButton();
   if (!isWorklogActive()) return;
   
   console.log('Initializing worklog tab...');
