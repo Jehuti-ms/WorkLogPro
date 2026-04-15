@@ -1335,7 +1335,7 @@ window.generateSubjectReport = async function() {
     const select = document.getElementById('subjectSelect');
     const custom = document.getElementById('customSubject');
     
-    const subject = select?.value || custom?.value.trim();
+    const subject = (select && select.value) || (custom && custom.value.trim());
     
     if (!subject) {
         alert('Please select or enter a subject');
