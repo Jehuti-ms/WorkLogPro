@@ -167,12 +167,21 @@ function setupSaveButton() {
 function initWorklogTab() {
   if (!isWorklogActive()) return;
   
+  // PREVENT FORM SUBMISSION REFRESH
+  const form = document.getElementById('worklogForm');
+  if (form) {
+    form.onsubmit = function(e) {
+      e.preventDefault();
+      return false;
+    };
+  }
+  
   console.log('Initializing worklog tab...');
   
   populateWorklogStudentDropdown();
   loadWorklogEntries();
   fixSaveButtonPermanently();
-  
+    
   // Setup filter listeners
   const filterType = document.getElementById('worklogFilterType');
   const searchInput = document.getElementById('worklogSearch');
