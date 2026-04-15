@@ -237,6 +237,7 @@ function initAppUI() {
     initSyncControls();
     initReportButtons();
     initSyncToggle();
+    initSync();
     loadInitialData();
     
     console.log('✅ App UI initialized');
@@ -1105,6 +1106,156 @@ function stopAutoSync() {
   }
 }
 
+// ==================== CROSS-DEVICE SYNC ====================
+let syncUnsubscribe = null;
+
+function initCrossDeviceSync() {
+  const user = firebase.auth().currentUser;
+  if (!user) return;
+  
+  console.log('🔄 Setting up cross-device sync for:', user.email);
+  
+  // Listen for real-time changes from Firestore
+  const db = firebase.firestore();
+  const userDocRef = db.collection('users').doc(user.uid).collection('data').doc('worklog');
+  
+  if (syncUnsubscribe) {
+    syncUnsubscribe();
+  }
+  
+  syncUnsubscribe = userDocRef.onSnapshot((doc) => {
+    if (doc.exists && doc.data()) {
+      const remoteData = doc.data();
+      console.log('📡 Real-time update received from cloud');
+      
+      // Check if remote data is different from local
+      const localData = {
+        students: JSON.parse(localStorage.getItem('worklog_students') || '[]'),
+        worklogs: JSON.parse(localStorage.getItem('worklog_entries') || '[]'),
+        marks: JSON.parse(localStorage.getItem('worklog_marks') || '[]'),
+        attendance: JSON.parse(localStorage.getItem('worklog_attendance') || '[]'),
+        payments: JSON.parse(localStorage.getItem('worklog_payments') || '[]')
+      };
+      
+      let hasChanges = false;
+      
+      // Compare and update if needed
+      if (JSON.stringify(remoteData.students) !== JSON.stringify(localData.students)) {
+        localStorage.setItem('worklog_students', JSON.stringify(remoteData.students || []));
+        hasChanges = true;
+        console.log('🔄 Students updated from cloud');
+      }
+      
+      if (JSON.stringify(remoteData.worklog_entries) !== JSON.stringify(localData.worklogs)) {
+        localStorage.setItem('worklog_entries', JSON.stringify(remoteData.worklog_entries || []));
+        hasChanges = true;
+        console.log('🔄 Worklogs updated from cloud');
+      }
+      
+      if (JSON.stringify(remoteData.marks) !== JSON.stringify(localData.marks)) {
+        localStorage.setItem('worklog_marks', JSON.stringify(remoteData.marks || []));
+        hasChanges = true;
+        console.log('🔄 Marks updated from cloud');
+      }
+      
+      if (JSON.stringify(remoteData.attendance) !== JSON.stringify(localData.attendance)) {
+        localStorage.setItem('worklog_attendance', JSON.stringify(remoteData.attendance || []));
+        hasChanges = true;
+        console.log('🔄 Attendance updated from cloud');
+      }
+      
+      if (JSON.stringify(remoteData.payments) !== JSON.stringify(localData.payments)) {
+        localStorage.setItem('worklog_payments', JSON.stringify(remoteData.payments || []));
+        hasChanges = true;
+        console.log('🔄 Payments updated from cloud');
+      }
+      
+      // Refresh UI if changes were made
+      if (hasChanges) {
+        console.log('🔄 Refreshing UI with cloud data');
+        refreshAllStats();
+        if (typeof loadStudents === 'function') loadStudents();
+        if (typeof loadWorklogEntries === 'function') loadWorklogEntries();
+        if (typeof loadMarks === 'function') loadMarks();
+        if (typeof loadAttendance === 'function') loadAttendance();
+        if (typeof loadPayments === 'function') loadPayments();
+        
+        // Show notification
+        showNotification('Data synced from cloud', 'info');
+      }
+    }
+  }, (error) => {
+    console.error('❌ Sync listener error:', error);
+  });
+}
+
+// Save to cloud whenever data changes
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+const saveToCloud = debounce(async () => {
+  const user = firebase.auth().currentUser;
+  if (!user) return;
+  
+  const db = firebase.firestore();
+  const data = {
+    students: JSON.parse(localStorage.getItem('worklog_students') || '[]'),
+    worklog_entries: JSON.parse(localStorage.getItem('worklog_entries') || '[]'),
+    marks: JSON.parse(localStorage.getItem('worklog_marks') || '[]'),
+    attendance: JSON.parse(localStorage.getItem('worklog_attendance') || '[]'),
+    payments: JSON.parse(localStorage.getItem('worklog_payments') || '[]'),
+    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  
+  try {
+    await db.collection('users').doc(user.uid).collection('data').doc('worklog').set(data, { merge: true });
+    console.log('☁️ Data saved to cloud');
+  } catch (error) {
+    console.error('❌ Error saving to cloud:', error);
+  }
+}, 1000);
+
+// Hook into existing save functions
+function hookDataSaving() {
+  // Override localStorage.setItem to detect changes
+  const originalSetItem = localStorage.setItem;
+  localStorage.setItem = function(key, value) {
+    originalSetItem.apply(this, arguments);
+    if (key.startsWith('worklog_') && !key.includes('backup')) {
+      saveToCloud();
+    }
+  };
+}
+
+// Initialize cross-device sync
+function initSync() {
+  hookDataSaving();
+  
+  firebase.auth().onAuthStateChanged((user) => {
+    if (user) {
+      console.log('👤 User logged in, starting cross-device sync');
+      initCrossDeviceSync();
+      // Initial load from cloud
+      setTimeout(() => saveToCloud(), 1000);
+    } else {
+      console.log('👤 No user, sync disabled');
+      if (syncUnsubscribe) {
+        syncUnsubscribe();
+        syncUnsubscribe = null;
+      }
+    }
+  });
+}
+
 // ==================== FILE INPUT ====================
 function createFileInput() {
   if (document.getElementById('importFileInput')) return;
@@ -1782,17 +1933,337 @@ function showNotification(message, type = 'info') {
   });
 }
 
-// ==================== GENERATE FUNCTIONS (placeholders) ====================
-function generateWeeklyBreakdown() { /* ... */ }
-function generateSubjectBreakdown() { /* ... */ }
-function getWeekStart(date) { /* ... */ }
-function formatDate(date) { /* ... */ }
-function generateWeeklyReport() { alert('Weekly report'); }
-function generateBiWeeklyReport() { alert('Bi-weekly report'); }
-function generateMonthlyReport() { alert('Monthly report'); }
-function generateSubjectReport() { alert('Subject report'); }
-function generatePDFReport() { alert('PDF report'); }
-function generateEmailReport() { alert('Email report'); }
+// ==================== REPORT GENERATION FUNCTIONS ====================
+// Helper: Get start of week (Monday)
+function getWeekStart(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = (day === 0 ? 6 : day - 1);
+  d.setDate(d.getDate() - diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+// Helper: Format date nicely
+function formatDate(date) {
+  return new Date(date).toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: 'short', 
+    day: 'numeric' 
+  });
+}
+
+// Helper: Get all data for reports
+function getReportData() {
+  return {
+    students: JSON.parse(localStorage.getItem('worklog_students') || '[]'),
+    worklogs: JSON.parse(localStorage.getItem('worklog_entries') || '[]'),
+    hours: JSON.parse(localStorage.getItem('worklog_hours') || '[]'),
+    marks: JSON.parse(localStorage.getItem('worklog_marks') || '[]'),
+    payments: JSON.parse(localStorage.getItem('worklog_payments') || '[]')
+  };
+}
+
+// Generate Weekly Breakdown
+function generateWeeklyBreakdown() {
+  const { worklogs, hours } = getReportData();
+  const allEntries = [...worklogs, ...hours];
+  
+  if (allEntries.length === 0) {
+    showNotification('No data available for weekly breakdown', 'warning');
+    return;
+  }
+  
+  // Group by week
+  const weeklyData = {};
+  allEntries.forEach(entry => {
+    const date = entry.date || entry.workDate;
+    if (!date) return;
+    
+    const weekStart = getWeekStart(date);
+    const weekKey = weekStart.toISOString().split('T')[0];
+    
+    if (!weeklyData[weekKey]) {
+      weeklyData[weekKey] = { hours: 0, earnings: 0, subjects: new Set(), weekStart };
+    }
+    
+    const hoursWorked = parseFloat(entry.duration || entry.hoursWorked || 0);
+    const rate = parseFloat(entry.rate || entry.baseRate || 0);
+    const earnings = hoursWorked * rate;
+    
+    weeklyData[weekKey].hours += hoursWorked;
+    weeklyData[weekKey].earnings += earnings;
+    if (entry.subject) weeklyData[weekKey].subjects.add(entry.subject);
+  });
+  
+  // Display in report-content container
+  const container = document.getElementById('report-content');
+  if (!container) return;
+  
+  const weeks = Object.keys(weeklyData).sort().reverse();
+  if (weeks.length === 0) {
+    container.innerHTML = '<p class="empty-message">No weekly data available</p>';
+    return;
+  }
+  
+  let html = '<div class="report-display"><h4>📅 Weekly Breakdown</h4><table class="table"><thead><tr><th>Week</th><th>Hours</th><th>Earnings</th><th>Subjects</th><th>Net (80%)</th></tr></thead><tbody>';
+  
+  weeks.slice(0, 10).forEach(weekKey => {
+    const week = weeklyData[weekKey];
+    const net = week.earnings * 0.8;
+    html += `<tr>
+      <td>${formatDate(week.weekStart)}</td>
+      <td>${week.hours.toFixed(1)}</td>
+      <td>$${week.earnings.toFixed(2)}</td>
+      <td>${week.subjects.size}</td>
+      <td>$${net.toFixed(2)}</td>
+    </tr>`;
+  });
+  
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+}
+
+// Generate Subject Breakdown
+function generateSubjectBreakdown() {
+  const { worklogs, hours, marks } = getReportData();
+  const allEntries = [...worklogs, ...hours];
+  
+  if (allEntries.length === 0) {
+    showNotification('No data available for subject breakdown', 'warning');
+    return;
+  }
+  
+  // Group by subject
+  const subjectData = {};
+  allEntries.forEach(entry => {
+    const subject = entry.subject || 'General';
+    if (!subjectData[subject]) {
+      subjectData[subject] = { hours: 0, earnings: 0, sessions: 0, marks: [] };
+    }
+    
+    const hoursWorked = parseFloat(entry.duration || entry.hoursWorked || 0);
+    const rate = parseFloat(entry.rate || entry.baseRate || 0);
+    
+    subjectData[subject].hours += hoursWorked;
+    subjectData[subject].earnings += hoursWorked * rate;
+    subjectData[subject].sessions += 1;
+  });
+  
+  // Add marks data
+  marks.forEach(mark => {
+    const subject = mark.marksSubject;
+    if (subjectData[subject]) {
+      subjectData[subject].marks.push(parseFloat(mark.percentage) || 0);
+    }
+  });
+  
+  // Calculate averages
+  Object.keys(subjectData).forEach(subject => {
+    if (subjectData[subject].marks.length > 0) {
+      const avgMark = subjectData[subject].marks.reduce((a, b) => a + b, 0) / subjectData[subject].marks.length;
+      subjectData[subject].avgMark = avgMark.toFixed(1);
+    } else {
+      subjectData[subject].avgMark = 'N/A';
+    }
+  });
+  
+  // Display
+  const container = document.getElementById('report-content');
+  if (!container) return;
+  
+  const subjects = Object.keys(subjectData).sort();
+  if (subjects.length === 0) {
+    container.innerHTML = '<p class="empty-message">No subject data available</p>';
+    return;
+  }
+  
+  let html = '<div class="report-display"><h4>📚 Subject Breakdown</h4><table class="table"><thead><tr><th>Subject</th><th>Hours</th><th>Earnings</th><th>Sessions</th><th>Avg Mark</th></tr></thead><tbody>';
+  
+  subjects.forEach(subject => {
+    const data = subjectData[subject];
+    html += `<tr>
+      <td><strong>${subject}</strong></td>
+      <td>${data.hours.toFixed(1)}</td>
+      <td>$${data.earnings.toFixed(2)}</td>
+      <td>${data.sessions}</td>
+      <td>${data.avgMark === 'N/A' ? '—' : data.avgMark + '%'}</td>
+    </tr>`;
+  });
+  
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+}
+
+// Generate Weekly Report
+function generateWeeklyReport() {
+  generateWeeklyBreakdown();
+  showNotification('Weekly report generated', 'success');
+}
+
+// Generate Bi-Weekly Report
+function generateBiWeeklyReport() {
+  const { worklogs, hours } = getReportData();
+  const allEntries = [...worklogs, ...hours];
+  
+  if (allEntries.length === 0) {
+    showNotification('No data available', 'warning');
+    return;
+  }
+  
+  // Group by 2-week periods
+  const biWeeklyData = {};
+  allEntries.forEach(entry => {
+    const date = entry.date || entry.workDate;
+    if (!date) return;
+    
+    const d = new Date(date);
+    const weekNum = Math.floor(d.getTime() / (1000 * 60 * 60 * 24 * 14));
+    const periodKey = weekNum.toString();
+    
+    if (!biWeeklyData[periodKey]) {
+      biWeeklyData[periodKey] = { hours: 0, earnings: 0, startDate: d };
+    }
+    
+    const hoursWorked = parseFloat(entry.duration || entry.hoursWorked || 0);
+    const rate = parseFloat(entry.rate || entry.baseRate || 0);
+    
+    biWeeklyData[periodKey].hours += hoursWorked;
+    biWeeklyData[periodKey].earnings += hoursWorked * rate;
+  });
+  
+  const container = document.getElementById('report-content');
+  if (!container) return;
+  
+  let html = '<div class="report-display"><h4>📅 Bi-Weekly Report</h4><table class="table"><thead><tr><th>Period Start</th><th>Hours</th><th>Earnings</th><th>Net (80%)</th></tr></thead><tbody>';
+  
+  Object.values(biWeeklyData).slice(0, 10).forEach(period => {
+    const net = period.earnings * 0.8;
+    html += `<tr>
+      <td>${formatDate(period.startDate)}</td>
+      <td>${period.hours.toFixed(1)}</td>
+      <td>$${period.earnings.toFixed(2)}</td>
+      <td>$${net.toFixed(2)}</td>
+    </tr>`;
+  });
+  
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+  showNotification('Bi-weekly report generated', 'success');
+}
+
+// Generate Monthly Report
+function generateMonthlyReport() {
+  const { worklogs, hours } = getReportData();
+  const allEntries = [...worklogs, ...hours];
+  
+  if (allEntries.length === 0) {
+    showNotification('No data available', 'warning');
+    return;
+  }
+  
+  // Group by month
+  const monthlyData = {};
+  allEntries.forEach(entry => {
+    const date = entry.date || entry.workDate;
+    if (!date) return;
+    
+    const d = new Date(date);
+    const monthKey = `${d.getFullYear()}-${d.getMonth() + 1}`;
+    
+    if (!monthlyData[monthKey]) {
+      monthlyData[monthKey] = { hours: 0, earnings: 0, month: d };
+    }
+    
+    const hoursWorked = parseFloat(entry.duration || entry.hoursWorked || 0);
+    const rate = parseFloat(entry.rate || entry.baseRate || 0);
+    
+    monthlyData[monthKey].hours += hoursWorked;
+    monthlyData[monthKey].earnings += hoursWorked * rate;
+  });
+  
+  const container = document.getElementById('report-content');
+  if (!container) return;
+  
+  let html = '<div class="report-display"><h4>📅 Monthly Report</h4><table class="table"><thead><tr><th>Month</th><th>Hours</th><th>Earnings</th><th>Net (80%)</th></tr></thead><tbody>';
+  
+  Object.values(monthlyData).slice(0, 12).forEach(month => {
+    const net = month.earnings * 0.8;
+    html += `<tr>
+      <td>${month.month.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}</td>
+      <td>${month.hours.toFixed(1)}</td>
+      <td>$${month.earnings.toFixed(2)}</td>
+      <td>$${net.toFixed(2)}</td>
+    </tr>`;
+  });
+  
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+  showNotification('Monthly report generated', 'success');
+}
+
+// Generate Subject Report
+function generateSubjectReport() {
+  generateSubjectBreakdown();
+  showNotification('Subject report generated', 'success');
+}
+
+// Generate PDF Report
+function generatePDFReport() {
+  const container = document.getElementById('report-content');
+  if (!container || container.innerHTML.includes('No data')) {
+    showNotification('Generate a report first before exporting to PDF', 'warning');
+    return;
+  }
+  
+  const printWindow = window.open('', '_blank');
+  const styles = document.querySelector('style').innerHTML;
+  
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>WorkLog Report</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        h1 { color: #2563eb; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #f5f5f5; }
+        @media print {
+          body { margin: 0; }
+          .no-print { display: none; }
+        }
+      </style>
+    </head>
+    <body>
+      <h1>WorkLog Report</h1>
+      <p>Generated: ${new Date().toLocaleString()}</p>
+      ${container.innerHTML}
+      <p class="no-print"><button onclick="window.print()">Print</button></p>
+    </body>
+    </html>
+  `);
+  
+  printWindow.document.close();
+  showNotification('PDF report opened', 'success');
+}
+
+// Generate Email Report
+function generateEmailReport() {
+  const container = document.getElementById('report-content');
+  if (!container || container.innerHTML.includes('No data')) {
+    showNotification('Generate a report first before emailing', 'warning');
+    return;
+  }
+  
+  const reportContent = container.innerText;
+  const subject = encodeURIComponent('WorkLog Report');
+  const body = encodeURIComponent(reportContent + '\n\nGenerated: ' + new Date().toLocaleString());
+  
+  window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  showNotification('Email client opened', 'success');
+}
 
 // ==================== INITIALIZE SORTING ====================
 document.addEventListener('DOMContentLoaded', function() {
