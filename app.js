@@ -240,6 +240,44 @@ function initAppUI() {
     initSync();
     loadInitialData();
     
+    // ===== FIX: Worklog save button handler =====
+    setTimeout(function() {
+      const saveBtn = document.getElementById('worklogSubmitBtn');
+      if (saveBtn) {
+        // Clone and replace to remove any stale event handlers
+        const newSaveBtn = saveBtn.cloneNode(true);
+        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+        
+        // Attach the correct save function
+        newSaveBtn.onclick = function(e) {
+          e.preventDefault();
+          if (typeof saveWorklogEntry === 'function') {
+            saveWorklogEntry();
+            console.log('✅ SaveWorklogEntry called from fixed button');
+          } else {
+            console.error('❌ saveWorklogEntry function not found');
+          }
+        };
+        console.log('✅ Save button handler permanently fixed');
+      } else {
+        console.log('⚠️ worklogSubmitBtn not found yet, will retry...');
+        // Retry after a longer delay if button not found
+        setTimeout(function() {
+          const retryBtn = document.getElementById('worklogSubmitBtn');
+          if (retryBtn) {
+            const newBtn = retryBtn.cloneNode(true);
+            retryBtn.parentNode.replaceChild(newBtn, retryBtn);
+            newBtn.onclick = function(e) {
+              e.preventDefault();
+              if (typeof saveWorklogEntry === 'function') saveWorklogEntry();
+            };
+            console.log('✅ Save button fixed on retry');
+          }
+        }, 1000);
+      }
+    }, 500);
+    // ===== END OF FIX =====
+    
     console.log('✅ App UI initialized');
   } catch (error) {
     console.error('❌ UI init error:', error);
