@@ -110,6 +110,7 @@ class ReportManager {
                 subject: entry.subject,
                 topic: entry.topic,
                 hours: entry.hours,
+                sessions: entry.sessions, 
                 rate: entry.rate,
                 description: entry.description,
                 outcomes: entry.outcomes,
