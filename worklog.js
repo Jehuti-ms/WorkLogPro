@@ -194,10 +194,18 @@ function editWorklogEntry(id) {
   
   window.editingWorklogId = id;
   
-  const saveBtn = document.getElementById('worklogSubmitBtn');
+  // Try multiple possible button selectors
+  const saveBtn = document.getElementById('worklogSubmitBtn') || 
+                  document.querySelector('#worklogForm button[type="submit"]') ||
+                  document.querySelector('.worklog-submit-btn') ||
+                  document.querySelector('#worklogForm .btn-primary');
+  
   if (saveBtn) {
     saveBtn.textContent = '✏️ Update Worklog';
     saveBtn.style.backgroundColor = '#f59e0b';
+    console.log('✅ Update button ready');
+  } else {
+    console.log('⚠️ Save button not found - check the button ID');
   }
   
   let cancelBtn = document.getElementById('cancelWorklogEditBtn');
@@ -213,37 +221,20 @@ function editWorklogEntry(id) {
   } else {
     cancelBtn.style.display = 'inline-block';
   }
-
-  // Activate the worklog tab first
-  const worklogTab = document.querySelector('[data-tab="worklog"]') || 
-                     document.querySelector('.tablinks[onclick*="worklog"]') ||
-                     document.getElementById('worklog-tab');
   
-  if (worklogTab) {
-      worklogTab.click(); // This switches to the worklog tab
-  }
-  
-  // Small delay to let the tab render, then scroll
-setTimeout(() => {
-    // Activate the worklog tab first
-    const worklogTab = document.querySelector('[data-tab="worklog"]') || 
-                       document.querySelector('.tablinks[onclick*="worklog"]') ||
-                       document.getElementById('worklog-tab');
-    if (worklogTab) {
-        worklogTab.click();
+  // Small delay to let everything render, then scroll
+  setTimeout(() => {
+    const form = document.getElementById('worklogForm');
+    if (form) {
+      form.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'start'
+      });
+      document.getElementById('worklogDate').focus();
     }
-    
-    // Small extra delay for tab to render
-    setTimeout(() => {
-        document.getElementById('worklogForm').scrollIntoView({ 
-            behavior: 'smooth',
-            block: 'start'
-        });
-        document.getElementById('worklogDate').focus();
-    }, 100);
-}, 200);
-
-alert('Edit mode activated. Make changes and click Update.');
+  }, 200);
+  
+  alert('Edit mode activated. Make changes and click Update.');
 }
  
 // Fix save button
