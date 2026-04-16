@@ -240,7 +240,35 @@ function editWorklogEntry(id) {
   
   alert('Edit mode activated. Make changes and click Update.');
 }
- 
+
+// Cancel worklog edit function
+function cancelWorklogEdit() {
+    console.log('❌ Canceling edit mode');
+    
+    // Clear the editing ID
+    window.editingWorklogId = null;
+    
+    // Reset the save button to normal
+    const saveBtn = document.getElementById('worklogSubmitBtn');
+    if (saveBtn) {
+        saveBtn.textContent = '💾 Save Worklog';
+        saveBtn.style.backgroundColor = '';
+    }
+    
+    // Remove the cancel button
+    const cancelBtn = document.getElementById('cancelWorklogEditBtn');
+    if (cancelBtn) {
+        cancelBtn.remove();
+    }
+    
+    // Clear the form
+    if (typeof clearWorklogForm === 'function') {
+        clearWorklogForm();
+    }
+    
+    alert('Edit cancelled');
+}
+
 // Fix save button
 function fixSaveButtonPermanently() {
   const saveBtn = document.getElementById('worklogSubmitBtn');
