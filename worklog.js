@@ -213,11 +213,28 @@ function editWorklogEntry(id) {
   } else {
     cancelBtn.style.display = 'inline-block';
   }
-  
-  document.getElementById('worklogForm').scrollIntoView({ behavior: 'smooth' });
-  alert('Edit mode activated. Make changes and click Update.');
-}
 
+  // Activate the worklog tab first
+  const worklogTab = document.querySelector('[data-tab="worklog"]') || 
+                     document.querySelector('.tablinks[onclick*="worklog"]') ||
+                     document.getElementById('worklog-tab');
+  
+  if (worklogTab) {
+      worklogTab.click(); // This switches to the worklog tab
+  }
+  
+  // Small delay to let the tab render, then scroll
+  setTimeout(() => {
+    document.getElementById('worklogForm').scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'start'
+    });
+    document.getElementById('worklogDate').focus();
+}, 200);
+
+alert('Edit mode activated. Make changes and click Update.');
+  
+ 
 // Fix save button
 function fixSaveButtonPermanently() {
   const saveBtn = document.getElementById('worklogSubmitBtn');
