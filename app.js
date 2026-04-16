@@ -1778,6 +1778,29 @@ function loadStudents() {
   if (studentsFixed) {
     console.log('🔧 Fixed data issues for some students');
   }
+
+    refreshAttendanceStudentList();
+}
+
+function refreshAttendanceStudentList() {
+    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    const attendanceContainer = document.getElementById('attendanceStudents');
+    
+    if (!attendanceContainer) return;
+    
+    if (students.length === 0) {
+        attendanceContainer.innerHTML = '<p class="empty-message">No students registered.</p>';
+        return;
+    }
+    
+    attendanceContainer.innerHTML = students.map(s => `
+        <div class="attendance-student-item">
+            <input type="checkbox" id="att_student_${s.id}" value="${s.id}">
+            <label for="att_student_${s.id}">${s.name} (${s.studentId})</label>
+        </div>
+    `).join('');
+    
+    console.log(`✅ Attendance refreshed: ${students.length} students`);
 }
 
 // ==================== OTHER LOAD FUNCTIONS (simplified) ====================
@@ -1833,27 +1856,187 @@ function loadMarks() {
   `).join('');
 }
 
+// ==================== ATTENDANCE FUNCTIONS WITH EDIT/DELETE ====================
+
 function loadAttendance() {
-  const container = document.getElementById('attendanceContainer');
-  if (!container) return;
-  
-  const attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
-  document.getElementById('attendanceCount') && (document.getElementById('attendanceCount').textContent = attendance.length);
-  
-  if (!attendance.length) {
-    container.innerHTML = '<p class="empty-message">No attendance records yet.</p>';
-    return;
-  }
-  
-  container.innerHTML = attendance.slice(0, 5).map(a => `
-    <div class="attendance-entry">
-      <div class="attendance-header">
-        <strong>${a.attendanceSubject}</strong>
-        <span>📅 ${new Date(a.attendanceDate).toLocaleDateString()}</span>
-      </div>
-      <div>👥 ${a.presentStudents?.length || 0} students present</div>
-    </div>
-  `).join('');
+    const container = document.getElementById('attendanceContainer');
+    if (!container) return;
+    
+    const attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
+    const attendanceCount = document.getElementById('attendanceCount');
+    if (attendanceCount) attendanceCount.textContent = attendance.length;
+    
+    if (!attendance.length) {
+        container.innerHTML = '<p class="empty-message">No attendance records yet.</p>';
+        return;
+    }
+    
+    container.innerHTML = attendance.map(record => `
+        <div class="attendance-card" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #fff;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div>
+                    <strong>📚 ${record.attendanceSubject}</strong>
+                    <span style="margin-left: 10px; color: #666;">📅 ${new Date(record.attendanceDate).toLocaleDateString()}</span>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="editAttendance('${record.id}')" style="background: #4CAF50; color: white; border: none; border-radius: 4px; padding: 5px 10px; cursor: pointer;">✏️ Edit</button>
+                    <button onclick="deleteAttendance('${record.id}')" style="background: #f44336; color: white; border: none; border-radius: 4px; padding: 5px 10px; cursor: pointer;">🗑️ Delete</button>
+                </div>
+            </div>
+            <div>👥 <strong>${record.presentStudents?.length || 0}</strong> students present</div>
+            <div style="font-size: 0.85em; color: #555; margin-top: 5px;">
+                Present: ${(record.presentStudents || []).join(', ')}
+            </div>
+        </div>
+    `).join('');
+}
+
+function editAttendance(attendanceId) {
+    console.log('✏️ Editing attendance:', attendanceId);
+    
+    const attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
+    const record = attendance.find(a => a.id == attendanceId);
+    
+    if (!record) {
+        showNotification('Attendance record not found', 'error');
+        return;
+    }
+    
+    document.getElementById('attendanceDate').value = record.attendanceDate;
+    document.getElementById('attendanceSubject').value = record.attendanceSubject;
+    
+    document.querySelectorAll('#attendanceStudents input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+    });
+    
+    const presentStudents = record.presentStudents || [];
+    document.querySelectorAll('#attendanceStudents input[type="checkbox"]').forEach(checkbox => {
+        const label = checkbox.nextElementSibling;
+        const studentName = label ? label.textContent.split(' (')[0] : '';
+        if (presentStudents.includes(studentName)) {
+            checkbox.checked = true;
+        }
+    });
+    
+    window.editingAttendanceId = attendanceId;
+    
+    const saveBtn = document.getElementById('attendanceSubmitBtn');
+    if (saveBtn) {
+        saveBtn.textContent = '✏️ Update Attendance';
+        saveBtn.style.backgroundColor = '#f59e0b';
+    }
+    
+    let cancelBtn = document.getElementById('cancelAttendanceEditBtn');
+    if (!cancelBtn) {
+        cancelBtn = document.createElement('button');
+        cancelBtn.id = 'cancelAttendanceEditBtn';
+        cancelBtn.textContent = '❌ Cancel Edit';
+        cancelBtn.style.marginLeft = '10px';
+        cancelBtn.style.padding = '10px 20px';
+        cancelBtn.style.cursor = 'pointer';
+        cancelBtn.onclick = cancelAttendanceEdit;
+        saveBtn.parentNode.appendChild(cancelBtn);
+    } else {
+        cancelBtn.style.display = 'inline-block';
+    }
+    
+    document.getElementById('attendanceForm').scrollIntoView({ behavior: 'smooth' });
+    showNotification('Edit mode: Add late students by checking their boxes', 'info');
+}
+
+function deleteAttendance(attendanceId) {
+    if (!confirm('Delete this attendance record? This cannot be undone.')) return;
+    
+    let attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
+    attendance = attendance.filter(a => a.id != attendanceId);
+    localStorage.setItem('worklog_attendance', JSON.stringify(attendance));
+    
+    showNotification('Attendance record deleted', 'success');
+    loadAttendance();
+    updateProfileStats();
+}
+
+function cancelAttendanceEdit() {
+    window.editingAttendanceId = null;
+    
+    const saveBtn = document.getElementById('attendanceSubmitBtn');
+    if (saveBtn) {
+        saveBtn.textContent = '💾 Save Attendance';
+        saveBtn.style.backgroundColor = '';
+    }
+    
+    const cancelBtn = document.getElementById('cancelAttendanceEditBtn');
+    if (cancelBtn) {
+        cancelBtn.remove();
+    }
+    
+    document.getElementById('attendanceForm')?.reset();
+    document.querySelectorAll('#attendanceStudents input[type="checkbox"]').forEach(cb => cb.checked = false);
+    
+    showNotification('Edit cancelled', 'info');
+}
+
+// Then REPLACE your existing saveAttendance with this:
+function saveAttendance() {
+    const date = document.getElementById('attendanceDate')?.value;
+    const subject = document.getElementById('attendanceSubject')?.value;
+    
+    if (!date || !subject) {
+        showNotification('Date and Subject are required', 'error');
+        return;
+    }
+    
+    const checkedBoxes = document.querySelectorAll('#attendanceStudents input[type="checkbox"]:checked');
+    const presentStudents = Array.from(checkedBoxes).map(cb => {
+        const label = cb.nextElementSibling;
+        return label ? label.textContent.split(' (')[0] : cb.value;
+    });
+    
+    let attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
+    
+    if (window.editingAttendanceId) {
+        const index = attendance.findIndex(a => a.id == window.editingAttendanceId);
+        if (index !== -1) {
+            attendance[index] = {
+                ...attendance[index],
+                attendanceDate: date,
+                attendanceSubject: subject,
+                presentStudents: presentStudents,
+                lastUpdated: new Date().toISOString()
+            };
+            showNotification('Attendance updated! Late students added.', 'success');
+        }
+        window.editingAttendanceId = null;
+        
+        const saveBtn = document.getElementById('attendanceSubmitBtn');
+        if (saveBtn) {
+            saveBtn.textContent = '💾 Save Attendance';
+            saveBtn.style.backgroundColor = '';
+        }
+        
+        const cancelBtn = document.getElementById('cancelAttendanceEditBtn');
+        if (cancelBtn) cancelBtn.remove();
+        
+    } else {
+        const newAttendance = {
+            id: Date.now().toString(),
+            attendanceDate: date,
+            attendanceSubject: subject,
+            presentStudents: presentStudents,
+            createdAt: new Date().toISOString()
+        };
+        attendance.unshift(newAttendance);
+        showNotification('Attendance saved!', 'success');
+    }
+    
+    localStorage.setItem('worklog_attendance', JSON.stringify(attendance));
+    
+    document.getElementById('attendanceDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('attendanceSubject').value = '';
+    document.querySelectorAll('#attendanceStudents input[type="checkbox"]').forEach(cb => cb.checked = false);
+    
+    loadAttendance();
+    updateProfileStats();
 }
 
 function loadPayments() {
