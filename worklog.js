@@ -185,6 +185,7 @@ function editWorklogEntry(id) {
   document.getElementById('worklogSubject').value = entry.subject;
   document.getElementById('worklogTopic').value = entry.topic || '';
   document.getElementById('worklogDuration').value = entry.hours;
+  document.getElementById('worklogSessions').value = entry.sessions || 1;
   document.getElementById('worklogRate').value = entry.rate;
   document.getElementById('worklogDescription').value = entry.description || '';
   document.getElementById('worklogOutcomes').value = entry.outcomes || '';
