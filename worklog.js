@@ -90,7 +90,7 @@ function saveWorklogEntry() {
   const nextSteps = document.getElementById('worklogNextSteps')?.value;
   const notes = document.getElementById('worklogNotes')?.value;
   
-  console.log('Values:', {type, studentId, institution, date, subject, hours});
+  console.log('Values:', {type, studentId, institution, date, subject, hours, sessions});
   
   if (!date) { alert('Date required'); return; }
   if (!subject) { alert('Subject required'); return; }
@@ -136,9 +136,13 @@ function saveWorklogEntry() {
       newEntry.createdAt = entries[index].createdAt;
       entries[index] = newEntry;
       alert('Worklog updated!');
+    } else {
+      console.log('⚠️ Entry not found with ID:', window.editingWorklogId);
     }
     window.editingWorklogId = null;
-    cancelWorklogEdit();
+    if (typeof cancelWorklogEdit === 'function') {
+      cancelWorklogEdit();
+    }
   } else {
     entries.unshift(newEntry);
     alert('Worklog saved!');
