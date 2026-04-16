@@ -82,6 +82,7 @@ function saveWorklogEntry() {
   const date = document.getElementById('worklogDate')?.value;
   const subject = document.getElementById('worklogSubject')?.value;
   const hours = parseFloat(document.getElementById('worklogDuration')?.value);
+  const sessions = parseFloat(document.getElementById('worklogSessions')?.value) || 1;
   const rate = parseFloat(document.getElementById('worklogRate')?.value) || 25;
   const description = document.getElementById('worklogDescription')?.value;
   const topic = document.getElementById('worklogTopic')?.value;
@@ -116,6 +117,7 @@ function saveWorklogEntry() {
     subject,
     topic: topic || '',
     hours,
+    sessions: sessions,
     rate,
     description: description || '',
     outcomes: outcomes || '',
