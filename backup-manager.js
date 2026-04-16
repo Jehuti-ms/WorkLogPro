@@ -2,7 +2,7 @@
 console.log('💾 Loading BackupManager...');
 
 const BackupManager = {
-    init: function() {
+        init: function() {
         console.log('💾 Initializing BackupManager...');
         
         // Create backup on page load
@@ -10,10 +10,11 @@ const BackupManager = {
         
         // Create backup every hour
         setInterval(() => this.createBackup('hourly'), 3600000);
-
-        // Keep only last 3 backups instead of 10
-        if (backups.length > 3) {
-            backups.slice(3).forEach(key => localStorage.removeItem(key));
+    
+        // Keep only last 3 backups instead of 10 - FIXED
+        const existingBackups = Object.keys(localStorage).filter(key => key.startsWith('worklog_backup_'));
+        if (existingBackups.length > 3) {
+            existingBackups.sort().reverse().slice(3).forEach(key => localStorage.removeItem(key));
         }
         
         // Create backup before page unload
