@@ -10,6 +10,11 @@ const BackupManager = {
         
         // Create backup every hour
         setInterval(() => this.createBackup('hourly'), 3600000);
+
+        // Keep only last 3 backups instead of 10
+        if (backups.length > 3) {
+            backups.slice(3).forEach(key => localStorage.removeItem(key));
+        }
         
         // Create backup before page unload
         window.addEventListener('beforeunload', () => {
