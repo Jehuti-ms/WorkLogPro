@@ -1,4 +1,4 @@
-// worklog.js - COMPLETE WORKING VERSION
+// worklog.js - COMPLETE WORKING VERSION WITH DATE FIXES
 console.log('📝 Loading working worklog.js...');
 
 // Helper to get elements ONLY from worklog tab
@@ -14,35 +14,66 @@ function isWorklogActive() {
   return worklogTab && worklogTab.classList.contains('active');
 }
 
+// Date formatter (uses global if available)
+function formatWorklogDate(dateString) {
+  if (!dateString) return '';
+  if (typeof window.formatDisplayDate === 'function') {
+    return window.formatDisplayDate(dateString);
+  }
+  // Fallback
+  const parts = dateString.split('-');
+  return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dateString;
+}
+
+// Get today's date in YYYY-MM-DD format
+function getTodayDateString() {
+  if (typeof window.getTodayDate === 'function') {
+    return window.getTodayDate();
+  }
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 // Load worklog entries
 function loadWorklogEntries() {
   const container = document.getElementById('worklogContainer');
   if (!container) return;
   
-  const entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+  let entries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+  
+  // Sort by date using string comparison (newest first)
+  entries.sort((a, b) => {
+    return (b.date || '').localeCompare(a.date || '');
+  });
   
   if (entries.length === 0) {
     container.innerHTML = '<p class="empty-message">No worklog entries yet.</p>';
     return;
   }
   
-  container.innerHTML = entries.map(entry => `
-    <div class="worklog-card ${entry.type || 'student'}">
-      <strong>${entry.type === 'student' ? (entry.studentName || 'Unknown') : (entry.institution || 'Unknown')}</strong><br>
-      📅 ${entry.date} | ⏱️ ${entry.hours}h | 💰 $${(entry.hours * entry.rate).toFixed(2)}<br>
-      📝 ${entry.description || 'No description'}<br>
-      <div style="margin-top: 10px;">
-        <button class="button small info" onclick="editWorklogEntry('${entry.id}')" style="margin-right: 5px;">✏️ Edit</button>
-        <button class="button small danger" onclick="deleteWorklogEntry('${entry.id}')">Delete</button>
+  container.innerHTML = entries.map(entry => {
+    const displayDate = formatWorklogDate(entry.date);
+    return `
+      <div class="worklog-card ${entry.type || 'student'}">
+        <strong>${entry.type === 'student' ? (entry.studentName || 'Unknown') : (entry.institution || 'Unknown')}</strong><br>
+        📅 ${displayDate} | ⏱️ ${entry.hours}h (${entry.sessions || 1} sessions) | 💰 $${(entry.hours * entry.rate).toFixed(2)}<br>
+        📝 ${entry.description || 'No description'}<br>
+        <div style="margin-top: 10px;">
+          <button class="button small info" onclick="editWorklogEntry('${entry.id}')" style="margin-right: 5px;">✏️ Edit</button>
+          <button class="button small danger" onclick="deleteWorklogEntry('${entry.id}')">Delete</button>
+        </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
   
   const countEl = document.getElementById('worklogCount');
   if (countEl) countEl.innerText = entries.length;
   
   const lastDateEl = document.getElementById('lastWorklogDate');
-  if (lastDateEl && entries.length) lastDateEl.innerText = entries[0].date;
+  if (lastDateEl && entries.length) lastDateEl.innerText = formatWorklogDate(entries[0].date);
 }
 
 // Clear form
@@ -50,7 +81,7 @@ function clearWorklogForm() {
   const form = document.getElementById('worklogForm');
   if (form) form.reset();
   const dateInput = document.getElementById('worklogDate');
-  if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+  if (dateInput) dateInput.value = getTodayDateString();
 }
 
 // Cancel worklog edit
@@ -65,7 +96,7 @@ function cancelWorklogEdit() {
   
   const cancelBtn = document.getElementById('cancelWorklogEditBtn');
   if (cancelBtn) {
-    cancelBtn.style.display = 'none';
+    cancelBtn.remove();
   }
   
   clearWorklogForm();
@@ -113,7 +144,7 @@ function saveWorklogEntry() {
     studentId: studentId || null,
     studentName: studentName,
     institution: institution || null,
-    date,
+    date,  // Stored as YYYY-MM-DD string
     subject,
     topic: topic || '',
     hours,
@@ -185,6 +216,7 @@ function editWorklogEntry(id) {
     if (institutionInput) institutionInput.value = entry.institution;
   }
   
+  // Date is stored as YYYY-MM-DD, set directly
   document.getElementById('worklogDate').value = entry.date;
   document.getElementById('worklogSubject').value = entry.subject;
   document.getElementById('worklogTopic').value = entry.topic || '';
@@ -241,34 +273,6 @@ function editWorklogEntry(id) {
   alert('Edit mode activated. Make changes and click Update.');
 }
 
-// Cancel worklog edit function
-function cancelWorklogEdit() {
-    console.log('❌ Canceling edit mode');
-    
-    // Clear the editing ID
-    window.editingWorklogId = null;
-    
-    // Reset the save button to normal
-    const saveBtn = document.getElementById('worklogSubmitBtn');
-    if (saveBtn) {
-        saveBtn.textContent = '💾 Save Worklog';
-        saveBtn.style.backgroundColor = '';
-    }
-    
-    // Remove the cancel button
-    const cancelBtn = document.getElementById('cancelWorklogEditBtn');
-    if (cancelBtn) {
-        cancelBtn.remove();
-    }
-    
-    // Clear the form
-    if (typeof clearWorklogForm === 'function') {
-        clearWorklogForm();
-    }
-    
-    alert('Edit cancelled');
-}
-
 // Fix save button
 function fixSaveButtonPermanently() {
   const saveBtn = document.getElementById('worklogSubmitBtn');
@@ -303,8 +307,12 @@ function filterWorklogs() {
     (e.institution || '').toLowerCase().includes(searchTerm)
   );
   
-  if (sortOrder === 'newest') entries.sort((a, b) => new Date(b.date) - new Date(a.date));
-  else entries.sort((a, b) => new Date(a.date) - new Date(b.date));
+  // Fix sorting to use string comparison (no timezone issues)
+  if (sortOrder === 'newest') {
+    entries.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  } else {
+    entries.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  }
   
   const container = document.getElementById('worklogContainer');
   if (!container) return;
@@ -314,17 +322,20 @@ function filterWorklogs() {
     return;
   }
   
-  container.innerHTML = entries.map(entry => `
-    <div class="worklog-card ${entry.type || 'student'}">
-      <strong>${entry.type === 'student' ? (entry.studentName || 'Unknown') : (entry.institution || 'Unknown')}</strong><br>
-      📅 ${entry.date} | ⏱️ ${entry.hours}h | 💰 $${(entry.hours * entry.rate).toFixed(2)}<br>
-      📝 ${entry.description || 'No description'}<br>
-      <div style="margin-top: 10px;">
-        <button class="button small info" onclick="editWorklogEntry('${entry.id}')" style="margin-right: 5px;">✏️ Edit</button>
-        <button class="button small danger" onclick="deleteWorklogEntry('${entry.id}')">Delete</button>
+  container.innerHTML = entries.map(entry => {
+    const displayDate = formatWorklogDate(entry.date);
+    return `
+      <div class="worklog-card ${entry.type || 'student'}">
+        <strong>${entry.type === 'student' ? (entry.studentName || 'Unknown') : (entry.institution || 'Unknown')}</strong><br>
+        📅 ${displayDate} | ⏱️ ${entry.hours}h (${entry.sessions || 1} sessions) | 💰 $${(entry.hours * entry.rate).toFixed(2)}<br>
+        📝 ${entry.description || 'No description'}<br>
+        <div style="margin-top: 10px;">
+          <button class="button small info" onclick="editWorklogEntry('${entry.id}')" style="margin-right: 5px;">✏️ Edit</button>
+          <button class="button small danger" onclick="deleteWorklogEntry('${entry.id}')">Delete</button>
+        </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 // Populate student dropdown
@@ -332,9 +343,15 @@ function populateWorklogStudentDropdown() {
   const select = document.getElementById('worklogStudent');
   if (!select) return;
   
-  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+  let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+  // Sort students by ID
+  const sortedStudents = [...students].sort((a, b) => {
+    const numA = parseInt((a.studentId || '0').toString().replace(/\D/g, '')) || 0;
+    const numB = parseInt((b.studentId || '0').toString().replace(/\D/g, '')) || 0;
+    return numA - numB;
+  });
   select.innerHTML = '<option value="">Select Student</option>' + 
-    students.map(s => `<option value="${s.id}">${s.name} (${s.studentId})</option>`).join('');
+    sortedStudents.map(s => `<option value="${s.id}">${s.name} (${s.studentId})</option>`).join('');
 }
 
 // Toggle work type
