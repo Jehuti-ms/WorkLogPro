@@ -3350,7 +3350,10 @@ function initPaymentForm() {
 
 // ==================== HELPER FUNCTIONS ====================
 function populateStudentDropdowns() {
+    console.log('🔄 Populating all student dropdowns...');
+    
     let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    console.log(`📊 Found ${students.length} students to populate dropdowns`);
     
     // Sort students by ID number (001, 002, 003...)
     const sortedStudents = [...students].sort((a, b) => {
@@ -3359,21 +3362,24 @@ function populateStudentDropdowns() {
         return numA - numB;
     });
     
-    console.log('Populating dropdowns with students sorted by ID:', sortedStudents.map(s => s.studentId));
+    console.log('Students sorted by ID:', sortedStudents.map(s => `${s.name} (${s.studentId})`));
     
     // Marks student dropdown
     const marksStudent = document.getElementById('marksStudent');
     if (marksStudent) {
         marksStudent.innerHTML = '<option value="">Select Student</option>' + 
             sortedStudents.map(s => `<option value="${s.id}">${s.name} (${s.studentId})</option>`).join('');
-        console.log('Marks dropdown populated with', sortedStudents.length, 'students (sorted by ID)');
+        console.log('✅ Marks dropdown populated with', sortedStudents.length, 'students');
+    } else {
+        console.error('❌ marksStudent element not found!');
     }
     
-    // Hours student dropdown
+    // Hours student dropdown (if exists)
     const hoursStudent = document.getElementById('hoursStudent');
     if (hoursStudent) {
         hoursStudent.innerHTML = '<option value="">Select Student</option>' + 
             sortedStudents.map(s => `<option value="${s.id}">${s.name} (${s.studentId})</option>`).join('');
+        console.log('✅ Hours dropdown populated');
     }
     
     // Payment student dropdown
@@ -3381,9 +3387,60 @@ function populateStudentDropdowns() {
     if (paymentStudent) {
         paymentStudent.innerHTML = '<option value="">Select Student</option>' + 
             sortedStudents.map(s => `<option value="${s.id}">${s.name} (${s.studentId})</option>`).join('');
+        console.log('✅ Payment dropdown populated');
     }
     
+    // Also populate any other student dropdowns that might exist
+    const otherDropdowns = document.querySelectorAll('select[id$="Student"], select[id$="student"]');
+    otherDropdowns.forEach(select => {
+        if (select.id !== 'marksStudent' && select.id !== 'hoursStudent' && select.id !== 'paymentStudent') {
+            select.innerHTML = '<option value="">Select Student</option>' + 
+                sortedStudents.map(s => `<option value="${s.id}">${s.name} (${s.studentId})</option>`).join('');
+            console.log(`✅ Populated ${select.id} dropdown`);
+        }
+    });
+    
+    // Refresh attendance student list (checkboxes)
     refreshAttendanceStudentList();
+}
+
+// Make sure this gets called when the marks tab is opened
+function loadTabData(tabName) {
+  console.log(`📊 Loading data for ${tabName} tab...`);
+  
+  setTimeout(() => {
+    switch(tabName) {
+      case 'students':
+        loadStudents();
+        break;
+      case 'hours':
+        loadHours();
+        break;
+      case 'marks':
+        loadMarks();
+        populateStudentDropdowns(); // ← ADD THIS LINE to ensure dropdown is populated
+        break;
+      case 'attendance':
+        loadAttendance();
+        refreshAttendanceStudentList();
+        break;
+      case 'payments':
+        loadPayments();
+        initPaymentForm();
+        break;
+      case 'reports':
+        loadReports();
+        break;
+      case 'worklog':
+        if (window.worklogManager) {
+          window.worklogManager.loadData();
+          window.worklogManager.populateDropdowns();
+          window.worklogManager.updateUI();
+          window.worklogManager.updateStats();
+        }
+        break;
+    }
+  }, 100);
 }
 
 function updateGlobalStats() {
