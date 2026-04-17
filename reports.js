@@ -389,7 +389,7 @@ class ReportManager {
         var name = document.getElementById('claimName') ? document.getElementById('claimName').value : 'David Moseley';
         var address = document.getElementById('claimAddress') ? document.getElementById('claimAddress').value : '142 Coles Terrace, St.Philip';
         var homePhone = document.getElementById('claimHomePhone') ? document.getElementById('claimHomePhone').value : '572-8040';
-        var workPhone = document.getElementById('claimWorkPhone') ? document.getElementById('claimWorkPhone').value : '1367-8221';
+        var workPhone = document.getElementById('claimWorkPhone') ? document.getElementById('claimWorkPhone').value : '367-8221';
         var programme = document.getElementById('claimProgramme') ? document.getElementById('claimProgramme').value : 'Cosmetology';
         var startDate = document.getElementById('claimStartDate') ? document.getElementById('claimStartDate').value : null;
         var endDate = document.getElementById('claimEndDate') ? document.getElementById('claimEndDate').value : null;
