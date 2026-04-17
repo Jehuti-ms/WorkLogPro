@@ -1264,7 +1264,7 @@ window.manualSync = manualSync;
 // ============== DEBOUNCED ==============
 // Replace the debounced version
 // Save to cloud whenever data changes
-function debounce(func, wait) {
+/*function debounce(func, wait) {
   let timeout;
   return function executedFunction(...args) {
     const later = () => {
@@ -1304,7 +1304,7 @@ const saveToCloud = debounce(async () => {
   } catch (error) {
     console.error('❌ Error saving to cloud:', error);
   }
-  */
+
 }, 1000);
 
 
@@ -1325,7 +1325,8 @@ function hookDataSaving() {
   // Cloud sync disabled - do nothing
   console.log('☁️ Cloud sync disabled, data saving to localStorage only');
   return;
-  
+  */
+
 // ==================== FILE INPUT ====================
 function createFileInput() {
   if (document.getElementById('importFileInput')) return;
@@ -3838,4 +3839,4 @@ console.log('✅ All functions exposed to global scope - Students tab should now
 
 console.log('✅ All functions exposed to global scope');
 console.log('✅ App initialization script loaded');
-
+}
