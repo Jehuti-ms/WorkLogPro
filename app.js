@@ -1763,6 +1763,101 @@ function loadLastUsedOrganization() {
     }
 }
 
+// ==================== USER PROFILE MANAGER ====================
+
+// Save user business info to profile
+function saveUserBusinessInfo() {
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) {
+        showNotification('Please login first', 'error');
+        return;
+    }
+    
+    const businessInfo = {
+        businessName: document.getElementById('profileBusinessName')?.value || '',
+        businessAddress: document.getElementById('profileBusinessAddress')?.value || '',
+        businessPhone: document.getElementById('profileBusinessPhone')?.value || '',
+        businessEmail: document.getElementById('profileBusinessEmail')?.value || '',
+        updatedAt: new Date().toISOString()
+    };
+    
+    // Save to localStorage with user-specific key
+    const storageKey = `user_profile_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    localStorage.setItem(storageKey, JSON.stringify(businessInfo));
+    
+    // Also save individual fields for easy access
+    localStorage.setItem('invoiceBusinessName', businessInfo.businessName);
+    localStorage.setItem('businessAddress', businessInfo.businessAddress);
+    localStorage.setItem('businessPhone', businessInfo.businessPhone);
+    localStorage.setItem('businessEmail', businessInfo.businessEmail);
+    
+    showNotification('Business information saved!', 'success');
+    
+    // Update any open forms
+    updateFormsWithUserInfo();
+}
+
+// Load user business info into profile form
+function loadUserBusinessInfo() {
+    const userEmail = localStorage.getItem('userEmail');
+    if (!userEmail) return;
+    
+    const storageKey = `user_profile_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    const savedInfo = localStorage.getItem(storageKey);
+    
+    if (savedInfo) {
+        const businessInfo = JSON.parse(savedInfo);
+        document.getElementById('profileBusinessName').value = businessInfo.businessName || '';
+        document.getElementById('profileBusinessAddress').value = businessInfo.businessAddress || '';
+        document.getElementById('profileBusinessPhone').value = businessInfo.businessPhone || '';
+        document.getElementById('profileBusinessEmail').value = businessInfo.businessEmail || '';
+    }
+    
+    // Also load into invoice form
+    const invoiceBusinessName = document.getElementById('invoiceBusinessName');
+    if (invoiceBusinessName) {
+        invoiceBusinessName.value = localStorage.getItem('invoiceBusinessName') || '';
+    }
+}
+
+// Update all forms with saved user info
+function updateFormsWithUserInfo() {
+    const businessName = localStorage.getItem('invoiceBusinessName') || '';
+    const businessAddress = localStorage.getItem('businessAddress') || '';
+    const businessPhone = localStorage.getItem('businessPhone') || '';
+    const businessEmail = localStorage.getItem('businessEmail') || '';
+    
+    // Update invoice form
+    const invoiceBusinessNameField = document.getElementById('invoiceBusinessName');
+    if (invoiceBusinessNameField) invoiceBusinessNameField.value = businessName;
+    
+    // Update claim form
+    const claimAddress = document.getElementById('claimAddress');
+    if (claimAddress && businessAddress) claimAddress.value = businessAddress;
+    
+    const claimHomePhone = document.getElementById('claimHomePhone');
+    if (claimHomePhone && businessPhone) claimHomePhone.value = businessPhone;
+    
+    const claimWorkPhone = document.getElementById('claimWorkPhone');
+    if (claimWorkPhone && businessPhone) claimWorkPhone.value = businessPhone;
+    
+    // Update profile display
+    const profileDefaultRate = document.getElementById('profileDefaultRate');
+    if (profileDefaultRate) {
+        const defaultRate = localStorage.getItem('defaultHourlyRate') || '25.00';
+        profileDefaultRate.textContent = `$${parseFloat(defaultRate).toFixed(2)}/hour`;
+    }
+}
+
+// Initialize profile business section
+function initProfileBusinessSection() {
+    loadUserBusinessInfo();
+    
+    const saveBtn = document.getElementById('saveBusinessInfoBtn');
+    if (saveBtn) {
+        saveBtn.onclick = saveUserBusinessInfo;
+    }
+}
 
 // ==================== DATA LOADING FUNCTIONS ====================
 function loadInitialData() {
