@@ -4049,5 +4049,19 @@ if (document.readyState === 'loading') {
   setTimeout(initApp, 300);
 }
 
+    // ==================== EXPOSE FUNCTIONS TO GLOBAL SCOPE ====================
+window.loadStudents = loadStudents;
+window.loadHours = loadHours;
+window.loadMarks = loadMarks;
+window.loadAttendance = loadAttendance;
+window.loadPayments = loadPayments;
+window.loadReports = loadReports;
+window.refreshAttendanceStudentList = refreshAttendanceStudentList;
+window.updateLastSessionDisplay = updateLastSessionDisplay;
+window.saveWorklogEntry = saveWorklogEntry;
+window.editWorklogEntry = editWorklogEntry;
+window.deleteWorklogEntry = deleteWorklogEntry;
+
+console.log('✅ All functions exposed to global scope');
 console.log('✅ App initialization script loaded');
 }
