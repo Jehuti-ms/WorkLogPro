@@ -492,9 +492,8 @@ function updateProfileInfo() {
     let userName = 'User';
     let memberSince = 'Unknown';
     
-    // Get current default rate
-  //const defaultRate = SimpleRateManager.get();
-    const defaultRate = RateManager.get();
+    // Get current default rate - FIXED: use SimpleRateManager instead of RateManager
+    const defaultRate = SimpleRateManager.get();
     
     // Get user email from various sources
     const storedEmail = localStorage.getItem('userEmail');
@@ -568,7 +567,7 @@ function updateProfileStats() {
     const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
     const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
     const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
-    const worklogs = JSON.parse(localStorage.getItem('worklog_entries') || '[]'); // ADD THIS
+    const worklogs = JSON.parse(localStorage.getItem('worklog_entries') || '[]'); 
     
     // Calculate totals from traditional hours
     const totalHoursFromHours = hours.reduce((sum, hour) => {
