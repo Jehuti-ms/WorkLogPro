@@ -473,7 +473,7 @@ class ReportManager {
     }
 
     generateInvoice() {
-        const businessName = localStorage.getItem('businessName') || 'WorkLog Systems';
+        const businessName = localStorage.getItem('invoiceBusinessName') || localStorage.getItem('businessName') || 'Your Business Name';
         const businessAddress = localStorage.getItem('businessAddress') || '123 Business St, City';
         const businessPhone = localStorage.getItem('businessPhone') || '(555) 123-4567';
         const businessEmail = localStorage.getItem('businessEmail') || 'info@worklog.com';
