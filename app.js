@@ -5,6 +5,51 @@ let currentEditId = null;
 let autoSyncInterval = null;
 let isSyncing = false;
 
+// ==================== DATE UTILITIES (FIXES TIMEZONE ISSUES) ====================
+// Convert YYYY-MM-DD to DD/MM/YYYY for display (NO timezone conversion)
+function formatDisplayDate(dateString) {
+    if (!dateString || dateString === 'Never') return 'Never';
+    if (dateString.includes('/')) return dateString; // Already formatted
+    const parts = dateString.split('-');
+    if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return dateString;
+}
+
+// Get today's date in YYYY-MM-DD format (local timezone)
+function getTodayDate() {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+// Set a date input to a specific date (no conversion)
+function setDateInput(inputId, dateString) {
+    const input = document.getElementById(inputId);
+    if (input && dateString) {
+        input.value = dateString;
+    }
+}
+
+// Get date from input as-is (no conversion)
+function getDateFromInput(inputId) {
+    const input = document.getElementById(inputId);
+    return input ? input.value : '';
+}
+
+// Sort dates in YYYY-MM-DD format (newest first)
+function sortDatesDescending(dateA, dateB) {
+    return (dateB || '').localeCompare(dateA || '');
+}
+
+// Sort dates in YYYY-MM-DD format (oldest first)
+function sortDatesAscending(dateA, dateB) {
+    return (dateA || '').localeCompare(dateB || '');
+}
+
 // ==================== SIMPLE RATE MANAGER ====================
 const SimpleRateManager = {
     // Get the current default rate
@@ -2312,7 +2357,6 @@ function loadHours() {
 }
 
 // ==================== MARKS FUNCTIONS WITH EDIT/DELETE ====================
-
 // Load marks with edit/delete buttons
 function loadMarks() {
     const container = document.getElementById('marksContainer');
@@ -2320,8 +2364,6 @@ function loadMarks() {
     
     const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
     const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-    
-    console.log('Students for lookup:', students.map(s => ({ id: s.id, name: s.name })));
     
     const marksCount = document.getElementById('marksCount');
     if (marksCount) marksCount.textContent = marks.length;
@@ -2331,27 +2373,17 @@ function loadMarks() {
         return;
     }
     
-    // Sort by date (newest first) - use string comparison for YYYY-MM-DD
+    // Sort by date using date utility
     const sortedMarks = [...marks].sort((a, b) => {
-        return b.marksDate.localeCompare(a.marksDate);
+        return sortDatesDescending(a.marksDate, b.marksDate);
     });
     
     container.innerHTML = sortedMarks.map(mark => {
-        // Debug: log the studentId being looked up
-        console.log(`Looking for student with ID: ${mark.studentId}`);
-        
-        // Get student name from ID
         const student = students.find(s => s.id === mark.studentId);
-        const studentName = student ? `${student.name} (${student.studentId})` : `Unknown (ID: ${mark.studentId})`;
+        const studentName = student ? `${student.name} (${student.studentId})` : 'Unknown Student';
         
-        console.log(`Found student: ${studentName}`);
-        
-        // Format date for display (YYYY-MM-DD to DD/MM/YYYY)
-        let displayDate = mark.marksDate;
-        if (mark.marksDate && mark.marksDate.includes('-')) {
-            const parts = mark.marksDate.split('-');
-            displayDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
-        }
+        // Use date utility for display
+        const displayDate = formatDisplayDate(mark.marksDate);
         
         return `
             <div class="mark-card" data-id="${mark.id}" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #fff;">
@@ -2433,11 +2465,11 @@ function editMark(markId) {
         return;
     }
     
-    // Fill form
+    // Fill form - use date utility to set the date
     document.getElementById('marksStudent').value = mark.studentId;
     document.getElementById('marksSubject').value = mark.marksSubject;
     document.getElementById('marksTopic').value = mark.marksTopic || '';
-    document.getElementById('marksDate').value = mark.marksDate;
+    setDateInput('marksDate', mark.marksDate);
     document.getElementById('marksScore').value = mark.marksScore;
     document.getElementById('marksMax').value = mark.marksMax;
     document.getElementById('marksNotes').value = mark.marksNotes || '';
@@ -2501,12 +2533,7 @@ function cancelMarksEdit() {
 // Reset marks form
 function resetMarksForm() {
     document.getElementById('marksForm').reset();
-    // Set date to today in local timezone
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    document.getElementById('marksDate').value = `${year}-${month}-${day}`;
+    setDateInput('marksDate', getTodayDate());
     document.getElementById('percentage').value = '';
     document.getElementById('grade').value = '';
     window.editingMarkId = null;
@@ -2533,16 +2560,16 @@ function updateAverageMark() {
 
 // Save mark (handles both new and edit)
 function saveMark() {
+    // Use date utility to get date from input
+    const date = getDateFromInput('marksDate');
     const studentId = document.getElementById('marksStudent')?.value;
     const subject = document.getElementById('marksSubject')?.value;
     const topic = document.getElementById('marksTopic')?.value;
-    const date = document.getElementById('marksDate')?.value;
     const score = parseFloat(document.getElementById('marksScore')?.value);
     const maxScore = parseFloat(document.getElementById('marksMax')?.value);
     const notes = document.getElementById('marksNotes')?.value;
     
-    // Debug: log what we're getting
-    console.log('Saving mark with:', { studentId, subject, topic, date, score, maxScore });
+    console.log('Saving mark with date:', date);
     
     if (!studentId) {
         showNotification('Please select a student', 'error');
@@ -2570,7 +2597,6 @@ function saveMark() {
     let marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
     
     if (window.editingMarkId) {
-        // UPDATE existing record
         const index = marks.findIndex(m => m.id === window.editingMarkId);
         if (index !== -1) {
             marks[index] = {
@@ -2602,7 +2628,6 @@ function saveMark() {
         }
         
     } else {
-        // CREATE new record
         const newMark = {
             id: Date.now().toString(),
             studentId: studentId,
@@ -2638,25 +2663,20 @@ function loadAttendance() {
     const attendanceCount = document.getElementById('attendanceCount');
     if (attendanceCount) attendanceCount.textContent = attendance.length;
     
-    // Update the last session display
-    updateLastSessionDisplay(); 
-    
     if (!attendance.length) {
         container.innerHTML = '<p class="empty-message">No attendance records yet.</p>';
         return;
     }
     
-    // Sort attendance by date (newest first) - parse dates correctly
+    // Sort using date utility
     const sortedAttendance = [...attendance].sort((a, b) => {
-        // Compare as strings (YYYY-MM-DD format works for string comparison)
-        return b.attendanceDate.localeCompare(a.attendanceDate);
+        return sortDatesDescending(a.attendanceDate, b.attendanceDate);
     });
     
     container.innerHTML = sortedAttendance.map(record => {
-        // Format date for display (YYYY-MM-DD to DD/MM/YYYY)
-        const displayDate = record.attendanceDate.split('-').reverse().join('/');
+        // Use date utility for display
+        const displayDate = formatDisplayDate(record.attendanceDate);
         
-        // Get student names from IDs
         const presentNames = (record.presentStudents || []).map(studentId => {
             const student = students.find(s => s.id === studentId);
             return student ? `${student.name} (${student.studentId})` : 'Unknown';
@@ -2680,7 +2700,7 @@ function loadAttendance() {
         `;
     }).join('');
     
-    // Attach event listeners to edit/delete buttons
+    // Attach event listeners
     document.querySelectorAll('.attendance-edit-btn').forEach(btn => {
         btn.removeEventListener('click', handleEditClick);
         btn.addEventListener('click', handleEditClick);
@@ -2690,8 +2710,6 @@ function loadAttendance() {
         btn.removeEventListener('click', handleDeleteClick);
         btn.addEventListener('click', handleDeleteClick);
     });
-
-     updateAttendanceStats();
 }
 
 function handleEditClick(e) {
@@ -2792,9 +2810,9 @@ function cancelAttendanceEdit() {
         cancelBtn.remove();
     }
     
-    // Clear form
-    document.getElementById('attendanceForm').reset();
-    document.getElementById('attendanceDate').value = new Date().toISOString().split('T')[0];
+    // Clear form using date utilities
+    setDateInput('attendanceDate', getTodayDate());
+    document.getElementById('attendanceSubject').value = '';
     document.querySelectorAll('#attendanceStudents input[type="checkbox"]').forEach(cb => cb.checked = false);
     
     showNotification('Edit cancelled', 'info');
@@ -2804,8 +2822,8 @@ function cancelAttendanceEdit() {
 function saveAttendance() {
     console.log('💾 Saving attendance...');
     
-    // Get the date from the input and ensure it stays as-is (no timezone conversion)
-    let date = document.getElementById('attendanceDate')?.value;
+    // Use date utility to get date from input
+    const date = getDateFromInput('attendanceDate');
     const subject = document.getElementById('attendanceSubject')?.value;
     
     if (!date || !subject) {
@@ -2825,7 +2843,7 @@ function saveAttendance() {
         if (index !== -1) {
             attendance[index] = {
                 ...attendance[index],
-                attendanceDate: date,  // Keep as YYYY-MM-DD string
+                attendanceDate: date,
                 attendanceSubject: subject,
                 presentStudents: presentStudentIds,
                 lastUpdated: new Date().toISOString()
@@ -2851,7 +2869,7 @@ function saveAttendance() {
         // CREATE new record
         const newAttendance = {
             id: Date.now().toString(),
-            attendanceDate: date,  // Keep as YYYY-MM-DD string
+            attendanceDate: date,
             attendanceSubject: subject,
             presentStudents: presentStudentIds,
             createdAt: new Date().toISOString()
@@ -2862,12 +2880,8 @@ function saveAttendance() {
     
     localStorage.setItem('worklog_attendance', JSON.stringify(attendance));
     
-    // Clear form - set date to today in local timezone
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    document.getElementById('attendanceDate').value = `${year}-${month}-${day}`;
+    // Clear form - use date utility for today's date
+    setDateInput('attendanceDate', getTodayDate());
     document.getElementById('attendanceSubject').value = '';
     document.querySelectorAll('#attendanceStudents input[type="checkbox"]').forEach(cb => cb.checked = false);
     
