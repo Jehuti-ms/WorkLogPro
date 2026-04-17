@@ -2321,6 +2321,8 @@ function loadMarks() {
     const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
     const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
     
+    console.log('Students for lookup:', students.map(s => ({ id: s.id, name: s.name })));
+    
     const marksCount = document.getElementById('marksCount');
     if (marksCount) marksCount.textContent = marks.length;
     
@@ -2329,20 +2331,34 @@ function loadMarks() {
         return;
     }
     
-    // Sort by date (newest first)
-    const sortedMarks = [...marks].sort((a, b) => new Date(b.marksDate) - new Date(a.marksDate));
+    // Sort by date (newest first) - use string comparison for YYYY-MM-DD
+    const sortedMarks = [...marks].sort((a, b) => {
+        return b.marksDate.localeCompare(a.marksDate);
+    });
     
     container.innerHTML = sortedMarks.map(mark => {
+        // Debug: log the studentId being looked up
+        console.log(`Looking for student with ID: ${mark.studentId}`);
+        
         // Get student name from ID
         const student = students.find(s => s.id === mark.studentId);
-        const studentName = student ? `${student.name} (${student.studentId})` : 'Unknown Student';
+        const studentName = student ? `${student.name} (${student.studentId})` : `Unknown (ID: ${mark.studentId})`;
+        
+        console.log(`Found student: ${studentName}`);
+        
+        // Format date for display (YYYY-MM-DD to DD/MM/YYYY)
+        let displayDate = mark.marksDate;
+        if (mark.marksDate && mark.marksDate.includes('-')) {
+            const parts = mark.marksDate.split('-');
+            displayDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
         
         return `
             <div class="mark-card" data-id="${mark.id}" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #fff;">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                     <div>
                         <strong>📚 ${mark.marksSubject}</strong>
-                        <span style="margin-left: 10px; color: #666;">📅 ${new Date(mark.marksDate).toLocaleDateString()}</span>
+                        <span style="margin-left: 10px; color: #666;">📅 ${displayDate}</span>
                     </div>
                     <div style="display: flex; gap: 8px;">
                         <button class="marks-edit-btn" data-id="${mark.id}" style="background: #4CAF50; color: white; border: none; border-radius: 4px; padding: 5px 12px; cursor: pointer;">✏️ Edit</button>
@@ -2370,7 +2386,6 @@ function loadMarks() {
         btn.addEventListener('click', handleMarksDeleteClick);
     });
     
-    // Update average mark display
     updateAverageMark();
 }
 
@@ -2486,7 +2501,12 @@ function cancelMarksEdit() {
 // Reset marks form
 function resetMarksForm() {
     document.getElementById('marksForm').reset();
-    document.getElementById('marksDate').value = new Date().toISOString().split('T')[0];
+    // Set date to today in local timezone
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    document.getElementById('marksDate').value = `${year}-${month}-${day}`;
     document.getElementById('percentage').value = '';
     document.getElementById('grade').value = '';
     window.editingMarkId = null;
@@ -2516,6 +2536,7 @@ function saveMark() {
     const studentId = document.getElementById('marksStudent')?.value;
     const subject = document.getElementById('marksSubject')?.value;
     const topic = document.getElementById('marksTopic')?.value;
+    // Get date as string - no conversion
     const date = document.getElementById('marksDate')?.value;
     const score = parseFloat(document.getElementById('marksScore')?.value);
     const maxScore = parseFloat(document.getElementById('marksMax')?.value);
@@ -2545,7 +2566,7 @@ function saveMark() {
                 studentId: studentId,
                 marksSubject: subject,
                 marksTopic: topic,
-                marksDate: date,
+                marksDate: date,  // Save as YYYY-MM-DD string
                 marksScore: score,
                 marksMax: maxScore,
                 marksNotes: notes,
@@ -2557,14 +2578,12 @@ function saveMark() {
         }
         window.editingMarkId = null;
         
-        // Reset save button
         const saveBtn = document.getElementById('marksSubmitBtn');
         if (saveBtn) {
             saveBtn.textContent = '➕ Add Mark';
             saveBtn.style.backgroundColor = '';
         }
         
-        // Hide cancel button
         const cancelBtn = document.getElementById('cancelMarkBtn');
         if (cancelBtn) {
             cancelBtn.style.display = 'none';
@@ -2577,7 +2596,7 @@ function saveMark() {
             studentId: studentId,
             marksSubject: subject,
             marksTopic: topic,
-            marksDate: date,
+            marksDate: date,  // Save as YYYY-MM-DD string
             marksScore: score,
             marksMax: maxScore,
             marksNotes: notes,
@@ -2591,10 +2610,7 @@ function saveMark() {
     
     localStorage.setItem('worklog_marks', JSON.stringify(marks));
     
-    // Clear form
     resetMarksForm();
-    
-    // Refresh display
     loadMarks();
     updateProfileStats();
 }
