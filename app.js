@@ -3,6 +3,7 @@ let appInitialized = false;
 let redirectInProgress = false;
 let currentEditId = null;
 let autoSyncInterval = null;
+let isSyncing = false;
 
 // ==================== SIMPLE RATE MANAGER ====================
 const SimpleRateManager = {
@@ -1251,6 +1252,9 @@ function debounce(func, wait) {
 }
 
 const saveToCloud = debounce(async () => {
+  // Prevent recursion during save
+  if (isSyncing) return;
+  
   const user = firebase.auth().currentUser;
   if (!user) return;
   
@@ -1271,6 +1275,7 @@ const saveToCloud = debounce(async () => {
     console.error('❌ Error saving to cloud:', error);
   }
 }, 1000);
+
 
 // Hook into existing save functions
 function hookDataSaving() {
@@ -2330,10 +2335,16 @@ function loadAttendance() {
         return;
     }
     
-    // Sort attendance by date (newest first)
-    const sortedAttendance = [...attendance].sort((a, b) => new Date(b.attendanceDate) - new Date(a.attendanceDate));
+    // Sort attendance by date (newest first) - parse dates correctly
+    const sortedAttendance = [...attendance].sort((a, b) => {
+        // Compare as strings (YYYY-MM-DD format works for string comparison)
+        return b.attendanceDate.localeCompare(a.attendanceDate);
+    });
     
     container.innerHTML = sortedAttendance.map(record => {
+        // Format date for display (YYYY-MM-DD to DD/MM/YYYY)
+        const displayDate = record.attendanceDate.split('-').reverse().join('/');
+        
         // Get student names from IDs
         const presentNames = (record.presentStudents || []).map(studentId => {
             const student = students.find(s => s.id === studentId);
@@ -2345,7 +2356,7 @@ function loadAttendance() {
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                     <div>
                         <strong>📚 ${record.attendanceSubject}</strong>
-                        <span style="margin-left: 10px; color: #666;">📅 ${new Date(record.attendanceDate).toLocaleDateString()}</span>
+                        <span style="margin-left: 10px; color: #666;">📅 ${displayDate}</span>
                     </div>
                     <div style="display: flex; gap: 8px;">
                         <button class="attendance-edit-btn" data-id="${record.id}" style="background: #4CAF50; color: white; border: none; border-radius: 4px; padding: 5px 12px; cursor: pointer;">✏️ Edit</button>
@@ -2392,7 +2403,7 @@ function editAttendance(attendanceId) {
         return;
     }
     
-    // Fill form
+    // Fill form - use the stored date as-is
     document.getElementById('attendanceDate').value = record.attendanceDate;
     document.getElementById('attendanceSubject').value = record.attendanceSubject;
     
@@ -2479,7 +2490,8 @@ function cancelAttendanceEdit() {
 function saveAttendance() {
     console.log('💾 Saving attendance...');
     
-    const date = document.getElementById('attendanceDate')?.value;
+    // Get the date from the input and ensure it stays as-is (no timezone conversion)
+    let date = document.getElementById('attendanceDate')?.value;
     const subject = document.getElementById('attendanceSubject')?.value;
     
     if (!date || !subject) {
@@ -2499,7 +2511,7 @@ function saveAttendance() {
         if (index !== -1) {
             attendance[index] = {
                 ...attendance[index],
-                attendanceDate: date,
+                attendanceDate: date,  // Keep as YYYY-MM-DD string
                 attendanceSubject: subject,
                 presentStudents: presentStudentIds,
                 lastUpdated: new Date().toISOString()
@@ -2525,7 +2537,7 @@ function saveAttendance() {
         // CREATE new record
         const newAttendance = {
             id: Date.now().toString(),
-            attendanceDate: date,
+            attendanceDate: date,  // Keep as YYYY-MM-DD string
             attendanceSubject: subject,
             presentStudents: presentStudentIds,
             createdAt: new Date().toISOString()
@@ -2536,8 +2548,12 @@ function saveAttendance() {
     
     localStorage.setItem('worklog_attendance', JSON.stringify(attendance));
     
-    // Clear form
-    document.getElementById('attendanceDate').value = new Date().toISOString().split('T')[0];
+    // Clear form - set date to today in local timezone
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    document.getElementById('attendanceDate').value = `${year}-${month}-${day}`;
     document.getElementById('attendanceSubject').value = '';
     document.querySelectorAll('#attendanceStudents input[type="checkbox"]').forEach(cb => cb.checked = false);
     
