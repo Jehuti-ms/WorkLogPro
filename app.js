@@ -2961,141 +2961,249 @@ function updateLastSessionDisplay() {
 }
 
 // ==================== PAYMENT FUNCTIONS WITH BALANCE TRACKING ====================
-// Load payments and calculate balances
+// ==================== PAYMENT FUNCTIONS ====================
+
+// Toggle payment form fields
+function togglePaymentType() {
+    const paymentType = document.getElementById('paymentType')?.value;
+    const studentGroup = document.getElementById('studentPaymentGroup');
+    const institutionGroup = document.getElementById('institutionPaymentGroup');
+    
+    if (paymentType === 'student') {
+        if (studentGroup) studentGroup.style.display = 'block';
+        if (institutionGroup) institutionGroup.style.display = 'none';
+    } else {
+        if (studentGroup) studentGroup.style.display = 'none';
+        if (institutionGroup) institutionGroup.style.display = 'block';
+    }
+}
+
+// Calculate what students owe (from student worklogs)
+function calculateStudentOwed() {
+    const worklogs = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+    const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
+    
+    const studentOwed = {};
+    
+    // Calculate earnings from student worklogs
+    worklogs.forEach(entry => {
+        if (entry.type === 'student' && entry.studentId) {
+            if (!studentOwed[entry.studentId]) {
+                studentOwed[entry.studentId] = { 
+                    earned: 0, 
+                    paid: 0, 
+                    name: entry.studentName,
+                    sessions: 0,
+                    hours: 0
+                };
+            }
+            studentOwed[entry.studentId].earned += entry.hours * entry.rate;
+            studentOwed[entry.studentId].sessions += entry.sessions || 1;
+            studentOwed[entry.studentId].hours += entry.hours;
+        }
+    });
+    
+    // Calculate payments received from students
+    payments.forEach(payment => {
+        if (payment.paymentType === 'student' && payment.studentId) {
+            if (studentOwed[payment.studentId]) {
+                studentOwed[payment.studentId].paid += payment.paymentAmount;
+            }
+        }
+    });
+    
+    return studentOwed;
+}
+
+// Calculate what institutions owe (from institution worklogs)
+function calculateInstitutionOwed() {
+    const worklogs = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+    const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
+    
+    const institutionOwed = {};
+    
+    // Calculate earnings from institution worklogs
+    worklogs.forEach(entry => {
+        if (entry.type === 'institution' && entry.institution) {
+            const instName = entry.institution;
+            if (!institutionOwed[instName]) {
+                institutionOwed[instName] = { 
+                    earned: 0, 
+                    paid: 0,
+                    hours: 0,
+                    sessions: 0
+                };
+            }
+            institutionOwed[instName].earned += entry.hours * entry.rate;
+            institutionOwed[instName].sessions += entry.sessions || 1;
+            institutionOwed[instName].hours += entry.hours;
+        }
+    });
+    
+    // Calculate payments received from institutions
+    payments.forEach(payment => {
+        if (payment.paymentType === 'institution' && payment.institution) {
+            const instName = payment.institution;
+            if (institutionOwed[instName]) {
+                institutionOwed[instName].paid += payment.paymentAmount;
+            } else if (!institutionOwed[instName]) {
+                institutionOwed[instName] = { 
+                    earned: 0, 
+                    paid: 0,
+                    hours: 0,
+                    sessions: 0
+                };
+                institutionOwed[instName].paid += payment.paymentAmount;
+            }
+        }
+    });
+    
+    return institutionOwed;
+}
+
+// Load payments and display balances
 function loadPayments() {
+    const studentOwed = calculateStudentOwed();
+    const institutionOwed = calculateInstitutionOwed();
     const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
     const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-    const worklogs = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
     
-    // Calculate total earnings from worklogs
-    const totalEarnings = worklogs.reduce((sum, entry) => sum + (entry.hours * entry.rate), 0);
+    // Calculate totals
+    let totalStudentOwed = 0;
+    let totalInstitutionOwed = 0;
+    let totalReceived = 0;
+    let thisMonthTotal = 0;
+    const currentMonth = getTodayDate().substring(0, 7);
     
-    // Calculate total payments
-    const totalPayments = payments.reduce((sum, p) => sum + p.paymentAmount, 0);
-    
-    // Calculate outstanding balance
-    const outstanding = totalEarnings - totalPayments;
+    // Update payments count
+    const paymentsCount = document.getElementById('paymentsCount');
+    if (paymentsCount) paymentsCount.textContent = payments.length;
     
     // Calculate this month's payments
-    const thisMonth = payments.filter(p => {
-        return p.paymentDate && p.paymentDate.startsWith(getTodayDate().substring(0, 7));
-    }).reduce((sum, p) => sum + p.paymentAmount, 0);
+    payments.forEach(payment => {
+        if (payment.paymentDate && payment.paymentDate.startsWith(currentMonth)) {
+            thisMonthTotal += payment.paymentAmount;
+        }
+        totalReceived += payment.paymentAmount;
+    });
     
-    // Update stats
-    const totalStudentsElem = document.getElementById('totalStudentsCount');
-    if (totalStudentsElem) totalStudentsElem.textContent = students.length;
+    // Display student balances
+    const studentContainer = document.getElementById('studentBalancesContainer');
+    if (studentContainer) {
+        const sortedStudents = [...students].sort((a, b) => {
+            const numA = parseInt((a.studentId || '0').toString().replace(/\D/g, '')) || 0;
+            const numB = parseInt((b.studentId || '0').toString().replace(/\D/g, '')) || 0;
+            return numA - numB;
+        });
+        
+        if (sortedStudents.length === 0) {
+            studentContainer.innerHTML = '<p class="empty-message">No students registered.</p>';
+        } else {
+            let hasData = false;
+            studentContainer.innerHTML = sortedStudents.map(student => {
+                const data = studentOwed[student.id] || { earned: 0, paid: 0, sessions: 0, hours: 0 };
+                const balance = data.earned - data.paid;
+                totalStudentOwed += balance;
+                
+                if (data.earned > 0 || data.paid > 0) hasData = true;
+                
+                const statusColor = balance > 0 ? '#f44336' : (balance < 0 ? '#4CAF50' : '#666');
+                const statusText = balance > 0 ? 'OWES YOU' : (balance < 0 ? 'OVERPAID' : 'PAID IN FULL');
+                
+                if (data.earned === 0 && data.paid === 0) {
+                    return `
+                        <div class="balance-card" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 8px; opacity: 0.6;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <strong>${student.name} (${student.studentId})</strong>
+                                <span style="color: #999;">⚪ NO SESSIONS</span>
+                            </div>
+                            <div style="font-size: 0.85em; color: #999; margin-top: 5px;">
+                                No worklog sessions recorded yet.
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                return `
+                    <div class="balance-card" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 8px; background: #fff;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                            <div>
+                                <strong>${student.name}</strong>
+                                <span style="color: #666; font-size: 0.85em;"> (${student.studentId})</span>
+                            </div>
+                            <div style="color: ${statusColor}; font-weight: bold;">
+                                ${statusText}: $${Math.abs(balance).toFixed(2)}
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.85em; color: #666;">
+                            <span>📚 ${data.sessions} session(s)</span>
+                            <span>⏱️ ${data.hours} hours</span>
+                            <span>💰 Owed: $${data.earned.toFixed(2)}</span>
+                            <span>💵 Paid: $${data.paid.toFixed(2)}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            if (!hasData) {
+                studentContainer.innerHTML = '<p class="empty-message">No student worklogs yet. Add student sessions to see what they owe.</p>';
+            }
+        }
+    }
     
-    const totalOwedElem = document.getElementById('totalOwed');
-    if (totalOwedElem) totalOwedElem.textContent = `$${Math.abs(outstanding).toFixed(2)}`;
+    // Display institution balances
+    const institutionContainer = document.getElementById('institutionBalancesContainer');
+    if (institutionContainer) {
+        const institutions = Object.keys(institutionOwed);
+        if (institutions.length === 0) {
+            institutionContainer.innerHTML = '<p class="empty-message">No institution worklogs yet. Add institution worklogs to see what they owe.</p>';
+        } else {
+            institutionContainer.innerHTML = institutions.map(instName => {
+                const data = institutionOwed[instName];
+                const balance = data.earned - data.paid;
+                totalInstitutionOwed += balance;
+                
+                const statusColor = balance > 0 ? '#f44336' : (balance < 0 ? '#4CAF50' : '#666');
+                const statusText = balance > 0 ? 'OWES YOU' : (balance < 0 ? 'OVERPAID' : 'PAID IN FULL');
+                
+                return `
+                    <div class="balance-card" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 8px; background: #fff;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                            <div>
+                                <strong>🏢 ${instName}</strong>
+                            </div>
+                            <div style="color: ${statusColor}; font-weight: bold;">
+                                ${statusText}: $${Math.abs(balance).toFixed(2)}
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.85em; color: #666;">
+                            <span>📚 ${data.sessions} session(s)</span>
+                            <span>⏱️ ${data.hours} hours</span>
+                            <span>💰 Earned: $${data.earned.toFixed(2)}</span>
+                            <span>💵 Received: $${data.paid.toFixed(2)}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
     
-    const monthlyPaymentsElem = document.getElementById('monthlyPayments');
-    if (monthlyPaymentsElem) monthlyPaymentsElem.textContent = `$${thisMonth.toFixed(2)}`;
+    // Update header stats
+    const totalOutstanding = totalStudentOwed + totalInstitutionOwed;
+    const totalReceivedElem = document.getElementById('totalReceived');
+    if (totalReceivedElem) totalReceivedElem.textContent = `$${totalReceived.toFixed(2)}`;
     
-    // Display student balances with OWED amounts clearly
-    displayStudentBalances(students, payments, worklogs);
+    const outstandingElem = document.getElementById('outstandingBalance');
+    if (outstandingElem) outstandingElem.textContent = `$${totalOutstanding.toFixed(2)}`;
     
-    // Display payment activity with edit/delete buttons
+    const monthlyElem = document.getElementById('monthlyPayments');
+    if (monthlyElem) monthlyElem.textContent = `$${thisMonthTotal.toFixed(2)}`;
+    
+    // Display payment activity
     displayPaymentActivity(payments);
 }
 
-function displayStudentBalances(students, payments, worklogs) {
-    const container = document.getElementById('studentBalancesContainer');
-    if (!container) return;
-    
-    if (students.length === 0) {
-        container.innerHTML = '<p class="empty-message">No students registered.</p>';
-        return;
-    }
-    
-    // Calculate earnings per student from worklogs
-    const studentEarnings = {};
-    worklogs.forEach(entry => {
-        if (entry.type === 'student' && entry.studentId) {
-            if (!studentEarnings[entry.studentId]) {
-                studentEarnings[entry.studentId] = 0;
-            }
-            studentEarnings[entry.studentId] += entry.hours * entry.rate;
-        }
-    });
-    
-    // Calculate payments per student
-    const studentPayments = {};
-    payments.forEach(payment => {
-        if (!studentPayments[payment.studentId]) {
-            studentPayments[payment.studentId] = 0;
-        }
-        studentPayments[payment.studentId] += payment.paymentAmount;
-    });
-    
-    // Sort students by ID
-    const sortedStudents = [...students].sort((a, b) => {
-        const numA = parseInt((a.studentId || '0').toString().replace(/\D/g, '')) || 0;
-        const numB = parseInt((b.studentId || '0').toString().replace(/\D/g, '')) || 0;
-        return numA - numB;
-    });
-    
-    container.innerHTML = sortedStudents.map(student => {
-        const earned = studentEarnings[student.id] || 0;
-        const paid = studentPayments[student.id] || 0;
-        const balance = earned - paid;
-        
-        let statusClass = '';
-        let statusText = '';
-        let amountColor = '';
-        
-        if (balance > 0) {
-            statusClass = 'status-owed';
-            statusText = '🔴 OWES';
-            amountColor = '#f44336';
-        } else if (balance < 0) {
-            statusClass = 'status-credit';
-            statusText = '🟢 CREDIT';
-            amountColor = '#4CAF50';
-        } else {
-            statusClass = 'status-paid';
-            statusText = '✅ PAID IN FULL';
-            amountColor = '#666';
-        }
-        
-        return `
-            <div class="balance-card" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 8px; background: #fff;">
-                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-                    <div>
-                        <strong>${student.name}</strong>
-                        <span style="color: #666; font-size: 0.85em;"> (${student.studentId})</span>
-                    </div>
-                    <div style="font-weight: bold; color: ${amountColor}; font-size: 1.1em;">
-                        ${statusText}: $${Math.abs(balance).toFixed(2)}
-                    </div>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.85em; color: #666;">
-                    <span>💰 Earned: $${earned.toFixed(2)}</span>
-                    <span>💵 Paid: $${paid.toFixed(2)}</span>
-                    <span>📊 Owed: $${balance > 0 ? balance.toFixed(2) : '0.00'}</span>
-                </div>
-            </div>
-        `;
-    }).join('');
-    
-    // Add total summary at the top
-    const totalOwed = sortedStudents.reduce((sum, student) => {
-        const earned = studentEarnings[student.id] || 0;
-        const paid = studentPayments[student.id] || 0;
-        return sum + (earned - paid);
-    }, 0);
-    
-    const summaryHTML = `
-        <div style="background: #f0f0f0; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span><strong>📊 TOTAL OUTSTANDING:</strong></span>
-                <span style="font-size: 1.2em; font-weight: bold; color: ${totalOwed > 0 ? '#f44336' : '#4CAF50'};">$${Math.abs(totalOwed).toFixed(2)} ${totalOwed > 0 ? 'owed' : 'credit'}</span>
-            </div>
-        </div>
-    `;
-    
-    container.innerHTML = summaryHTML + container.innerHTML;
-}
-
+// Display payment activity log
 function displayPaymentActivity(payments) {
     const container = document.getElementById('paymentActivityLog');
     if (!container) return;
@@ -3105,17 +3213,19 @@ function displayPaymentActivity(payments) {
         return;
     }
     
-    // Sort by date (newest first)
     const sortedPayments = [...payments].sort((a, b) => {
         return (b.paymentDate || '').localeCompare(a.paymentDate || '');
     });
     
-    container.innerHTML = sortedPayments.map(payment => {
+    container.innerHTML = sortedPayments.slice(0, 20).map(payment => {
         const displayDate = formatDisplayDate(payment.paymentDate);
+        const typeIcon = payment.paymentType === 'student' ? '👨‍🎓' : '🏢';
+        const typeName = payment.paymentType === 'student' ? payment.studentName : payment.institution;
+        
         return `
             <div class="payment-item" data-id="${payment.id}" style="border-bottom: 1px solid #eee; padding: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                 <div style="flex: 2;">
-                    <div><strong>${payment.studentName || 'Unknown'}</strong></div>
+                    <div><strong>${typeIcon} ${typeName}</strong></div>
                     <div style="font-size: 0.85em; color: #666;">${displayDate} • ${payment.paymentMethod || 'Cash'}</div>
                     ${payment.notes ? `<div style="font-size: 0.8em; color: #888;">📝 ${payment.notes}</div>` : ''}
                 </div>
@@ -3142,89 +3252,71 @@ function displayPaymentActivity(payments) {
     });
 }
 
-function handlePaymentEditClick(e) {
-    const id = e.target.getAttribute('data-id');
-    editPayment(id);
-}
-
-function handlePaymentDeleteClick(e) {
-    const id = e.target.getAttribute('data-id');
-    deletePayment(id);
-}
-
-// Save payment (handles both new and edit)
+// Save payment
 function savePayment() {
-    console.log('💾 Saving payment...');
-    
-    const studentId = document.getElementById('paymentStudent')?.value;
+    const paymentType = document.getElementById('paymentType')?.value;
     const amount = parseFloat(document.getElementById('paymentAmount')?.value);
     const date = getDateFromInput('paymentDate');
     const method = document.getElementById('paymentMethod')?.value;
     const notes = document.getElementById('paymentNotes')?.value;
     
-    if (!studentId) {
-        showNotification('Please select a student', 'error');
+    if (!paymentType || !amount || !date) {
+        showNotification('Please fill in all required fields', 'error');
         return;
     }
     
-    if (isNaN(amount) || amount <= 0) {
-        showNotification('Please enter a valid amount', 'error');
-        return;
-    }
+    let studentId = null;
+    let studentName = null;
+    let institution = null;
     
-    if (!date) {
-        showNotification('Please select a date', 'error');
-        return;
+    if (paymentType === 'student') {
+        studentId = document.getElementById('paymentStudent')?.value;
+        if (!studentId) {
+            showNotification('Please select a student', 'error');
+            return;
+        }
+        const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+        const student = students.find(s => s.id === studentId);
+        studentName = student ? student.name : 'Unknown';
+    } else {
+        institution = document.getElementById('paymentInstitution')?.value;
+        if (!institution) {
+            showNotification('Please enter institution name', 'error');
+            return;
+        }
     }
-    
-    // Get student name
-    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-    const student = students.find(s => s.id === studentId);
-    const studentName = student ? student.name : 'Unknown';
     
     let payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
     
+    const newPayment = {
+        id: Date.now().toString(),
+        paymentType: paymentType,
+        studentId: studentId,
+        studentName: studentName,
+        institution: institution,
+        paymentAmount: amount,
+        paymentDate: date,
+        paymentMethod: method || 'Cash',
+        notes: notes || '',
+        createdAt: new Date().toISOString()
+    };
+    
     if (window.editingPaymentId) {
-        // UPDATE existing record
         const index = payments.findIndex(p => p.id === window.editingPaymentId);
         if (index !== -1) {
-            payments[index] = {
-                ...payments[index],
-                studentId: studentId,
-                studentName: studentName,
-                paymentAmount: amount,
-                paymentDate: date,
-                paymentMethod: method,
-                notes: notes,
-                lastUpdated: new Date().toISOString()
-            };
+            newPayment.id = window.editingPaymentId;
+            newPayment.createdAt = payments[index].createdAt;
+            payments[index] = newPayment;
             showNotification('Payment updated!', 'success');
         }
         window.editingPaymentId = null;
         
         const saveBtn = document.getElementById('paymentSubmitBtn');
-        if (saveBtn) {
-            saveBtn.textContent = '💰 Record Payment';
-            saveBtn.style.backgroundColor = '';
-        }
+        if (saveBtn) saveBtn.textContent = '💰 Record Payment';
         
         const cancelBtn = document.getElementById('cancelPaymentBtn');
-        if (cancelBtn) {
-            cancelBtn.style.display = 'none';
-        }
-        
+        if (cancelBtn) cancelBtn.style.display = 'none';
     } else {
-        // CREATE new record
-        const newPayment = {
-            id: Date.now().toString(),
-            studentId: studentId,
-            studentName: studentName,
-            paymentAmount: amount,
-            paymentDate: date,
-            paymentMethod: method || 'Cash',
-            notes: notes || '',
-            createdAt: new Date().toISOString()
-        };
         payments.unshift(newPayment);
         showNotification('Payment recorded!', 'success');
     }
@@ -3237,10 +3329,69 @@ function savePayment() {
     updateGlobalStats();
 }
 
+// Reset payment form
+function resetPaymentForm() {
+    document.getElementById('paymentForm').reset();
+    setDateInput('paymentDate', getTodayDate());
+    document.getElementById('paymentType').value = 'student';
+    togglePaymentType();
+    window.editingPaymentId = null;
+    
+    const saveBtn = document.getElementById('paymentSubmitBtn');
+    if (saveBtn) {
+        saveBtn.textContent = '💰 Record Payment';
+        saveBtn.style.backgroundColor = '';
+    }
+    
+    const cancelBtn = document.getElementById('cancelPaymentBtn');
+    if (cancelBtn) {
+        cancelBtn.style.display = 'none';
+    }
+}
+
+// Initialize payment form
+function initPaymentForm() {
+    // Populate student dropdown
+    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    const studentSelect = document.getElementById('paymentStudent');
+    if (studentSelect) {
+        const sortedStudents = [...students].sort((a, b) => {
+            const numA = parseInt((a.studentId || '0').toString().replace(/\D/g, '')) || 0;
+            const numB = parseInt((b.studentId || '0').toString().replace(/\D/g, '')) || 0;
+            return numA - numB;
+        });
+        studentSelect.innerHTML = '<option value="">Select Student</option>' +
+            sortedStudents.map(s => `<option value="${s.id}">${s.name} (${s.studentId})</option>`).join('');
+    }
+    
+    // Set up type toggle
+    const paymentType = document.getElementById('paymentType');
+    if (paymentType) {
+        paymentType.addEventListener('change', togglePaymentType);
+    }
+    
+    resetPaymentForm();
+    
+    const paymentForm = document.getElementById('paymentForm');
+    if (paymentForm) {
+        paymentForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            savePayment();
+        });
+    }
+    
+    const cancelBtn = document.getElementById('cancelPaymentBtn');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function() {
+            window.editingPaymentId = null;
+            resetPaymentForm();
+            showNotification('Edit cancelled', 'info');
+        });
+    }
+}
+
 // Edit payment
 function editPayment(paymentId) {
-    console.log('✏️ Editing payment:', paymentId);
-    
     const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
     const payment = payments.find(p => p.id === paymentId);
     
@@ -3249,30 +3400,33 @@ function editPayment(paymentId) {
         return;
     }
     
-    // Fill form
-    document.getElementById('paymentStudent').value = payment.studentId;
+    document.getElementById('paymentType').value = payment.paymentType;
+    togglePaymentType();
+    
+    if (payment.paymentType === 'student') {
+        document.getElementById('paymentStudent').value = payment.studentId;
+    } else {
+        document.getElementById('paymentInstitution').value = payment.institution;
+    }
+    
     document.getElementById('paymentAmount').value = payment.paymentAmount;
     setDateInput('paymentDate', payment.paymentDate);
     document.getElementById('paymentMethod').value = payment.paymentMethod || 'Cash';
     document.getElementById('paymentNotes').value = payment.notes || '';
     
-    // Store editing ID
     window.editingPaymentId = paymentId;
     
-    // Update save button
     const saveBtn = document.getElementById('paymentSubmitBtn');
     if (saveBtn) {
         saveBtn.textContent = '✏️ Update Payment';
         saveBtn.style.backgroundColor = '#f59e0b';
     }
     
-    // Show cancel button
     const cancelBtn = document.getElementById('cancelPaymentBtn');
     if (cancelBtn) {
         cancelBtn.style.display = 'inline-block';
     }
     
-    // Scroll to form
     document.getElementById('paymentForm').scrollIntoView({ behavior: 'smooth' });
     showNotification('Edit mode: Make changes and click Update', 'info');
 }
@@ -3291,22 +3445,14 @@ function deletePayment(paymentId) {
     updateGlobalStats();
 }
 
-// Reset payment form
-function resetPaymentForm() {
-    document.getElementById('paymentForm').reset();
-    setDateInput('paymentDate', getTodayDate());
-    window.editingPaymentId = null;
-    
-    const saveBtn = document.getElementById('paymentSubmitBtn');
-    if (saveBtn) {
-        saveBtn.textContent = '💰 Record Payment';
-        saveBtn.style.backgroundColor = '';
-    }
-    
-    const cancelBtn = document.getElementById('cancelPaymentBtn');
-    if (cancelBtn) {
-        cancelBtn.style.display = 'none';
-    }
+function handlePaymentEditClick(e) {
+    const id = e.target.getAttribute('data-id');
+    editPayment(id);
+}
+
+function handlePaymentDeleteClick(e) {
+    const id = e.target.getAttribute('data-id');
+    deletePayment(id);
 }
 
 // Cancel payment edit
