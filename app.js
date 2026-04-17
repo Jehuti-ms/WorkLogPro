@@ -3838,4 +3838,4 @@ console.log('✅ All functions exposed to global scope - Students tab should now
 
 console.log('✅ All functions exposed to global scope');
 console.log('✅ App initialization script loaded');
-}
+
