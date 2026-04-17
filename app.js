@@ -241,6 +241,23 @@ function initAppUI() {
     loadInitialData();
     initClientManager();
     
+    // ===== FIX: Save Business Info button =====
+    const saveBusinessBtn = document.getElementById('saveBusinessInfoBtn');
+    if (saveBusinessBtn) {
+        const newBusinessBtn = saveBusinessBtn.cloneNode(true);
+        saveBusinessBtn.parentNode.replaceChild(newBusinessBtn, saveBusinessBtn);
+        newBusinessBtn.onclick = function(e) {
+            e.preventDefault();
+            if (typeof saveUserBusinessInfo === 'function') {
+                saveUserBusinessInfo();
+            } else {
+                console.error('saveUserBusinessInfo not found');
+            }
+        };
+        console.log('✅ Save Business Info button fixed');
+    }
+    // ===== END OF FIX =====
+    
     // ===== FIX: Worklog save button handler =====
     setTimeout(function() {
       const saveBtn = document.getElementById('worklogSubmitBtn');
