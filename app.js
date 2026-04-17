@@ -1856,10 +1856,8 @@ function loadMarks() {
   `).join('');
 }
 
-// ==================== ATTENDANCE FUNCTIONS WITH EDIT/DELETE ====================
-
-// ==================== ATTENDANCE FUNCTIONS WITH EDIT/DELETE ====================
-
+// ==================== COMPLETE ATTENDANCE SYSTEM ====================
+// Load attendance with proper display
 function loadAttendance() {
     const container = document.getElementById('attendanceContainer');
     if (!container) return;
@@ -1874,70 +1872,96 @@ function loadAttendance() {
         return;
     }
     
-    container.innerHTML = attendance.map(record => {
+    // Sort attendance by date (newest first)
+    const sortedAttendance = [...attendance].sort((a, b) => new Date(b.attendanceDate) - new Date(a.attendanceDate));
+    
+    container.innerHTML = sortedAttendance.map(record => {
         // Get student names from IDs
-        const presentStudentNames = (record.presentStudents || []).map(studentId => {
+        const presentNames = (record.presentStudents || []).map(studentId => {
             const student = students.find(s => s.id === studentId);
-            return student ? `${student.name} (${student.studentId})` : studentId;
+            return student ? `${student.name} (${student.studentId})` : 'Unknown';
         });
         
         return `
-            <div class="attendance-card" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #fff;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div class="attendance-record" data-id="${record.id}" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #fff;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                     <div>
                         <strong>📚 ${record.attendanceSubject}</strong>
                         <span style="margin-left: 10px; color: #666;">📅 ${new Date(record.attendanceDate).toLocaleDateString()}</span>
                     </div>
                     <div style="display: flex; gap: 8px;">
-                        <button onclick="editAttendance('${record.id}')" style="background: #4CAF50; color: white; border: none; border-radius: 4px; padding: 5px 10px; cursor: pointer;">✏️ Edit</button>
-                        <button onclick="deleteAttendance('${record.id}')" style="background: #f44336; color: white; border: none; border-radius: 4px; padding: 5px 10px; cursor: pointer;">🗑️ Delete</button>
+                        <button class="attendance-edit-btn" data-id="${record.id}" style="background: #4CAF50; color: white; border: none; border-radius: 4px; padding: 5px 12px; cursor: pointer;">✏️ Edit</button>
+                        <button class="attendance-delete-btn" data-id="${record.id}" style="background: #f44336; color: white; border: none; border-radius: 4px; padding: 5px 12px; cursor: pointer;">🗑️ Delete</button>
                     </div>
                 </div>
-                <div>👥 <strong>${presentStudentNames.length}</strong> students present</div>
-                <div style="font-size: 0.85em; color: #555; margin-top: 5px;">
-                    Present: ${presentStudentNames.join(', ')}
-                </div>
+                <div style="margin-top: 8px;">👥 <strong>${presentNames.length}</strong> student(s) present</div>
+                ${presentNames.length > 0 ? `<div style="font-size: 0.85em; color: #555; margin-top: 5px;">Present: ${presentNames.join(', ')}</div>` : ''}
             </div>
         `;
     }).join('');
+    
+    // Attach event listeners to edit/delete buttons
+    document.querySelectorAll('.attendance-edit-btn').forEach(btn => {
+        btn.removeEventListener('click', handleEditClick);
+        btn.addEventListener('click', handleEditClick);
+    });
+    
+    document.querySelectorAll('.attendance-delete-btn').forEach(btn => {
+        btn.removeEventListener('click', handleDeleteClick);
+        btn.addEventListener('click', handleDeleteClick);
+    });
 }
 
+function handleEditClick(e) {
+    const id = e.target.getAttribute('data-id');
+    editAttendance(id);
+}
+
+function handleDeleteClick(e) {
+    const id = e.target.getAttribute('data-id');
+    deleteAttendance(id);
+}
+
+// Edit attendance
 function editAttendance(attendanceId) {
     console.log('✏️ Editing attendance:', attendanceId);
     
     const attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
-    const record = attendance.find(a => a.id == attendanceId);
+    const record = attendance.find(a => a.id === attendanceId);
     
     if (!record) {
         showNotification('Attendance record not found', 'error');
         return;
     }
     
+    // Fill form
     document.getElementById('attendanceDate').value = record.attendanceDate;
     document.getElementById('attendanceSubject').value = record.attendanceSubject;
     
-    // Clear all checkboxes first
+    // Reset all checkboxes
     document.querySelectorAll('#attendanceStudents input[type="checkbox"]').forEach(cb => {
         cb.checked = false;
     });
     
-    // Check the students who were present (using student IDs)
-    const presentStudentIds = record.presentStudents || [];
-    document.querySelectorAll('#attendanceStudents input[type="checkbox"]').forEach(checkbox => {
-        const studentId = checkbox.value;
-        if (presentStudentIds.includes(studentId)) {
-            checkbox.checked = true;
+    // Check the students who were present
+    const presentIds = record.presentStudents || [];
+    document.querySelectorAll('#attendanceStudents input[type="checkbox"]').forEach(cb => {
+        if (presentIds.includes(cb.value)) {
+            cb.checked = true;
         }
     });
     
+    // Store editing ID
     window.editingAttendanceId = attendanceId;
     
+    // Update save button
     const saveBtn = document.getElementById('attendanceSubmitBtn');
     if (saveBtn) {
         saveBtn.textContent = '✏️ Update Attendance';
         saveBtn.style.backgroundColor = '#f59e0b';
     }
     
+    // Show cancel button
     let cancelBtn = document.getElementById('cancelAttendanceEditBtn');
     if (!cancelBtn) {
         cancelBtn = document.createElement('button');
@@ -1952,15 +1976,17 @@ function editAttendance(attendanceId) {
         cancelBtn.style.display = 'inline-block';
     }
     
+    // Scroll to form
     document.getElementById('attendanceForm').scrollIntoView({ behavior: 'smooth' });
-    showNotification('Edit mode: Add late students by checking their boxes', 'info');
+    showNotification('Edit mode: Check/uncheck students, then click Update', 'info');
 }
 
+// Delete attendance
 function deleteAttendance(attendanceId) {
-    if (!confirm('Delete this attendance record? This cannot be undone.')) return;
+    if (!confirm('Delete this attendance record?')) return;
     
     let attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
-    attendance = attendance.filter(a => a.id != attendanceId);
+    attendance = attendance.filter(a => a.id !== attendanceId);
     localStorage.setItem('worklog_attendance', JSON.stringify(attendance));
     
     showNotification('Attendance record deleted', 'success');
@@ -1968,6 +1994,7 @@ function deleteAttendance(attendanceId) {
     updateProfileStats();
 }
 
+// Cancel edit
 function cancelAttendanceEdit() {
     window.editingAttendanceId = null;
     
@@ -1982,13 +2009,18 @@ function cancelAttendanceEdit() {
         cancelBtn.remove();
     }
     
-    document.getElementById('attendanceForm')?.reset();
+    // Clear form
+    document.getElementById('attendanceForm').reset();
+    document.getElementById('attendanceDate').value = new Date().toISOString().split('T')[0];
     document.querySelectorAll('#attendanceStudents input[type="checkbox"]').forEach(cb => cb.checked = false);
     
     showNotification('Edit cancelled', 'info');
 }
 
+// Save attendance (handles both new and edit)
 function saveAttendance() {
+    console.log('💾 Saving attendance...');
+    
     const date = document.getElementById('attendanceDate')?.value;
     const subject = document.getElementById('attendanceSubject')?.value;
     
@@ -1997,14 +2029,15 @@ function saveAttendance() {
         return;
     }
     
-    // Get checked student IDs (not names)
+    // Get checked student IDs
     const checkedBoxes = document.querySelectorAll('#attendanceStudents input[type="checkbox"]:checked');
     const presentStudentIds = Array.from(checkedBoxes).map(cb => cb.value);
     
     let attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
     
     if (window.editingAttendanceId) {
-        const index = attendance.findIndex(a => a.id == window.editingAttendanceId);
+        // UPDATE existing record
+        const index = attendance.findIndex(a => a.id === window.editingAttendanceId);
         if (index !== -1) {
             attendance[index] = {
                 ...attendance[index],
@@ -2013,20 +2046,25 @@ function saveAttendance() {
                 presentStudents: presentStudentIds,
                 lastUpdated: new Date().toISOString()
             };
-            showNotification('Attendance updated! Late students added.', 'success');
+            showNotification('Attendance updated!', 'success');
         }
+        
+        // Reset edit mode
         window.editingAttendanceId = null;
         
+        // Reset save button
         const saveBtn = document.getElementById('attendanceSubmitBtn');
         if (saveBtn) {
             saveBtn.textContent = '💾 Save Attendance';
             saveBtn.style.backgroundColor = '';
         }
         
+        // Remove cancel button
         const cancelBtn = document.getElementById('cancelAttendanceEditBtn');
         if (cancelBtn) cancelBtn.remove();
         
     } else {
+        // CREATE new record
         const newAttendance = {
             id: Date.now().toString(),
             attendanceDate: date,
@@ -2040,40 +2078,44 @@ function saveAttendance() {
     
     localStorage.setItem('worklog_attendance', JSON.stringify(attendance));
     
-    // Reset form
+    // Clear form
     document.getElementById('attendanceDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('attendanceSubject').value = '';
     document.querySelectorAll('#attendanceStudents input[type="checkbox"]').forEach(cb => cb.checked = false);
     
+    // Refresh display
     loadAttendance();
     updateProfileStats();
 }
 
-// Update refreshAttendanceStudentList to use student IDs
+// Refresh attendance student list (sorted by name)
 function refreshAttendanceStudentList() {
     const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
     const attendanceContainer = document.getElementById('attendanceStudents');
     
     if (!attendanceContainer) return;
     
-    // Sort students by name for consistent ordering
-    const sortedStudents = [...students].sort((a, b) => a.name.localeCompare(b.name));
+    // Sort students by name alphabetically
+    const sortedStudents = [...students].sort((a, b) => {
+        return (a.name || '').localeCompare(b.name || '');
+    });
     
     if (sortedStudents.length === 0) {
-        attendanceContainer.innerHTML = '<p class="empty-message">No students registered.</p>';
+        attendanceContainer.innerHTML = '<p class="empty-message">No students registered. Add students in the Students tab first.</p>';
         return;
     }
     
     attendanceContainer.innerHTML = sortedStudents.map(s => `
-        <div class="attendance-student-item" style="display: flex; align-items: center; margin-bottom: 8px;">
-            <input type="checkbox" id="att_student_${s.id}" value="${s.id}">
-            <label for="att_student_${s.id}" style="margin-left: 8px;">${s.name} (${s.studentId})</label>
+        <div class="attendance-student-item" style="display: flex; align-items: center; margin-bottom: 8px; padding: 5px;">
+            <input type="checkbox" id="att_${s.id}" value="${s.id}" style="margin-right: 8px;">
+            <label for="att_${s.id}" style="cursor: pointer;">${s.name} (${s.studentId})</label>
         </div>
     `).join('');
     
-    console.log(`✅ Attendance refreshed with ${sortedStudents.length} students (sorted by name)`);
+    console.log(`✅ Attendance student list refreshed: ${sortedStudents.length} students (sorted by name)`);
 }
 
+// =========================== PAYMENTS =========================
 function loadPayments() {
   const container = document.getElementById('paymentActivityLog');
   if (!container) return;
