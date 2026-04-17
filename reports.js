@@ -386,13 +386,10 @@ class ReportManager {
     }
 
 generateClaimForm() {
-    // Load user profile data into form fields if they are empty
+    // Get user info from profile (no hardcoded defaults)
     const userEmail = localStorage.getItem('userEmail');
     const storageKey = `user_profile_${userEmail ? userEmail.replace(/[^a-zA-Z0-9]/g, '_') : 'default'}`;
     const userProfile = JSON.parse(localStorage.getItem(storageKey) || '{}');
-    
-    // Check if profile is empty
-    const hasProfile = userProfile.businessName || userProfile.businessAddress || userProfile.businessPhone;
     
     // Populate form fields from profile if they are empty
     const claimNameField = document.getElementById('claimName');
@@ -424,92 +421,89 @@ generateClaimForm() {
     var startDate = document.getElementById('claimStartDate') ? document.getElementById('claimStartDate').value : null;
     var endDate = document.getElementById('claimEndDate') ? document.getElementById('claimEndDate').value : null;
     
-    // If still empty after trying to load from profile, prompt user
-    if (!name || !address || !homePhone) {
-        if (confirm('Please set up your business information in your profile first.')) {
-            document.getElementById('profileBtn')?.click();
-        }
-        return;
-    }
-    
     if (!startDate || !endDate) {
         alert('Please select start and end dates');
         return;
     }
     
-      var entries = this.getEntriesInDateRange(startDate, endDate);
-        
-        if (entries.length === 0) {
-            alert('No worklog entries found in this date range');
-            return;
+    var entries = this.getEntriesInDateRange(startDate, endDate);
+    
+    if (entries.length === 0) {
+        alert('No worklog entries found in this date range');
+        return;
+    }
+    
+    var groupedEntries = {};
+    for (var i = 0; i < entries.length; i++) {
+        var entry = entries[i];
+        var date = entry.date;
+        if (!groupedEntries[date]) {
+            groupedEntries[date] = { date: date, sessions: 0, hours: 0 };
         }
-        
-        var groupedEntries = {};
-        for (var i = 0; i < entries.length; i++) {
-            var entry = entries[i];
-            var date = entry.date;
-            if (!groupedEntries[date]) {
-                groupedEntries[date] = { date: date, sessions: 0, hours: 0 };
-            }
-            var sessionCount = entry.sessions || 1;
-            groupedEntries[date].sessions += sessionCount;
-            groupedEntries[date].hours += entry.duration || 0;
-        }
-        
-        var sortedEntries = Object.values(groupedEntries).sort(function(a, b) {
-            return new Date(a.date) - new Date(b.date);
-        });
-        
-        var totalSessions = 0;
-        var totalHours = 0;
-        for (var j = 0; j < sortedEntries.length; j++) {
-            totalSessions += sortedEntries[j].sessions;
-            totalHours += sortedEntries[j].hours;
-        }
-        
-        var formatDisplayDate = function(dateStr) {
+        var sessionCount = entry.sessions || 1;
+        groupedEntries[date].sessions += sessionCount;
+        groupedEntries[date].hours += entry.duration || 0;
+    }
+    
+    var sortedEntries = Object.values(groupedEntries).sort(function(a, b) {
+        // Use string comparison for YYYY-MM-DD dates
+        return (b.date || '').localeCompare(a.date || '');
+    });
+    
+    var totalSessions = 0;
+    var totalHours = 0;
+    for (var j = 0; j < sortedEntries.length; j++) {
+        totalSessions += sortedEntries[j].sessions;
+        totalHours += sortedEntries[j].hours;
+    }
+    
+    // Use the global date formatter if available, otherwise local function
+    var formatDisplayDate = typeof window.formatDisplayDate === 'function' ? 
+        window.formatDisplayDate : 
+        function(dateStr) {
+            if (!dateStr) return '';
             var parts = dateStr.split('-');
             return parts[2] + '/' + parts[1] + '/' + parts[0];
         };
-        
-        var tableRows = '';
-        for (var k = 0; k < sortedEntries.length; k++) {
-            var entry = sortedEntries[k];
-            tableRows += '<tr>' +
-                '<td style="border: 1px solid #000; padding: 10px;">' + formatDisplayDate(entry.date) + '</td>' +
-                '<td style="border: 1px solid #000; padding: 10px;">' + programme + '</td>' +
-                '<td style="border: 1px solid #000; padding: 10px; text-align: center;">' + entry.sessions + '</td>' +
-                '<td style="border: 1px solid #000; padding: 10px; text-align: center;">' + entry.hours.toFixed(1) + '</td>' +
-                '</tr>';
-        }
-        
-        var claimHTML = '<div style="font-family: \'Courier New\', monospace; max-width: 800px; margin: 0 auto; padding: 20px; background: white; color: black;">' +
-            '<h2 style="text-align: center; margin-bottom: 30px;">Social Skills Programme Claim Form</h2>' +
-            '<div style="margin-bottom: 30px;">' +
-            '<p><strong>Name:</strong> ' + name + '</p>' +
-            '<p><strong>Address:</strong> ' + address + '</p>' +
-            '<p><strong>Tel Nos:</strong> Home: ' + homePhone + ' (Work: ' + workPhone + ')</p>' +
-            '</div>' +
-            '<table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">' +
-            '<thead><tr style="background: #f0f0f0;">' +
-            '<th style="border: 1px solid #000; padding: 10px; text-align: left;">Date</th>' +
-            '<th style="border: 1px solid #000; padding: 10px; text-align: left;">Programme</th>' +
-            '<th style="border: 1px solid #000; padding: 10px; text-align: center;">Sessions</th>' +
-            '<th style="border: 1px solid #000; padding: 10px; text-align: center;">Hours</th>' +
-            '</tr></thead><tbody>' + tableRows +
-            '<tr style="background: #f9f9f9; font-weight: bold;">' +
-            '<td style="border: 1px solid #000; padding: 10px;" colspan="2">Totals</td>' +
-            '<td style="border: 1px solid #000; padding: 10px; text-align: center;">' + totalSessions + '</td>' +
-            '<td style="border: 1px solid #000; padding: 10px; text-align: center;">' + totalHours.toFixed(1) + '</td>' +
-            '</tr></tbody></table>' +
-            '<div style="display: flex; justify-content: space-between; margin-top: 50px;">' +
-            '<div><p>Signature _________________________</p><p>Date _________________________</p></div>' +
-            '<div><p>Verified _________________________</p></div>' +
-            '</div></div>';
-        
-        this.showPreview(claimHTML, 'Claim Form');
+    
+    var tableRows = '';
+    for (var k = 0; k < sortedEntries.length; k++) {
+        var entry = sortedEntries[k];
+        tableRows += '<tr>' +
+            '<td style="border: 1px solid #000; padding: 10px;">' + formatDisplayDate(entry.date) + '</td>' +
+            '<td style="border: 1px solid #000; padding: 10px;">' + programme + '</td>' +
+            '<td style="border: 1px solid #000; padding: 10px; text-align: center;">' + entry.sessions + '</td>' +
+            '<td style="border: 1px solid #000; padding: 10px; text-align: center;">' + entry.hours.toFixed(1) + '</td>' +
+            '</tr>';
     }
-
+    
+    var claimHTML = '<div style="font-family: \'Courier New\', monospace; max-width: 800px; margin: 0 auto; padding: 20px; background: white; color: black;">' +
+        '<h2 style="text-align: center; margin-bottom: 30px;">Social Skills Programme Claim Form</h2>' +
+        '<div style="margin-bottom: 30px;">' +
+        '<p><strong>Name:</strong> ' + name + '</p>' +
+        '<p><strong>Address:</strong> ' + address + '</p>' +
+        '<p><strong>Tel Nos:</strong> Home: ' + homePhone + ' (Work: ' + workPhone + ')</p>' +
+        '</div>' +
+        '<table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">' +
+        '<thead><tr style="background: #f0f0f0;">' +
+        '<th style="border: 1px solid #000; padding: 10px; text-align: left;">Date</th>' +
+        '<th style="border: 1px solid #000; padding: 10px; text-align: left;">Programme</th>' +
+        '<th style="border: 1px solid #000; padding: 10px; text-align: center;">Sessions</th>' +
+        '<th style="border: 1px solid #000; padding: 10px; text-align: center;">Hours</th>' +
+        '</tr></thead><tbody>' + tableRows +
+        '<tr style="background: #f9f9f9; font-weight: bold;">' +
+        '<td style="border: 1px solid #000; padding: 10px;" colspan="2">Totals</td>' +
+        '<td style="border: 1px solid #000; padding: 10px; text-align: center;">' + totalSessions + '</td>' +
+        '<td style="border: 1px solid #000; padding: 10px; text-align: center;">' + totalHours.toFixed(1) + '</td>' +
+        '</tr></tbody></table>' +
+        '<div style="display: flex; justify-content: space-between; margin-top: 50px;">' +
+        '<div><p>Signature _________________________</p><p>Date _________________________</p></div>' +
+        '<div><p>Verified _________________________</p></div>' +
+        '</div></div>';
+    
+    this.showPreview(claimHTML, 'Claim Form');
+}
+    
    generateInvoice() {
     // Get business info from user profile (no hardcoding!)
     const businessName = localStorage.getItem('invoiceBusinessName') || '';
@@ -525,93 +519,98 @@ generateClaimForm() {
         return;
     }
     
-        var invoiceNumber = document.getElementById('invoiceNumber') ? document.getElementById('invoiceNumber').value : '003';
-        var invoiceDate = document.getElementById('invoiceDate') ? document.getElementById('invoiceDate').value : null;
-        var invoiceTo = document.getElementById('invoiceTo') ? document.getElementById('invoiceTo').value : 'Barbados Vocational Board\nLawrence Green House\nCulloden Road, St. Michael';
-        var itemDesc = document.getElementById('invoiceItem') ? document.getElementById('invoiceItem').value : 'Cosmetology';
-        var rate = parseFloat(document.getElementById('invoiceRate') ? document.getElementById('invoiceRate').value : 82.97);
-        var startDate = document.getElementById('invoiceStartDate') ? document.getElementById('invoiceStartDate').value : null;
-        var endDate = document.getElementById('invoiceEndDate') ? document.getElementById('invoiceEndDate').value : null;
-        
-        var logoData = localStorage.getItem('invoiceLogo');
-        var fontStyles = JSON.parse(localStorage.getItem('invoiceFontStyles') || '{}');
-        
-        if (!invoiceDate || !startDate || !endDate) {
-            alert('Please select all dates');
-            return;
+    var invoiceNumber = document.getElementById('invoiceNumber') ? document.getElementById('invoiceNumber').value : '003';
+    var invoiceDate = document.getElementById('invoiceDate') ? document.getElementById('invoiceDate').value : null;
+    var invoiceTo = document.getElementById('invoiceTo') ? document.getElementById('invoiceTo').value : 'Barbados Vocational Board\nLawrence Green House\nCulloden Road, St. Michael';
+    var itemDesc = document.getElementById('invoiceItem') ? document.getElementById('invoiceItem').value : 'Cosmetology';
+    var rate = parseFloat(document.getElementById('invoiceRate') ? document.getElementById('invoiceRate').value : 82.97);
+    var startDate = document.getElementById('invoiceStartDate') ? document.getElementById('invoiceStartDate').value : null;
+    var endDate = document.getElementById('invoiceEndDate') ? document.getElementById('invoiceEndDate').value : null;
+    
+    var logoData = localStorage.getItem('invoiceLogo');
+    var fontStyles = JSON.parse(localStorage.getItem('invoiceFontStyles') || '{}');
+    
+    if (!invoiceDate || !startDate || !endDate) {
+        alert('Please select all dates');
+        return;
+    }
+    
+    var entries = this.getEntriesInDateRange(startDate, endDate);
+    
+    if (entries.length === 0) {
+        alert('No worklog entries found in this date range');
+        return;
+    }
+    
+    var groupedEntries = {};
+    for (var i = 0; i < entries.length; i++) {
+        var entry = entries[i];
+        var date = entry.date;
+        if (!groupedEntries[date]) {
+            groupedEntries[date] = { date: date, hours: 0, amount: 0 };
         }
-        
-        var entries = this.getEntriesInDateRange(startDate, endDate);
-        
-        if (entries.length === 0) {
-            alert('No worklog entries found in this date range');
-            return;
-        }
-        
-        var groupedEntries = {};
-        for (var i = 0; i < entries.length; i++) {
-            var entry = entries[i];
-            var date = entry.date;
-            if (!groupedEntries[date]) {
-                groupedEntries[date] = { date: date, hours: 0, amount: 0 };
-            }
-            groupedEntries[date].hours += entry.duration || 0;
-            groupedEntries[date].amount += entry.totalEarnings || 0;
-        }
-        
-        var sortedEntries = Object.values(groupedEntries).sort(function(a, b) {
-            return new Date(a.date) - new Date(b.date);
-        });
-        
-        var totalAmount = 0;
-        for (var j = 0; j < sortedEntries.length; j++) {
-            totalAmount += sortedEntries[j].amount;
-        }
-        
-        var formatDisplayDate = function(dateStr) {
+        groupedEntries[date].hours += entry.duration || 0;
+        groupedEntries[date].amount += entry.totalEarnings || 0;
+    }
+    
+    // FIXED: Sort using string comparison for YYYY-MM-DD dates (no timezone issues)
+    var sortedEntries = Object.values(groupedEntries).sort(function(a, b) {
+        return (a.date || '').localeCompare(b.date || '');
+    });
+    
+    var totalAmount = 0;
+    for (var j = 0; j < sortedEntries.length; j++) {
+        totalAmount += sortedEntries[j].amount;
+    }
+    
+    // Use the global date formatter if available
+    var formatDisplayDate = (typeof window.formatDisplayDate === 'function') ? 
+        window.formatDisplayDate : 
+        function(dateStr) {
+            if (!dateStr) return '';
             var parts = dateStr.split('-');
             return parts[2] + '/' + parts[1] + '/' + parts[0];
         };
-        
-        var addressLines = invoiceTo.split('\n').map(function(line) { return line.trim(); }).filter(function(line) { return line; });
-        
-        var logoHTML = logoData ? '<img src="' + logoData + '" style="max-height: 60px; max-width: 200px; object-fit: contain;">' : (businessName || 'INVOICE');
-        
-        var tableRows = '';
-        for (var k = 0; k < sortedEntries.length; k++) {
-            var entry = sortedEntries[k];
-            tableRows += '<tr>' +
-                '<td style="border: 1px solid #000; padding: 10px;">' + formatDisplayDate(entry.date) + '</td>' +
-                '<td style="border: 1px solid #000; padding: 10px;">' + itemDesc + ' ' + entry.hours.toFixed(1) + ' hours @ $' + rate.toFixed(2) + '</td>' +
-                '<td style="border: 1px solid #000; padding: 10px; text-align: right;">$' + entry.amount.toFixed(2) + '</td>' +
-                '</tr>';
-        }
-        
-        var addressHtml = '';
-        for (var a = 0; a < addressLines.length; a++) {
-            addressHtml += '<p>' + addressLines[a] + '</p>';
-        }
-        
-        var invoiceHTML = '<div style="font-family: \'Courier New\', monospace; max-width: 800px; margin: 0 auto; padding: 20px; background: white; color: black;">' +
-            '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #000;">' +
-            '<div style="font-family: ' + (fontStyles.font || "'Courier New', monospace") + '; font-size: ' + (fontStyles.size || '24px') + '; color: ' + (fontStyles.color || '#000000') + '; font-weight: ' + (fontStyles.bold ? 'bold' : 'normal') + '; font-style: ' + (fontStyles.italic ? 'italic' : 'normal') + ';">' + logoHTML + '</div>' +
-            '<div style="text-align: right;"><h2 style="margin: 0;">INVOICE</h2><p style="margin: 5px 0 0 0;">No. ' + invoiceNumber + '</p></div>' +
-            '</div>' +
-            '<div style="text-align: right; margin-bottom: 30px;"><p><strong>Date:</strong> ' + formatDisplayDate(invoiceDate) + '</p></div>' +
-            '<div style="margin-bottom: 30px;"><p><strong>Issued to:</strong></p>' + addressHtml + '</div>' +
-            '<table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">' +
-            '<thead><tr style="background: #f0f0f0;">' +
-            '<th style="border: 1px solid #000; padding: 10px; text-align: left;">Date</th>' +
-            '<th style="border: 1px solid #000; padding: 10px; text-align: left;">Item</th>' +
-            '<th style="border: 1px solid #000; padding: 10px; text-align: right;">Amount</th>' +
-            '</tr></thead><tbody>' + tableRows + '</tbody></table>' +
-            '<div style="text-align: right; font-size: 1.2rem; font-weight: bold; margin-bottom: 50px;"><p>Total $' + totalAmount.toFixed(2) + '</p></div>' +
-            '<div><p>Issued by: _________________________</p></div>' +
-            '</div>';
-        
-        this.showPreview(invoiceHTML, 'Invoice #' + invoiceNumber);
+    
+    var addressLines = invoiceTo.split('\n').map(function(line) { return line.trim(); }).filter(function(line) { return line; });
+    
+    var logoHTML = logoData ? '<img src="' + logoData + '" style="max-height: 60px; max-width: 200px; object-fit: contain;">' : (businessName || 'INVOICE');
+    
+    var tableRows = '';
+    for (var k = 0; k < sortedEntries.length; k++) {
+        var entry = sortedEntries[k];
+        tableRows += '<tr>' +
+            '<td style="border: 1px solid #000; padding: 10px;">' + formatDisplayDate(entry.date) + '</td>' +
+            '<td style="border: 1px solid #000; padding: 10px;">' + itemDesc + ' ' + entry.hours.toFixed(1) + ' hours @ $' + rate.toFixed(2) + '</td>' +
+            '<td style="border: 1px solid #000; padding: 10px; text-align: right;">$' + entry.amount.toFixed(2) + '</td>' +
+            '</tr>';
     }
-
+    
+    var addressHtml = '';
+    for (var a = 0; a < addressLines.length; a++) {
+        addressHtml += '<p>' + addressLines[a] + '</p>';
+    }
+    
+    var invoiceHTML = '<div style="font-family: \'Courier New\', monospace; max-width: 800px; margin: 0 auto; padding: 20px; background: white; color: black;">' +
+        '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #000;">' +
+        '<div style="font-family: ' + (fontStyles.font || "'Courier New', monospace") + '; font-size: ' + (fontStyles.size || '24px') + '; color: ' + (fontStyles.color || '#000000') + '; font-weight: ' + (fontStyles.bold ? 'bold' : 'normal') + '; font-style: ' + (fontStyles.italic ? 'italic' : 'normal') + ';">' + logoHTML + '</div>' +
+        '<div style="text-align: right;"><h2 style="margin: 0;">INVOICE</h2><p style="margin: 5px 0 0 0;">No. ' + invoiceNumber + '</p></div>' +
+        '</div>' +
+        '<div style="text-align: right; margin-bottom: 30px;"><p><strong>Date:</strong> ' + formatDisplayDate(invoiceDate) + '</p></div>' +
+        '<div style="margin-bottom: 30px;"><p><strong>Issued to:</strong></p>' + addressHtml + '</div>' +
+        '<table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">' +
+        '<thead><tr style="background: #f0f0f0;">' +
+        '<th style="border: 1px solid #000; padding: 10px; text-align: left;">Date</th>' +
+        '<th style="border: 1px solid #000; padding: 10px; text-align: left;">Item</th>' +
+        '<th style="border: 1px solid #000; padding: 10px; text-align: right;">Amount</th>' +
+        '</tr></thead><tbody>' + tableRows + '</tbody></table>' +
+        '<div style="text-align: right; font-size: 1.2rem; font-weight: bold; margin-bottom: 50px;"><p>Total $' + totalAmount.toFixed(2) + '</p></div>' +
+        '<div><p>Issued by: _________________________</p></div>' +
+        '</div>';
+    
+    this.showPreview(invoiceHTML, 'Invoice #' + invoiceNumber);
+}
+    
     showPreview(html, title) {
         var previewHTML = this.createReportTemplate('📄 ' + title, html, false);
         this.updateReportContent(previewHTML);
