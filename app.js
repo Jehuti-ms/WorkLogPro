@@ -1534,6 +1534,7 @@ function saveStudentToLocalStorage(studentData) {
     loadStudents();
     updateProfileStats();
     updateGlobalStats();
+    refreshAttendanceStudentList();
     
   } catch (error) {
     console.error('Error saving student:', error);
