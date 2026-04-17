@@ -2546,33 +2546,6 @@ function saveAttendance() {
     updateProfileStats();
 }
 
-// Refresh attendance student list (sorted by name)
-function refreshAttendanceStudentList() {
-    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-    const attendanceContainer = document.getElementById('attendanceStudents');
-    
-    if (!attendanceContainer) return;
-    
-    // Sort students by name alphabetically
-    const sortedStudents = [...students].sort((a, b) => {
-        return (a.name || '').localeCompare(b.name || '');
-    });
-    
-    if (sortedStudents.length === 0) {
-        attendanceContainer.innerHTML = '<p class="empty-message">No students registered. Add students in the Students tab first.</p>';
-        return;
-    }
-    
-    attendanceContainer.innerHTML = sortedStudents.map(s => `
-        <div class="attendance-student-item" style="display: flex; align-items: center; margin-bottom: 8px; padding: 5px;">
-            <input type="checkbox" id="att_${s.id}" value="${s.id}" style="margin-right: 8px;">
-            <label for="att_${s.id}" style="cursor: pointer;">${s.name} (${s.studentId})</label>
-        </div>
-    `).join('');
-    
-    console.log(`✅ Attendance student list refreshed: ${sortedStudents.length} students (sorted by name)`);
-}
-
 // =========================== PAYMENTS =========================
 function loadPayments() {
   const container = document.getElementById('paymentActivityLog');
