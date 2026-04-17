@@ -2536,14 +2536,26 @@ function saveMark() {
     const studentId = document.getElementById('marksStudent')?.value;
     const subject = document.getElementById('marksSubject')?.value;
     const topic = document.getElementById('marksTopic')?.value;
-    // Get date as string - no conversion
     const date = document.getElementById('marksDate')?.value;
     const score = parseFloat(document.getElementById('marksScore')?.value);
     const maxScore = parseFloat(document.getElementById('marksMax')?.value);
     const notes = document.getElementById('marksNotes')?.value;
     
-    if (!studentId || !subject || !date || isNaN(score) || isNaN(maxScore)) {
+    // Debug: log what we're getting
+    console.log('Saving mark with:', { studentId, subject, topic, date, score, maxScore });
+    
+    if (!studentId) {
+        showNotification('Please select a student', 'error');
+        return;
+    }
+    
+    if (!subject || !date || isNaN(score) || isNaN(maxScore)) {
         showNotification('Please fill in all required fields', 'error');
+        return;
+    }
+    
+    if (maxScore <= 0) {
+        showNotification('Max score must be greater than 0', 'error');
         return;
     }
     
@@ -2566,7 +2578,7 @@ function saveMark() {
                 studentId: studentId,
                 marksSubject: subject,
                 marksTopic: topic,
-                marksDate: date,  // Save as YYYY-MM-DD string
+                marksDate: date,
                 marksScore: score,
                 marksMax: maxScore,
                 marksNotes: notes,
@@ -2596,7 +2608,7 @@ function saveMark() {
             studentId: studentId,
             marksSubject: subject,
             marksTopic: topic,
-            marksDate: date,  // Save as YYYY-MM-DD string
+            marksDate: date,
             marksScore: score,
             marksMax: maxScore,
             marksNotes: notes,
@@ -2943,28 +2955,40 @@ function loadPayments() {
 
 // ==================== HELPER FUNCTIONS ====================
 function populateStudentDropdowns() {
-  const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-  
-  ['hoursStudent', 'marksStudent', 'paymentStudent'].forEach(id => {
-    const select = document.getElementById(id);
-    if (!select) return;
-    select.innerHTML = '<option value="">Select Student</option>' + 
-      students.map(s => `<option value="${s.id}">${s.name} (${s.studentId})</option>`).join('');
-  });
-  
-  const attendanceContainer = document.getElementById('attendanceStudents');
-  if (attendanceContainer) {
-    if (!students.length) {
-      attendanceContainer.innerHTML = '<p class="empty-message">No students registered.</p>';
-    } else {
-      attendanceContainer.innerHTML = students.map(s => `
-        <div class="attendance-student-item">
-          <input type="checkbox" id="student_${s.id}" value="${s.id}">
-          <label for="student_${s.id}">${s.name} (${s.studentId})</label>
-        </div>
-      `).join('');
+    let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    
+    // Sort students by ID number (001, 002, 003...)
+    const sortedStudents = [...students].sort((a, b) => {
+        const numA = parseInt((a.studentId || '0').toString().replace(/\D/g, '')) || 0;
+        const numB = parseInt((b.studentId || '0').toString().replace(/\D/g, '')) || 0;
+        return numA - numB;
+    });
+    
+    console.log('Populating dropdowns with students sorted by ID:', sortedStudents.map(s => s.studentId));
+    
+    // Marks student dropdown
+    const marksStudent = document.getElementById('marksStudent');
+    if (marksStudent) {
+        marksStudent.innerHTML = '<option value="">Select Student</option>' + 
+            sortedStudents.map(s => `<option value="${s.id}">${s.name} (${s.studentId})</option>`).join('');
+        console.log('Marks dropdown populated with', sortedStudents.length, 'students (sorted by ID)');
     }
-  }
+    
+    // Hours student dropdown
+    const hoursStudent = document.getElementById('hoursStudent');
+    if (hoursStudent) {
+        hoursStudent.innerHTML = '<option value="">Select Student</option>' + 
+            sortedStudents.map(s => `<option value="${s.id}">${s.name} (${s.studentId})</option>`).join('');
+    }
+    
+    // Payment student dropdown
+    const paymentStudent = document.getElementById('paymentStudent');
+    if (paymentStudent) {
+        paymentStudent.innerHTML = '<option value="">Select Student</option>' + 
+            sortedStudents.map(s => `<option value="${s.id}">${s.name} (${s.studentId})</option>`).join('');
+    }
+    
+    refreshAttendanceStudentList();
 }
 
 function updateGlobalStats() {
