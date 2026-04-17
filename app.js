@@ -2952,6 +2952,15 @@ function editAttendance(attendanceId) {
         showNotification('Attendance record not found', 'error');
         return;
     }
+
+     // Use the date utility to set the date - this ensures no conversion
+    const dateInput = document.getElementById('attendanceDate');
+    if (dateInput) {
+        dateInput.value = record.attendanceDate;  // This should work if stored as YYYY-MM-DD
+        console.log('Setting date to:', record.attendanceDate);
+    }
+    
+    document.getElementById('attendanceSubject').value = record.attendanceSubject;
     
     // Fill form - use the stored date as-is
     document.getElementById('attendanceDate').value = record.attendanceDate;
