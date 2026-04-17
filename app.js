@@ -239,6 +239,7 @@ function initAppUI() {
     initSyncToggle();
     initSync();
     loadInitialData();
+    initClientManager();
     
     // ===== FIX: Worklog save button handler =====
     setTimeout(function() {
@@ -1593,6 +1594,175 @@ function updateReportStats() {
     console.error('Error updating report stats:', error);
   }
 }
+
+// ==================== CLIENT/ORGANIZATION MANAGER ====================
+
+function saveOrganization() {
+    const name = document.getElementById('clientName')?.value.trim();
+    const address = document.getElementById('clientAddress')?.value.trim();
+    const phone = document.getElementById('clientPhone')?.value.trim();
+    const email = document.getElementById('clientEmail')?.value.trim();
+    
+    if (!name) {
+        showNotification('Organization name is required', 'error');
+        return;
+    }
+    
+    let organizations = JSON.parse(localStorage.getItem('worklog_organizations') || '[]');
+    
+    // Check for duplicate
+    const existing = organizations.find(org => org.name === name);
+    if (existing) {
+        if (!confirm(`Organization "${name}" already exists. Update it?`)) return;
+        existing.address = address;
+        existing.phone = phone;
+        existing.email = email;
+    } else {
+        organizations.push({
+            id: Date.now().toString(),
+            name: name,
+            address: address,
+            phone: phone,
+            email: email,
+            createdAt: new Date().toISOString()
+        });
+    }
+    
+    localStorage.setItem('worklog_organizations', JSON.stringify(organizations));
+    loadOrganizations();
+    clearClientForm();
+    showNotification(`Organization "${name}" saved!`, 'success');
+}
+
+function loadOrganizations() {
+    const organizations = JSON.parse(localStorage.getItem('worklog_organizations') || '[]');
+    const select = document.getElementById('clientSelect');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">-- Select Organization --</option>' +
+        organizations.map(org => `<option value="${org.id}">${org.name}</option>`).join('');
+    
+    console.log(`✅ Loaded ${organizations.length} organizations`);
+}
+
+function loadOrganizationToForm() {
+    const select = document.getElementById('clientSelect');
+    const selectedId = select?.value;
+    if (!selectedId) return;
+    
+    const organizations = JSON.parse(localStorage.getItem('worklog_organizations') || '[]');
+    const org = organizations.find(o => o.id === selectedId);
+    
+    if (org) {
+        document.getElementById('clientName').value = org.name;
+        document.getElementById('clientAddress').value = org.address || '';
+        document.getElementById('clientPhone').value = org.phone || '';
+        document.getElementById('clientEmail').value = org.email || '';
+        
+        // Also fill invoice/claim form fields
+        fillReportForms(org);
+    }
+}
+
+function fillReportForms(org) {
+    // Fill invoice form
+    const invoiceTo = document.getElementById('invoiceTo');
+    if (invoiceTo) {
+        invoiceTo.value = `${org.name}\n${org.address || ''}\n${org.phone || ''}\n${org.email || ''}`;
+    }
+    
+    // Fill claim form
+    const claimAddress = document.getElementById('claimAddress');
+    if (claimAddress) {
+        claimAddress.value = org.address || '';
+    }
+    
+    const claimHomePhone = document.getElementById('claimHomePhone');
+    if (claimHomePhone && org.phone) {
+        claimHomePhone.value = org.phone;
+    }
+    
+    const claimWorkPhone = document.getElementById('claimWorkPhone');
+    if (claimWorkPhone && org.phone) {
+        claimWorkPhone.value = org.phone;
+    }
+}
+
+function clearClientForm() {
+    document.getElementById('clientName').value = '';
+    document.getElementById('clientAddress').value = '';
+    document.getElementById('clientPhone').value = '';
+    document.getElementById('clientEmail').value = '';
+}
+
+function deleteOrganization() {
+    const select = document.getElementById('clientSelect');
+    const selectedId = select?.value;
+    if (!selectedId) {
+        showNotification('Select an organization to delete', 'warning');
+        return;
+    }
+    
+    const organizations = JSON.parse(localStorage.getItem('worklog_organizations') || '[]');
+    const org = organizations.find(o => o.id === selectedId);
+    
+    if (!confirm(`Delete "${org.name}"?`)) return;
+    
+    const filtered = organizations.filter(o => o.id !== selectedId);
+    localStorage.setItem('worklog_organizations', JSON.stringify(filtered));
+    loadOrganizations();
+    clearClientForm();
+    showNotification(`Organization "${org.name}" deleted`, 'success');
+}
+
+// Add delete button to the HTML
+function addDeleteButton() {
+    const clientManager = document.querySelector('.client-manager');
+    if (clientManager && !document.getElementById('deleteClientBtn')) {
+        const deleteBtn = document.createElement('button');
+        deleteBtn.id = 'deleteClientBtn';
+        deleteBtn.textContent = '🗑️ Delete Selected';
+        deleteBtn.className = 'button danger';
+        deleteBtn.style.marginLeft = '10px';
+        deleteBtn.onclick = deleteOrganization;
+        clientManager.querySelector('div:first-child').appendChild(deleteBtn);
+    }
+}
+
+// Initialize client manager
+function initClientManager() {
+    loadOrganizations();
+    addDeleteButton();
+    
+    const saveBtn = document.getElementById('saveClientBtn');
+    if (saveBtn) {
+        saveBtn.onclick = saveOrganization;
+    }
+    
+    const select = document.getElementById('clientSelect');
+    if (select) {
+        select.onchange = loadOrganizationToForm;
+    }
+}
+
+// =========== AUTO SAVING FOR REPORTS ===========
+// Save the last used organization
+function saveLastUsedOrganization(orgId) {
+    localStorage.setItem('lastUsedOrganization', orgId);
+}
+
+// Auto-load last used organization
+function loadLastUsedOrganization() {
+    const lastUsedId = localStorage.getItem('lastUsedOrganization');
+    if (lastUsedId) {
+        const select = document.getElementById('clientSelect');
+        if (select) {
+            select.value = lastUsedId;
+            loadOrganizationToForm();
+        }
+    }
+}
+
 
 // ==================== DATA LOADING FUNCTIONS ====================
 function loadInitialData() {
