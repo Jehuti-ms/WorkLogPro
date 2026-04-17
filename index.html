@@ -473,24 +473,38 @@
     <p>Summaries of students, hours, marks, payments, and generate official BVTB forms.</p>
   </div>
 
-  <!-- Organization Manager -->
+  <!-- ===== YOUR BUSINESS INFORMATION (YOUR PROFILE) ===== -->
+  <div class="business-profile" style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #4CAF5015 0%, #45a04915 100%); border: 1px solid var(--border); border-radius: 12px;">
+    <h4 style="margin-top: 0; margin-bottom: 12px;">🏢 Your Business Information</h4>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; margin-bottom: 12px;">
+      <input type="text" id="profileBusinessName" placeholder="Your Business Name" style="padding: 8px; border: 1px solid var(--border); border-radius: 6px;">
+      <input type="text" id="profileBusinessAddress" placeholder="Your Address" style="padding: 8px; border: 1px solid var(--border); border-radius: 6px;">
+      <input type="text" id="profileBusinessPhone" placeholder="Your Phone" style="padding: 8px; border: 1px solid var(--border); border-radius: 6px;">
+      <input type="text" id="profileBusinessEmail" placeholder="Your Email" style="padding: 8px; border: 1px solid var(--border); border-radius: 6px;">
+    </div>
+    <button id="saveBusinessInfoBtn" class="button primary" style="padding: 8px 16px;">💾 Save My Business Info</button>
+    <small class="help-text" style="display: block; margin-top: 8px;">💡 This is YOUR information that will appear on invoices and claim forms.</small>
+  </div>
+
+  <!-- ===== SAVED ORGANIZATIONS (CLIENTS) ===== -->
   <div class="client-manager" style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border: 1px solid var(--border); border-radius: 12px;">
-    <h4 style="margin-top: 0; margin-bottom: 12px;">🏢 Saved Organizations</h4>
+    <h4 style="margin-top: 0; margin-bottom: 12px;">🏢 Saved Organizations (Clients)</h4>
     <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
       <input type="text" id="clientName" placeholder="Organization Name" style="flex: 2; min-width: 150px; padding: 8px; border: 1px solid var(--border); border-radius: 6px;">
       <input type="text" id="clientAddress" placeholder="Address" style="flex: 3; min-width: 200px; padding: 8px; border: 1px solid var(--border); border-radius: 6px;">
       <input type="text" id="clientPhone" placeholder="Phone" style="flex: 1; min-width: 120px; padding: 8px; border: 1px solid var(--border); border-radius: 6px;">
       <input type="text" id="clientEmail" placeholder="Email" style="flex: 2; min-width: 150px; padding: 8px; border: 1px solid var(--border); border-radius: 6px;">
-      <button id="saveClientBtn" class="button" style="padding: 8px 16px;">💾 Save</button>
+      <button id="saveClientBtn" class="button" style="padding: 8px 16px;">💾 Save Client</button>
     </div>
     <div style="display: flex; gap: 10px; align-items: center;">
       <select id="clientSelect" style="flex: 3; padding: 8px; border: 1px solid var(--border); border-radius: 6px;">
-        <option value="">-- Select Organization (auto-fills forms) --</option>
+        <option value="">-- Select Client (auto-fills forms) --</option>
       </select>
-      <button id="deleteClientBtn" class="button small danger" style="background: #f44336; color: white; padding: 8px 16px;">🗑️ Delete</button>
+      <button id="deleteClientBtn" class="button small danger" style="background: #f44336; color: white; padding: 8px 16px;">🗑️ Delete Client</button>
     </div>
-    <small class="help-text" style="display: block; margin-top: 8px;">💡 Save organizations like "BVTB", "Ministry of Education", etc. Select to auto-fill claim forms and invoices.</small>
+    <small class="help-text" style="display: block; margin-top: 8px;">💡 Save different organizations you work with (BVTB, schools, etc.). Select to auto-fill the "Issued To" section.</small>
   </div>
+
   
   <!-- Summary Cards -->
   <div class="summary-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 25px;">
