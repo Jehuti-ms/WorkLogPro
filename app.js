@@ -1202,7 +1202,7 @@ function stopAutoSync() {
 }
 
 // ==================== CROSS-DEVICE SYNC ====================
-let lastSyncData = null;
+/*let lastSyncData = null;
 
 function initCrossDeviceSync() {
     const user = firebase.auth().currentUser;
@@ -1313,7 +1313,7 @@ async function saveToCloudImmediately() {
     } catch (error) {
         console.error('❌ Error saving to cloud:', error);
     }
-}
+}  */
 
 // ============= MANUAL SYNC ===============
 // Manual sync function for when user wants to force sync
@@ -1406,9 +1406,9 @@ function initSync() {
   firebase.auth().onAuthStateChanged((user) => {
     if (user) {
       console.log('👤 User logged in, starting cross-device sync');
-      initCrossDeviceSync();
+     // initCrossDeviceSync();
       // Initial load from cloud
-      setTimeout(() => saveToCloud(), 1000);
+    //  setTimeout(() => saveToCloud(), 1000);
     } else {
       console.log('👤 No user, sync disabled');
       if (syncUnsubscribe) {
