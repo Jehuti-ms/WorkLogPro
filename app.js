@@ -1530,6 +1530,24 @@ function initForms() {
       }
     });
   }
+
+    // In your initForms function, add this for marks form:
+    const marksForm = document.getElementById('marksForm');
+    if (marksForm) {
+        marksForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            saveMark();
+        });
+    }
+    
+    // Also set up the cancel button
+    const cancelMarkBtn = document.getElementById('cancelMarkBtn');
+    if (cancelMarkBtn) {
+        cancelMarkBtn.addEventListener('click', cancelMarksEdit);
+    }
+    
+    // Set up percentage calculation
+    window.updateMarksPercentage = updateMarksPercentage;
 }
 
 function saveStudentToLocalStorage(studentData) {
@@ -2293,7 +2311,9 @@ function loadHours() {
   `).join('');
 }
 
-// ==================== LOAD MARKS =====================
+// ==================== MARKS FUNCTIONS WITH EDIT/DELETE ====================
+
+// Load marks with edit/delete buttons
 function loadMarks() {
     const container = document.getElementById('marksContainer');
     if (!container) return;
@@ -2331,7 +2351,9 @@ function loadMarks() {
                 </div>
                 <div style="margin-top: 8px;">
                     <div><strong>Student:</strong> ${studentName}</div>
+                    <div><strong>Topic:</strong> ${mark.marksTopic || 'N/A'}</div>
                     <div><strong>Score:</strong> ${mark.marksScore}/${mark.marksMax} = ${mark.percentage}% (${mark.grade})</div>
+                    ${mark.marksNotes ? `<div><strong>Notes:</strong> ${mark.marksNotes}</div>` : ''}
                 </div>
             </div>
         `;
@@ -2362,84 +2384,26 @@ function handleMarksDeleteClick(e) {
     deleteMark(id);
 }
 
-function saveMark() {
-    const studentId = document.getElementById('marksStudent')?.value;
-    const subject = document.getElementById('marksSubject')?.value;
-    const date = document.getElementById('marksDate')?.value;
+// Update percentage and grade in real-time
+function updateMarksPercentage() {
     const score = parseFloat(document.getElementById('marksScore')?.value);
     const maxScore = parseFloat(document.getElementById('marksMax')?.value);
     
-    if (!studentId || !subject || !date || !score || !maxScore) {
-        showNotification('All fields are required', 'error');
-        return;
-    }
-    
-    const percentage = (score / maxScore * 100).toFixed(1);
-    let grade = 'F';
-    const p = parseFloat(percentage);
-    if (p >= 90) grade = 'A';
-    else if (p >= 80) grade = 'B';
-    else if (p >= 70) grade = 'C';
-    else if (p >= 60) grade = 'D';
-    
-    let marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
-    
-    if (window.editingMarkId) {
-        // UPDATE existing record
-        const index = marks.findIndex(m => m.id === window.editingMarkId);
-        if (index !== -1) {
-            marks[index] = {
-                ...marks[index],
-                studentId: studentId,
-                marksSubject: subject,
-                marksDate: date,
-                marksScore: score,
-                marksMax: maxScore,
-                percentage: percentage,
-                grade: grade,
-                lastUpdated: new Date().toISOString()
-            };
-            showNotification('Mark updated!', 'success');
-        }
-        window.editingMarkId = null;
+    if (!isNaN(score) && !isNaN(maxScore) && maxScore > 0) {
+        const percentage = (score / maxScore * 100).toFixed(1);
+        document.getElementById('percentage').value = percentage + '%';
         
-        // Reset save button
-        const saveBtn = document.getElementById('marksSubmitBtn');
-        if (saveBtn) {
-            saveBtn.textContent = '➕ Add Mark';
-            saveBtn.style.backgroundColor = '';
-        }
-        
-        // Remove cancel button
-        const cancelBtn = document.getElementById('cancelMarksEditBtn');
-        if (cancelBtn) cancelBtn.remove();
-        
+        let grade = 'F';
+        const p = parseFloat(percentage);
+        if (p >= 90) grade = 'A';
+        else if (p >= 80) grade = 'B';
+        else if (p >= 70) grade = 'C';
+        else if (p >= 60) grade = 'D';
+        document.getElementById('grade').value = grade;
     } else {
-        // CREATE new record
-        const newMark = {
-            id: Date.now().toString(),
-            studentId: studentId,
-            marksSubject: subject,
-            marksDate: date,
-            marksScore: score,
-            marksMax: maxScore,
-            percentage: percentage,
-            grade: grade,
-            createdAt: new Date().toISOString()
-        };
-        marks.unshift(newMark);
-        showNotification('Mark saved!', 'success');
+        document.getElementById('percentage').value = '';
+        document.getElementById('grade').value = '';
     }
-    
-    localStorage.setItem('worklog_marks', JSON.stringify(marks));
-    
-    // Clear form
-    document.getElementById('marksForm').reset();
-    document.getElementById('marksDate').value = new Date().toISOString().split('T')[0];
-    
-    // Refresh display
-    loadMarks();
-    updateProfileStats();
 }
 
 // Edit mark
@@ -2457,9 +2421,14 @@ function editMark(markId) {
     // Fill form
     document.getElementById('marksStudent').value = mark.studentId;
     document.getElementById('marksSubject').value = mark.marksSubject;
+    document.getElementById('marksTopic').value = mark.marksTopic || '';
     document.getElementById('marksDate').value = mark.marksDate;
     document.getElementById('marksScore').value = mark.marksScore;
     document.getElementById('marksMax').value = mark.marksMax;
+    document.getElementById('marksNotes').value = mark.marksNotes || '';
+    
+    // Update percentage and grade
+    updateMarksPercentage();
     
     // Store editing ID
     window.editingMarkId = markId;
@@ -2472,17 +2441,8 @@ function editMark(markId) {
     }
     
     // Show cancel button
-    let cancelBtn = document.getElementById('cancelMarksEditBtn');
-    if (!cancelBtn) {
-        cancelBtn = document.createElement('button');
-        cancelBtn.id = 'cancelMarksEditBtn';
-        cancelBtn.textContent = '❌ Cancel Edit';
-        cancelBtn.style.marginLeft = '10px';
-        cancelBtn.style.padding = '10px 20px';
-        cancelBtn.style.cursor = 'pointer';
-        cancelBtn.onclick = cancelMarksEdit;
-        saveBtn.parentNode.appendChild(cancelBtn);
-    } else {
+    const cancelBtn = document.getElementById('cancelMarkBtn');
+    if (cancelBtn) {
         cancelBtn.style.display = 'inline-block';
     }
     
@@ -2514,16 +2474,22 @@ function cancelMarksEdit() {
         saveBtn.style.backgroundColor = '';
     }
     
-    const cancelBtn = document.getElementById('cancelMarksEditBtn');
+    const cancelBtn = document.getElementById('cancelMarkBtn');
     if (cancelBtn) {
-        cancelBtn.remove();
+        cancelBtn.style.display = 'none';
     }
     
-    // Clear form
+    resetMarksForm();
+    showNotification('Edit cancelled', 'info');
+}
+
+// Reset marks form
+function resetMarksForm() {
     document.getElementById('marksForm').reset();
     document.getElementById('marksDate').value = new Date().toISOString().split('T')[0];
-    
-    showNotification('Edit cancelled', 'info');
+    document.getElementById('percentage').value = '';
+    document.getElementById('grade').value = '';
+    window.editingMarkId = null;
 }
 
 // Update average mark display
@@ -2531,22 +2497,106 @@ function updateAverageMark() {
     const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
     
     if (marks.length === 0) {
-        const avgMarkElem = document.getElementById('avgMarkReport');
-        if (avgMarkElem) avgMarkElem.textContent = '0%';
+        const avgMarksElem = document.getElementById('avgMarks');
+        if (avgMarksElem) avgMarksElem.textContent = '0%';
         return;
     }
     
     const totalPercentage = marks.reduce((sum, mark) => sum + (parseFloat(mark.percentage) || 0), 0);
     const avgPercentage = totalPercentage / marks.length;
     
-    // Update various places where average mark appears
-    const avgMarkElem = document.getElementById('avgMarkReport');
-    if (avgMarkElem) avgMarkElem.textContent = `${avgPercentage.toFixed(1)}%`;
+    const avgMarksElem = document.getElementById('avgMarks');
+    if (avgMarksElem) avgMarksElem.textContent = `${avgPercentage.toFixed(1)}%`;
     
-    const modalStatMarks = document.getElementById('modalStatMarks');
-    if (modalStatMarks) modalStatMarks.textContent = `${avgPercentage.toFixed(1)}%`;
+    console.log(`📊 Average mark updated: ${avgPercentage.toFixed(1)}%`);
+}
+
+// Save mark (handles both new and edit)
+function saveMark() {
+    const studentId = document.getElementById('marksStudent')?.value;
+    const subject = document.getElementById('marksSubject')?.value;
+    const topic = document.getElementById('marksTopic')?.value;
+    const date = document.getElementById('marksDate')?.value;
+    const score = parseFloat(document.getElementById('marksScore')?.value);
+    const maxScore = parseFloat(document.getElementById('marksMax')?.value);
+    const notes = document.getElementById('marksNotes')?.value;
     
-    console.log(`📊 Average mark updated: ${avgPercentage.toFixed(1)}% (${marks.length} records)`);
+    if (!studentId || !subject || !date || isNaN(score) || isNaN(maxScore)) {
+        showNotification('Please fill in all required fields', 'error');
+        return;
+    }
+    
+    const percentage = (score / maxScore * 100).toFixed(1);
+    let grade = 'F';
+    const p = parseFloat(percentage);
+    if (p >= 90) grade = 'A';
+    else if (p >= 80) grade = 'B';
+    else if (p >= 70) grade = 'C';
+    else if (p >= 60) grade = 'D';
+    
+    let marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+    
+    if (window.editingMarkId) {
+        // UPDATE existing record
+        const index = marks.findIndex(m => m.id === window.editingMarkId);
+        if (index !== -1) {
+            marks[index] = {
+                ...marks[index],
+                studentId: studentId,
+                marksSubject: subject,
+                marksTopic: topic,
+                marksDate: date,
+                marksScore: score,
+                marksMax: maxScore,
+                marksNotes: notes,
+                percentage: percentage,
+                grade: grade,
+                lastUpdated: new Date().toISOString()
+            };
+            showNotification('Mark updated!', 'success');
+        }
+        window.editingMarkId = null;
+        
+        // Reset save button
+        const saveBtn = document.getElementById('marksSubmitBtn');
+        if (saveBtn) {
+            saveBtn.textContent = '➕ Add Mark';
+            saveBtn.style.backgroundColor = '';
+        }
+        
+        // Hide cancel button
+        const cancelBtn = document.getElementById('cancelMarkBtn');
+        if (cancelBtn) {
+            cancelBtn.style.display = 'none';
+        }
+        
+    } else {
+        // CREATE new record
+        const newMark = {
+            id: Date.now().toString(),
+            studentId: studentId,
+            marksSubject: subject,
+            marksTopic: topic,
+            marksDate: date,
+            marksScore: score,
+            marksMax: maxScore,
+            marksNotes: notes,
+            percentage: percentage,
+            grade: grade,
+            createdAt: new Date().toISOString()
+        };
+        marks.unshift(newMark);
+        showNotification('Mark saved!', 'success');
+    }
+    
+    localStorage.setItem('worklog_marks', JSON.stringify(marks));
+    
+    // Clear form
+    resetMarksForm();
+    
+    // Refresh display
+    loadMarks();
+    updateProfileStats();
 }
 
 // ==================== COMPLETE ATTENDANCE SYSTEM ====================
