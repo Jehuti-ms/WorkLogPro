@@ -826,10 +826,11 @@ function loadTabData(tabName) {
         break;
       case 'marks':
         loadMarks();
+        populateStudentDropdowns();
         break;
       case 'attendance':
         loadAttendance();
-        refreshAttendanceStudentList();  // ← ADD THIS LINE
+        refreshAttendanceStudentList();  
         break;
       case 'payments':
         loadPayments();
@@ -3402,45 +3403,6 @@ function populateStudentDropdowns() {
     
     // Refresh attendance student list (checkboxes)
     refreshAttendanceStudentList();
-}
-
-// Make sure this gets called when the marks tab is opened
-function loadTabData(tabName) {
-  console.log(`📊 Loading data for ${tabName} tab...`);
-  
-  setTimeout(() => {
-    switch(tabName) {
-      case 'students':
-        loadStudents();
-        break;
-      case 'hours':
-        loadHours();
-        break;
-      case 'marks':
-        loadMarks();
-        populateStudentDropdowns(); // ← ADD THIS LINE to ensure dropdown is populated
-        break;
-      case 'attendance':
-        loadAttendance();
-        refreshAttendanceStudentList();
-        break;
-      case 'payments':
-        loadPayments();
-        initPaymentForm();
-        break;
-      case 'reports':
-        loadReports();
-        break;
-      case 'worklog':
-        if (window.worklogManager) {
-          window.worklogManager.loadData();
-          window.worklogManager.populateDropdowns();
-          window.worklogManager.updateUI();
-          window.worklogManager.updateStats();
-        }
-        break;
-    }
-  }, 100);
 }
 
 function updateGlobalStats() {
