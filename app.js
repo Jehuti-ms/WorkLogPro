@@ -240,6 +240,7 @@ function initAppUI() {
     initSync();
     loadInitialData();
     initClientManager();
+    initMyBusinesses();
     
     // ===== FIX: Save Business Info button =====
     const saveBusinessBtn = document.getElementById('saveBusinessInfoBtn');
