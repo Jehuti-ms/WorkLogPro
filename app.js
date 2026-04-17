@@ -724,6 +724,12 @@ function initTabs() {
     
     window.location.hash = tabName;
     loadTabData(tabName);
+    
+    // ===== ADD THIS - Refresh attendance when attendance tab is opened =====
+    if (tabName === 'attendance') {
+        setTimeout(refreshAttendanceStudentList, 150);
+    }
+    // ===== END ADD =====
   }
   
   tabButtons.forEach(button => {
@@ -778,6 +784,7 @@ function loadTabData(tabName) {
         break;
       case 'attendance':
         loadAttendance();
+        refreshAttendanceStudentList();  // ← ADD THIS LINE
         break;
       case 'payments':
         loadPayments();
