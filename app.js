@@ -2293,30 +2293,260 @@ function loadHours() {
   `).join('');
 }
 
+// ==================== LOAD MARKS =====================
 function loadMarks() {
-  const container = document.getElementById('marksContainer');
-  if (!container) return;
-  
-  const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
-  document.getElementById('marksCount') && (document.getElementById('marksCount').textContent = marks.length);
-  
-  if (!marks.length) {
-    container.innerHTML = '<p class="empty-message">No marks recorded yet.</p>';
-    return;
-  }
-  
-  container.innerHTML = marks.slice(0, 10).map(m => `
-    <div class="mark-entry">
-      <div class="mark-header">
-        <strong>${m.marksSubject}</strong>
-        <span class="hours-total">${m.percentage}% (${m.grade})</span>
-      </div>
-      <div class="hours-details">
-        <span>📅 ${new Date(m.marksDate).toLocaleDateString()}</span>
-        <span>📊 ${m.marksScore}/${m.marksMax}</span>
-      </div>
-    </div>
-  `).join('');
+    const container = document.getElementById('marksContainer');
+    if (!container) return;
+    
+    const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    
+    const marksCount = document.getElementById('marksCount');
+    if (marksCount) marksCount.textContent = marks.length;
+    
+    if (!marks.length) {
+        container.innerHTML = '<p class="empty-message">No marks recorded yet.</p>';
+        return;
+    }
+    
+    // Sort by date (newest first)
+    const sortedMarks = [...marks].sort((a, b) => new Date(b.marksDate) - new Date(a.marksDate));
+    
+    container.innerHTML = sortedMarks.map(mark => {
+        // Get student name from ID
+        const student = students.find(s => s.id === mark.studentId);
+        const studentName = student ? `${student.name} (${student.studentId})` : 'Unknown Student';
+        
+        return `
+            <div class="mark-card" data-id="${mark.id}" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #fff;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <strong>📚 ${mark.marksSubject}</strong>
+                        <span style="margin-left: 10px; color: #666;">📅 ${new Date(mark.marksDate).toLocaleDateString()}</span>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="marks-edit-btn" data-id="${mark.id}" style="background: #4CAF50; color: white; border: none; border-radius: 4px; padding: 5px 12px; cursor: pointer;">✏️ Edit</button>
+                        <button class="marks-delete-btn" data-id="${mark.id}" style="background: #f44336; color: white; border: none; border-radius: 4px; padding: 5px 12px; cursor: pointer;">🗑️ Delete</button>
+                    </div>
+                </div>
+                <div style="margin-top: 8px;">
+                    <div><strong>Student:</strong> ${studentName}</div>
+                    <div><strong>Score:</strong> ${mark.marksScore}/${mark.marksMax} = ${mark.percentage}% (${mark.grade})</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    // Attach event listeners
+    document.querySelectorAll('.marks-edit-btn').forEach(btn => {
+        btn.removeEventListener('click', handleMarksEditClick);
+        btn.addEventListener('click', handleMarksEditClick);
+    });
+    
+    document.querySelectorAll('.marks-delete-btn').forEach(btn => {
+        btn.removeEventListener('click', handleMarksDeleteClick);
+        btn.addEventListener('click', handleMarksDeleteClick);
+    });
+    
+    // Update average mark display
+    updateAverageMark();
+}
+
+function handleMarksEditClick(e) {
+    const id = e.target.getAttribute('data-id');
+    editMark(id);
+}
+
+function handleMarksDeleteClick(e) {
+    const id = e.target.getAttribute('data-id');
+    deleteMark(id);
+}
+
+function saveMark() {
+    const studentId = document.getElementById('marksStudent')?.value;
+    const subject = document.getElementById('marksSubject')?.value;
+    const date = document.getElementById('marksDate')?.value;
+    const score = parseFloat(document.getElementById('marksScore')?.value);
+    const maxScore = parseFloat(document.getElementById('marksMax')?.value);
+    
+    if (!studentId || !subject || !date || !score || !maxScore) {
+        showNotification('All fields are required', 'error');
+        return;
+    }
+    
+    const percentage = (score / maxScore * 100).toFixed(1);
+    let grade = 'F';
+    const p = parseFloat(percentage);
+    if (p >= 90) grade = 'A';
+    else if (p >= 80) grade = 'B';
+    else if (p >= 70) grade = 'C';
+    else if (p >= 60) grade = 'D';
+    
+    let marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+    
+    if (window.editingMarkId) {
+        // UPDATE existing record
+        const index = marks.findIndex(m => m.id === window.editingMarkId);
+        if (index !== -1) {
+            marks[index] = {
+                ...marks[index],
+                studentId: studentId,
+                marksSubject: subject,
+                marksDate: date,
+                marksScore: score,
+                marksMax: maxScore,
+                percentage: percentage,
+                grade: grade,
+                lastUpdated: new Date().toISOString()
+            };
+            showNotification('Mark updated!', 'success');
+        }
+        window.editingMarkId = null;
+        
+        // Reset save button
+        const saveBtn = document.getElementById('marksSubmitBtn');
+        if (saveBtn) {
+            saveBtn.textContent = '➕ Add Mark';
+            saveBtn.style.backgroundColor = '';
+        }
+        
+        // Remove cancel button
+        const cancelBtn = document.getElementById('cancelMarksEditBtn');
+        if (cancelBtn) cancelBtn.remove();
+        
+    } else {
+        // CREATE new record
+        const newMark = {
+            id: Date.now().toString(),
+            studentId: studentId,
+            marksSubject: subject,
+            marksDate: date,
+            marksScore: score,
+            marksMax: maxScore,
+            percentage: percentage,
+            grade: grade,
+            createdAt: new Date().toISOString()
+        };
+        marks.unshift(newMark);
+        showNotification('Mark saved!', 'success');
+    }
+    
+    localStorage.setItem('worklog_marks', JSON.stringify(marks));
+    
+    // Clear form
+    document.getElementById('marksForm').reset();
+    document.getElementById('marksDate').value = new Date().toISOString().split('T')[0];
+    
+    // Refresh display
+    loadMarks();
+    updateProfileStats();
+}
+
+// Edit mark
+function editMark(markId) {
+    console.log('✏️ Editing mark:', markId);
+    
+    const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+    const mark = marks.find(m => m.id === markId);
+    
+    if (!mark) {
+        showNotification('Mark record not found', 'error');
+        return;
+    }
+    
+    // Fill form
+    document.getElementById('marksStudent').value = mark.studentId;
+    document.getElementById('marksSubject').value = mark.marksSubject;
+    document.getElementById('marksDate').value = mark.marksDate;
+    document.getElementById('marksScore').value = mark.marksScore;
+    document.getElementById('marksMax').value = mark.marksMax;
+    
+    // Store editing ID
+    window.editingMarkId = markId;
+    
+    // Update save button
+    const saveBtn = document.getElementById('marksSubmitBtn');
+    if (saveBtn) {
+        saveBtn.textContent = '✏️ Update Mark';
+        saveBtn.style.backgroundColor = '#f59e0b';
+    }
+    
+    // Show cancel button
+    let cancelBtn = document.getElementById('cancelMarksEditBtn');
+    if (!cancelBtn) {
+        cancelBtn = document.createElement('button');
+        cancelBtn.id = 'cancelMarksEditBtn';
+        cancelBtn.textContent = '❌ Cancel Edit';
+        cancelBtn.style.marginLeft = '10px';
+        cancelBtn.style.padding = '10px 20px';
+        cancelBtn.style.cursor = 'pointer';
+        cancelBtn.onclick = cancelMarksEdit;
+        saveBtn.parentNode.appendChild(cancelBtn);
+    } else {
+        cancelBtn.style.display = 'inline-block';
+    }
+    
+    // Scroll to form
+    document.getElementById('marksForm').scrollIntoView({ behavior: 'smooth' });
+    showNotification('Edit mode: Make changes and click Update', 'info');
+}
+
+// Delete mark
+function deleteMark(markId) {
+    if (!confirm('Delete this mark record? This cannot be undone.')) return;
+    
+    let marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+    marks = marks.filter(m => m.id !== markId);
+    localStorage.setItem('worklog_marks', JSON.stringify(marks));
+    
+    showNotification('Mark record deleted', 'success');
+    loadMarks();
+    updateProfileStats();
+}
+
+// Cancel marks edit
+function cancelMarksEdit() {
+    window.editingMarkId = null;
+    
+    const saveBtn = document.getElementById('marksSubmitBtn');
+    if (saveBtn) {
+        saveBtn.textContent = '➕ Add Mark';
+        saveBtn.style.backgroundColor = '';
+    }
+    
+    const cancelBtn = document.getElementById('cancelMarksEditBtn');
+    if (cancelBtn) {
+        cancelBtn.remove();
+    }
+    
+    // Clear form
+    document.getElementById('marksForm').reset();
+    document.getElementById('marksDate').value = new Date().toISOString().split('T')[0];
+    
+    showNotification('Edit cancelled', 'info');
+}
+
+// Update average mark display
+function updateAverageMark() {
+    const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+    
+    if (marks.length === 0) {
+        const avgMarkElem = document.getElementById('avgMarkReport');
+        if (avgMarkElem) avgMarkElem.textContent = '0%';
+        return;
+    }
+    
+    const totalPercentage = marks.reduce((sum, mark) => sum + (parseFloat(mark.percentage) || 0), 0);
+    const avgPercentage = totalPercentage / marks.length;
+    
+    // Update various places where average mark appears
+    const avgMarkElem = document.getElementById('avgMarkReport');
+    if (avgMarkElem) avgMarkElem.textContent = `${avgPercentage.toFixed(1)}%`;
+    
+    const modalStatMarks = document.getElementById('modalStatMarks');
+    if (modalStatMarks) modalStatMarks.textContent = `${avgPercentage.toFixed(1)}%`;
+    
+    console.log(`📊 Average mark updated: ${avgPercentage.toFixed(1)}% (${marks.length} records)`);
 }
 
 // ==================== COMPLETE ATTENDANCE SYSTEM ====================
