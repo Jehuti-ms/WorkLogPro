@@ -1818,6 +1818,179 @@ function saveBusinessInfo() {
     saveUserBusinessInfo();
 }
 
+// ==================== MY BUSINESSES (MULTIPLE PROFILES) ====================
+// Save a new business profile
+function saveMyBusiness() {
+    const name = document.getElementById('myBusinessName')?.value.trim();
+    const address = document.getElementById('myBusinessAddress')?.value.trim();
+    const phone = document.getElementById('myBusinessPhone')?.value.trim();
+    const email = document.getElementById('myBusinessEmail')?.value.trim();
+    
+    if (!name) {
+        showNotification('Business name is required', 'error');
+        return;
+    }
+    
+    let myBusinesses = JSON.parse(localStorage.getItem('worklog_my_businesses') || '[]');
+    
+    // Check for duplicate
+    const existing = myBusinesses.find(b => b.name === name);
+    if (existing) {
+        if (!confirm(`Business "${name}" already exists. Update it?`)) return;
+        existing.address = address;
+        existing.phone = phone;
+        existing.email = email;
+    } else {
+        myBusinesses.push({
+            id: Date.now().toString(),
+            name: name,
+            address: address,
+            phone: phone,
+            email: email,
+            createdAt: new Date().toISOString()
+        });
+    }
+    
+    localStorage.setItem('worklog_my_businesses', JSON.stringify(myBusinesses));
+    loadMyBusinesses();
+    clearMyBusinessForm();
+    showNotification(`Business "${name}" saved!`, 'success');
+}
+
+// Load my businesses into dropdown
+function loadMyBusinesses() {
+    const myBusinesses = JSON.parse(localStorage.getItem('worklog_my_businesses') || '[]');
+    const select = document.getElementById('myBusinessSelect');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">-- Select Business Profile --</option>' +
+        myBusinesses.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+    
+    console.log(`✅ Loaded ${myBusinesses.length} business profiles`);
+}
+
+// Load selected business into the main profile form
+function loadSelectedBusiness() {
+    const select = document.getElementById('myBusinessSelect');
+    const selectedId = select?.value;
+    if (!selectedId) return;
+    
+    const myBusinesses = JSON.parse(localStorage.getItem('worklog_my_businesses') || '[]');
+    const business = myBusinesses.find(b => b.id === selectedId);
+    
+    if (business) {
+        // Fill the business info form
+        document.getElementById('profileBusinessName').value = business.name;
+        document.getElementById('profileBusinessAddress').value = business.address || '';
+        document.getElementById('profileBusinessPhone').value = business.phone || '';
+        document.getElementById('profileBusinessEmail').value = business.email || '';
+        
+        // Also fill the edit form fields for reference
+        document.getElementById('myBusinessName').value = business.name;
+        document.getElementById('myBusinessAddress').value = business.address || '';
+        document.getElementById('myBusinessPhone').value = business.phone || '';
+        document.getElementById('myBusinessEmail').value = business.email || '';
+        
+        showNotification(`Loaded: ${business.name}`, 'success');
+    }
+}
+
+// Use selected business for invoices and claims
+function useSelectedBusiness() {
+    const select = document.getElementById('myBusinessSelect');
+    const selectedId = select?.value;
+    if (!selectedId) {
+        showNotification('Select a business first', 'warning');
+        return;
+    }
+    
+    const myBusinesses = JSON.parse(localStorage.getItem('worklog_my_businesses') || '[]');
+    const business = myBusinesses.find(b => b.id === selectedId);
+    
+    if (business) {
+        // Save as active business
+        localStorage.setItem('invoiceBusinessName', business.name);
+        localStorage.setItem('businessAddress', business.address || '');
+        localStorage.setItem('businessPhone', business.phone || '');
+        localStorage.setItem('businessEmail', business.email || '');
+        
+        // Update the main profile
+        const storageKey = `user_profile_${localStorage.getItem('userEmail')?.replace(/[^a-zA-Z0-9]/g, '_') || 'default'}`;
+        const userProfile = JSON.parse(localStorage.getItem(storageKey) || '{}');
+        userProfile.businessName = business.name;
+        userProfile.businessAddress = business.address;
+        userProfile.businessPhone = business.phone;
+        userProfile.businessEmail = business.email;
+        localStorage.setItem(storageKey, JSON.stringify(userProfile));
+        
+        // Update form fields
+        const invoiceBusinessName = document.getElementById('invoiceBusinessName');
+        if (invoiceBusinessName) invoiceBusinessName.value = business.name;
+        
+        showNotification(`Now using: ${business.name} for invoices and claims`, 'success');
+    }
+}
+
+// Delete a business profile
+function deleteMyBusiness() {
+    const select = document.getElementById('myBusinessSelect');
+    const selectedId = select?.value;
+    if (!selectedId) {
+        showNotification('Select a business to delete', 'warning');
+        return;
+    }
+    
+    let myBusinesses = JSON.parse(localStorage.getItem('worklog_my_businesses') || '[]');
+    const business = myBusinesses.find(b => b.id === selectedId);
+    
+    if (!confirm(`Delete "${business?.name}"? This cannot be undone.`)) return;
+    
+    myBusinesses = myBusinesses.filter(b => b.id !== selectedId);
+    localStorage.setItem('worklog_my_businesses', JSON.stringify(myBusinesses));
+    loadMyBusinesses();
+    clearMyBusinessForm();
+    showNotification(`Business "${business?.name}" deleted`, 'success');
+}
+
+// Clear the add business form
+function clearMyBusinessForm() {
+    document.getElementById('myBusinessName').value = '';
+    document.getElementById('myBusinessAddress').value = '';
+    document.getElementById('myBusinessPhone').value = '';
+    document.getElementById('myBusinessEmail').value = '';
+}
+
+// Initialize My Businesses section
+function initMyBusinesses() {
+    loadMyBusinesses();
+    
+    const saveBtn = document.getElementById('saveMyBusinessBtn');
+    if (saveBtn) {
+        const newBtn = saveBtn.cloneNode(true);
+        saveBtn.parentNode.replaceChild(newBtn, saveBtn);
+        newBtn.onclick = saveMyBusiness;
+    }
+    
+    const select = document.getElementById('myBusinessSelect');
+    if (select) {
+        select.onchange = loadSelectedBusiness;
+    }
+    
+    const useBtn = document.getElementById('useSelectedBusinessBtn');
+    if (useBtn) {
+        const newUseBtn = useBtn.cloneNode(true);
+        useBtn.parentNode.replaceChild(newUseBtn, useBtn);
+        newUseBtn.onclick = useSelectedBusiness;
+    }
+    
+    const deleteBtn = document.getElementById('deleteMyBusinessBtn');
+    if (deleteBtn) {
+        const newDeleteBtn = deleteBtn.cloneNode(true);
+        deleteBtn.parentNode.replaceChild(newDeleteBtn, deleteBtn);
+        newDeleteBtn.onclick = deleteMyBusiness;
+    }
+}
+
 // Load user business info into profile form
 function loadUserBusinessInfo() {
     const userEmail = localStorage.getItem('userEmail');
