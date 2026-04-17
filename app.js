@@ -2961,7 +2961,6 @@ function updateLastSessionDisplay() {
 }
 
 // ==================== PAYMENT FUNCTIONS WITH BALANCE TRACKING ====================
-
 // Load payments and calculate balances
 function loadPayments() {
     const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
@@ -2987,19 +2986,18 @@ function loadPayments() {
     if (totalStudentsElem) totalStudentsElem.textContent = students.length;
     
     const totalOwedElem = document.getElementById('totalOwed');
-    if (totalOwedElem) totalOwedElem.textContent = `$${outstanding.toFixed(2)}`;
+    if (totalOwedElem) totalOwedElem.textContent = `$${Math.abs(outstanding).toFixed(2)}`;
     
     const monthlyPaymentsElem = document.getElementById('monthlyPayments');
     if (monthlyPaymentsElem) monthlyPaymentsElem.textContent = `$${thisMonth.toFixed(2)}`;
     
-    // Display student balances
+    // Display student balances with OWED amounts clearly
     displayStudentBalances(students, payments, worklogs);
     
-    // Display payment activity
+    // Display payment activity with edit/delete buttons
     displayPaymentActivity(payments);
 }
 
-// Display student balances (who owes what)
 function displayStudentBalances(students, payments, worklogs) {
     const container = document.getElementById('studentBalancesContainer');
     if (!container) return;
@@ -3043,15 +3041,20 @@ function displayStudentBalances(students, payments, worklogs) {
         
         let statusClass = '';
         let statusText = '';
+        let amountColor = '';
+        
         if (balance > 0) {
             statusClass = 'status-owed';
-            statusText = '⚠️ Owes';
+            statusText = '🔴 OWES';
+            amountColor = '#f44336';
         } else if (balance < 0) {
             statusClass = 'status-credit';
-            statusText = '✅ Credit';
+            statusText = '🟢 CREDIT';
+            amountColor = '#4CAF50';
         } else {
             statusClass = 'status-paid';
-            statusText = '✓ Paid';
+            statusText = '✅ PAID IN FULL';
+            amountColor = '#666';
         }
         
         return `
@@ -3061,20 +3064,38 @@ function displayStudentBalances(students, payments, worklogs) {
                         <strong>${student.name}</strong>
                         <span style="color: #666; font-size: 0.85em;"> (${student.studentId})</span>
                     </div>
-                    <div class="${statusClass}" style="font-weight: bold; ${balance > 0 ? 'color: #f44336;' : balance < 0 ? 'color: #4CAF50;' : 'color: #666;'}">
+                    <div style="font-weight: bold; color: ${amountColor}; font-size: 1.1em;">
                         ${statusText}: $${Math.abs(balance).toFixed(2)}
                     </div>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.85em; color: #666;">
-                    <span>Earned: $${earned.toFixed(2)}</span>
-                    <span>Paid: $${paid.toFixed(2)}</span>
+                    <span>💰 Earned: $${earned.toFixed(2)}</span>
+                    <span>💵 Paid: $${paid.toFixed(2)}</span>
+                    <span>📊 Owed: $${balance > 0 ? balance.toFixed(2) : '0.00'}</span>
                 </div>
             </div>
         `;
     }).join('');
+    
+    // Add total summary at the top
+    const totalOwed = sortedStudents.reduce((sum, student) => {
+        const earned = studentEarnings[student.id] || 0;
+        const paid = studentPayments[student.id] || 0;
+        return sum + (earned - paid);
+    }, 0);
+    
+    const summaryHTML = `
+        <div style="background: #f0f0f0; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span><strong>📊 TOTAL OUTSTANDING:</strong></span>
+                <span style="font-size: 1.2em; font-weight: bold; color: ${totalOwed > 0 ? '#f44336' : '#4CAF50'};">$${Math.abs(totalOwed).toFixed(2)} ${totalOwed > 0 ? 'owed' : 'credit'}</span>
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = summaryHTML + container.innerHTML;
 }
 
-// Display payment activity log
 function displayPaymentActivity(payments) {
     const container = document.getElementById('paymentActivityLog');
     if (!container) return;
@@ -3089,20 +3110,20 @@ function displayPaymentActivity(payments) {
         return (b.paymentDate || '').localeCompare(a.paymentDate || '');
     });
     
-    container.innerHTML = sortedPayments.slice(0, 20).map(payment => {
+    container.innerHTML = sortedPayments.map(payment => {
         const displayDate = formatDisplayDate(payment.paymentDate);
         return `
             <div class="payment-item" data-id="${payment.id}" style="border-bottom: 1px solid #eee; padding: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                <div>
+                <div style="flex: 2;">
                     <div><strong>${payment.studentName || 'Unknown'}</strong></div>
                     <div style="font-size: 0.85em; color: #666;">${displayDate} • ${payment.paymentMethod || 'Cash'}</div>
                     ${payment.notes ? `<div style="font-size: 0.8em; color: #888;">📝 ${payment.notes}</div>` : ''}
                 </div>
                 <div style="text-align: right;">
-                    <div style="font-weight: bold; color: #4CAF50;">+$${payment.paymentAmount.toFixed(2)}</div>
-                    <div style="margin-top: 5px;">
-                        <button class="payment-edit-btn" data-id="${payment.id}" style="background: #4CAF50; color: white; border: none; border-radius: 4px; padding: 3px 8px; margin-right: 5px; cursor: pointer;">✏️ Edit</button>
-                        <button class="payment-delete-btn" data-id="${payment.id}" style="background: #f44336; color: white; border: none; border-radius: 4px; padding: 3px 8px; cursor: pointer;">🗑️ Delete</button>
+                    <div style="font-weight: bold; color: #4CAF50; font-size: 1.1em;">+$${payment.paymentAmount.toFixed(2)}</div>
+                    <div style="margin-top: 8px;">
+                        <button class="payment-edit-btn" data-id="${payment.id}" style="background: #4CAF50; color: white; border: none; border-radius: 4px; padding: 5px 12px; margin-right: 5px; cursor: pointer;">✏️ Edit</button>
+                        <button class="payment-delete-btn" data-id="${payment.id}" style="background: #f44336; color: white; border: none; border-radius: 4px; padding: 5px 12px; cursor: pointer;">🗑️ Delete</button>
                     </div>
                 </div>
             </div>
