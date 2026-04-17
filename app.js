@@ -1202,7 +1202,6 @@ function stopAutoSync() {
 }
 
 // ==================== CROSS-DEVICE SYNC ====================
-let isSyncing = false;
 let lastSyncData = null;
 
 function initCrossDeviceSync() {
