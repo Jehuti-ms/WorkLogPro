@@ -4077,6 +4077,7 @@ window.cancelWorklogEdit = cancelWorklogEdit;
 window.cancelMarksEdit = cancelMarksEdit;
 window.cancelAttendanceEdit = cancelAttendanceEdit;
 window.cancelPaymentEdit = cancelPaymentEdit;
+window.loadAttendance = loadAttendance;
 
 console.log('✅ All functions exposed to global scope - Students tab should now work');
 
