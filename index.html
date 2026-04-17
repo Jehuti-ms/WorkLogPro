@@ -143,8 +143,6 @@
         <button id="clearDataBtn" class="button danger" title="Clear All Data">🗑️ Clear</button>
     </div>
      
-     
-
     <!-- Tabs -->
     <div class="tabs-container">
      <div class="tabs">
@@ -402,76 +400,103 @@
       <div class="section-header">
         <h2>💰 Payment Management</h2>
         <div class="student-stats">
-          <span class="stat-text">Total Students: <span id="totalStudentsCount">0</span></span>
+          <span class="stat-badge" id="paymentsCount">0</span>
           <span class="stat-divider">|</span>
-          <span class="stat-text">Total Owed: <span id="totalOwed">$0</span></span>
+          <span class="stat-text">💰 Total Received: <span id="totalReceived">$0</span></span>
           <span class="stat-divider">|</span>
-          <span class="stat-text">This Month: <span id="monthlyPayments">$0</span></span>
+          <span class="stat-text">📊 Outstanding: <span id="outstandingBalance">$0</span></span>
+          <span class="stat-divider">|</span>
+          <span class="stat-text">📅 This Month: <span id="monthlyPayments">$0</span></span>
         </div>
       </div>
-
+    
       <div class="form-grid">
         <div class="section-card">
           <h3>💳 Record Payment</h3>
           <form id="paymentForm">
             <div class="form-group">
+              <label for="paymentType">Payment Type *</label>
+              <select id="paymentType" required>
+                <option value="student">👨‍🎓 Student Payment (They pay you)</option>
+                <option value="institution">🏢 Institution Payment (They pay you)</option>
+              </select>
+            </div>
+            
+            <div class="form-group" id="studentPaymentGroup">
               <label for="paymentStudent">Student *</label>
-              <select id="paymentStudent" required>
+              <select id="paymentStudent">
                 <option value="">Select Student</option>
               </select>
             </div>
+            
+            <div class="form-group" id="institutionPaymentGroup" style="display: none;">
+              <label for="paymentInstitution">Institution *</label>
+              <input type="text" id="paymentInstitution" placeholder="e.g., BVTB, Ministry of Education">
+            </div>
+            
             <div class="form-group">
               <label for="paymentAmount">Amount ($) *</label>
               <input type="number" id="paymentAmount" step="0.01" min="0.01" required>
             </div>
+            
             <div class="form-group">
               <label for="paymentDate">Date *</label>
               <input type="date" id="paymentDate" required>
             </div>
+            
             <div class="form-group">
               <label for="paymentMethod">Method</label>
               <select id="paymentMethod">
-                <option>Cash</option>
-                <option>Bank Transfer</option>
-                <option>Credit Card</option>
-                <option>PayPal</option>
-                <option>Other</option>
+                <option>💵 Cash</option>
+                <option>🏦 Bank Transfer</option>
+                <option>💳 Credit Card</option>
+                <option>📝 Cheque</option>
+                <option>🌐 Online</option>
               </select>
             </div>
+            
             <div class="form-group">
               <label for="paymentNotes">Notes</label>
-              <textarea id="paymentNotes"></textarea>
+              <textarea id="paymentNotes" rows="2" placeholder="Optional notes..."></textarea>
             </div>
+            
             <div class="form-actions">
-              <button type="submit" class="button primary" id="paymentSubmitBtn">💾 Record Payment</button>
+              <button type="submit" class="button primary" id="paymentSubmitBtn">💰 Record Payment</button>
               <button type="button" class="button secondary" onclick="resetPaymentForm()">🗑️ Clear Form</button>
               <button type="button" class="button warning" id="cancelPaymentBtn" style="display: none;">❌ Cancel Edit</button>
             </div>
           </form>
         </div>
-
+    
         <div class="section-card">
-          <h3>👥 Student Balances</h3>
+          <h3>👥 What Students Owe You</h3>
           <div id="studentBalancesContainer">
-            <p class="empty-message">No payment data yet.</p>
+            <p class="empty-message">No student session data yet. Add student worklogs to see what they owe.</p>
           </div>
         </div>
-
+    
         <div class="section-card">
-          <h3>📜 Payment Activity</h3>
+          <h3>🏢 What Institutions Owe You</h3>
+          <div id="institutionBalancesContainer">
+            <p class="empty-message">No institution worklogs yet. Add institution worklogs to see what they owe.</p>
+          </div>
+        </div>
+    
+        <div class="section-card">
+          <h3>📜 Recent Payments</h3>
           <div id="paymentActivityLog">
             <p class="empty-message">No recent payment activity.</p>
           </div>
         </div>
       </div>
     </div>
-
-   <!-- Reports Tab -->
-<div id="reports" class="tabcontent">
-  <div class="section-header">
-    <h2>📈 Reports & Documents</h2>
-    <p>Summaries of students, hours, marks, payments, and generate official BVTB forms.</p>
-  </div>
+    
+       <!-- Reports Tab -->
+    <div id="reports" class="tabcontent">
+      <div class="section-header">
+        <h2>📈 Reports & Documents</h2>
+        <p>Summaries of students, hours, marks, payments, and generate official BVTB forms.</p>
+      </div>
 
     <!-- ===== MY BUSINESSES (Multiple Profiles) ===== -->
 <div class="my-businesses" style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #2196F315 0%, #1976D215 100%); border: 1px solid var(--border); border-radius: 12px;">
