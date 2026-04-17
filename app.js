@@ -2330,6 +2330,9 @@ function loadAttendance() {
     const attendanceCount = document.getElementById('attendanceCount');
     if (attendanceCount) attendanceCount.textContent = attendance.length;
     
+    // Update the last session display
+    updateLastSessionDisplay(); 
+    
     if (!attendance.length) {
         container.innerHTML = '<p class="empty-message">No attendance records yet.</p>';
         return;
@@ -2463,6 +2466,7 @@ function deleteAttendance(attendanceId) {
     showNotification('Attendance record deleted', 'success');
     loadAttendance();
     updateProfileStats();
+    updateLastSessionDisplay();
 }
 
 // Cancel edit
@@ -2562,6 +2566,7 @@ function saveAttendance() {
     // Refresh display
     loadAttendance();
     updateProfileStats();
+    updateLastSessionDisplay();
 }
 
 // Update attendance statistics
@@ -2591,6 +2596,30 @@ function formatAttendanceDate(dateString) {
     if (!dateString || dateString === 'Never') return 'Never';
     const parts = dateString.split('-');
     return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+// Update the last session display in attendance header
+function updateLastSessionDisplay() {
+    const attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
+    
+    if (attendance.length === 0) {
+        document.getElementById('lastSessionDate').textContent = 'Never';
+        return;
+    }
+    
+    // Sort by date (newest first)
+    const sortedAttendance = [...attendance].sort((a, b) => {
+        return b.attendanceDate.localeCompare(a.attendanceDate);
+    });
+    
+    const lastDate = sortedAttendance[0].attendanceDate;
+    
+    // Format from YYYY-MM-DD to DD/MM/YYYY
+    const parts = lastDate.split('-');
+    const formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+    
+    document.getElementById('lastSessionDate').textContent = formattedDate;
+    console.log(`✅ Last session updated: ${formattedDate}`);
 }
 
 // =========================== PAYMENTS =========================
