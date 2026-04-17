@@ -473,6 +473,10 @@ class ReportManager {
     }
 
     generateInvoice() {
+        const businessName = localStorage.getItem('businessName') || 'WorkLog Systems';
+        const businessAddress = localStorage.getItem('businessAddress') || '123 Business St, City';
+        const businessPhone = localStorage.getItem('businessPhone') || '(555) 123-4567';
+        const businessEmail = localStorage.getItem('businessEmail') || 'info@worklog.com';
         var invoiceNumber = document.getElementById('invoiceNumber') ? document.getElementById('invoiceNumber').value : '003';
         var invoiceDate = document.getElementById('invoiceDate') ? document.getElementById('invoiceDate').value : null;
         var invoiceTo = document.getElementById('invoiceTo') ? document.getElementById('invoiceTo').value : 'Barbados Vocational Board\nLawrence Green House\nCulloden Road, St. Michael';
