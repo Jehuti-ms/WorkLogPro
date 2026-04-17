@@ -385,24 +385,48 @@ class ReportManager {
         }
     }
 
-   generateClaimForm() {
-    // Get user info from profile (no hardcoded defaults)
+generateClaimForm() {
+    // Load user profile data into form fields if they are empty
     const userEmail = localStorage.getItem('userEmail');
     const storageKey = `user_profile_${userEmail ? userEmail.replace(/[^a-zA-Z0-9]/g, '_') : 'default'}`;
     const userProfile = JSON.parse(localStorage.getItem(storageKey) || '{}');
     
-    // Get values from profile or form fields (with fallbacks that prompt user to set up profile)
-    var name = document.getElementById('claimName') ? document.getElementById('claimName').value : (userProfile.businessName || '');
-    var address = document.getElementById('claimAddress') ? document.getElementById('claimAddress').value : (userProfile.businessAddress || '');
-    var homePhone = document.getElementById('claimHomePhone') ? document.getElementById('claimHomePhone').value : (userProfile.businessPhone || '');
-    var workPhone = document.getElementById('claimWorkPhone') ? document.getElementById('claimWorkPhone').value : (userProfile.businessPhone || '');
+    // Check if profile is empty
+    const hasProfile = userProfile.businessName || userProfile.businessAddress || userProfile.businessPhone;
+    
+    // Populate form fields from profile if they are empty
+    const claimNameField = document.getElementById('claimName');
+    if (claimNameField && !claimNameField.value && userProfile.businessName) {
+        claimNameField.value = userProfile.businessName;
+    }
+    
+    const claimAddressField = document.getElementById('claimAddress');
+    if (claimAddressField && !claimAddressField.value && userProfile.businessAddress) {
+        claimAddressField.value = userProfile.businessAddress;
+    }
+    
+    const claimHomePhoneField = document.getElementById('claimHomePhone');
+    if (claimHomePhoneField && !claimHomePhoneField.value && userProfile.businessPhone) {
+        claimHomePhoneField.value = userProfile.businessPhone;
+    }
+    
+    const claimWorkPhoneField = document.getElementById('claimWorkPhone');
+    if (claimWorkPhoneField && !claimWorkPhoneField.value && userProfile.businessPhone) {
+        claimWorkPhoneField.value = userProfile.businessPhone;
+    }
+    
+    // Now get values from form fields
+    var name = document.getElementById('claimName') ? document.getElementById('claimName').value : '';
+    var address = document.getElementById('claimAddress') ? document.getElementById('claimAddress').value : '';
+    var homePhone = document.getElementById('claimHomePhone') ? document.getElementById('claimHomePhone').value : '';
+    var workPhone = document.getElementById('claimWorkPhone') ? document.getElementById('claimWorkPhone').value : '';
     var programme = document.getElementById('claimProgramme') ? document.getElementById('claimProgramme').value : 'Cosmetology';
     var startDate = document.getElementById('claimStartDate') ? document.getElementById('claimStartDate').value : null;
     var endDate = document.getElementById('claimEndDate') ? document.getElementById('claimEndDate').value : null;
     
-    // Check if user has set up their profile
+    // If still empty after trying to load from profile, prompt user
     if (!name || !address || !homePhone) {
-        if (confirm('Your profile information is incomplete. Would you like to update it now?')) {
+        if (confirm('Please set up your business information in your profile first.')) {
             document.getElementById('profileBtn')?.click();
         }
         return;
@@ -412,8 +436,8 @@ class ReportManager {
         alert('Please select start and end dates');
         return;
     }
-      
-        var entries = this.getEntriesInDateRange(startDate, endDate);
+    
+      var entries = this.getEntriesInDateRange(startDate, endDate);
         
         if (entries.length === 0) {
             alert('No worklog entries found in this date range');
