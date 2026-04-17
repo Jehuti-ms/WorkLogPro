@@ -4050,3 +4050,4 @@ if (document.readyState === 'loading') {
 }
 
 console.log('✅ App initialization script loaded');
+}
