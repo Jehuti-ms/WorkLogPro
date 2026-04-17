@@ -4049,7 +4049,8 @@ if (document.readyState === 'loading') {
   setTimeout(initApp, 300);
 }
 
-    // ==================== EXPOSE FUNCTIONS TO GLOBAL SCOPE ====================
+   // ==================== EXPOSE FUNCTIONS TO GLOBAL SCOPE ====================
+// This ensures all important functions are accessible from the console and HTML onclick handlers
 window.loadStudents = loadStudents;
 window.loadHours = loadHours;
 window.loadMarks = loadMarks;
@@ -4061,6 +4062,23 @@ window.updateLastSessionDisplay = updateLastSessionDisplay;
 window.saveWorklogEntry = saveWorklogEntry;
 window.editWorklogEntry = editWorklogEntry;
 window.deleteWorklogEntry = deleteWorklogEntry;
+window.saveMark = saveMark;
+window.editMark = editMark;
+window.deleteMark = deleteMark;
+window.saveAttendance = saveAttendance;
+window.editAttendance = editAttendance;
+window.deleteAttendance = deleteAttendance;
+window.savePayment = savePayment;
+window.editPayment = editPayment;
+window.deletePayment = deletePayment;
+window.editStudent = editStudent;
+window.deleteStudent = deleteStudent;
+window.cancelWorklogEdit = cancelWorklogEdit;
+window.cancelMarksEdit = cancelMarksEdit;
+window.cancelAttendanceEdit = cancelAttendanceEdit;
+window.cancelPaymentEdit = cancelPaymentEdit;
+
+console.log('✅ All functions exposed to global scope - Students tab should now work');
 
 console.log('✅ All functions exposed to global scope');
 console.log('✅ App initialization script loaded');
