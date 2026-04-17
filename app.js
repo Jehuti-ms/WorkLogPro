@@ -1797,6 +1797,10 @@ function saveUserBusinessInfo() {
     updateFormsWithUserInfo();
 }
 
+function saveBusinessInfo() {
+    saveUserBusinessInfo();
+}
+
 // Load user business info into profile form
 function loadUserBusinessInfo() {
     const userEmail = localStorage.getItem('userEmail');
