@@ -1858,11 +1858,14 @@ function loadMarks() {
 
 // ==================== ATTENDANCE FUNCTIONS WITH EDIT/DELETE ====================
 
+// ==================== ATTENDANCE FUNCTIONS WITH EDIT/DELETE ====================
+
 function loadAttendance() {
     const container = document.getElementById('attendanceContainer');
     if (!container) return;
     
     const attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
+    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
     const attendanceCount = document.getElementById('attendanceCount');
     if (attendanceCount) attendanceCount.textContent = attendance.length;
     
@@ -1871,24 +1874,32 @@ function loadAttendance() {
         return;
     }
     
-    container.innerHTML = attendance.map(record => `
-        <div class="attendance-card" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #fff;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <div>
-                    <strong>📚 ${record.attendanceSubject}</strong>
-                    <span style="margin-left: 10px; color: #666;">📅 ${new Date(record.attendanceDate).toLocaleDateString()}</span>
+    container.innerHTML = attendance.map(record => {
+        // Get student names from IDs
+        const presentStudentNames = (record.presentStudents || []).map(studentId => {
+            const student = students.find(s => s.id === studentId);
+            return student ? `${student.name} (${student.studentId})` : studentId;
+        });
+        
+        return `
+            <div class="attendance-card" style="border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #fff;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <div>
+                        <strong>📚 ${record.attendanceSubject}</strong>
+                        <span style="margin-left: 10px; color: #666;">📅 ${new Date(record.attendanceDate).toLocaleDateString()}</span>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button onclick="editAttendance('${record.id}')" style="background: #4CAF50; color: white; border: none; border-radius: 4px; padding: 5px 10px; cursor: pointer;">✏️ Edit</button>
+                        <button onclick="deleteAttendance('${record.id}')" style="background: #f44336; color: white; border: none; border-radius: 4px; padding: 5px 10px; cursor: pointer;">🗑️ Delete</button>
+                    </div>
                 </div>
-                <div style="display: flex; gap: 8px;">
-                    <button onclick="editAttendance('${record.id}')" style="background: #4CAF50; color: white; border: none; border-radius: 4px; padding: 5px 10px; cursor: pointer;">✏️ Edit</button>
-                    <button onclick="deleteAttendance('${record.id}')" style="background: #f44336; color: white; border: none; border-radius: 4px; padding: 5px 10px; cursor: pointer;">🗑️ Delete</button>
+                <div>👥 <strong>${presentStudentNames.length}</strong> students present</div>
+                <div style="font-size: 0.85em; color: #555; margin-top: 5px;">
+                    Present: ${presentStudentNames.join(', ')}
                 </div>
             </div>
-            <div>👥 <strong>${record.presentStudents?.length || 0}</strong> students present</div>
-            <div style="font-size: 0.85em; color: #555; margin-top: 5px;">
-                Present: ${(record.presentStudents || []).join(', ')}
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 function editAttendance(attendanceId) {
@@ -1905,15 +1916,16 @@ function editAttendance(attendanceId) {
     document.getElementById('attendanceDate').value = record.attendanceDate;
     document.getElementById('attendanceSubject').value = record.attendanceSubject;
     
+    // Clear all checkboxes first
     document.querySelectorAll('#attendanceStudents input[type="checkbox"]').forEach(cb => {
         cb.checked = false;
     });
     
-    const presentStudents = record.presentStudents || [];
+    // Check the students who were present (using student IDs)
+    const presentStudentIds = record.presentStudents || [];
     document.querySelectorAll('#attendanceStudents input[type="checkbox"]').forEach(checkbox => {
-        const label = checkbox.nextElementSibling;
-        const studentName = label ? label.textContent.split(' (')[0] : '';
-        if (presentStudents.includes(studentName)) {
+        const studentId = checkbox.value;
+        if (presentStudentIds.includes(studentId)) {
             checkbox.checked = true;
         }
     });
@@ -1976,7 +1988,6 @@ function cancelAttendanceEdit() {
     showNotification('Edit cancelled', 'info');
 }
 
-// Then REPLACE your existing saveAttendance with this:
 function saveAttendance() {
     const date = document.getElementById('attendanceDate')?.value;
     const subject = document.getElementById('attendanceSubject')?.value;
@@ -1986,11 +1997,9 @@ function saveAttendance() {
         return;
     }
     
+    // Get checked student IDs (not names)
     const checkedBoxes = document.querySelectorAll('#attendanceStudents input[type="checkbox"]:checked');
-    const presentStudents = Array.from(checkedBoxes).map(cb => {
-        const label = cb.nextElementSibling;
-        return label ? label.textContent.split(' (')[0] : cb.value;
-    });
+    const presentStudentIds = Array.from(checkedBoxes).map(cb => cb.value);
     
     let attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
     
@@ -2001,7 +2010,7 @@ function saveAttendance() {
                 ...attendance[index],
                 attendanceDate: date,
                 attendanceSubject: subject,
-                presentStudents: presentStudents,
+                presentStudents: presentStudentIds,
                 lastUpdated: new Date().toISOString()
             };
             showNotification('Attendance updated! Late students added.', 'success');
@@ -2022,7 +2031,7 @@ function saveAttendance() {
             id: Date.now().toString(),
             attendanceDate: date,
             attendanceSubject: subject,
-            presentStudents: presentStudents,
+            presentStudents: presentStudentIds,
             createdAt: new Date().toISOString()
         };
         attendance.unshift(newAttendance);
@@ -2031,12 +2040,38 @@ function saveAttendance() {
     
     localStorage.setItem('worklog_attendance', JSON.stringify(attendance));
     
+    // Reset form
     document.getElementById('attendanceDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('attendanceSubject').value = '';
     document.querySelectorAll('#attendanceStudents input[type="checkbox"]').forEach(cb => cb.checked = false);
     
     loadAttendance();
     updateProfileStats();
+}
+
+// Update refreshAttendanceStudentList to use student IDs
+function refreshAttendanceStudentList() {
+    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    const attendanceContainer = document.getElementById('attendanceStudents');
+    
+    if (!attendanceContainer) return;
+    
+    // Sort students by name for consistent ordering
+    const sortedStudents = [...students].sort((a, b) => a.name.localeCompare(b.name));
+    
+    if (sortedStudents.length === 0) {
+        attendanceContainer.innerHTML = '<p class="empty-message">No students registered.</p>';
+        return;
+    }
+    
+    attendanceContainer.innerHTML = sortedStudents.map(s => `
+        <div class="attendance-student-item" style="display: flex; align-items: center; margin-bottom: 8px;">
+            <input type="checkbox" id="att_student_${s.id}" value="${s.id}">
+            <label for="att_student_${s.id}" style="margin-left: 8px;">${s.name} (${s.studentId})</label>
+        </div>
+    `).join('');
+    
+    console.log(`✅ Attendance refreshed with ${sortedStudents.length} students (sorted by name)`);
 }
 
 function loadPayments() {
