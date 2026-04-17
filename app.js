@@ -2231,19 +2231,27 @@ function refreshAttendanceStudentList() {
     
     if (!attendanceContainer) return;
     
-    if (students.length === 0) {
-        attendanceContainer.innerHTML = '<p class="empty-message">No students registered.</p>';
+    // Sort students by ID number (numeric order)
+    const sortedStudents = [...students].sort((a, b) => {
+        // Extract numbers from student ID (e.g., "001" -> 1, "S123" -> 123)
+        const numA = parseInt((a.studentId || '').toString().replace(/\D/g, '')) || 0;
+        const numB = parseInt((b.studentId || '').toString().replace(/\D/g, '')) || 0;
+        return numA - numB;
+    });
+    
+    if (sortedStudents.length === 0) {
+        attendanceContainer.innerHTML = '<p class="empty-message">No students registered. Add students in the Students tab first.</p>';
         return;
     }
     
-    attendanceContainer.innerHTML = students.map(s => `
-        <div class="attendance-student-item">
-            <input type="checkbox" id="att_student_${s.id}" value="${s.id}">
-            <label for="att_student_${s.id}">${s.name} (${s.studentId})</label>
+    attendanceContainer.innerHTML = sortedStudents.map(s => `
+        <div class="attendance-student-item" style="display: flex; align-items: center; margin-bottom: 8px; padding: 5px;">
+            <input type="checkbox" id="att_${s.id}" value="${s.id}" style="margin-right: 8px;">
+            <label for="att_${s.id}" style="cursor: pointer;">${s.name} (${s.studentId})</label>
         </div>
     `).join('');
     
-    console.log(`✅ Attendance refreshed: ${students.length} students`);
+    console.log(`✅ Attendance student list refreshed: ${sortedStudents.length} students (sorted by ID number)`);
 }
 
 // ==================== OTHER LOAD FUNCTIONS (simplified) ====================
