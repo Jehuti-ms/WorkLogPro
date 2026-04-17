@@ -472,11 +472,21 @@ class ReportManager {
         this.showPreview(claimHTML, 'Claim Form');
     }
 
-    generateInvoice() {
-        const businessName = localStorage.getItem('invoiceBusinessName') || localStorage.getItem('businessName') || 'Your Business Name';
-        const businessAddress = localStorage.getItem('businessAddress') || '123 Business St, City';
-        const businessPhone = localStorage.getItem('businessPhone') || '(555) 123-4567';
-        const businessEmail = localStorage.getItem('businessEmail') || 'info@worklog.com';
+   generateInvoice() {
+    // Get business info from user profile (no hardcoding!)
+    const businessName = localStorage.getItem('invoiceBusinessName') || '';
+    const businessAddress = localStorage.getItem('businessAddress') || '';
+    const businessPhone = localStorage.getItem('businessPhone') || '';
+    const businessEmail = localStorage.getItem('businessEmail') || '';
+    
+    // If nothing is saved, prompt user to set up their profile
+    if (!businessName) {
+        if (confirm('Please set up your business information in your profile first.')) {
+            document.getElementById('profileBtn')?.click();
+        }
+        return;
+    }
+    
         var invoiceNumber = document.getElementById('invoiceNumber') ? document.getElementById('invoiceNumber').value : '003';
         var invoiceDate = document.getElementById('invoiceDate') ? document.getElementById('invoiceDate').value : null;
         var invoiceTo = document.getElementById('invoiceTo') ? document.getElementById('invoiceTo').value : 'Barbados Vocational Board\nLawrence Green House\nCulloden Road, St. Michael';
