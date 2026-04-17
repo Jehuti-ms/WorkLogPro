@@ -2710,6 +2710,8 @@ function loadAttendance() {
         btn.removeEventListener('click', handleDeleteClick);
         btn.addEventListener('click', handleDeleteClick);
     });
+
+    updateLastSessionDisplay();
 }
 
 function handleEditClick(e) {
@@ -2925,22 +2927,35 @@ function updateLastSessionDisplay() {
     const attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
     
     if (attendance.length === 0) {
-        document.getElementById('lastSessionDate').textContent = 'Never';
+        const lastSessionElement = document.getElementById('lastSessionDate');
+        if (lastSessionElement) lastSessionElement.textContent = 'Never';
         return;
     }
     
-    // Sort by date (newest first)
+    // Sort using string comparison (no timezone issues)
     const sortedAttendance = [...attendance].sort((a, b) => {
-        return b.attendanceDate.localeCompare(a.attendanceDate);
+        return (b.attendanceDate || '').localeCompare(a.attendanceDate || '');
     });
     
     const lastDate = sortedAttendance[0].attendanceDate;
     
-    // Format from YYYY-MM-DD to DD/MM/YYYY
-    const parts = lastDate.split('-');
-    const formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+    // Use the global date formatter if available
+    let formattedDate = lastDate;
+    if (typeof window.formatDisplayDate === 'function') {
+        formattedDate = window.formatDisplayDate(lastDate);
+    } else {
+        // Fallback: convert YYYY-MM-DD to DD/MM/YYYY
+        const parts = lastDate.split('-');
+        if (parts.length === 3) {
+            formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+    }
     
-    document.getElementById('lastSessionDate').textContent = formattedDate;
+    const lastSessionElement = document.getElementById('lastSessionDate');
+    if (lastSessionElement) {
+        lastSessionElement.textContent = formattedDate;
+    }
+    
     console.log(`✅ Last session updated: ${formattedDate}`);
 }
 
