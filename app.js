@@ -1131,15 +1131,6 @@ function setupButton(id, handler) {
   newBtn.addEventListener('click', handler);
 }
 
-function setupButton(id, handler) {
-  const btn = document.getElementById(id);
-  if (!btn) return;
-  
-  const newBtn = btn.cloneNode(true);
-  btn.parentNode.replaceChild(newBtn, btn);
-  newBtn.addEventListener('click', handler);
-}
-
 function updateSyncIndicator(text, status) {
   const indicator = document.getElementById('syncIndicator');
   if (!indicator) return;
@@ -1346,8 +1337,6 @@ window.manualSync = manualSync;
 
 // ============== DEBOUNCED ==============
 // Replace the debounced version
-const saveToCloud = debounce(saveToCloudImmediately, 2000);
-
 // Save to cloud whenever data changes
 function debounce(func, wait) {
   let timeout;
