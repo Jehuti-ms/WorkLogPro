@@ -385,20 +385,34 @@ class ReportManager {
         }
     }
 
-    generateClaimForm() {
-        var name = document.getElementById('claimName') ? document.getElementById('claimName').value : 'David Moseley';
-        var address = document.getElementById('claimAddress') ? document.getElementById('claimAddress').value : '142 Coles Terrace, St.Philip';
-        var homePhone = document.getElementById('claimHomePhone') ? document.getElementById('claimHomePhone').value : '572-8040';
-        var workPhone = document.getElementById('claimWorkPhone') ? document.getElementById('claimWorkPhone').value : '367-8221';
-        var programme = document.getElementById('claimProgramme') ? document.getElementById('claimProgramme').value : 'Cosmetology';
-        var startDate = document.getElementById('claimStartDate') ? document.getElementById('claimStartDate').value : null;
-        var endDate = document.getElementById('claimEndDate') ? document.getElementById('claimEndDate').value : null;
-        
-        if (!startDate || !endDate) {
-            alert('Please select start and end dates');
-            return;
+   generateClaimForm() {
+    // Get user info from profile (no hardcoded defaults)
+    const userEmail = localStorage.getItem('userEmail');
+    const storageKey = `user_profile_${userEmail ? userEmail.replace(/[^a-zA-Z0-9]/g, '_') : 'default'}`;
+    const userProfile = JSON.parse(localStorage.getItem(storageKey) || '{}');
+    
+    // Get values from profile or form fields (with fallbacks that prompt user to set up profile)
+    var name = document.getElementById('claimName') ? document.getElementById('claimName').value : (userProfile.businessName || '');
+    var address = document.getElementById('claimAddress') ? document.getElementById('claimAddress').value : (userProfile.businessAddress || '');
+    var homePhone = document.getElementById('claimHomePhone') ? document.getElementById('claimHomePhone').value : (userProfile.businessPhone || '');
+    var workPhone = document.getElementById('claimWorkPhone') ? document.getElementById('claimWorkPhone').value : (userProfile.businessPhone || '');
+    var programme = document.getElementById('claimProgramme') ? document.getElementById('claimProgramme').value : 'Cosmetology';
+    var startDate = document.getElementById('claimStartDate') ? document.getElementById('claimStartDate').value : null;
+    var endDate = document.getElementById('claimEndDate') ? document.getElementById('claimEndDate').value : null;
+    
+    // Check if user has set up their profile
+    if (!name || !address || !homePhone) {
+        if (confirm('Your profile information is incomplete. Would you like to update it now?')) {
+            document.getElementById('profileBtn')?.click();
         }
-        
+        return;
+    }
+    
+    if (!startDate || !endDate) {
+        alert('Please select start and end dates');
+        return;
+    }
+      
         var entries = this.getEntriesInDateRange(startDate, endDate);
         
         if (entries.length === 0) {
