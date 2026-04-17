@@ -2379,6 +2379,8 @@ function loadAttendance() {
         btn.removeEventListener('click', handleDeleteClick);
         btn.addEventListener('click', handleDeleteClick);
     });
+
+     updateAttendanceStats();
 }
 
 function handleEditClick(e) {
@@ -2560,6 +2562,35 @@ function saveAttendance() {
     // Refresh display
     loadAttendance();
     updateProfileStats();
+}
+
+// Update attendance statistics
+function updateAttendanceStats() {
+    const attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
+    
+    // Sort by date (newest first)
+    const sortedAttendance = [...attendance].sort((a, b) => {
+        return b.attendanceDate.localeCompare(a.attendanceDate);
+    });
+    
+    const lastSession = sortedAttendance.length > 0 ? sortedAttendance[0].attendanceDate : 'Never';
+    const totalSessions = attendance.length;
+    
+    // Update the UI elements
+    const lastSessionElement = document.getElementById('lastAttendanceSession');
+    const totalSessionsElement = document.getElementById('totalAttendanceSessions');
+    
+    if (lastSessionElement) lastSessionElement.textContent = lastSession;
+    if (totalSessionsElement) totalSessionsElement.textContent = totalSessions;
+    
+    console.log(`📊 Attendance stats - Last Session: ${lastSession}, Total: ${totalSessions}`);
+}
+
+// Format date for display (YYYY-MM-DD to DD/MM/YYYY)
+function formatAttendanceDate(dateString) {
+    if (!dateString || dateString === 'Never') return 'Never';
+    const parts = dateString.split('-');
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
 // =========================== PAYMENTS =========================
