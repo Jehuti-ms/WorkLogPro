@@ -2239,11 +2239,10 @@ function refreshAttendanceStudentList() {
     
     if (!attendanceContainer) return;
     
-    // Sort students by ID number (numeric order)
+    // Sort by ID NUMBER (001, 002, 003...)
     const sortedStudents = [...students].sort((a, b) => {
-        // Extract numbers from student ID (e.g., "001" -> 1, "S123" -> 123)
-        const numA = parseInt((a.studentId || '').toString().replace(/\D/g, '')) || 0;
-        const numB = parseInt((b.studentId || '').toString().replace(/\D/g, '')) || 0;
+        const numA = parseInt((a.studentId || '0').toString().replace(/\D/g, '')) || 0;
+        const numB = parseInt((b.studentId || '0').toString().replace(/\D/g, '')) || 0;
         return numA - numB;
     });
     
