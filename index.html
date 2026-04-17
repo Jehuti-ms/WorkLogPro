@@ -486,6 +486,31 @@
     <small class="help-text" style="display: block; margin-top: 8px;">💡 This is YOUR information that will appear on invoices and claim forms.</small>
   </div>
 
+  <!-- ===== MY BUSINESSES (Multiple Profiles) ===== -->
+<div class="my-businesses" style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #2196F315 0%, #1976D215 100%); border: 1px solid var(--border); border-radius: 12px;">
+  <h4 style="margin-top: 0; margin-bottom: 12px;">🏢 My Businesses</h4>
+  
+  <!-- Add New Business Form -->
+  <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+    <input type="text" id="myBusinessName" placeholder="Business Name" style="flex: 2; padding: 8px; border: 1px solid var(--border); border-radius: 6px;">
+    <input type="text" id="myBusinessAddress" placeholder="Address" style="flex: 3; padding: 8px; border: 1px solid var(--border); border-radius: 6px;">
+    <input type="text" id="myBusinessPhone" placeholder="Phone" style="flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 6px;">
+    <input type="text" id="myBusinessEmail" placeholder="Email" style="flex: 2; padding: 8px; border: 1px solid var(--border); border-radius: 6px;">
+    <button id="saveMyBusinessBtn" class="button primary" style="padding: 8px 16px;">➕ Add Business</button>
+  </div>
+  
+  <!-- Select Active Business -->
+  <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+    <select id="myBusinessSelect" style="flex: 2; padding: 8px; border: 1px solid var(--border); border-radius: 6px;">
+      <option value="">-- Select Business Profile --</option>
+    </select>
+    <button id="useSelectedBusinessBtn" class="button" style="padding: 8px 16px;">📋 Use Selected</button>
+    <button id="deleteMyBusinessBtn" class="button small danger" style="background: #f44336; color: white; padding: 8px 16px;">🗑️ Delete</button>
+  </div>
+  
+  <small class="help-text" style="display: block;">💡 Save multiple business profiles (e.g., "David's Tutoring", "Moseley Consulting"). Select one to use for invoices and claims.</small>
+</div>
+  
   <!-- ===== SAVED ORGANIZATIONS (CLIENTS) ===== -->
   <div class="client-manager" style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border: 1px solid var(--border); border-radius: 12px;">
     <h4 style="margin-top: 0; margin-bottom: 12px;">🏢 Saved Organizations (Clients)</h4>
