@@ -204,34 +204,35 @@ function initApp() {
 }
 
 async function safeInit() {
-  console.log('🔒 Starting safe initialization...');
-  
-  try {
-    await delay(800);
+    console.log('🔒 Starting safe initialization...');
     
-    const isAuthenticated = await checkAuthentication();
-    
-    if (!isAuthenticated && !redirectInProgress) {
-      console.log('❌ Not authenticated');
-      redirectInProgress = true;
-      
-      setTimeout(() => {
-        console.log('🔄 Redirecting to auth page...');
-        window.location.href = 'auth.html';
-      }, 1200);
-      return;
+    try {
+        await delay(800);
+        
+        const isAuthenticated = await checkAuthentication();
+        
+        if (!isAuthenticated && !redirectInProgress) {
+            console.log('❌ Not authenticated');
+            redirectInProgress = true;
+            setTimeout(() => {
+                window.location.href = 'auth.html';
+            }, 1200);
+            return;
+        }
+        
+        console.log('✅ Authentication successful');
+        appInitialized = true;
+        
+        syncDataManagerWithAuth();
+        initAppUI();
+        
+        // ADD THIS ONE LINE - handles cross-device sync automatically
+        ensureCrossDeviceSync();
+        
+    } catch (error) {
+        console.error('❌ Safe init error:', error);
+        showErrorMessage('App initialization failed. Please refresh.');
     }
-    
-    console.log('✅ Authentication successful');
-    appInitialized = true;
-    
-    syncDataManagerWithAuth();
-    initAppUI();
-    
-  } catch (error) {
-    console.error('❌ Safe init error:', error);
-    showErrorMessage('App initialization failed. Please refresh.');
-  }
 }
 
 // ==================== SYNC DATAMANAGER ====================
@@ -1760,6 +1761,42 @@ async function importFromCloud() {
   }
 }
 
+// ==================== ENSURE CROSS-DEVICE SYNC ====================
+// Add this function to your app.js
+
+async function ensureCrossDeviceSync() {
+    console.log('🔄 Ensuring cross-device sync...');
+    
+    const user = firebase.auth().currentUser;
+    if (!user || !window.syncService) return;
+    
+    // On login, check if we have cloud data and sync it
+    setTimeout(async () => {
+        try {
+            // Try to get cloud data
+            const cloudData = await window.syncService.getRemoteData();
+            
+            if (cloudData && cloudData.students && cloudData.students.length > 0) {
+                // Cloud has data - download it
+                console.log('📥 Cloud data found, syncing to this device...');
+                await window.syncService.importFromCloud();
+                showNotification('Synced with cloud', 'success');
+                location.reload();
+            } else {
+                // No cloud data - upload local data
+                console.log('📤 No cloud data, uploading local data...');
+                await window.syncService.sync(true, false);
+                showNotification('Data backed up to cloud', 'success');
+            }
+        } catch (error) {
+            console.log('Sync check error:', error);
+        }
+    }, 3000);
+}
+
+// Call this after login in your safeInit function
+// Add this line after initAppUI():
+// ensureCrossDeviceSync();
 // ==================== DATA EXPORT/IMPORT ====================
 function exportAllData() {
   const data = {
