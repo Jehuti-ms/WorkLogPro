@@ -1591,7 +1591,6 @@ const CloudData = {
     }
 };
 
-window.CloudData = CloudData;
 
 // ==================== CLOUD FUNCTIONS (Updated for CloudData) ====================
 
