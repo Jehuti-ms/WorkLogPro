@@ -167,7 +167,7 @@ const BackupManager = {
 
 const SmartBackupManager = {
     // Configuration
-    MAX_BACKUPS: 10,           // Maximum number of backups to keep
+    MAX_BACKUPS: 5,           // Maximum number of backups to keep
     MAX_BACKUP_AGE_DAYS: 7,    // Delete backups older than 7 days
     AUTO_CLEANUP: true,        // Automatically clean old backups
     
@@ -352,46 +352,6 @@ if (typeof window !== 'undefined') {
     SmartBackupManager.init();
     window.SmartBackupManager = SmartBackupManager;
 }
-
-// Replace the existing createBackup function with the smart version
-const originalCreateBackup = window.BackupManager?.createBackup;
-if (window.BackupManager) {
-    window.BackupManager.createBackup = function(data, type) {
-        return SmartBackupManager.createBackup(data, type);
-    };
-}
-
-// Add this at the beginning of your createBackup function
-createBackup: function(data, type = 'auto') {
-    // Limit backups to 5 maximum
-    const backups = [];
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('worklog_backup_')) {
-            backups.push(key);
-        }
-    }
-    
-    // If more than 5 backups, delete the oldest
-    if (backups.length >= 5) {
-        backups.sort(); // Oldest first (by timestamp in key)
-        const toDelete = backups.slice(0, backups.length - 4); // Keep last 4
-        toDelete.forEach(key => localStorage.removeItem(key));
-        console.log(`🧹 Cleaned up ${toDelete.length} old backups`);
-    }
-    
-    // Then create the new backup
-    const timestamp = Date.now();
-    const key = `worklog_backup_${timestamp}`;
-    try {
-        localStorage.setItem(key, JSON.stringify(data));
-        console.log(`💾 Backup created: ${key}`);
-        return key;
-    } catch (error) {
-        console.error('❌ Backup failed:', error);
-        return null;
-    }
-} 
 
 // Initialize
 BackupManager.init();
