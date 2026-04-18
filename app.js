@@ -1397,49 +1397,69 @@ function clearAllData() {
   setTimeout(() => location.reload(), 1500);
 }
 
-// ==================== CLOUD DATA SERVICE (Agrimetrics-style) ====================
+// ==================== CLOUD DATA SERVICE (REAL-TIME SYNC) ====================
+// Add this to your app.js - this is the missing piece!
 
 const CloudData = {
     db: null,
     userId: null,
-    listeners: {},
     
     // Initialize with current user
     init: function(userId) {
+        if (!firebase || !firebase.firestore) {
+            console.error('Firestore not available');
+            return false;
+        }
         this.db = firebase.firestore();
         this.userId = userId;
         console.log('☁️ CloudData initialized for:', userId);
-        return this;
+        return true;
     },
     
     // ===== STUDENTS =====
     async getStudents() {
-        if (!this.db || !this.userId) return [];
+        if (!this.db || !this.userId) {
+            return JSON.parse(localStorage.getItem('worklog_students') || '[]');
+        }
         
-        const doc = await this.db.collection('users').doc(this.userId)
-            .collection('data').doc('students').get();
-        
-        if (doc.exists) {
-            const students = doc.data().list || [];
-            localStorage.setItem('worklog_students', JSON.stringify(students));
-            return students;
+        try {
+            const doc = await this.db.collection('users').doc(this.userId)
+                .collection('data').doc('students').get();
+            
+            if (doc.exists) {
+                const students = doc.data().list || [];
+                localStorage.setItem('worklog_students', JSON.stringify(students));
+                console.log(`📥 Loaded ${students.length} students from cloud`);
+                return students;
+            }
+        } catch (error) {
+            console.log('Offline, using cached students:', error);
         }
         return JSON.parse(localStorage.getItem('worklog_students') || '[]');
     },
     
     async saveStudents(students) {
-        if (!this.db || !this.userId) return false;
+        if (!this.db || !this.userId) {
+            localStorage.setItem('worklog_students', JSON.stringify(students));
+            return false;
+        }
         
-        await this.db.collection('users').doc(this.userId)
-            .collection('data').doc('students').set({
-                list: students,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        localStorage.setItem('worklog_students', JSON.stringify(students));
-        return true;
+        try {
+            await this.db.collection('users').doc(this.userId)
+                .collection('data').doc('students').set({
+                    list: students,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            localStorage.setItem('worklog_students', JSON.stringify(students));
+            console.log(`📤 Saved ${students.length} students to cloud`);
+            return true;
+        } catch (error) {
+            console.error('Save to cloud failed:', error);
+            localStorage.setItem('worklog_students', JSON.stringify(students));
+            return false;
+        }
     },
     
-    // Real-time listener for students
     onStudentsChanged(callback) {
         if (!this.db || !this.userId) return null;
         
@@ -1449,36 +1469,54 @@ const CloudData = {
                 if (doc.exists) {
                     const students = doc.data().list || [];
                     localStorage.setItem('worklog_students', JSON.stringify(students));
-                    callback(students);
+                    console.log('🔄 Real-time: students updated');
+                    if (callback) callback(students);
                 }
             });
     },
     
     // ===== WORKLOG ENTRIES =====
     async getWorklogEntries() {
-        if (!this.db || !this.userId) return [];
+        if (!this.db || !this.userId) {
+            return JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+        }
         
-        const doc = await this.db.collection('users').doc(this.userId)
-            .collection('data').doc('worklog_entries').get();
-        
-        if (doc.exists) {
-            const entries = doc.data().list || [];
-            localStorage.setItem('worklog_entries', JSON.stringify(entries));
-            return entries;
+        try {
+            const doc = await this.db.collection('users').doc(this.userId)
+                .collection('data').doc('worklog_entries').get();
+            
+            if (doc.exists) {
+                const entries = doc.data().list || [];
+                localStorage.setItem('worklog_entries', JSON.stringify(entries));
+                console.log(`📥 Loaded ${entries.length} worklog entries from cloud`);
+                return entries;
+            }
+        } catch (error) {
+            console.log('Offline, using cached worklogs:', error);
         }
         return JSON.parse(localStorage.getItem('worklog_entries') || '[]');
     },
     
     async saveWorklogEntries(entries) {
-        if (!this.db || !this.userId) return false;
+        if (!this.db || !this.userId) {
+            localStorage.setItem('worklog_entries', JSON.stringify(entries));
+            return false;
+        }
         
-        await this.db.collection('users').doc(this.userId)
-            .collection('data').doc('worklog_entries').set({
-                list: entries,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        localStorage.setItem('worklog_entries', JSON.stringify(entries));
-        return true;
+        try {
+            await this.db.collection('users').doc(this.userId)
+                .collection('data').doc('worklog_entries').set({
+                    list: entries,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            localStorage.setItem('worklog_entries', JSON.stringify(entries));
+            console.log(`📤 Saved ${entries.length} worklog entries to cloud`);
+            return true;
+        } catch (error) {
+            console.error('Save to cloud failed:', error);
+            localStorage.setItem('worklog_entries', JSON.stringify(entries));
+            return false;
+        }
     },
     
     onWorklogChanged(callback) {
@@ -1490,106 +1528,94 @@ const CloudData = {
                 if (doc.exists) {
                     const entries = doc.data().list || [];
                     localStorage.setItem('worklog_entries', JSON.stringify(entries));
-                    callback(entries);
+                    console.log('🔄 Real-time: worklog entries updated');
+                    if (callback) callback(entries);
                 }
             });
     },
     
     // ===== MARKS =====
     async getMarks() {
-        if (!this.db || !this.userId) return [];
-        
-        const doc = await this.db.collection('users').doc(this.userId)
-            .collection('data').doc('marks').get();
-        
-        if (doc.exists) {
-            const marks = doc.data().list || [];
-            localStorage.setItem('worklog_marks', JSON.stringify(marks));
-            return marks;
-        }
+        if (!this.db || !this.userId) return JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+        try {
+            const doc = await this.db.collection('users').doc(this.userId).collection('data').doc('marks').get();
+            if (doc.exists) {
+                const marks = doc.data().list || [];
+                localStorage.setItem('worklog_marks', JSON.stringify(marks));
+                return marks;
+            }
+        } catch (error) { console.log('Offline, using cached marks'); }
         return JSON.parse(localStorage.getItem('worklog_marks') || '[]');
     },
     
     async saveMarks(marks) {
         if (!this.db || !this.userId) return false;
-        
-        await this.db.collection('users').doc(this.userId)
-            .collection('data').doc('marks').set({
+        try {
+            await this.db.collection('users').doc(this.userId).collection('data').doc('marks').set({
                 list: marks,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-        localStorage.setItem('worklog_marks', JSON.stringify(marks));
-        return true;
-    },
-    
-    onMarksChanged(callback) {
-        if (!this.db || !this.userId) return null;
-        
-        return this.db.collection('users').doc(this.userId)
-            .collection('data').doc('marks')
-            .onSnapshot((doc) => {
-                if (doc.exists) {
-                    const marks = doc.data().list || [];
-                    localStorage.setItem('worklog_marks', JSON.stringify(marks));
-                    callback(marks);
-                }
-            });
+            localStorage.setItem('worklog_marks', JSON.stringify(marks));
+            return true;
+        } catch (error) { return false; }
     },
     
     // ===== ATTENDANCE =====
     async getAttendance() {
-        if (!this.db || !this.userId) return [];
-        
-        const doc = await this.db.collection('users').doc(this.userId)
-            .collection('data').doc('attendance').get();
-        
-        if (doc.exists) {
-            const attendance = doc.data().list || [];
-            localStorage.setItem('worklog_attendance', JSON.stringify(attendance));
-            return attendance;
-        }
+        if (!this.db || !this.userId) return JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
+        try {
+            const doc = await this.db.collection('users').doc(this.userId).collection('data').doc('attendance').get();
+            if (doc.exists) {
+                const attendance = doc.data().list || [];
+                localStorage.setItem('worklog_attendance', JSON.stringify(attendance));
+                return attendance;
+            }
+        } catch (error) { console.log('Offline, using cached attendance'); }
         return JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
     },
     
     async saveAttendance(attendance) {
         if (!this.db || !this.userId) return false;
-        
-        await this.db.collection('users').doc(this.userId)
-            .collection('data').doc('attendance').set({
+        try {
+            await this.db.collection('users').doc(this.userId).collection('data').doc('attendance').set({
                 list: attendance,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-        localStorage.setItem('worklog_attendance', JSON.stringify(attendance));
-        return true;
+            localStorage.setItem('worklog_attendance', JSON.stringify(attendance));
+            return true;
+        } catch (error) { return false; }
     },
     
     // ===== PAYMENTS =====
     async getPayments() {
-        if (!this.db || !this.userId) return [];
-        
-        const doc = await this.db.collection('users').doc(this.userId)
-            .collection('data').doc('payments').get();
-        
-        if (doc.exists) {
-            const payments = doc.data().list || [];
-            localStorage.setItem('worklog_payments', JSON.stringify(payments));
-            return payments;
-        }
+        if (!this.db || !this.userId) return JSON.parse(localStorage.getItem('worklog_payments') || '[]');
+        try {
+            const doc = await this.db.collection('users').doc(this.userId).collection('data').doc('payments').get();
+            if (doc.exists) {
+                const payments = doc.data().list || [];
+                localStorage.setItem('worklog_payments', JSON.stringify(payments));
+                return payments;
+            }
+        } catch (error) { console.log('Offline, using cached payments'); }
         return JSON.parse(localStorage.getItem('worklog_payments') || '[]');
     },
     
     async savePayments(payments) {
         if (!this.db || !this.userId) return false;
-        
-        await this.db.collection('users').doc(this.userId)
-            .collection('data').doc('payments').set({
+        try {
+            await this.db.collection('users').doc(this.userId).collection('data').doc('payments').set({
                 list: payments,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-        localStorage.setItem('worklog_payments', JSON.stringify(payments));
-        return true;
+            localStorage.setItem('worklog_payments', JSON.stringify(payments));
+            return true;
+        } catch (error) { return false; }
     }
 };
+
+// Expose to global scope
+window.CloudData = CloudData;
+console.log('✅ CloudData loaded and ready');
 
 
 // ==================== CLOUD FUNCTIONS (Updated for CloudData) ====================
