@@ -1,3 +1,128 @@
+// ==================== CLOUD-FIRST DATA SERVICE ====================
+// Add this to your app.js - this makes cloud the source of truth
+
+const CloudDataService = {
+    db: null,
+    userId: null,
+    listeners: {},
+    
+    // Initialize with current user
+    init: function(userId) {
+        this.db = firebase.firestore();
+        this.userId = userId;
+        console.log('☁️ CloudDataService initialized for:', userId);
+    },
+    
+    // LOAD STUDENTS (from cloud, with localStorage cache)
+    loadStudents: async function() {
+        if (!this.db || !this.userId) return [];
+        
+        try {
+            const doc = await this.db.collection('users').doc(this.userId)
+                .collection('data').doc('students').get();
+            
+            if (doc.exists) {
+                const students = doc.data().list || [];
+                // Cache in localStorage for offline
+                localStorage.setItem('worklog_students', JSON.stringify(students));
+                console.log(`📥 Loaded ${students.length} students from cloud`);
+                return students;
+            }
+        } catch (error) {
+            console.log('Offline or error, using cached data:', error);
+        }
+        
+        // Fallback to localStorage
+        return JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    },
+    
+    // SAVE STUDENTS (to cloud first, then cache)
+    saveStudents: async function(students) {
+        if (!this.db || !this.userId) {
+            // Offline - save to localStorage only
+            localStorage.setItem('worklog_students', JSON.stringify(students));
+            return false;
+        }
+        
+        try {
+            // Save to cloud FIRST
+            await this.db.collection('users').doc(this.userId)
+                .collection('data').doc('students').set({
+                    list: students,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            
+            // Then cache locally
+            localStorage.setItem('worklog_students', JSON.stringify(students));
+            console.log(`📤 Saved ${students.length} students to cloud`);
+            return true;
+        } catch (error) {
+            console.error('Save to cloud failed:', error);
+            localStorage.setItem('worklog_students', JSON.stringify(students));
+            return false;
+        }
+    },
+    
+    // REAL-TIME LISTENER - this is the key for cross-device sync
+    subscribeToStudents: function(callback) {
+        if (!this.db || !this.userId) return null;
+        
+        const unsubscribe = this.db.collection('users').doc(this.userId)
+            .collection('data').doc('students')
+            .onSnapshot((doc) => {
+                if (doc.exists) {
+                    const students = doc.data().list || [];
+                    localStorage.setItem('worklog_students', JSON.stringify(students));
+                    console.log('🔄 Real-time update: students changed');
+                    if (callback) callback(students);
+                }
+            }, (error) => {
+                console.log('Listener error (offline mode):', error);
+            });
+        
+        return unsubscribe;
+    },
+    
+    // Same for worklog entries
+    loadWorklogEntries: async function() {
+        if (!this.db || !this.userId) return JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+        
+        try {
+            const doc = await this.db.collection('users').doc(this.userId)
+                .collection('data').doc('worklog_entries').get();
+            
+            if (doc.exists) {
+                const entries = doc.data().list || [];
+                localStorage.setItem('worklog_entries', JSON.stringify(entries));
+                return entries;
+            }
+        } catch (error) {
+            console.log('Offline, using cached worklog');
+        }
+        return JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+    },
+    
+    saveWorklogEntry: async function(entries) {
+        if (!this.db || !this.userId) {
+            localStorage.setItem('worklog_entries', JSON.stringify(entries));
+            return false;
+        }
+        
+        try {
+            await this.db.collection('users').doc(this.userId)
+                .collection('data').doc('worklog_entries').set({
+                    list: entries,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            localStorage.setItem('worklog_entries', JSON.stringify(entries));
+            return true;
+        } catch (error) {
+            localStorage.setItem('worklog_entries', JSON.stringify(entries));
+            return false;
+        }
+    }
+};
+
 // ==================== GLOBAL VARIABLES ====================
 let appInitialized = false;
 let redirectInProgress = false;
@@ -185,131 +310,6 @@ async function checkAuthentication() {
   console.log('❌ No authentication found');
   return false;
 }
-
-// ==================== CLOUD-FIRST DATA SERVICE ====================
-// Add this to your app.js - this makes cloud the source of truth
-
-const CloudDataService = {
-    db: null,
-    userId: null,
-    listeners: {},
-    
-    // Initialize with current user
-    init: function(userId) {
-        this.db = firebase.firestore();
-        this.userId = userId;
-        console.log('☁️ CloudDataService initialized for:', userId);
-    },
-    
-    // LOAD STUDENTS (from cloud, with localStorage cache)
-    loadStudents: async function() {
-        if (!this.db || !this.userId) return [];
-        
-        try {
-            const doc = await this.db.collection('users').doc(this.userId)
-                .collection('data').doc('students').get();
-            
-            if (doc.exists) {
-                const students = doc.data().list || [];
-                // Cache in localStorage for offline
-                localStorage.setItem('worklog_students', JSON.stringify(students));
-                console.log(`📥 Loaded ${students.length} students from cloud`);
-                return students;
-            }
-        } catch (error) {
-            console.log('Offline or error, using cached data:', error);
-        }
-        
-        // Fallback to localStorage
-        return JSON.parse(localStorage.getItem('worklog_students') || '[]');
-    },
-    
-    // SAVE STUDENTS (to cloud first, then cache)
-    saveStudents: async function(students) {
-        if (!this.db || !this.userId) {
-            // Offline - save to localStorage only
-            localStorage.setItem('worklog_students', JSON.stringify(students));
-            return false;
-        }
-        
-        try {
-            // Save to cloud FIRST
-            await this.db.collection('users').doc(this.userId)
-                .collection('data').doc('students').set({
-                    list: students,
-                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            
-            // Then cache locally
-            localStorage.setItem('worklog_students', JSON.stringify(students));
-            console.log(`📤 Saved ${students.length} students to cloud`);
-            return true;
-        } catch (error) {
-            console.error('Save to cloud failed:', error);
-            localStorage.setItem('worklog_students', JSON.stringify(students));
-            return false;
-        }
-    },
-    
-    // REAL-TIME LISTENER - this is the key for cross-device sync
-    subscribeToStudents: function(callback) {
-        if (!this.db || !this.userId) return null;
-        
-        const unsubscribe = this.db.collection('users').doc(this.userId)
-            .collection('data').doc('students')
-            .onSnapshot((doc) => {
-                if (doc.exists) {
-                    const students = doc.data().list || [];
-                    localStorage.setItem('worklog_students', JSON.stringify(students));
-                    console.log('🔄 Real-time update: students changed');
-                    if (callback) callback(students);
-                }
-            }, (error) => {
-                console.log('Listener error (offline mode):', error);
-            });
-        
-        return unsubscribe;
-    },
-    
-    // Same for worklog entries
-    loadWorklogEntries: async function() {
-        if (!this.db || !this.userId) return JSON.parse(localStorage.getItem('worklog_entries') || '[]');
-        
-        try {
-            const doc = await this.db.collection('users').doc(this.userId)
-                .collection('data').doc('worklog_entries').get();
-            
-            if (doc.exists) {
-                const entries = doc.data().list || [];
-                localStorage.setItem('worklog_entries', JSON.stringify(entries));
-                return entries;
-            }
-        } catch (error) {
-            console.log('Offline, using cached worklog');
-        }
-        return JSON.parse(localStorage.getItem('worklog_entries') || '[]');
-    },
-    
-    saveWorklogEntry: async function(entries) {
-        if (!this.db || !this.userId) {
-            localStorage.setItem('worklog_entries', JSON.stringify(entries));
-            return false;
-        }
-        
-        try {
-            await this.db.collection('users').doc(this.userId)
-                .collection('data').doc('worklog_entries').set({
-                    list: entries,
-                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            localStorage.setItem('worklog_entries', JSON.stringify(entries));
-            return true;
-        } catch (error) {
-            localStorage.setItem('worklog_entries', JSON.stringify(entries));
-            return false;
-        }
-    }
-};
 
 // ==================== MAIN INITIALIZATION ====================
 function initApp() {
