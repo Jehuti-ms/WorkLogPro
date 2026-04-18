@@ -1,192 +1,3 @@
-// ==================== CLOUD-FIRST DATA SERVICE ====================
-// Add this to your app.js - this makes cloud the source of truth
-
-const CloudDataService = {
-    db: null,
-    userId: null,
-    listeners: {},
-    
-    // Initialize with current user
-    init: function(userId) {
-        this.db = firebase.firestore();
-        this.userId = userId;
-        console.log('☁️ CloudDataService initialized for:', userId);
-    },
-    
-    // LOAD STUDENTS (from cloud, with localStorage cache)
-    loadStudents: async function() {
-        if (!this.db || !this.userId) return [];
-        
-        try {
-            const doc = await this.db.collection('users').doc(this.userId)
-                .collection('data').doc('students').get();
-            
-            if (doc.exists) {
-                const students = doc.data().list || [];
-                // Cache in localStorage for offline
-                localStorage.setItem('worklog_students', JSON.stringify(students));
-                console.log(`📥 Loaded ${students.length} students from cloud`);
-                return students;
-            }
-        } catch (error) {
-            console.log('Offline or error, using cached data:', error);
-        }
-        
-        // Fallback to localStorage
-        return JSON.parse(localStorage.getItem('worklog_students') || '[]');
-    },
-    
-    // SAVE STUDENTS (to cloud first, then cache)
-    saveStudents: async function(students) {
-        if (!this.db || !this.userId) {
-            // Offline - save to localStorage only
-            localStorage.setItem('worklog_students', JSON.stringify(students));
-            return false;
-        }
-        
-        try {
-            // Save to cloud FIRST
-            await this.db.collection('users').doc(this.userId)
-                .collection('data').doc('students').set({
-                    list: students,
-                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            
-            // Then cache locally
-            localStorage.setItem('worklog_students', JSON.stringify(students));
-            console.log(`📤 Saved ${students.length} students to cloud`);
-            return true;
-        } catch (error) {
-            console.error('Save to cloud failed:', error);
-            localStorage.setItem('worklog_students', JSON.stringify(students));
-            return false;
-        }
-    },
-    
-    // REAL-TIME LISTENER - this is the key for cross-device sync
-    subscribeToStudents: function(callback) {
-        if (!this.db || !this.userId) return null;
-        
-        const unsubscribe = this.db.collection('users').doc(this.userId)
-            .collection('data').doc('students')
-            .onSnapshot((doc) => {
-                if (doc.exists) {
-                    const students = doc.data().list || [];
-                    localStorage.setItem('worklog_students', JSON.stringify(students));
-                    console.log('🔄 Real-time update: students changed');
-                    if (callback) callback(students);
-                }
-            }, (error) => {
-                console.log('Listener error (offline mode):', error);
-            });
-        
-        return unsubscribe;
-    },
-    
-    // Same for worklog entries
-    loadWorklogEntries: async function() {
-        if (!this.db || !this.userId) return JSON.parse(localStorage.getItem('worklog_entries') || '[]');
-        
-        try {
-            const doc = await this.db.collection('users').doc(this.userId)
-                .collection('data').doc('worklog_entries').get();
-            
-            if (doc.exists) {
-                const entries = doc.data().list || [];
-                localStorage.setItem('worklog_entries', JSON.stringify(entries));
-                return entries;
-            }
-        } catch (error) {
-            console.log('Offline, using cached worklog');
-        }
-        return JSON.parse(localStorage.getItem('worklog_entries') || '[]');
-    },
-    
-   saveWorklogEntry: async function(entries) {
-    if (!this.db || !this.userId) {
-        console.log('⚠️ CloudData not initialized, saving to localStorage only');
-        localStorage.setItem('worklog_entries', JSON.stringify(entries));
-        return false;
-    }
-    
-    try {
-        // Save to cloud
-        await this.db.collection('users').doc(this.userId)
-            .collection('data').doc('worklog_entries').set({
-                list: entries,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        
-        // Update local cache
-        localStorage.setItem('worklog_entries', JSON.stringify(entries));
-        
-        console.log(`📤 Saved ${entries.length} worklog entries to cloud`);
-        return true;
-        
-    } catch (error) {
-        console.error('❌ Save to cloud failed:', error);
-        
-        // Still save to localStorage even if cloud fails
-        localStorage.setItem('worklog_entries', JSON.stringify(entries));
-        
-        // Show user-friendly error
-        if (typeof showNotification === 'function') {
-            showNotification('Saved locally but cloud sync failed. Will retry later.', 'warning');
-        }
-        
-        return false;
-    }
-}
-
-       getWorklogEntries: async function() {
-    if (!this.db || !this.userId) {
-        console.log('⚠️ CloudData not initialized, using localStorage');
-        return JSON.parse(localStorage.getItem('worklog_entries') || '[]');
-    }
-    
-    try {
-        const doc = await this.db.collection('users').doc(this.userId)
-            .collection('data').doc('worklog_entries').get();
-        
-        if (doc.exists && doc.data().list) {
-            const entries = doc.data().list;
-            // Update local cache
-            localStorage.setItem('worklog_entries', JSON.stringify(entries));
-            console.log(`📥 Loaded ${entries.length} worklog entries from cloud`);
-            return entries;
-        } else {
-            console.log('📭 No cloud worklog entries found, using localStorage');
-            return JSON.parse(localStorage.getItem('worklog_entries') || '[]');
-        }
-    } catch (error) {
-        console.log('Offline or error, using cached worklog entries:', error.message);
-        return JSON.parse(localStorage.getItem('worklog_entries') || '[]');
-    }
-}
-
-onWorklogChanged(callback) {
-    if (!this.db || !this.userId) {
-        console.log('⚠️ Cannot set up listener - CloudData not initialized');
-        return null;
-    }
-    
-    console.log('🔔 Setting up real-time listener for worklog entries');
-    
-    return this.db.collection('users').doc(this.userId)
-        .collection('data').doc('worklog_entries')
-        .onSnapshot((doc) => {
-            if (doc.exists && doc.data().list) {
-                const entries = doc.data().list;
-                localStorage.setItem('worklog_entries', JSON.stringify(entries));
-                console.log('🔄 Real-time update: worklog entries changed');
-                if (callback) callback(entries);
-            }
-        }, (error) => {
-            console.log('Listener error (offline mode):', error.message);
-        });
-}
-
 // ==================== GLOBAL VARIABLES ====================
 let appInitialized = false;
 let redirectInProgress = false;
@@ -447,35 +258,6 @@ async function safeInit() {
     }
 }
     
-// Add this new function to refresh all data from cloud
-async function refreshAllDataFromCloud() {
-    console.log('🔄 Refreshing all data from cloud...');
-    
-    if (!window.CloudDataService) {
-        console.log('⚠️ CloudDataService not available');
-        return;
-    }
-    
-    try {
-        const students = await window.CloudDataService.loadStudents();
-        const worklogs = await window.CloudDataService.loadWorklogEntries();
-        
-        console.log(`✅ Cloud refresh complete: ${students.length} students, ${worklogs.length} worklogs`);
-        
-        // Trigger UI refresh
-        if (typeof loadStudents === 'function') loadStudents();
-        if (typeof loadWorklogEntries === 'function') loadWorklogEntries();
-        if (typeof updateProfileStats === 'function') updateProfileStats();
-        if (typeof updateGlobalStats === 'function') updateGlobalStats();
-        
-        if (students.length > 0) {
-            showNotification(`Synced ${students.length} students from cloud`, 'success');
-        }
-    } catch (error) {
-        console.error('Cloud refresh error:', error);
-    }
-}
-
 // ==================== SYNC DATAMANAGER ====================
 function syncDataManagerWithAuth() {
   console.log('🔄 Syncing DataManager with authentication...');
@@ -1446,39 +1228,54 @@ async function handleSync() {
 }
 
 // Export to cloud
+// Export to cloud - Uploads local data to cloud
 async function exportToCloud() {
   if (!navigator.onLine) {
     showNotification('Cannot export while offline', 'error');
     return;
   }
   
+  const user = firebase.auth().currentUser;
+  if (!user) {
+    showNotification('Please login first', 'error');
+    return;
+  }
+  
+  if (!window.CloudData) {
+    showNotification('Cloud service not available', 'error');
+    return;
+  }
+  
   showNotification('Exporting to cloud...', 'info');
   updateSyncIndicator('Uploading...', 'syncing');
   
-  if (window.syncService) {
-    const user = await window.syncService.getCurrentUser();
-    if (!user) {
-      showNotification('Please login first', 'error');
-      updateSyncIndicator('Login Required', 'error');
-      setTimeout(() => updateSyncIndicator('Online', 'online'), 2000);
-      return;
-    }
-    const result = await window.syncService.sync(true, false);
-    if (result && result.success !== false) {
-      showNotification('Data exported to cloud!', 'success');
-      updateSyncIndicator('Exported', 'online');
-      setTimeout(() => updateSyncIndicator('Online', 'online'), 2000);
-    } else {
-      showNotification('Export failed', 'error');
-      updateSyncIndicator('Export Failed', 'error');
-    }
-  } else {
-    showNotification('Cloud export not available - syncService missing', 'warning');
-    updateSyncIndicator('No Service', 'error');
+  try {
+    // Get all local data
+    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    const worklogEntries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+    const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+    const attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
+    const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
+    
+    // Save to cloud using CloudData
+    await CloudData.saveStudents(students);
+    await CloudData.saveWorklogEntries(worklogEntries);
+    await CloudData.saveMarks(marks);
+    await CloudData.saveAttendance(attendance);
+    await CloudData.savePayments(payments);
+    
+    showNotification(`Exported ${students.length} students, ${worklogEntries.length} worklogs to cloud!`, 'success');
+    updateSyncIndicator('Exported', 'online');
+    setTimeout(() => updateSyncIndicator('Online', 'online'), 2000);
+    
+  } catch (error) {
+    console.error('Export error:', error);
+    showNotification('Export failed: ' + error.message, 'error');
+    updateSyncIndicator('Export Failed', 'error');
   }
 }
 
-// Import from cloud
+// Import from cloud - Downloads cloud data and replaces local data
 async function importFromCloud() {
   if (!confirm('⚠️ Import from cloud will replace ALL local data. Continue?')) return;
   
@@ -1487,28 +1284,38 @@ async function importFromCloud() {
     return;
   }
   
+  const user = firebase.auth().currentUser;
+  if (!user) {
+    showNotification('Please login first', 'error');
+    return;
+  }
+  
+  if (!window.CloudData) {
+    showNotification('Cloud service not available', 'error');
+    return;
+  }
+  
   showNotification('Importing from cloud...', 'info');
   updateSyncIndicator('Downloading...', 'syncing');
   
-  if (window.syncService) {
-    const user = await window.syncService.getCurrentUser();
-    if (!user) {
-      showNotification('Please login first', 'error');
-      updateSyncIndicator('Login Required', 'error');
-      return;
-    }
-    const result = await window.syncService.importFromCloud();
-    if (result) {
-      showNotification('Data imported! Refreshing...', 'success');
-      updateSyncIndicator('Imported', 'online');
-      setTimeout(() => location.reload(), 1500);
-    } else {
-      showNotification('Import failed', 'error');
-      updateSyncIndicator('Import Failed', 'error');
-    }
-  } else {
-    showNotification('Cloud import not available - syncService missing', 'warning');
-    updateSyncIndicator('No Service', 'error');
+  try {
+    // Load from cloud using CloudData
+    const students = await CloudData.getStudents();
+    const worklogEntries = await CloudData.getWorklogEntries();
+    const marks = await CloudData.getMarks();
+    const attendance = await CloudData.getAttendance();
+    const payments = await CloudData.getPayments();
+    
+    showNotification(`Imported ${students.length} students, ${worklogEntries.length} worklogs from cloud!`, 'success');
+    updateSyncIndicator('Imported', 'online');
+    
+    // Refresh the page to show new data
+    setTimeout(() => location.reload(), 1500);
+    
+  } catch (error) {
+    console.error('Import error:', error);
+    showNotification('Import failed: ' + error.message, 'error');
+    updateSyncIndicator('Import Failed', 'error');
   }
 }
 
@@ -1537,6 +1344,7 @@ function stopAutoSync() {
   }
 }
 
+// ==================== FILE INPUT ====================
 // Create hidden file input for import
 function createFileInput() {
   if (document.getElementById('importFileInput')) return;
@@ -1570,6 +1378,7 @@ function createFileInput() {
   document.body.appendChild(input);
 }
 
+// ==================== DATA EXPORT/IMPORT ====================
 // Export all data to JSON file
 function exportAllData() {
   const data = {
@@ -1678,39 +1487,6 @@ function clearAllData() {
   
   showNotification('All data cleared!', 'success');
   setTimeout(() => location.reload(), 1500);
-}
-
-// ==================== FILE INPUT ====================
-function createFileInput() {
-  if (document.getElementById('importFileInput')) return;
-  
-  const input = document.createElement('input');
-  input.id = 'importFileInput';
-  input.type = 'file';
-  input.accept = '.json';
-  input.style.display = 'none';
-  
-  input.addEventListener('change', function(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      try {
-        const data = JSON.parse(e.target.result);
-        if (confirm('Import data? This will replace current data.')) {
-          importAllData(data);
-          setTimeout(() => location.reload(), 1000);
-        }
-      } catch (error) {
-        showNotification('Invalid file format', 'error');
-      }
-    };
-    reader.readAsText(file);
-    event.target.value = '';
-  });
-  
-  document.body.appendChild(input);
 }
 
 // ==================== CLOUD DATA SERVICE (Agrimetrics-style) ====================
@@ -2024,112 +1800,6 @@ async function ensureCrossDeviceSync() {
             console.log('Sync check error:', error);
         }
     }, 3000);
-}
-
-// ==================== DATA EXPORT/IMPORT ====================
-function exportAllData() {
-  const data = {
-    students: JSON.parse(localStorage.getItem('worklog_students') || '[]'),
-    hours: JSON.parse(localStorage.getItem('worklog_hours') || '[]'),
-    marks: JSON.parse(localStorage.getItem('worklog_marks') || '[]'),
-    attendance: JSON.parse(localStorage.getItem('worklog_attendance') || '[]'),
-    payments: JSON.parse(localStorage.getItem('worklog_payments') || '[]'),
-    settings: {
-      defaultHourlyRate: SimpleRateManager.get(),
-      autoSyncEnabled: localStorage.getItem('autoSyncEnabled') === 'true',
-      theme: localStorage.getItem('worklog-theme') || 'dark'
-    },
-    exportDate: new Date().toISOString()
-  };
-  
-  const dataStr = JSON.stringify(data, null, 2);
-  const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-  const fileName = `worklog-backup-${new Date().toISOString().split('T')[0]}.json`;
-  
-  const link = document.createElement('a');
-  link.href = dataUri;
-  link.download = fileName;
-  link.click();
-  
-  showNotification('Data exported!', 'success');
-}
-
-function importAllData(data) {
-  if (!data || typeof data !== 'object') {
-    showNotification('Invalid data format', 'error');
-    return;
-  }
-  
-  if (data.students) localStorage.setItem('worklog_students', JSON.stringify(data.students));
-  if (data.hours) localStorage.setItem('worklog_hours', JSON.stringify(data.hours));
-  if (data.marks) localStorage.setItem('worklog_marks', JSON.stringify(data.marks));
-  if (data.attendance) localStorage.setItem('worklog_attendance', JSON.stringify(data.attendance));
-  if (data.payments) localStorage.setItem('worklog_payments', JSON.stringify(data.payments));
-  
-  if (data.settings) {
-    if (data.settings.defaultHourlyRate) {
-      localStorage.setItem('defaultHourlyRate', data.settings.defaultHourlyRate);
-    }
-    if (data.settings.autoSyncEnabled !== undefined) {
-      localStorage.setItem('autoSyncEnabled', data.settings.autoSyncEnabled);
-    }
-    if (data.settings.theme) {
-      localStorage.setItem('worklog-theme', data.settings.theme);
-    }
-  }
-  
-  showNotification('Data imported!', 'success');
-}
-
-function fixAllStats() {
-  showNotification('Fixing statistics...', 'info');
-  
-  const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
-  const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
-  
-  const fixedHours = hours.map(h => ({
-    ...h,
-    total: (parseFloat(h.hoursWorked) || 0) * (parseFloat(h.baseRate) || 0)
-  }));
-  
-  const fixedMarks = marks.map(m => {
-    const percentage = ((parseFloat(m.marksScore) || 0) / (parseFloat(m.marksMax) || 1) * 100).toFixed(1);
-    let grade = 'F';
-    const p = parseFloat(percentage);
-    if (p >= 90) grade = 'A';
-    else if (p >= 80) grade = 'B';
-    else if (p >= 70) grade = 'C';
-    else if (p >= 60) grade = 'D';
-    return { ...m, percentage, grade };
-  });
-  
-  localStorage.setItem('worklog_hours', JSON.stringify(fixedHours));
-  localStorage.setItem('worklog_marks', JSON.stringify(fixedMarks));
-  
-  showNotification('Stats fixed!', 'success');
-  loadInitialData();
-}
-
-function clearAllData() {
-  if (!confirm('⚠️ Delete ALL data? This cannot be undone!')) return;
-  if (!confirm('LAST CHANCE: Type "DELETE" to confirm')) return;
-  if (prompt('Type DELETE to confirm:') !== 'DELETE') {
-    showNotification('Cancelled', 'warning');
-    return;
-  }
-  
-  const defaultRate = SimpleRateManager.get();
-  const theme = localStorage.getItem('worklog-theme') || 'dark';
-  const autoSync = localStorage.getItem('autoSyncEnabled');
-  
-  localStorage.clear();
-  
-  localStorage.setItem('defaultHourlyRate', defaultRate);
-  localStorage.setItem('worklog-theme', theme);
-  if (autoSync) localStorage.setItem('autoSyncEnabled', autoSync);
-  
-  showNotification('All data cleared!', 'success');
-  setTimeout(() => location.reload(), 1500);
 }
 
 // ==================== FORM INITIALIZATION ====================
@@ -4493,7 +4163,7 @@ window.cancelMarksEdit = cancelMarksEdit;
 window.cancelAttendanceEdit = cancelAttendanceEdit;
 window.cancelPaymentEdit = cancelPaymentEdit;
 window.loadAttendance = loadAttendance;
-window.CloudDataService = CloudDataService;
+window.CloudData = CloudData;
 
 console.log('✅ All functions exposed to global scope - Students tab should now work');
 
