@@ -186,6 +186,131 @@ async function checkAuthentication() {
   return false;
 }
 
+// ==================== CLOUD-FIRST DATA SERVICE ====================
+// Add this to your app.js - this makes cloud the source of truth
+
+const CloudDataService = {
+    db: null,
+    userId: null,
+    listeners: {},
+    
+    // Initialize with current user
+    init: function(userId) {
+        this.db = firebase.firestore();
+        this.userId = userId;
+        console.log('☁️ CloudDataService initialized for:', userId);
+    },
+    
+    // LOAD STUDENTS (from cloud, with localStorage cache)
+    loadStudents: async function() {
+        if (!this.db || !this.userId) return [];
+        
+        try {
+            const doc = await this.db.collection('users').doc(this.userId)
+                .collection('data').doc('students').get();
+            
+            if (doc.exists) {
+                const students = doc.data().list || [];
+                // Cache in localStorage for offline
+                localStorage.setItem('worklog_students', JSON.stringify(students));
+                console.log(`📥 Loaded ${students.length} students from cloud`);
+                return students;
+            }
+        } catch (error) {
+            console.log('Offline or error, using cached data:', error);
+        }
+        
+        // Fallback to localStorage
+        return JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    },
+    
+    // SAVE STUDENTS (to cloud first, then cache)
+    saveStudents: async function(students) {
+        if (!this.db || !this.userId) {
+            // Offline - save to localStorage only
+            localStorage.setItem('worklog_students', JSON.stringify(students));
+            return false;
+        }
+        
+        try {
+            // Save to cloud FIRST
+            await this.db.collection('users').doc(this.userId)
+                .collection('data').doc('students').set({
+                    list: students,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            
+            // Then cache locally
+            localStorage.setItem('worklog_students', JSON.stringify(students));
+            console.log(`📤 Saved ${students.length} students to cloud`);
+            return true;
+        } catch (error) {
+            console.error('Save to cloud failed:', error);
+            localStorage.setItem('worklog_students', JSON.stringify(students));
+            return false;
+        }
+    },
+    
+    // REAL-TIME LISTENER - this is the key for cross-device sync
+    subscribeToStudents: function(callback) {
+        if (!this.db || !this.userId) return null;
+        
+        const unsubscribe = this.db.collection('users').doc(this.userId)
+            .collection('data').doc('students')
+            .onSnapshot((doc) => {
+                if (doc.exists) {
+                    const students = doc.data().list || [];
+                    localStorage.setItem('worklog_students', JSON.stringify(students));
+                    console.log('🔄 Real-time update: students changed');
+                    if (callback) callback(students);
+                }
+            }, (error) => {
+                console.log('Listener error (offline mode):', error);
+            });
+        
+        return unsubscribe;
+    },
+    
+    // Same for worklog entries
+    loadWorklogEntries: async function() {
+        if (!this.db || !this.userId) return JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+        
+        try {
+            const doc = await this.db.collection('users').doc(this.userId)
+                .collection('data').doc('worklog_entries').get();
+            
+            if (doc.exists) {
+                const entries = doc.data().list || [];
+                localStorage.setItem('worklog_entries', JSON.stringify(entries));
+                return entries;
+            }
+        } catch (error) {
+            console.log('Offline, using cached worklog');
+        }
+        return JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+    },
+    
+    saveWorklogEntry: async function(entries) {
+        if (!this.db || !this.userId) {
+            localStorage.setItem('worklog_entries', JSON.stringify(entries));
+            return false;
+        }
+        
+        try {
+            await this.db.collection('users').doc(this.userId)
+                .collection('data').doc('worklog_entries').set({
+                    list: entries,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            localStorage.setItem('worklog_entries', JSON.stringify(entries));
+            return true;
+        } catch (error) {
+            localStorage.setItem('worklog_entries', JSON.stringify(entries));
+            return false;
+        }
+    }
+};
+
 // ==================== MAIN INITIALIZATION ====================
 function initApp() {
   console.log('🚀 Initializing app...');
@@ -223,15 +348,64 @@ async function safeInit() {
         console.log('✅ Authentication successful');
         appInitialized = true;
         
+        // ===== NEW: Initialize cloud service for cross-device sync =====
+        const user = firebase.auth().currentUser;
+        if (user && window.CloudDataService) {
+            console.log('☁️ Initializing CloudDataService for:', user.email);
+            window.CloudDataService.init(user.uid);
+            
+            // Set up real-time listener for students
+            window.CloudDataService.subscribeToStudents((updatedStudents) => {
+                console.log('🔄 Real-time update received from another device!');
+                if (typeof loadStudents === 'function') loadStudents();
+                if (typeof updateProfileStats === 'function') updateProfileStats();
+                if (typeof updateGlobalStats === 'function') updateGlobalStats();
+                showNotification('Data synced from another device', 'info');
+            });
+            
+            // Load fresh data from cloud
+            await refreshAllDataFromCloud();
+        }
+        // ===== END OF CLOUD SERVICE INIT =====
+        
         syncDataManagerWithAuth();
         initAppUI();
         
-        // ADD THIS ONE LINE - handles cross-device sync automatically
+        // Keep your existing cross-device sync as backup
         ensureCrossDeviceSync();
         
     } catch (error) {
         console.error('❌ Safe init error:', error);
         showErrorMessage('App initialization failed. Please refresh.');
+    }
+}
+
+// Add this new function to refresh all data from cloud
+async function refreshAllDataFromCloud() {
+    console.log('🔄 Refreshing all data from cloud...');
+    
+    if (!window.CloudDataService) {
+        console.log('⚠️ CloudDataService not available');
+        return;
+    }
+    
+    try {
+        const students = await window.CloudDataService.loadStudents();
+        const worklogs = await window.CloudDataService.loadWorklogEntries();
+        
+        console.log(`✅ Cloud refresh complete: ${students.length} students, ${worklogs.length} worklogs`);
+        
+        // Trigger UI refresh
+        if (typeof loadStudents === 'function') loadStudents();
+        if (typeof loadWorklogEntries === 'function') loadWorklogEntries();
+        if (typeof updateProfileStats === 'function') updateProfileStats();
+        if (typeof updateGlobalStats === 'function') updateGlobalStats();
+        
+        if (students.length > 0) {
+            showNotification(`Synced ${students.length} students from cloud`, 'success');
+        }
+    } catch (error) {
+        console.error('Cloud refresh error:', error);
     }
 }
 
@@ -1680,6 +1854,7 @@ window.importFromCloud = importFromCloud;
 window.exportToCloud = exportToCloud;
 window.initializeSyncSystem = initializeSyncSystem;
 
+
 // ==================== FILE INPUT ====================
 function createFileInput() {
   if (document.getElementById('importFileInput')) return;
@@ -1794,9 +1969,6 @@ async function ensureCrossDeviceSync() {
     }, 3000);
 }
 
-// Call this after login in your safeInit function
-// Add this line after initAppUI():
-// ensureCrossDeviceSync();
 // ==================== DATA EXPORT/IMPORT ====================
 function exportAllData() {
   const data = {
@@ -1957,26 +2129,38 @@ function initForms() {
     window.updateMarksPercentage = updateMarksPercentage;
 }
 
-function saveStudentToLocalStorage(studentData) {
-  try {
-    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-    studentData.id = 'student_' + Date.now();
-    studentData.createdAt = new Date().toISOString();
-    students.push(studentData);
-    localStorage.setItem('worklog_students', JSON.stringify(students));
-    
-    showNotification('Student saved!', 'success');
-    document.getElementById('studentForm').reset();
-    
-    loadStudents();
-    updateProfileStats();
-    updateGlobalStats();
-    refreshAttendanceStudentList();
-    
-  } catch (error) {
-    console.error('Error saving student:', error);
-    showNotification('Error saving student', 'error');
-  }
+async function saveStudentToLocalStorage(studentData) {
+    try {
+        // Get existing students
+        let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+        
+        // Add new student
+        studentData.id = 'student_' + Date.now();
+        studentData.createdAt = new Date().toISOString();
+        students.push(studentData);
+        
+        // SAVE TO CLOUD FIRST (this enables cross-device sync)
+        const saved = await CloudDataService.saveStudents(students);
+        
+        if (saved) {
+            showNotification('Student saved and synced to cloud!', 'success');
+        } else {
+            showNotification('Student saved locally (will sync when online)', 'warning');
+        }
+        
+        // Refresh UI
+        if (typeof loadStudents === 'function') loadStudents();
+        if (typeof updateProfileStats === 'function') updateProfileStats();
+        if (typeof updateGlobalStats === 'function') updateGlobalStats();
+        
+        // Clear form
+        const form = document.getElementById('studentForm');
+        if (form) form.reset();
+        
+    } catch (error) {
+        console.error('Error saving student:', error);
+        showNotification('Error saving student', 'error');
+    }
 }
 
 // ==================== REPORT FUNCTIONS ====================
@@ -4241,6 +4425,7 @@ window.cancelMarksEdit = cancelMarksEdit;
 window.cancelAttendanceEdit = cancelAttendanceEdit;
 window.cancelPaymentEdit = cancelPaymentEdit;
 window.loadAttendance = loadAttendance;
+window.CloudDataService = CloudDataService;
 
 console.log('✅ All functions exposed to global scope - Students tab should now work');
 
