@@ -102,26 +102,90 @@ const CloudDataService = {
         return JSON.parse(localStorage.getItem('worklog_entries') || '[]');
     },
     
-    saveWorklogEntry: async function(entries) {
-        if (!this.db || !this.userId) {
-            localStorage.setItem('worklog_entries', JSON.stringify(entries));
-            return false;
+   saveWorklogEntry: async function(entries) {
+    if (!this.db || !this.userId) {
+        console.log('⚠️ CloudData not initialized, saving to localStorage only');
+        localStorage.setItem('worklog_entries', JSON.stringify(entries));
+        return false;
+    }
+    
+    try {
+        // Save to cloud
+        await this.db.collection('users').doc(this.userId)
+            .collection('data').doc('worklog_entries').set({
+                list: entries,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        
+        // Update local cache
+        localStorage.setItem('worklog_entries', JSON.stringify(entries));
+        
+        console.log(`📤 Saved ${entries.length} worklog entries to cloud`);
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Save to cloud failed:', error);
+        
+        // Still save to localStorage even if cloud fails
+        localStorage.setItem('worklog_entries', JSON.stringify(entries));
+        
+        // Show user-friendly error
+        if (typeof showNotification === 'function') {
+            showNotification('Saved locally but cloud sync failed. Will retry later.', 'warning');
         }
         
-        try {
-            await this.db.collection('users').doc(this.userId)
-                .collection('data').doc('worklog_entries').set({
-                    list: entries,
-                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            localStorage.setItem('worklog_entries', JSON.stringify(entries));
-            return true;
-        } catch (error) {
-            localStorage.setItem('worklog_entries', JSON.stringify(entries));
-            return false;
-        }
+        return false;
     }
-};
+}
+
+       getWorklogEntries: async function() {
+    if (!this.db || !this.userId) {
+        console.log('⚠️ CloudData not initialized, using localStorage');
+        return JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+    }
+    
+    try {
+        const doc = await this.db.collection('users').doc(this.userId)
+            .collection('data').doc('worklog_entries').get();
+        
+        if (doc.exists && doc.data().list) {
+            const entries = doc.data().list;
+            // Update local cache
+            localStorage.setItem('worklog_entries', JSON.stringify(entries));
+            console.log(`📥 Loaded ${entries.length} worklog entries from cloud`);
+            return entries;
+        } else {
+            console.log('📭 No cloud worklog entries found, using localStorage');
+            return JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+        }
+    } catch (error) {
+        console.log('Offline or error, using cached worklog entries:', error.message);
+        return JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+    }
+}
+
+onWorklogChanged(callback) {
+    if (!this.db || !this.userId) {
+        console.log('⚠️ Cannot set up listener - CloudData not initialized');
+        return null;
+    }
+    
+    console.log('🔔 Setting up real-time listener for worklog entries');
+    
+    return this.db.collection('users').doc(this.userId)
+        .collection('data').doc('worklog_entries')
+        .onSnapshot((doc) => {
+            if (doc.exists && doc.data().list) {
+                const entries = doc.data().list;
+                localStorage.setItem('worklog_entries', JSON.stringify(entries));
+                console.log('🔄 Real-time update: worklog entries changed');
+                if (callback) callback(entries);
+            }
+        }, (error) => {
+            console.log('Listener error (offline mode):', error.message);
+        });
+}
 
 // ==================== GLOBAL VARIABLES ====================
 let appInitialized = false;
@@ -348,38 +412,41 @@ async function safeInit() {
         console.log('✅ Authentication successful');
         appInitialized = true;
         
-        // ===== NEW: Initialize cloud service for cross-device sync =====
+        // ===== INITIALIZE CLOUD DATA =====
         const user = firebase.auth().currentUser;
-        if (user && window.CloudDataService) {
-            console.log('☁️ Initializing CloudDataService for:', user.email);
-            window.CloudDataService.init(user.uid);
+        if (user) {
+            CloudData.init(user.uid);
             
-            // Set up real-time listener for students
-            window.CloudDataService.subscribeToStudents((updatedStudents) => {
-                console.log('🔄 Real-time update received from another device!');
+            // Set up real-time listeners
+            CloudData.onStudentsChanged((students) => {
+                console.log('🔄 Real-time: Students updated');
                 if (typeof loadStudents === 'function') loadStudents();
                 if (typeof updateProfileStats === 'function') updateProfileStats();
-                if (typeof updateGlobalStats === 'function') updateGlobalStats();
                 showNotification('Data synced from another device', 'info');
             });
             
-            // Load fresh data from cloud
-            await refreshAllDataFromCloud();
+            CloudData.onWorklogChanged((entries) => {
+                console.log('🔄 Real-time: Worklog updated');
+                if (typeof loadWorklogEntries === 'function') loadWorklogEntries();
+                if (typeof updateProfileStats === 'function') updateProfileStats();
+            });
+            
+            // Load initial data from cloud
+            const students = await CloudData.getStudents();
+            const worklogs = await CloudData.getWorklogEntries();
+            console.log(`📥 Loaded ${students.length} students, ${worklogs.length} worklogs from cloud`);
         }
-        // ===== END OF CLOUD SERVICE INIT =====
+        // ===== END CLOUD DATA INIT =====
         
         syncDataManagerWithAuth();
         initAppUI();
-        
-        // Keep your existing cross-device sync as backup
-        ensureCrossDeviceSync();
         
     } catch (error) {
         console.error('❌ Safe init error:', error);
         showErrorMessage('App initialization failed. Please refresh.');
     }
 }
-
+    
 // Add this new function to refresh all data from cloud
 async function refreshAllDataFromCloud() {
     console.log('🔄 Refreshing all data from cloud...');
@@ -455,13 +522,13 @@ function initAppUI() {
     initForms();
     initFAB();
     initProfileModal();
+    initSyncControls();
     initReportButtons();
     initSyncToggle();
     loadInitialData();
     initClientManager();
     initMyBusinesses();
-    initializeSyncSystem();
-        
+            
     // ===== FIX: Worklog save button handler =====
     setTimeout(function() {
       const saveBtn = document.getElementById('worklogSubmitBtn');
@@ -1613,248 +1680,6 @@ function clearAllData() {
   setTimeout(() => location.reload(), 1500);
 }
 
-// ==================== SIMPLE SYNC WRAPPER ====================
-// This just wraps the existing sync-service.js
-
-let syncInitialized = false;
-
-
-// Initialize sync - just use the existing syncService
-async function initializeSyncSystem() {
-    console.log('🚀 Initializing sync using existing syncService...');
-    
-    if (syncInitialized) return;
-    
-    // Wait for syncService to be ready
-    if (!window.syncService) {
-        console.log('⏳ Waiting for syncService...');
-        await new Promise(resolve => {
-            const checkInterval = setInterval(() => {
-                if (window.syncService) {
-                    clearInterval(checkInterval);
-                    resolve();
-                }
-            }, 100);
-        });
-    }
-    
-    console.log('✅ syncService found, setting up...');
-    
-    // Setup UI controls
-    setupSyncUI();
-    
-    // Start auto-sync if enabled
-    const autoSyncEnabled = localStorage.getItem('autoSyncEnabled') === 'true';
-    if (autoSyncEnabled) {
-        startAutoSync();
-    }
-    
-    syncInitialized = true;
-    console.log('✅ Sync system ready');
-}
-
-// Start auto-sync using syncService
-function startAutoSync() {
-    if (autoSyncInterval) clearInterval(autoSyncInterval);
-    
-    const intervalMinutes = parseInt(localStorage.getItem('syncInterval') || '5');
-    
-    autoSyncInterval = setInterval(() => {
-        if (navigator.onLine && window.syncService && firebase.auth().currentUser) {
-            console.log('🔄 Auto-sync triggered');
-            window.syncService.sync(false, false).catch(err => console.log('Auto-sync error:', err));
-        }
-    }, intervalMinutes * 60 * 1000);
-    
-    console.log(`✅ Auto-sync started (every ${intervalMinutes} minutes)`);
-}
-
-function stopAutoSync() {
-    if (autoSyncInterval) {
-        clearInterval(autoSyncInterval);
-        autoSyncInterval = null;
-        console.log('⏹️ Auto-sync stopped');
-    }
-}
-
-// Manual sync
-async function performSync() {
-    if (!window.syncService) {
-        console.log('⚠️ syncService not available');
-        return { success: false };
-    }
-    
-    if (!navigator.onLine) {
-        showNotification('Cannot sync while offline', 'warning');
-        return { success: false };
-    }
-    
-    updateSyncStatus('syncing', 'Syncing...');
-    
-    try {
-        const result = await window.syncService.sync(false, false);
-        updateSyncStatus('online', 'Synced');
-        showNotification('Sync complete!', 'success');
-        return result;
-    } catch (error) {
-        console.error('Sync error:', error);
-        updateSyncStatus('error', 'Sync failed');
-        showNotification('Sync failed: ' + error.message, 'error');
-        return { success: false };
-    }
-}
-
-// Export to cloud (force upload)
-async function exportToCloud() {
-    if (!window.syncService) {
-        showNotification('Sync service not available', 'error');
-        return;
-    }
-    
-    showNotification('Exporting to cloud...', 'info');
-    updateSyncStatus('syncing', 'Uploading...');
-    
-    try {
-        await window.syncService.sync(true, false);
-        updateSyncStatus('online', 'Exported');
-        showNotification('Data exported to cloud!', 'success');
-    } catch (error) {
-        updateSyncStatus('error', 'Export failed');
-        showNotification('Export failed: ' + error.message, 'error');
-    }
-}
-
-// Import from cloud
-async function importFromCloud() {
-    if (!window.syncService) {
-        showNotification('Sync service not available', 'error');
-        return;
-    }
-    
-    if (!confirm('⚠️ Import from cloud will replace ALL local data. Continue?')) return;
-    
-    showNotification('Importing from cloud...', 'info');
-    updateSyncStatus('syncing', 'Downloading...');
-    
-    try {
-        await window.syncService.importFromCloud();
-        updateSyncStatus('online', 'Imported');
-        showNotification('Data imported! Refreshing...', 'success');
-        setTimeout(() => location.reload(), 1500);
-    } catch (error) {
-        updateSyncStatus('error', 'Import failed');
-        showNotification('Import failed: ' + error.message, 'error');
-    }
-}
-
-// Update sync status display
-function updateSyncStatus(status, text) {
-    const indicator = document.getElementById('syncIndicator');
-    if (indicator) {
-        indicator.textContent = text;
-        indicator.className = `sync-indicator ${status}`;
-    }
-    
-    const syncStatus = document.getElementById('syncStatus');
-    if (syncStatus) {
-        syncStatus.textContent = text;
-        syncStatus.className = `sync-status ${status}`;
-    }
-}
-
-// Setup UI controls
-function setupSyncUI() {
-    console.log('🎮 Setting up sync UI controls...');
-    
-    // Sync Now button
-    const syncNowBtn = document.getElementById('syncNowBtn') || document.getElementById('syncBtn');
-    if (syncNowBtn) {
-        const newBtn = syncNowBtn.cloneNode(true);
-        syncNowBtn.parentNode.replaceChild(newBtn, syncNowBtn);
-        newBtn.addEventListener('click', () => performSync());
-        console.log('✅ Sync button ready');
-    }
-    
-    // Export button
-    const exportBtn = document.getElementById('exportCloudBtn');
-    if (exportBtn) {
-        const newBtn = exportBtn.cloneNode(true);
-        exportBtn.parentNode.replaceChild(newBtn, exportBtn);
-        newBtn.addEventListener('click', exportToCloud);
-    }
-    
-    // Import button
-    const importBtn = document.getElementById('importCloudBtn');
-    if (importBtn) {
-        const newBtn = importBtn.cloneNode(true);
-        importBtn.parentNode.replaceChild(newBtn, importBtn);
-        newBtn.addEventListener('click', importFromCloud);
-    }
-    
-    // Auto-sync toggle
-    const autoSyncCheckbox = document.getElementById('autoSyncCheckbox');
-    if (autoSyncCheckbox) {
-        const saved = localStorage.getItem('autoSyncEnabled') === 'true';
-        autoSyncCheckbox.checked = saved;
-        
-        const newCheckbox = autoSyncCheckbox.cloneNode(true);
-        autoSyncCheckbox.parentNode.replaceChild(newCheckbox, autoSyncCheckbox);
-        
-        newCheckbox.addEventListener('change', (e) => {
-            const enabled = e.target.checked;
-            localStorage.setItem('autoSyncEnabled', enabled);
-            
-            if (enabled) {
-                startAutoSync();
-                showNotification('Auto-sync enabled', 'success');
-            } else {
-                stopAutoSync();
-                showNotification('Auto-sync disabled', 'warning');
-            }
-        });
-    }
-    
-    // Sync interval selector
-    const intervalSelect = document.getElementById('syncInterval');
-    if (intervalSelect) {
-        const saved = localStorage.getItem('syncInterval') || '5';
-        intervalSelect.value = saved;
-        
-        intervalSelect.addEventListener('change', (e) => {
-            localStorage.setItem('syncInterval', e.target.value);
-            if (localStorage.getItem('autoSyncEnabled') === 'true') {
-                stopAutoSync();
-                startAutoSync();
-                showNotification(`Sync interval set to ${e.target.value} minutes`, 'success');
-            }
-        });
-    }
-    
-    // Network listeners
-    window.addEventListener('online', () => {
-        updateSyncStatus('online', 'Online');
-        showNotification('Back online', 'success');
-        if (localStorage.getItem('autoSyncEnabled') === 'true') {
-            setTimeout(() => performSync(), 2000);
-        }
-    });
-    
-    window.addEventListener('offline', () => {
-        updateSyncStatus('offline', 'Offline');
-        showNotification('You are offline', 'warning');
-    });
-    
-    // Initial status
-    updateSyncStatus(navigator.onLine ? 'online' : 'offline', navigator.onLine ? 'Online' : 'Offline');
-}
-
-// Make functions global
-window.performSync = performSync;
-window.importFromCloud = importFromCloud;
-window.exportToCloud = exportToCloud;
-window.initializeSyncSystem = initializeSyncSystem;
-
-
 // ==================== FILE INPUT ====================
 function createFileInput() {
   if (document.getElementById('importFileInput')) return;
@@ -1888,25 +1713,240 @@ function createFileInput() {
   document.body.appendChild(input);
 }
 
-// ==================== CLOUD FUNCTIONS ====================
+// ==================== CLOUD DATA SERVICE (Agrimetrics-style) ====================
+
+const CloudData = {
+    db: null,
+    userId: null,
+    listeners: {},
+    
+    // Initialize with current user
+    init: function(userId) {
+        this.db = firebase.firestore();
+        this.userId = userId;
+        console.log('☁️ CloudData initialized for:', userId);
+        return this;
+    },
+    
+    // ===== STUDENTS =====
+    async getStudents() {
+        if (!this.db || !this.userId) return [];
+        
+        const doc = await this.db.collection('users').doc(this.userId)
+            .collection('data').doc('students').get();
+        
+        if (doc.exists) {
+            const students = doc.data().list || [];
+            localStorage.setItem('worklog_students', JSON.stringify(students));
+            return students;
+        }
+        return JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    },
+    
+    async saveStudents(students) {
+        if (!this.db || !this.userId) return false;
+        
+        await this.db.collection('users').doc(this.userId)
+            .collection('data').doc('students').set({
+                list: students,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        localStorage.setItem('worklog_students', JSON.stringify(students));
+        return true;
+    },
+    
+    // Real-time listener for students
+    onStudentsChanged(callback) {
+        if (!this.db || !this.userId) return null;
+        
+        return this.db.collection('users').doc(this.userId)
+            .collection('data').doc('students')
+            .onSnapshot((doc) => {
+                if (doc.exists) {
+                    const students = doc.data().list || [];
+                    localStorage.setItem('worklog_students', JSON.stringify(students));
+                    callback(students);
+                }
+            });
+    },
+    
+    // ===== WORKLOG ENTRIES =====
+    async getWorklogEntries() {
+        if (!this.db || !this.userId) return [];
+        
+        const doc = await this.db.collection('users').doc(this.userId)
+            .collection('data').doc('worklog_entries').get();
+        
+        if (doc.exists) {
+            const entries = doc.data().list || [];
+            localStorage.setItem('worklog_entries', JSON.stringify(entries));
+            return entries;
+        }
+        return JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+    },
+    
+    async saveWorklogEntries(entries) {
+        if (!this.db || !this.userId) return false;
+        
+        await this.db.collection('users').doc(this.userId)
+            .collection('data').doc('worklog_entries').set({
+                list: entries,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        localStorage.setItem('worklog_entries', JSON.stringify(entries));
+        return true;
+    },
+    
+    onWorklogChanged(callback) {
+        if (!this.db || !this.userId) return null;
+        
+        return this.db.collection('users').doc(this.userId)
+            .collection('data').doc('worklog_entries')
+            .onSnapshot((doc) => {
+                if (doc.exists) {
+                    const entries = doc.data().list || [];
+                    localStorage.setItem('worklog_entries', JSON.stringify(entries));
+                    callback(entries);
+                }
+            });
+    },
+    
+    // ===== MARKS =====
+    async getMarks() {
+        if (!this.db || !this.userId) return [];
+        
+        const doc = await this.db.collection('users').doc(this.userId)
+            .collection('data').doc('marks').get();
+        
+        if (doc.exists) {
+            const marks = doc.data().list || [];
+            localStorage.setItem('worklog_marks', JSON.stringify(marks));
+            return marks;
+        }
+        return JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+    },
+    
+    async saveMarks(marks) {
+        if (!this.db || !this.userId) return false;
+        
+        await this.db.collection('users').doc(this.userId)
+            .collection('data').doc('marks').set({
+                list: marks,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        localStorage.setItem('worklog_marks', JSON.stringify(marks));
+        return true;
+    },
+    
+    onMarksChanged(callback) {
+        if (!this.db || !this.userId) return null;
+        
+        return this.db.collection('users').doc(this.userId)
+            .collection('data').doc('marks')
+            .onSnapshot((doc) => {
+                if (doc.exists) {
+                    const marks = doc.data().list || [];
+                    localStorage.setItem('worklog_marks', JSON.stringify(marks));
+                    callback(marks);
+                }
+            });
+    },
+    
+    // ===== ATTENDANCE =====
+    async getAttendance() {
+        if (!this.db || !this.userId) return [];
+        
+        const doc = await this.db.collection('users').doc(this.userId)
+            .collection('data').doc('attendance').get();
+        
+        if (doc.exists) {
+            const attendance = doc.data().list || [];
+            localStorage.setItem('worklog_attendance', JSON.stringify(attendance));
+            return attendance;
+        }
+        return JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
+    },
+    
+    async saveAttendance(attendance) {
+        if (!this.db || !this.userId) return false;
+        
+        await this.db.collection('users').doc(this.userId)
+            .collection('data').doc('attendance').set({
+                list: attendance,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        localStorage.setItem('worklog_attendance', JSON.stringify(attendance));
+        return true;
+    },
+    
+    // ===== PAYMENTS =====
+    async getPayments() {
+        if (!this.db || !this.userId) return [];
+        
+        const doc = await this.db.collection('users').doc(this.userId)
+            .collection('data').doc('payments').get();
+        
+        if (doc.exists) {
+            const payments = doc.data().list || [];
+            localStorage.setItem('worklog_payments', JSON.stringify(payments));
+            return payments;
+        }
+        return JSON.parse(localStorage.getItem('worklog_payments') || '[]');
+    },
+    
+    async savePayments(payments) {
+        if (!this.db || !this.userId) return false;
+        
+        await this.db.collection('users').doc(this.userId)
+            .collection('data').doc('payments').set({
+                list: payments,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        localStorage.setItem('worklog_payments', JSON.stringify(payments));
+        return true;
+    }
+};
+
+window.CloudData = CloudData;
+
+// ==================== CLOUD FUNCTIONS (Updated for CloudData) ====================
+
 async function exportToCloud() {
   if (!navigator.onLine) {
     showNotification('Cannot export while offline', 'error');
     return;
   }
   
+  const user = firebase.auth().currentUser;
+  if (!user) {
+    showNotification('Please login first', 'error');
+    return;
+  }
+  
   showNotification('Exporting to cloud...', 'info');
   
-  if (window.syncService) {
-    const user = await window.syncService.getCurrentUser();
-    if (!user) {
-      showNotification('Please login first', 'error');
-      return;
+  try {
+    // Get all local data
+    const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    const worklogEntries = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+    const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+    const attendance = JSON.parse(localStorage.getItem('worklog_attendance') || '[]');
+    const payments = JSON.parse(localStorage.getItem('worklog_payments') || '[]');
+    
+    // Save to cloud using CloudData service
+    if (window.CloudData) {
+      await CloudData.saveStudents(students);
+      await CloudData.saveWorklogEntries(worklogEntries);
+      await CloudData.saveMarks(marks);
+      await CloudData.saveAttendance(attendance);
+      await CloudData.savePayments(payments);
+      showNotification(`Exported ${students.length} students, ${worklogEntries.length} worklogs to cloud!`, 'success');
+    } else {
+      showNotification('Cloud service not available', 'error');
     }
-    const result = await window.syncService.sync(true);
-    if (result.success) showNotification('Data exported to cloud!', 'success');
-  } else {
-    showNotification('Cloud export not available', 'warning');
+  } catch (error) {
+    console.error('Export error:', error);
+    showNotification('Export failed: ' + error.message, 'error');
   }
 }
 
@@ -1918,50 +1958,67 @@ async function importFromCloud() {
     return;
   }
   
+  const user = firebase.auth().currentUser;
+  if (!user) {
+    showNotification('Please login first', 'error');
+    return;
+  }
+  
   showNotification('Importing from cloud...', 'info');
   
-  if (window.syncService) {
-    const user = await window.syncService.getCurrentUser();
-    if (!user) {
-      showNotification('Please login first', 'error');
-      return;
-    }
-    const result = await window.syncService.importFromCloud();
-    if (result) {
-      showNotification('Data imported!', 'success');
+  try {
+    // Load from cloud using CloudData service
+    if (window.CloudData) {
+      const students = await CloudData.getStudents();
+      const worklogEntries = await CloudData.getWorklogEntries();
+      const marks = await CloudData.getMarks();
+      const attendance = await CloudData.getAttendance();
+      const payments = await CloudData.getPayments();
+      
+      showNotification(`Imported ${students.length} students, ${worklogEntries.length} worklogs from cloud!`, 'success');
       setTimeout(() => location.reload(), 1500);
+    } else {
+      showNotification('Cloud service not available', 'error');
     }
-  } else {
-    showNotification('Cloud import not available', 'warning');
+  } catch (error) {
+    console.error('Import error:', error);
+    showNotification('Import failed: ' + error.message, 'error');
   }
 }
 
-// ==================== ENSURE CROSS-DEVICE SYNC ====================
-// Add this function to your app.js
+// ==================== ENSURE CROSS-DEVICE SYNC (Updated) ====================
 
 async function ensureCrossDeviceSync() {
     console.log('🔄 Ensuring cross-device sync...');
     
     const user = firebase.auth().currentUser;
-    if (!user || !window.syncService) return;
+    if (!user || !window.CloudData) {
+      console.log('⚠️ Cannot sync: No user or CloudData');
+      return;
+    }
     
     // On login, check if we have cloud data and sync it
     setTimeout(async () => {
         try {
             // Try to get cloud data
-            const cloudData = await window.syncService.getRemoteData();
+            const students = await CloudData.getStudents();
             
-            if (cloudData && cloudData.students && cloudData.students.length > 0) {
-                // Cloud has data - download it
-                console.log('📥 Cloud data found, syncing to this device...');
-                await window.syncService.importFromCloud();
-                showNotification('Synced with cloud', 'success');
-                location.reload();
+            if (students && students.length > 0) {
+                // Cloud has data - already loaded via CloudData.getStudents()
+                console.log(`📥 Cloud data found: ${students.length} students loaded`);
+                showNotification(`Synced ${students.length} students from cloud`, 'success');
+                
+                // Refresh UI
+                if (typeof loadStudents === 'function') loadStudents();
+                if (typeof updateProfileStats === 'function') updateProfileStats();
             } else {
                 // No cloud data - upload local data
-                console.log('📤 No cloud data, uploading local data...');
-                await window.syncService.sync(true, false);
-                showNotification('Data backed up to cloud', 'success');
+                const localStudents = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+                if (localStudents.length > 0) {
+                  console.log(`📤 No cloud data, uploading ${localStudents.length} local students...`);
+                  await CloudData.saveStudents(localStudents);
+                  showNotification('Local data backed up to cloud', 'success');
+                }
             }
         } catch (error) {
             console.log('Sync check error:', error);
@@ -2131,31 +2188,23 @@ function initForms() {
 
 async function saveStudentToLocalStorage(studentData) {
     try {
-        // Get existing students
         let students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
         
-        // Add new student
         studentData.id = 'student_' + Date.now();
         studentData.createdAt = new Date().toISOString();
         students.push(studentData);
         
-        // SAVE TO CLOUD FIRST (this enables cross-device sync)
-        const saved = await CloudDataService.saveStudents(students);
+        // Save to cloud FIRST (this enables cross-device sync)
+        await CloudData.saveStudents(students);
         
-        if (saved) {
-            showNotification('Student saved and synced to cloud!', 'success');
-        } else {
-            showNotification('Student saved locally (will sync when online)', 'warning');
-        }
+        showNotification('Student saved and synced to cloud!', 'success');
         
         // Refresh UI
         if (typeof loadStudents === 'function') loadStudents();
         if (typeof updateProfileStats === 'function') updateProfileStats();
         if (typeof updateGlobalStats === 'function') updateGlobalStats();
         
-        // Clear form
-        const form = document.getElementById('studentForm');
-        if (form) form.reset();
+        document.getElementById('studentForm').reset();
         
     } catch (error) {
         console.error('Error saving student:', error);
@@ -2680,15 +2729,27 @@ function loadInitialData() {
 }
 
 // ==================== LOAD STUDENTS (FIXED WITH DATE HANDLING) ====================
-function loadStudents() {
-  console.log('👥 Loading students...');
+async function loadStudents() {
+  console.log('👥 Loading students from cloud...');
   
   const container = document.getElementById('studentsContainer');
   if (!container) return;
   
-  // Get students
-  let students = window.formHandler?.getStudents?.() || 
-                 JSON.parse(localStorage.getItem('worklog_students') || '[]');
+  // Get students from cloud FIRST (using CloudData)
+  let students = [];
+  
+  if (window.CloudData && window.CloudData.getStudents) {
+    try {
+      students = await window.CloudData.getStudents();
+      console.log(`📥 Loaded ${students.length} students from cloud`);
+    } catch (error) {
+      console.log('Cloud load failed, using localStorage:', error);
+      students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+    }
+  } else {
+    // Fallback to localStorage
+    students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+  }
   
   // ===== FIX 1: Ensure rate consistency across all students =====
   let studentsFixed = false;
@@ -2700,7 +2761,7 @@ function loadStudents() {
     
     if (needsRateFix) {
       studentsFixed = true;
-      const correctRate = rateValue || SimpleRateManager.get();
+      const correctRate = rateValue || (window.SimpleRateManager ? SimpleRateManager.get() : '25.00');
       student.rate = correctRate;
       student.hourlyRate = correctRate;
     }
@@ -2708,22 +2769,18 @@ function loadStudents() {
     // ===== FIX 2: Fix invalid dates =====
     if (student.createdAt) {
       try {
-        // Test if it's a valid date
         const date = new Date(student.createdAt);
         if (isNaN(date.getTime())) {
-          // Invalid date - replace with current date
           console.log(`🔄 Fixing invalid date for ${student.name}`);
           student.createdAt = new Date().toISOString();
           studentsFixed = true;
         }
       } catch (e) {
-        // Date parsing error - replace with current date
         console.log(`🔄 Fixing date error for ${student.name}`);
         student.createdAt = new Date().toISOString();
         studentsFixed = true;
       }
     } else {
-      // Missing createdAt - add it
       console.log(`🔄 Adding missing createdAt for ${student.name}`);
       student.createdAt = new Date().toISOString();
       studentsFixed = true;
@@ -2732,17 +2789,20 @@ function loadStudents() {
     return student;
   });
   
-  // If we fixed any students, save back to localStorage
+  // If we fixed any students, save back to cloud AND localStorage
   if (studentsFixed) {
-    console.log('✅ Fixed student data, saving to localStorage');
+    console.log('✅ Fixed student data, saving to cloud and localStorage');
     localStorage.setItem('worklog_students', JSON.stringify(students));
     
-    // Also update formHandler if it exists
+    // Save to cloud if available
+    if (window.CloudData && window.CloudData.saveStudents) {
+      await window.CloudData.saveStudents(students);
+    }
+    
     if (window.formHandler) {
       window.formHandler.students = students;
     }
   }
-  // ===== END FIXES =====
   
   // Get saved sort method
   const sortMethod = localStorage.getItem('studentSortMethod') || 'id';
@@ -2759,7 +2819,7 @@ function loadStudents() {
     students.sort((a, b) => {
       const dateA = new Date(a.createdAt || 0);
       const dateB = new Date(b.createdAt || 0);
-      return dateB - dateA; // Newest first
+      return dateB - dateA;
     });
   } else if (sortMethod === 'rate') {
     students.sort((a, b) => (parseFloat(b.rate || b.hourlyRate || 0)) - (parseFloat(a.rate || a.hourlyRate || 0)));
@@ -2785,9 +2845,9 @@ function loadStudents() {
   if (sortSelect) sortSelect.value = sortMethod;
   
   // Get default rate
-  const defaultRate = SimpleRateManager.get();
+  const defaultRate = window.SimpleRateManager ? SimpleRateManager.get() : '25.00';
   
-  // Display students with SAFE date formatting
+  // Display students
   if (!students.length) {
     container.innerHTML = '<p class="empty-message">No students registered yet.</p>';
     return;
@@ -2798,12 +2858,10 @@ function loadStudents() {
     const rate = studentRate ? parseFloat(studentRate).toFixed(2) : defaultRate;
     const isUsingDefault = !student.rate && !student.hourlyRate;
     
-    // SAFE DATE FORMATTING - FIXES INVALID DATE ISSUE
     let dateStr = 'Unknown';
     if (student.createdAt) {
       try {
         const date = new Date(student.createdAt);
-        // Check if it's a valid date
         if (!isNaN(date.getTime())) {
           dateStr = date.toLocaleDateString();
         } else {
@@ -2819,8 +2877,8 @@ function loadStudents() {
     return `
       <div class="student-card" data-id="${student.id}" ${isUsingDefault ? 'style="border-left: 3px solid #ffc107;"' : ''}>
         <div class="student-card-header">
-          <strong>${student.name || ''}</strong>
-          <span class="student-id">${student.studentId || 'No ID'}</span>
+          <strong>${escapeHtml(student.name || '')}</strong>
+          <span class="student-id">${escapeHtml(student.studentId || 'No ID')}</span>
           <div class="student-actions">
             <button class="btn-icon edit-student" onclick="editStudent('${student.id}')" title="Edit">✏️</button>
             <button class="btn-icon delete-student" onclick="deleteStudent('${student.id}')" title="Delete">🗑️</button>
@@ -2831,8 +2889,8 @@ function loadStudents() {
             $${rate}/hour
             ${isUsingDefault ? '<span style="color: #ffc107; font-size: 0.8em; margin-left: 8px;">(default)</span>' : ''}
           </div>
-          <div>${student.gender || ''} • ${student.email || 'No email'}</div>
-          <div>${student.phone || 'No phone'}</div>
+          <div>${escapeHtml(student.gender || '')} • ${escapeHtml(student.email || 'No email')}</div>
+          <div>${escapeHtml(student.phone || 'No phone')}</div>
           <div class="student-meta">Added: ${dateStr}</div>
         </div>
       </div>
@@ -2843,8 +2901,18 @@ function loadStudents() {
   if (studentsFixed) {
     console.log('🔧 Fixed data issues for some students');
   }
-
+  
+  if (typeof refreshAttendanceStudentList === 'function') {
     refreshAttendanceStudentList();
+  }
+}
+
+// Helper function to escape HTML
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 function refreshAttendanceStudentList() {
