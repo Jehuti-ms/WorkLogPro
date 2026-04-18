@@ -1140,230 +1140,56 @@ function updateSyncIndicator(text, status) {
   indicator.style.animation = status === 'syncing' ? 'pulse 1.5s infinite' : 'none';
 }
 
-// ==================== SIMPLIFIED WORKING SYNC SYSTEM ====================
+// ==================== SIMPLE SYNC WRAPPER ====================
+// This just wraps the existing sync-service.js
 
-// Global sync state
 let syncInitialized = false;
-let syncInterval = null;
+let autoSyncInterval = null;
 
-
-// Initialize sync system (called once after login)
+// Initialize sync - just use the existing syncService
 async function initializeSyncSystem() {
-    console.log('🚀 Initializing simplified sync system...');
+    console.log('🚀 Initializing sync using existing syncService...');
     
     if (syncInitialized) return;
     
-    // Wait for Firebase auth
-    if (typeof firebase !== 'undefined' && firebase.auth) {
-        const user = firebase.auth().currentUser;
-        if (user) {
-            console.log('✅ User logged in, enabling sync:', user.email);
-            await setupSync();
-        } else {
-            // Listen for login
-            firebase.auth().onAuthStateChanged(async (user) => {
-                if (user) {
-                    console.log('✅ User logged in, enabling sync:', user.email);
-                    await setupSync();
+    // Wait for syncService to be ready
+    if (!window.syncService) {
+        console.log('⏳ Waiting for syncService...');
+        await new Promise(resolve => {
+            const checkInterval = setInterval(() => {
+                if (window.syncService) {
+                    clearInterval(checkInterval);
+                    resolve();
                 }
-            });
-        }
+            }, 100);
+        });
     }
     
-    syncInitialized = true;
-    console.log('✅ Sync system initialized');
-}
-
-// Setup sync after login
-async function setupSync() {
-    console.log('🔧 Setting up sync...');
+    console.log('✅ syncService found, setting up...');
     
-    // Hook localStorage to detect changes
-    hookLocalStorageSync();
-    
-    // Setup sync UI controls
+    // Setup UI controls
     setupSyncUI();
     
-    // Load auto-sync setting
+    // Start auto-sync if enabled
     const autoSyncEnabled = localStorage.getItem('autoSyncEnabled') === 'true';
     if (autoSyncEnabled) {
         startAutoSync();
     }
     
-    // Perform initial sync
-    await performSync();
-    
-    console.log('✅ Sync setup complete');
+    syncInitialized = true;
+    console.log('✅ Sync system ready');
 }
 
-// Hook into localStorage to detect changes
-function hookLocalStorageSync() {
-    const originalSetItem = localStorage.setItem;
-    localStorage.setItem = function(key, value) {
-        originalSetItem.apply(this, arguments);
-        
-        // Trigger sync for worklog data changes (but avoid loops)
-        if (key.startsWith('worklog_') && !key.includes('backup') && !key.includes('_AUTO') && !key.includes('_sync')) {
-            console.log(`📝 Data changed: ${key}, scheduling sync...`);
-            debouncedSync();
-        }
-    };
-    
-    console.log('✅ localStorage sync hooks installed');
-}
-
-// Debounced sync to avoid too many requests
-let syncTimeout = null;
-function debouncedSync() {
-    if (syncTimeout) clearTimeout(syncTimeout);
-    syncTimeout = setTimeout(() => {
-        performSync();
-        syncTimeout = null;
-    }, 3000);
-}
-
-// Main sync function
-async function performSync() {
-    const user = firebase.auth().currentUser;
-    if (!user) {
-        console.log('⚠️ Cannot sync: No user logged in');
-        return { success: false, error: 'Not logged in' };
-    }
-    
-    if (!navigator.onLine) {
-        console.log('⚠️ Cannot sync: Offline');
-        updateSyncStatus('offline', 'Offline');
-        return { success: false, error: 'Offline' };
-    }
-    
-    if (isSyncing) {
-        console.log('⏳ Sync already in progress');
-        return { success: false, error: 'Sync in progress' };
-    }
-    
-    isSyncing = true;
-    updateSyncStatus('syncing', 'Syncing...');
-    
-    try {
-        const db = firebase.firestore();
-        const userId = user.uid;
-        
-        // Prepare data to sync
-        const syncData = {
-            students: JSON.parse(localStorage.getItem('worklog_students') || '[]'),
-            worklog_entries: JSON.parse(localStorage.getItem('worklog_entries') || '[]'),
-            marks: JSON.parse(localStorage.getItem('worklog_marks') || '[]'),
-            attendance: JSON.parse(localStorage.getItem('worklog_attendance') || '[]'),
-            payments: JSON.parse(localStorage.getItem('worklog_payments') || '[]'),
-            settings: {
-                defaultHourlyRate: localStorage.getItem('defaultHourlyRate') || '25.00',
-                autoSyncEnabled: localStorage.getItem('autoSyncEnabled') === 'true',
-                theme: localStorage.getItem('worklog-theme') || 'dark'
-            },
-            lastSync: firebase.firestore.FieldValue.serverTimestamp(),
-            version: Date.now()
-        };
-        
-        // Save to Firestore (use set with merge to avoid overwriting)
-        await db.collection('userData').doc(userId).set(syncData, { merge: true });
-        
-        console.log('✅ Data synced to cloud successfully');
-        updateSyncStatus('online', 'Synced');
-        localStorage.setItem('lastSyncTime', new Date().toISOString());
-        
-        return { success: true };
-        
-    } catch (error) {
-        console.error('❌ Sync error:', error);
-        updateSyncStatus('error', 'Sync Failed');
-        return { success: false, error: error.message };
-    } finally {
-        isSyncing = false;
-    }
-}
-
-// Import from cloud (overwrites local data)
-async function importFromCloud() {
-    if (!confirm('⚠️ Import from cloud will replace ALL local data. Continue?')) return;
-    
-    const user = firebase.auth().currentUser;
-    if (!user) {
-        showNotification('Please login first', 'error');
-        return;
-    }
-    
-    if (!navigator.onLine) {
-        showNotification('Cannot import while offline', 'error');
-        return;
-    }
-    
-    showNotification('Importing from cloud...', 'info');
-    updateSyncStatus('syncing', 'Importing...');
-    
-    try {
-        const db = firebase.firestore();
-        const doc = await db.collection('userData').doc(user.uid).get();
-        
-        if (doc.exists) {
-            const data = doc.data();
-            
-            // Apply data to localStorage
-            if (data.students) localStorage.setItem('worklog_students', JSON.stringify(data.students));
-            if (data.worklog_entries) localStorage.setItem('worklog_entries', JSON.stringify(data.worklog_entries));
-            if (data.marks) localStorage.setItem('worklog_marks', JSON.stringify(data.marks));
-            if (data.attendance) localStorage.setItem('worklog_attendance', JSON.stringify(data.attendance));
-            if (data.payments) localStorage.setItem('worklog_payments', JSON.stringify(data.payments));
-            
-            if (data.settings) {
-                if (data.settings.defaultHourlyRate) localStorage.setItem('defaultHourlyRate', data.settings.defaultHourlyRate);
-                if (data.settings.autoSyncEnabled !== undefined) localStorage.setItem('autoSyncEnabled', data.settings.autoSyncEnabled);
-            }
-            
-            showNotification('Data imported from cloud!', 'success');
-            
-            // Refresh UI
-            setTimeout(() => location.reload(), 1500);
-        } else {
-            showNotification('No cloud data found', 'warning');
-        }
-    } catch (error) {
-        console.error('Import error:', error);
-        showNotification('Import failed: ' + error.message, 'error');
-    } finally {
-        updateSyncStatus('online', 'Online');
-    }
-}
-
-// Export to cloud (force upload)
-async function exportToCloud() {
-    const user = firebase.auth().currentUser;
-    if (!user) {
-        showNotification('Please login first', 'error');
-        return;
-    }
-    
-    if (!navigator.onLine) {
-        showNotification('Cannot export while offline', 'error');
-        return;
-    }
-    
-    showNotification('Exporting to cloud...', 'info');
-    const result = await performSync();
-    
-    if (result.success) {
-        showNotification('Data exported to cloud!', 'success');
-    }
-}
-
-// Auto-sync interval
+// Start auto-sync using syncService
 function startAutoSync() {
-    if (syncInterval) clearInterval(syncInterval);
+    if (autoSyncInterval) clearInterval(autoSyncInterval);
     
     const intervalMinutes = parseInt(localStorage.getItem('syncInterval') || '5');
-    syncInterval = setInterval(() => {
-        if (navigator.onLine && firebase.auth().currentUser && !isSyncing) {
+    
+    autoSyncInterval = setInterval(() => {
+        if (navigator.onLine && window.syncService && firebase.auth().currentUser) {
             console.log('🔄 Auto-sync triggered');
-            performSync();
+            window.syncService.sync(false, false).catch(err => console.log('Auto-sync error:', err));
         }
     }, intervalMinutes * 60 * 1000);
     
@@ -1371,14 +1197,84 @@ function startAutoSync() {
 }
 
 function stopAutoSync() {
-    if (syncInterval) {
-        clearInterval(syncInterval);
-        syncInterval = null;
+    if (autoSyncInterval) {
+        clearInterval(autoSyncInterval);
+        autoSyncInterval = null;
         console.log('⏹️ Auto-sync stopped');
     }
 }
 
-// Update sync status in UI
+// Manual sync
+async function performSync() {
+    if (!window.syncService) {
+        console.log('⚠️ syncService not available');
+        return { success: false };
+    }
+    
+    if (!navigator.onLine) {
+        showNotification('Cannot sync while offline', 'warning');
+        return { success: false };
+    }
+    
+    updateSyncStatus('syncing', 'Syncing...');
+    
+    try {
+        const result = await window.syncService.sync(false, false);
+        updateSyncStatus('online', 'Synced');
+        showNotification('Sync complete!', 'success');
+        return result;
+    } catch (error) {
+        console.error('Sync error:', error);
+        updateSyncStatus('error', 'Sync failed');
+        showNotification('Sync failed: ' + error.message, 'error');
+        return { success: false };
+    }
+}
+
+// Export to cloud (force upload)
+async function exportToCloud() {
+    if (!window.syncService) {
+        showNotification('Sync service not available', 'error');
+        return;
+    }
+    
+    showNotification('Exporting to cloud...', 'info');
+    updateSyncStatus('syncing', 'Uploading...');
+    
+    try {
+        await window.syncService.sync(true, false);
+        updateSyncStatus('online', 'Exported');
+        showNotification('Data exported to cloud!', 'success');
+    } catch (error) {
+        updateSyncStatus('error', 'Export failed');
+        showNotification('Export failed: ' + error.message, 'error');
+    }
+}
+
+// Import from cloud
+async function importFromCloud() {
+    if (!window.syncService) {
+        showNotification('Sync service not available', 'error');
+        return;
+    }
+    
+    if (!confirm('⚠️ Import from cloud will replace ALL local data. Continue?')) return;
+    
+    showNotification('Importing from cloud...', 'info');
+    updateSyncStatus('syncing', 'Downloading...');
+    
+    try {
+        await window.syncService.importFromCloud();
+        updateSyncStatus('online', 'Imported');
+        showNotification('Data imported! Refreshing...', 'success');
+        setTimeout(() => location.reload(), 1500);
+    } catch (error) {
+        updateSyncStatus('error', 'Import failed');
+        showNotification('Import failed: ' + error.message, 'error');
+    }
+}
+
+// Update sync status display
 function updateSyncStatus(status, text) {
     const indicator = document.getElementById('syncIndicator');
     if (indicator) {
@@ -1393,7 +1289,7 @@ function updateSyncStatus(status, text) {
     }
 }
 
-// Setup sync UI controls
+// Setup UI controls
 function setupSyncUI() {
     console.log('🎮 Setting up sync UI controls...');
     
@@ -1428,7 +1324,10 @@ function setupSyncUI() {
         const saved = localStorage.getItem('autoSyncEnabled') === 'true';
         autoSyncCheckbox.checked = saved;
         
-        autoSyncCheckbox.addEventListener('change', (e) => {
+        const newCheckbox = autoSyncCheckbox.cloneNode(true);
+        autoSyncCheckbox.parentNode.replaceChild(newCheckbox, autoSyncCheckbox);
+        
+        newCheckbox.addEventListener('change', (e) => {
             const enabled = e.target.checked;
             localStorage.setItem('autoSyncEnabled', enabled);
             
@@ -1481,8 +1380,6 @@ window.performSync = performSync;
 window.importFromCloud = importFromCloud;
 window.exportToCloud = exportToCloud;
 window.initializeSyncSystem = initializeSyncSystem;
-window.startAutoSync = startAutoSync;
-window.stopAutoSync = stopAutoSync;
 
 // ==================== FILE INPUT ====================
 function createFileInput() {
