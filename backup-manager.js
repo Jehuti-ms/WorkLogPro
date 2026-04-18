@@ -361,7 +361,7 @@ if (window.BackupManager) {
     };
 }
 
-/*// Add this at the beginning of your createBackup function
+// Add this at the beginning of your createBackup function
 createBackup: function(data, type = 'auto') {
     // Limit backups to 5 maximum
     const backups = [];
@@ -391,7 +391,7 @@ createBackup: function(data, type = 'auto') {
         console.error('❌ Backup failed:', error);
         return null;
     }
-} */
+} 
 
 // Initialize
 BackupManager.init();
