@@ -1022,11 +1022,10 @@ function initSyncToggle() {
   console.log('✅ Sync toggle with overlay ready');
 } 
 
-// ==================== INIT SYNC CONTROLS ====================
+// ==================== SYNC CONTROLS & BUTTONS ====================
+
 function initSyncControls() {
   console.log('☁️ Initializing sync controls...');
-  
-  const hasSyncService = !!window.syncService;
   
   // Sync Now Button
   const syncBtn = document.getElementById('syncBtn');
@@ -1034,9 +1033,10 @@ function initSyncControls() {
     const newSyncBtn = syncBtn.cloneNode(true);
     syncBtn.parentNode.replaceChild(newSyncBtn, syncBtn);
     newSyncBtn.addEventListener('click', handleSync);
+    console.log('✅ Sync button initialized');
   }
   
-  // Auto-sync Checkbox with visual indicator
+  // Auto-sync Checkbox
   const autoSyncCheckbox = document.getElementById('autoSyncCheckbox');
   const autoSyncText = document.getElementById('autoSyncText');
   
@@ -1044,16 +1044,6 @@ function initSyncControls() {
     const autoSyncEnabled = localStorage.getItem('autoSyncEnabled') === 'true';
     autoSyncCheckbox.checked = autoSyncEnabled;
     if (autoSyncText) autoSyncText.textContent = autoSyncEnabled ? 'Auto' : 'Manual';
-    
-    // Add visual indicator class to parent label
-    const autoSyncLabel = autoSyncCheckbox.closest('.auto-sync-label');
-    if (autoSyncLabel) {
-      if (autoSyncEnabled) {
-        autoSyncLabel.classList.add('auto-enabled');
-      } else {
-        autoSyncLabel.classList.remove('auto-enabled');
-      }
-    }
     
     const newCheckbox = autoSyncCheckbox.cloneNode(true);
     autoSyncCheckbox.parentNode.replaceChild(newCheckbox, autoSyncCheckbox);
@@ -1063,17 +1053,7 @@ function initSyncControls() {
       if (autoSyncText) autoSyncText.textContent = isChecked ? 'Auto' : 'Manual';
       localStorage.setItem('autoSyncEnabled', isChecked);
       
-      // Update visual indicator
-      const label = this.closest('.auto-sync-label');
-      if (label) {
-        if (isChecked) {
-          label.classList.add('auto-enabled');
-        } else {
-          label.classList.remove('auto-enabled');
-        }
-      }
-      
-      if (hasSyncService) {
+      if (window.syncService) {
         if (isChecked) {
           window.syncService.startAutoSync();
           showNotification('Auto-sync enabled', 'success');
@@ -1094,19 +1074,65 @@ function initSyncControls() {
   }
   
   // Export Cloud Button
-  setupButton('exportCloudBtn', exportToCloud);
-  setupButton('importCloudBtn', importFromCloud);
-  setupButton('syncStatsBtn', fixAllStats);
-  setupButton('exportDataBtn', exportAllData);
-  setupButton('importDataBtn', () => {
-    createFileInput();
-    document.getElementById('importFileInput').click();
-  });
-  setupButton('clearDataBtn', clearAllData);
+  const exportBtn = document.getElementById('exportCloudBtn');
+  if (exportBtn) {
+    const newExportBtn = exportBtn.cloneNode(true);
+    exportBtn.parentNode.replaceChild(newExportBtn, exportBtn);
+    newExportBtn.addEventListener('click', exportToCloud);
+    console.log('✅ Export button initialized');
+  }
   
+  // Import Cloud Button
+  const importBtn = document.getElementById('importCloudBtn');
+  if (importBtn) {
+    const newImportBtn = importBtn.cloneNode(true);
+    importBtn.parentNode.replaceChild(newImportBtn, importBtn);
+    newImportBtn.addEventListener('click', importFromCloud);
+    console.log('✅ Import button initialized');
+  }
+  
+  // Sync Stats Button
+  const statsBtn = document.getElementById('syncStatsBtn');
+  if (statsBtn) {
+    const newStatsBtn = statsBtn.cloneNode(true);
+    statsBtn.parentNode.replaceChild(newStatsBtn, statsBtn);
+    newStatsBtn.addEventListener('click', fixAllStats);
+  }
+  
+  // Export Data Button
+  const exportDataBtn = document.getElementById('exportDataBtn');
+  if (exportDataBtn) {
+    const newExportDataBtn = exportDataBtn.cloneNode(true);
+    exportDataBtn.parentNode.replaceChild(newExportDataBtn, exportDataBtn);
+    newExportDataBtn.addEventListener('click', exportAllData);
+  }
+  
+  // Import Data Button
+  const importDataBtn = document.getElementById('importDataBtn');
+  if (importDataBtn) {
+    const newImportDataBtn = importDataBtn.cloneNode(true);
+    importDataBtn.parentNode.replaceChild(newImportDataBtn, importDataBtn);
+    newImportDataBtn.addEventListener('click', () => {
+      createFileInput();
+      document.getElementById('importFileInput').click();
+    });
+  }
+  
+  // Clear Data Button
+  const clearDataBtn = document.getElementById('clearDataBtn');
+  if (clearDataBtn) {
+    const newClearDataBtn = clearDataBtn.cloneNode(true);
+    clearDataBtn.parentNode.replaceChild(newClearDataBtn, clearDataBtn);
+    newClearDataBtn.addEventListener('click', clearAllData);
+  }
+  
+  // Create file input for import
   createFileInput();
+  
+  // Update sync indicator
   updateSyncIndicator(navigator.onLine ? 'Online' : 'Offline', navigator.onLine ? 'online' : 'offline');
   
+  // Network status listeners
   window.addEventListener('online', () => {
     updateSyncIndicator('Online', 'online');
     if (localStorage.getItem('autoSyncEnabled') === 'true') setTimeout(handleSync, 2000);
@@ -1117,27 +1143,301 @@ function initSyncControls() {
     showNotification('You are offline', 'warning');
   });
   
-  console.log('✅ Sync controls initialized');
+  console.log('✅ Sync controls fully initialized');
 }
 
-// Helper function to setup buttons (keep this as is)
-function setupButton(id, handler) {
-  const btn = document.getElementById(id);
-  if (!btn) return;
-  
-  const newBtn = btn.cloneNode(true);
-  btn.parentNode.replaceChild(newBtn, btn);
-  newBtn.addEventListener('click', handler);
-}
-
+// Helper function to update sync indicator
 function updateSyncIndicator(text, status) {
   const indicator = document.getElementById('syncIndicator');
   if (!indicator) return;
   
-  indicator.className = '';
   indicator.textContent = text;
-  indicator.classList.add(status);
-  indicator.style.animation = status === 'syncing' ? 'pulse 1.5s infinite' : 'none';
+  indicator.className = `sync-indicator ${status}`;
+  
+  // Also update sync status text if it exists
+  const syncStatus = document.getElementById('syncStatus');
+  if (syncStatus) {
+    syncStatus.textContent = text;
+  }
+}
+
+// Main sync handler
+async function handleSync() {
+  try {
+    updateSyncIndicator('Syncing...', 'syncing');
+    showNotification('Syncing data...', 'info');
+    
+    if (window.syncService) {
+      const result = await window.syncService.sync(false, false);
+      if (result && result.success !== false) {
+        updateSyncIndicator('Synced', 'online');
+        showNotification('Sync complete!', 'success');
+      } else {
+        updateSyncIndicator('Sync Failed', 'error');
+        showNotification('Sync failed', 'error');
+      }
+      return result;
+    }
+    
+    // Fallback sync if syncService not available
+    if (!navigator.onLine) {
+      updateSyncIndicator('Offline', 'offline');
+      showNotification('Cannot sync while offline', 'error');
+      return { success: false };
+    }
+    
+    // Simple local sync
+    localStorage.setItem('lastSync', new Date().toISOString());
+    updateSyncIndicator('Local', 'warning');
+    setTimeout(() => updateSyncIndicator('Online', 'online'), 2000);
+    showNotification('Local sync complete', 'success');
+    
+    return { success: true, localOnly: true };
+    
+  } catch (error) {
+    console.error('Sync error:', error);
+    updateSyncIndicator('Sync Failed', 'error');
+    showNotification('Sync failed: ' + error.message, 'error');
+    setTimeout(() => updateSyncIndicator('Online', 'online'), 3000);
+    return { success: false };
+  }
+}
+
+// Export to cloud
+async function exportToCloud() {
+  if (!navigator.onLine) {
+    showNotification('Cannot export while offline', 'error');
+    return;
+  }
+  
+  showNotification('Exporting to cloud...', 'info');
+  updateSyncIndicator('Uploading...', 'syncing');
+  
+  if (window.syncService) {
+    const user = await window.syncService.getCurrentUser();
+    if (!user) {
+      showNotification('Please login first', 'error');
+      updateSyncIndicator('Login Required', 'error');
+      setTimeout(() => updateSyncIndicator('Online', 'online'), 2000);
+      return;
+    }
+    const result = await window.syncService.sync(true, false);
+    if (result && result.success !== false) {
+      showNotification('Data exported to cloud!', 'success');
+      updateSyncIndicator('Exported', 'online');
+      setTimeout(() => updateSyncIndicator('Online', 'online'), 2000);
+    } else {
+      showNotification('Export failed', 'error');
+      updateSyncIndicator('Export Failed', 'error');
+    }
+  } else {
+    showNotification('Cloud export not available - syncService missing', 'warning');
+    updateSyncIndicator('No Service', 'error');
+  }
+}
+
+// Import from cloud
+async function importFromCloud() {
+  if (!confirm('⚠️ Import from cloud will replace ALL local data. Continue?')) return;
+  
+  if (!navigator.onLine) {
+    showNotification('Cannot import while offline', 'error');
+    return;
+  }
+  
+  showNotification('Importing from cloud...', 'info');
+  updateSyncIndicator('Downloading...', 'syncing');
+  
+  if (window.syncService) {
+    const user = await window.syncService.getCurrentUser();
+    if (!user) {
+      showNotification('Please login first', 'error');
+      updateSyncIndicator('Login Required', 'error');
+      return;
+    }
+    const result = await window.syncService.importFromCloud();
+    if (result) {
+      showNotification('Data imported! Refreshing...', 'success');
+      updateSyncIndicator('Imported', 'online');
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      showNotification('Import failed', 'error');
+      updateSyncIndicator('Import Failed', 'error');
+    }
+  } else {
+    showNotification('Cloud import not available - syncService missing', 'warning');
+    updateSyncIndicator('No Service', 'error');
+  }
+}
+
+// Auto-sync functions
+let autoSyncInterval = null;
+
+function startAutoSync() {
+  if (autoSyncInterval) clearInterval(autoSyncInterval);
+  
+  const intervalMinutes = parseInt(localStorage.getItem('syncInterval') || '5');
+  const intervalMs = intervalMinutes * 60 * 1000;
+  
+  autoSyncInterval = setInterval(async () => {
+    if (navigator.onLine && firebase.auth().currentUser) {
+      console.log('🔄 Auto-sync triggered');
+      await handleSync();
+    }
+  }, intervalMs);
+  
+  console.log(`✅ Auto-sync started (every ${intervalMinutes} minutes)`);
+}
+
+function stopAutoSync() {
+  if (autoSyncInterval) {
+    clearInterval(autoSyncInterval);
+    autoSyncInterval = null;
+    console.log('⏹️ Auto-sync stopped');
+  }
+}
+
+// Create hidden file input for import
+function createFileInput() {
+  if (document.getElementById('importFileInput')) return;
+  
+  const input = document.createElement('input');
+  input.id = 'importFileInput';
+  input.type = 'file';
+  input.accept = '.json';
+  input.style.display = 'none';
+  
+  input.addEventListener('change', function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (confirm('Import data? This will replace current data.')) {
+          importAllData(data);
+          setTimeout(() => location.reload(), 1000);
+        }
+      } catch (error) {
+        showNotification('Invalid file format', 'error');
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  });
+  
+  document.body.appendChild(input);
+}
+
+// Export all data to JSON file
+function exportAllData() {
+  const data = {
+    students: JSON.parse(localStorage.getItem('worklog_students') || '[]'),
+    worklog_entries: JSON.parse(localStorage.getItem('worklog_entries') || '[]'),
+    marks: JSON.parse(localStorage.getItem('worklog_marks') || '[]'),
+    attendance: JSON.parse(localStorage.getItem('worklog_attendance') || '[]'),
+    payments: JSON.parse(localStorage.getItem('worklog_payments') || '[]'),
+    settings: {
+      defaultHourlyRate: localStorage.getItem('defaultHourlyRate') || '25.00',
+      autoSyncEnabled: localStorage.getItem('autoSyncEnabled') === 'true',
+      theme: localStorage.getItem('worklog-theme') || 'dark'
+    },
+    exportDate: new Date().toISOString()
+  };
+  
+  const dataStr = JSON.stringify(data, null, 2);
+  const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+  const fileName = `worklog-backup-${new Date().toISOString().split('T')[0]}.json`;
+  
+  const link = document.createElement('a');
+  link.href = dataUri;
+  link.download = fileName;
+  link.click();
+  
+  showNotification('Data exported!', 'success');
+}
+
+// Import all data from JSON file
+function importAllData(data) {
+  if (!data || typeof data !== 'object') {
+    showNotification('Invalid data format', 'error');
+    return;
+  }
+  
+  if (data.students) localStorage.setItem('worklog_students', JSON.stringify(data.students));
+  if (data.worklog_entries) localStorage.setItem('worklog_entries', JSON.stringify(data.worklog_entries));
+  if (data.marks) localStorage.setItem('worklog_marks', JSON.stringify(data.marks));
+  if (data.attendance) localStorage.setItem('worklog_attendance', JSON.stringify(data.attendance));
+  if (data.payments) localStorage.setItem('worklog_payments', JSON.stringify(data.payments));
+  
+  if (data.settings) {
+    if (data.settings.defaultHourlyRate) localStorage.setItem('defaultHourlyRate', data.settings.defaultHourlyRate);
+    if (data.settings.autoSyncEnabled !== undefined) localStorage.setItem('autoSyncEnabled', data.settings.autoSyncEnabled);
+    if (data.settings.theme) localStorage.setItem('worklog-theme', data.settings.theme);
+  }
+  
+  showNotification('Data imported!', 'success');
+}
+
+// Fix all statistics
+function fixAllStats() {
+  showNotification('Fixing statistics...', 'info');
+  
+  const hours = JSON.parse(localStorage.getItem('worklog_hours') || '[]');
+  const marks = JSON.parse(localStorage.getItem('worklog_marks') || '[]');
+  const worklogs = JSON.parse(localStorage.getItem('worklog_entries') || '[]');
+  
+  // Fix hours totals
+  const fixedHours = hours.map(h => ({
+    ...h,
+    total: (parseFloat(h.hoursWorked) || 0) * (parseFloat(h.baseRate) || 0)
+  }));
+  
+  // Fix marks percentages and grades
+  const fixedMarks = marks.map(m => {
+    const percentage = ((parseFloat(m.marksScore) || 0) / (parseFloat(m.marksMax) || 1) * 100).toFixed(1);
+    let grade = 'F';
+    const p = parseFloat(percentage);
+    if (p >= 90) grade = 'A';
+    else if (p >= 80) grade = 'B';
+    else if (p >= 70) grade = 'C';
+    else if (p >= 60) grade = 'D';
+    return { ...m, percentage, grade };
+  });
+  
+  localStorage.setItem('worklog_hours', JSON.stringify(fixedHours));
+  localStorage.setItem('worklog_marks', JSON.stringify(fixedMarks));
+  
+  showNotification('Stats fixed!', 'success');
+  
+  // Refresh UI
+  if (typeof loadStudents === 'function') loadStudents();
+  if (typeof updateProfileStats === 'function') updateProfileStats();
+  if (typeof updateGlobalStats === 'function') updateGlobalStats();
+}
+
+// Clear all data
+function clearAllData() {
+  if (!confirm('⚠️ Delete ALL data? This cannot be undone!')) return;
+  if (!confirm('LAST CHANCE: Type "DELETE" to confirm')) return;
+  if (prompt('Type DELETE to confirm:') !== 'DELETE') {
+    showNotification('Cancelled', 'warning');
+    return;
+  }
+  
+  const defaultRate = localStorage.getItem('defaultHourlyRate') || '25.00';
+  const theme = localStorage.getItem('worklog-theme') || 'dark';
+  const autoSync = localStorage.getItem('autoSyncEnabled');
+  
+  localStorage.clear();
+  
+  localStorage.setItem('defaultHourlyRate', defaultRate);
+  localStorage.setItem('worklog-theme', theme);
+  if (autoSync) localStorage.setItem('autoSyncEnabled', autoSync);
+  
+  showNotification('All data cleared!', 'success');
+  setTimeout(() => location.reload(), 1500);
 }
 
 // ==================== SIMPLE SYNC WRAPPER ====================
