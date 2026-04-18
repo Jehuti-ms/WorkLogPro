@@ -1271,8 +1271,6 @@ async function importFromCloud() {
 }
 
 // Auto-sync functions
-let autoSyncInterval = null;
-
 function startAutoSync() {
   if (autoSyncInterval) clearInterval(autoSyncInterval);
   
