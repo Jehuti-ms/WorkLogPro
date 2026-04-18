@@ -1144,7 +1144,7 @@ function updateSyncIndicator(text, status) {
 // This just wraps the existing sync-service.js
 
 let syncInitialized = false;
-let autoSyncInterval = null;
+
 
 // Initialize sync - just use the existing syncService
 async function initializeSyncSystem() {
