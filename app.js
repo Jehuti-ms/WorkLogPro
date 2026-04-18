@@ -1145,7 +1145,7 @@ function updateSyncIndicator(text, status) {
 // Global sync state
 let syncInitialized = false;
 let syncInterval = null;
-let isSyncing = false;
+
 
 // Initialize sync system (called once after login)
 async function initializeSyncSystem() {
