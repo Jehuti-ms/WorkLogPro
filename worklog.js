@@ -104,7 +104,7 @@ function cancelWorklogEdit() {
 }
 
 // Save worklog entry - SINGLE VERSION with edit support
-function saveWorklogEntry() {
+async function saveWorklogEntry() {
   console.log('💾 saveWorklogEntry called');
   
   const type = document.querySelector('input[name="workType"]:checked')?.value || 'student';
@@ -155,6 +155,8 @@ function saveWorklogEntry() {
     nextSteps: nextSteps || '',
     notes: notes || '',
     total: hours * rate,
+    totalEarnings: hours * rate,  // For consistency
+    duration: hours,               // For compatibility
     createdAt: new Date().toISOString()
   };
   
@@ -166,9 +168,10 @@ function saveWorklogEntry() {
       newEntry.id = window.editingWorklogId;
       newEntry.createdAt = entries[index].createdAt;
       entries[index] = newEntry;
-      alert('Worklog updated!');
+      showNotification('Worklog updated!', 'success');
     } else {
       console.log('⚠️ Entry not found with ID:', window.editingWorklogId);
+      showNotification('Error: Entry not found', 'error');
     }
     window.editingWorklogId = null;
     if (typeof cancelWorklogEdit === 'function') {
@@ -176,21 +179,61 @@ function saveWorklogEntry() {
     }
   } else {
     entries.unshift(newEntry);
-    alert('Worklog saved!');
+    showNotification('Worklog saved!', 'success');
   }
   
+  // Save to localStorage
   localStorage.setItem('worklog_entries', JSON.stringify(entries));
-  console.log('✅ Saved! Total entries:', entries.length);
+  console.log('✅ Saved to localStorage! Total entries:', entries.length);
   
-  loadWorklogEntries();
-  clearWorklogForm();
+  // ===== NEW: Save to cloud for cross-device sync =====
+  if (window.CloudDataService && typeof window.CloudDataService.saveWorklogEntries === 'function') {
+    try {
+      await window.CloudDataService.saveWorklogEntries(entries);
+      console.log('✅ Saved to cloud!');
+    } catch (error) {
+      console.log('⚠️ Cloud save failed (will retry later):', error);
+    }
+  } else if (window.syncService && typeof window.syncService.sync === 'function') {
+    // Fallback to sync service
+    try {
+      await window.syncService.sync(false, false);
+      console.log('✅ Synced via syncService');
+    } catch (error) {
+      console.log('⚠️ Sync failed:', error);
+    }
+  }
+  // ===== END CLOUD SYNC =====
   
+  // Refresh UI
+  if (typeof loadWorklogEntries === 'function') {
+    loadWorklogEntries();
+  }
+  if (typeof clearWorklogForm === 'function') {
+    clearWorklogForm();
+  }
+  if (typeof updateProfileStats === 'function') {
+    updateProfileStats();
+  }
+  if (typeof updateGlobalStats === 'function') {
+    updateGlobalStats();
+  }
+  
+  // Reset save button if in edit mode
   const saveBtn = document.getElementById('worklogSubmitBtn');
   if (saveBtn) {
     saveBtn.textContent = '💾 Save Worklog';
     saveBtn.style.backgroundColor = '';
   }
+  
+  // Trigger auto-sync if enabled
+  if (localStorage.getItem('autoSyncEnabled') === 'true' && window.syncService) {
+    setTimeout(() => window.syncService.sync(false, false), 500);
+  }
 }
+
+// Make sure it's globally available
+window.saveWorklogEntry = saveWorklogEntry;
 
 // Edit worklog entry
 function editWorklogEntry(id) {
