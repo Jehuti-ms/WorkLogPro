@@ -4,11 +4,11 @@ console.log('🔥 Loading mobile-optimized firebase-config.js');
 // Your Firebase config
 const firebaseConfig = {
     apiKey: "AIzaSyDdLP_LgiC6EgzC3hUP_mGuNW4_BUEACs8",
-    authDomain: "worklog-3351a.firebaseapp.com",
-    projectId: "worklog-3351a",
-    storageBucket: "worklog-3351a.firebasestorage.app",
-    messagingSenderId: "549780363324",
-    appId: "1:549780363324:web:fb85fbcd42b566e1932559"
+    authDomain: "worklogpro-4284e.firebaseapp.com",
+    projectId: "worklogpro-4284e",
+    storageBucket: "worklogpro-4284e.firebasestorage.app",
+    messagingSenderId: "299567233913",
+    appId: "1:299567233913:web:7232a5a5a8aa9b79948da8"
 };
 
 // Initialize Firebase
