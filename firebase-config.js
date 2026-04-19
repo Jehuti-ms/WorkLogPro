@@ -17,6 +17,19 @@ if (!firebase.apps.length) {
     console.log('✅ Firebase initialized');
 }
 
+// After firebase.initializeApp(firebaseConfig);
+// Add these settings:
+
+// Force Firestore to use REST instead of WebSockets (better for mobile)
+const firestore = firebase.firestore();
+firestore.settings({
+    experimentalForceLongPolling: true,  // For mobile networks
+    useFetchStreams: false,               // Disable WebSockets
+    ignoreUndefinedProperties: true
+});
+
+console.log('🔥 Firestore configured for mobile compatibility');
+
 // CRITICAL MOBILE FIX: Disable redirects completely
 const auth = firebase.auth();
 auth.useDeviceLanguage();
