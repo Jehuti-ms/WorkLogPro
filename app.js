@@ -2333,198 +2333,189 @@ function loadInitialData() {
 
 // ==================== LOAD STUDENTS (FIXED WITH DATE HANDLING) ====================
 async function loadStudents() {
-  console.log('👥 Loading students from cloud...');
-  
-  const container = document.getElementById('studentsContainer');
-  if (!container) return;
-  
-  // Get students from cloud FIRST (using CloudData)
-  let students = [];
-  
-  if (window.CloudData && window.CloudData.getStudents) {
+    console.log('👥 Loading students from CLOUD (Real-time)...');
+    
+    const container = document.getElementById('studentsContainer');
+    if (!container) return;
+
+    // 1. Show a loading indicator immediately
+    container.innerHTML = '<div class="loading-spinner">Loading students...</div>';
+
+    const currentUser = firebase.auth().currentUser;
+    if (!currentUser) {
+        console.log('No user logged in');
+        return;
+    }
+
+    const firestoreDB = firebase.firestore();
+    // This is the SINGLE SOURCE OF TRUTH path
+    const studentsRef = firestoreDB.collection('users').doc(currentUser.uid).collection('data').doc('students');
+
     try {
-      students = await window.CloudData.getStudents();
-      console.log(`📥 Loaded ${students.length} students from cloud`);
+        // 2. Read from Firestore (The Source of Truth)
+        const doc = await studentsRef.get();
+        
+        let students = [];
+        if (doc.exists) {
+            students = doc.data().list || [];
+        }
+
+        // 3. Update the UI with the cloud data
+        renderStudentList(students);
+
+        // 4. Update localStorage as a CACHE (for offline fallback)
+        localStorage.setItem('worklog_students', JSON.stringify(students));
+
+        // 5. Set up the REAL-TIME LISTENER (This is the magic for cross-device sync)
+        // It watches the cloud and updates the UI automatically when data changes on ANY device
+        studentsRef.onSnapshot((snapshot) => {
+            if (snapshot.exists) {
+                const updatedStudents = snapshot.data().list || [];
+                console.log('🔄 Real-time update received from another device!');
+                
+                // Update the UI and cache
+                renderStudentList(updatedStudents);
+                localStorage.setItem('worklog_students', JSON.stringify(updatedStudents));
+                
+                // Optional: Show a subtle notification
+                if (typeof showNotification === 'function') {
+                    showNotification('Data synced from another device', 'info');
+                }
+            }
+        });
+
     } catch (error) {
-      console.log('Cloud load failed, using localStorage:', error);
-      students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-    }
-  } else {
-    // Fallback to localStorage
-    students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
-  }
-  
-  // ===== FIX 1: Ensure rate consistency across all students =====
-  let studentsFixed = false;
-  students = students.map(student => {
-    // Check if rate fields are inconsistent
-    const rateValue = student.rate || student.hourlyRate;
-    const needsRateFix = (student.rate !== student.hourlyRate) || 
-                         (rateValue && (!student.rate || !student.hourlyRate));
-    
-    if (needsRateFix) {
-      studentsFixed = true;
-      const correctRate = rateValue || (window.SimpleRateManager ? SimpleRateManager.get() : '25.00');
-      student.rate = correctRate;
-      student.hourlyRate = correctRate;
-    }
-    
-    // ===== FIX 2: Fix invalid dates =====
-    if (student.createdAt) {
-      try {
-        const date = new Date(student.createdAt);
-        if (isNaN(date.getTime())) {
-          console.log(`🔄 Fixing invalid date for ${student.name}`);
-          student.createdAt = new Date().toISOString();
-          studentsFixed = true;
+        console.error("Failed to load students from cloud:", error);
+        
+        // 6. Fallback to localStorage ONLY if cloud is unreachable
+        const cachedStudents = JSON.parse(localStorage.getItem('worklog_students') || '[]');
+        renderStudentList(cachedStudents);
+        if (cachedStudents.length === 0) {
+            container.innerHTML = '<p class="error-message">Error loading data. Check your connection.</p>';
         }
-      } catch (e) {
-        console.log(`🔄 Fixing date error for ${student.name}`);
-        student.createdAt = new Date().toISOString();
-        studentsFixed = true;
-      }
-    } else {
-      console.log(`🔄 Adding missing createdAt for ${student.name}`);
-      student.createdAt = new Date().toISOString();
-      studentsFixed = true;
+    }
+}
+
+// SEPARATE RENDERING FUNCTION (This keeps your existing display logic)
+function renderStudentList(students) {
+    const container = document.getElementById('studentsContainer');
+    if (!container) return;
+
+    // Get saved sort method
+    const sortMethod = localStorage.getItem('studentSortMethod') || 'id';
+    
+    // Apply sorting (your existing sorting logic)
+    const sortedStudents = [...students];
+    if (sortMethod === 'id') {
+        sortedStudents.sort((a, b) => {
+            const getNum = (id) => parseInt((id || '').toString().match(/\d+/)?.[0] || '999999', 10);
+            return getNum(a.studentId) - getNum(b.studentId);
+        });
+    } else if (sortMethod === 'name') {
+        sortedStudents.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    } else if (sortMethod === 'date') {
+        sortedStudents.sort((a, b) => {
+            const dateA = new Date(a.createdAt || 0);
+            const dateB = new Date(b.createdAt || 0);
+            return dateB - dateA;
+        });
+    } else if (sortMethod === 'rate') {
+        sortedStudents.sort((a, b) => (parseFloat(b.rate || b.hourlyRate || 0)) - (parseFloat(a.rate || a.hourlyRate || 0)));
     }
     
-    return student;
-  });
-  
-  // If we fixed any students, save back to cloud AND localStorage
-  if (studentsFixed) {
-    console.log('✅ Fixed student data, saving to cloud and localStorage');
-    localStorage.setItem('worklog_students', JSON.stringify(students));
+    // Update counts
+    const countElem = document.getElementById('studentCount');
+    if (countElem) countElem.textContent = students.length;
     
-    // Save to cloud if available
-    if (window.CloudData && window.CloudData.saveStudents) {
-      await window.CloudData.saveStudents(students);
-    }
-    
-    if (window.formHandler) {
-      window.formHandler.students = students;
-    }
-  }
-  
-  // Get saved sort method
-  const sortMethod = localStorage.getItem('studentSortMethod') || 'id';
-  
-  // Apply sorting
-  if (sortMethod === 'id') {
-    students.sort((a, b) => {
-      const getNum = (id) => parseInt((id || '').toString().match(/\d+/)?.[0] || '999999', 10);
-      return getNum(a.studentId) - getNum(b.studentId);
-    });
-  } else if (sortMethod === 'name') {
-    students.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  } else if (sortMethod === 'date') {
-    students.sort((a, b) => {
-      const dateA = new Date(a.createdAt || 0);
-      const dateB = new Date(b.createdAt || 0);
-      return dateB - dateA;
-    });
-  } else if (sortMethod === 'rate') {
-    students.sort((a, b) => (parseFloat(b.rate || b.hourlyRate || 0)) - (parseFloat(a.rate || a.hourlyRate || 0)));
-  }
-  
-  // Update counts
-  const countElem = document.getElementById('studentCount');
-  if (countElem) countElem.textContent = students.length;
-  
-  // Update average rate
-  const avgRateElem = document.getElementById('averageRate');
-  if (avgRateElem) {
-    if (students.length) {
-      const total = students.reduce((sum, s) => sum + parseFloat(s.rate || s.hourlyRate || 0), 0);
-      avgRateElem.textContent = (total / students.length).toFixed(2);
-    } else {
-      avgRateElem.textContent = '0.00';
-    }
-  }
-  
-  // Update sort dropdown
-  const sortSelect = document.getElementById('studentSortSelect');
-  if (sortSelect) sortSelect.value = sortMethod;
-  
-  // Get default rate
-  const defaultRate = window.SimpleRateManager ? SimpleRateManager.get() : '25.00';
-  
-  // Display students
-  if (!students.length) {
-    container.innerHTML = '<p class="empty-message">No students registered yet.</p>';
-    return;
-  }
-  
-  container.innerHTML = students.map(student => {
-    const studentRate = student.rate || student.hourlyRate;
-    const rate = studentRate ? parseFloat(studentRate).toFixed(2) : defaultRate;
-    const isUsingDefault = !student.rate && !student.hourlyRate;
-    
-    let dateStr = 'Unknown';
-    if (student.createdAt) {
-      try {
-        const date = new Date(student.createdAt);
-        if (!isNaN(date.getTime())) {
-          dateStr = date.toLocaleDateString();
+    // Update average rate
+    const avgRateElem = document.getElementById('averageRate');
+    if (avgRateElem) {
+        if (students.length) {
+            const total = students.reduce((sum, s) => sum + parseFloat(s.rate || s.hourlyRate || 0), 0);
+            avgRateElem.textContent = (total / students.length).toFixed(2);
         } else {
-          dateStr = 'Recent';
+            avgRateElem.textContent = '0.00';
         }
-      } catch (e) {
-        dateStr = 'Recent';
-      }
-    } else {
-      dateStr = 'Recent';
     }
     
-    return `
-      <div class="student-card" data-id="${student.id}" ${isUsingDefault ? 'style="border-left: 3px solid #ffc107;"' : ''}>
-        <div class="student-card-header">
-          <strong>${escapeHtml(student.name || '')}</strong>
-          <span class="student-id">${escapeHtml(student.studentId || 'No ID')}</span>
-          <div class="student-actions">
-            <button class="btn-icon edit-student" onclick="editStudent('${student.id}')" title="Edit">✏️</button>
-            <button class="btn-icon delete-student" onclick="deleteStudent('${student.id}')" title="Delete">🗑️</button>
-          </div>
-        </div>
-        <div class="student-details">
-          <div class="student-rate">
-            $${rate}/hour
-            ${isUsingDefault ? '<span style="color: #ffc107; font-size: 0.8em; margin-left: 8px;">(default)</span>' : ''}
-          </div>
-          <div>${escapeHtml(student.gender || '')} • ${escapeHtml(student.email || 'No email')}</div>
-          <div>${escapeHtml(student.phone || 'No phone')}</div>
-          <div class="student-meta">Added: ${dateStr}</div>
-        </div>
-      </div>
-    `;
-  }).join('');
-  
-  console.log(`✅ Loaded ${students.length} students (sorted by: ${sortMethod})`);
-  if (studentsFixed) {
-    console.log('🔧 Fixed data issues for some students');
-  }
-  
-  if (typeof refreshAttendanceStudentList === 'function') {
-    refreshAttendanceStudentList();
-  }
+    // Update sort dropdown
+    const sortSelect = document.getElementById('studentSortSelect');
+    if (sortSelect) sortSelect.value = sortMethod;
+    
+    // Get default rate
+    const defaultRate = window.SimpleRateManager ? SimpleRateManager.get() : '25.00';
+    
+    // Display students
+    if (!students.length) {
+        container.innerHTML = '<p class="empty-message">No students registered yet.</p>';
+        return;
+    }
+    
+    container.innerHTML = sortedStudents.map(student => {
+        const studentRate = student.rate || student.hourlyRate;
+        const rate = studentRate ? parseFloat(studentRate).toFixed(2) : defaultRate;
+        const isUsingDefault = !student.rate && !student.hourlyRate;
+        
+        let dateStr = 'Unknown';
+        if (student.createdAt) {
+            try {
+                const date = new Date(student.createdAt);
+                if (!isNaN(date.getTime())) {
+                    dateStr = date.toLocaleDateString();
+                } else {
+                    dateStr = 'Recent';
+                }
+            } catch (e) {
+                dateStr = 'Recent';
+            }
+        } else {
+            dateStr = 'Recent';
+        }
+        
+        return `
+            <div class="student-card" data-id="${student.id}" ${isUsingDefault ? 'style="border-left: 3px solid #ffc107;"' : ''}>
+                <div class="student-card-header">
+                    <strong>${escapeHtml(student.name || '')}</strong>
+                    <span class="student-id">${escapeHtml(student.studentId || 'No ID')}</span>
+                    <div class="student-actions">
+                        <button class="btn-icon edit-student" onclick="editStudent('${student.id}')" title="Edit">✏️</button>
+                        <button class="btn-icon delete-student" onclick="deleteStudent('${student.id}')" title="Delete">🗑️</button>
+                    </div>
+                </div>
+                <div class="student-details">
+                    <div class="student-rate">
+                        $${rate}/hour
+                        ${isUsingDefault ? '<span style="color: #ffc107; font-size: 0.8em; margin-left: 8px;">(default)</span>' : ''}
+                    </div>
+                    <div>${escapeHtml(student.gender || '')} • ${escapeHtml(student.email || 'No email')}</div>
+                    <div>${escapeHtml(student.phone || 'No phone')}</div>
+                    <div class="student-meta">Added: ${dateStr}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    // Refresh attendance list if needed
+    if (typeof refreshAttendanceStudentList === 'function') {
+        refreshAttendanceStudentList();
+    }
 }
 
-// Helper function to escape HTML
+// Keep your existing escapeHtml function
 function escapeHtml(text) {
-  if (!text) return '';
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
+// Keep your existing refreshAttendanceStudentList function
 function refreshAttendanceStudentList() {
     const students = JSON.parse(localStorage.getItem('worklog_students') || '[]');
     const attendanceContainer = document.getElementById('attendanceStudents');
     
     if (!attendanceContainer) return;
     
-    // Sort by ID NUMBER (001, 002, 003...)
     const sortedStudents = [...students].sort((a, b) => {
         const numA = parseInt((a.studentId || '0').toString().replace(/\D/g, '')) || 0;
         const numB = parseInt((b.studentId || '0').toString().replace(/\D/g, '')) || 0;
@@ -2544,6 +2535,34 @@ function refreshAttendanceStudentList() {
     `).join('');
     
     console.log(`✅ Attendance student list refreshed: ${sortedStudents.length} students (sorted by ID number)`);
+}
+
+async function updateStudentRate(studentId, newRate) {
+    const currentUser = firebase.auth().currentUser;
+    if (!currentUser) return;
+    
+    const firestoreDB = firebase.firestore();
+    const studentsRef = firestoreDB.collection('users').doc(currentUser.uid).collection('data').doc('students');
+    
+    // Get current students from Firestore
+    const doc = await studentsRef.get();
+    let students = doc.exists ? doc.data().list || [] : [];
+    
+    // Find and update the student
+    const studentIndex = students.findIndex(s => s.id === studentId);
+    if (studentIndex !== -1) {
+        students[studentIndex].rate = newRate;
+        students[studentIndex].hourlyRate = newRate;
+        
+        // Save back to Firestore
+        await studentsRef.set({ list: students });
+        
+        // Update localStorage cache
+        localStorage.setItem('worklog_students', JSON.stringify(students));
+        
+        showNotification(`Rate updated to $${newRate}/hour and synced!`, 'success');
+        loadStudents(); // Refresh display
+    }
 }
 
 // ==================== OTHER LOAD FUNCTIONS (simplified) ====================
